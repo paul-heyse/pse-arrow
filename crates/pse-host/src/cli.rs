@@ -666,6 +666,11 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<crate::investigation::Report>("search", &view)
         }
         "inspect" => envelope::schema::<investigation::Inspection>(command, view),
+        "inspect schema" => envelope::schema::<crate::schema::Report>(command, view),
+        "inspect schema compare" => {
+            envelope::schema::<crate::schema::compare::Comparison>(command, view)
+        }
+        "inspect payload" => envelope::schema::<crate::schema::payload::Report>(command, view),
         "inspect outline" => envelope::schema::<crate::source_command::FileOutline>(command, view),
         "inspect outline batch" => {
             envelope::schema::<crate::source_command::batch::Report>(command, view)

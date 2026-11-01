@@ -174,6 +174,8 @@ pub enum Predicate {
     Symbol(SymbolQuery),
     /// Acquired API search.
     Api(ApiQuery),
+    /// Offline discovery in one immutable supplied descriptor world.
+    Schema(crate::schema::search::Query),
     /// Structured adjacent content.
     Structured(StructuredQuery),
     /// Native history question.
@@ -226,6 +228,7 @@ pub enum Predicate {
 impl Predicate {
     fn validate(&self) -> Result<(), Error> {
         match self {
+            Self::Schema(query) => query.validate(),
             Self::Text(q) if q.patterns.is_empty() => {
                 Err(Error::Invalid("text search requires a pattern".into()))
             }
@@ -744,6 +747,15 @@ pub enum EvidenceKind {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Locator {
+    /// A declaration in one exact immutable descriptor artifact.
+    Schema {
+        /// Original descriptor artifact, preserving native path bytes.
+        descriptor: NativePath,
+        /// Digest of the original complete artifact bytes.
+        descriptor_sha256: String,
+        /// Descriptor declaration address, never a native Rust identity.
+        declaration: String,
+    },
     /// Explicit source/range, optionally guarded.
     Source {
         /// Native operand.
@@ -841,6 +853,20 @@ impl ResultReference {
     }
     /// Validate the same premises for inline request references and portable CLI forms.
     pub fn validate(&self) -> Result<(), Error> {
+        if let Locator::Schema {
+            descriptor,
+            descriptor_sha256,
+            declaration,
+        } = &self.locator
+            && (!descriptor.to_path_buf().is_absolute()
+                || descriptor_sha256.len() != 64
+                || !descriptor_sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit())
+                || declaration.is_empty())
+        {
+            return Err(Error::Invalid("schema reference requires an absolute artifact, SHA256 identity and declaration address".into()));
+        }
         if self.version != VERSION {
             return Err(Error::Invalid(
                 "unsupported result reference version".into(),

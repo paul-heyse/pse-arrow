@@ -11,12 +11,18 @@ use std::{
     num::{NonZeroU64, NonZeroUsize},
     path::{Path, PathBuf},
 };
+#[path = "schema.rs"]
+mod schema;
 #[path = "source.rs"]
 mod source;
 
 /// Explicit evidence kinds never guess whether an operand is a file or invocation.
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
+    /// Navigate an explicitly supplied complete descriptor set, or compare schema worlds.
+    Schema(schema::Args),
+    /// Explain selected binary, JSON or textproto payloads without invoking an RPC.
+    Payload(crate::schema::payload::Args),
     /// Read written declarations or document headings without semantic preparation.
     Outline(source::Outline),
     /// Read a known declaration, literal item, position or exact original range.
@@ -188,7 +194,12 @@ pub(super) fn inspect(
     let selected = selected.or(original_root.as_deref());
     let plain_source = matches!(
         &action,
-        Action::Outline(_) | Action::Declaration(_) | Action::Origin(_) | Action::Artifact { .. }
+        Action::Outline(_)
+            | Action::Declaration(_)
+            | Action::Origin(_)
+            | Action::Artifact { .. }
+            | Action::Schema(_)
+            | Action::Payload(_)
     );
     let root = if plain_source {
         selected.map_or_else(std::env::current_dir, std::path::absolute)?
@@ -196,6 +207,18 @@ pub(super) fn inspect(
         super::super::checkout_root(selected)?
     };
     match action {
+        Action::Schema(args) => schema::inspect(args, &root, output),
+        Action::Payload(mut args) => {
+            args.descriptor = root.join(args.descriptor);
+            args.input = root.join(args.input);
+            output
+                .emit(Envelope::response(
+                    "inspect payload",
+                    "passive schema-bound payload explanation",
+                    crate::schema::payload::inspect(&args)?,
+                ))
+                .map_err(Into::into)
+        }
         Action::Outline(options) => source::outline(options, selected, output),
         Action::Declaration(options) => source::declaration(options, selected, output),
         Action::Origin(options) => source::origin(options, selected, output),

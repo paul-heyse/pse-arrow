@@ -420,6 +420,27 @@ declared regeneration argv and offers an outline of the known emitter. An unknow
 declaration location stays unknown. A changed working source refuses the original-hit action;
 neither preview nor drill-through edits files, regenerates outputs or prepares a semantic session.
 
+### Offline protobuf investigations
+
+Use `scripts/pse search schema NAME --descriptor FILE` to discover declarations in an
+explicitly supplied complete descriptor set. `scripts/pse inspect schema --descriptor FILE
+FULL.NAME` follows fields, presence, options and service input/output relationships. Returned
+references bind the original descriptor digest; expand them with `inspect --result` rather
+than reconstructing an identity from a name. These reads need no analyzer or running service.
+The existing `pse schema` command continues to describe CLI output contracts.
+
+`scripts/pse inspect payload --descriptor FILE --message FULL.NAME --input PAYLOAD
+--encoding binary` explains an explicitly selected payload without invoking its method.
+The other encodings are `json` and `textproto`. Original input identity is separate from
+decoded values and re-encoding. Constraint metadata does not imply that a dynamic validator
+executed; inspect the reported validation coverage. Text-format parsing uses the installed
+`protoc` and retains its diagnostics; parsing is separate from semantic validation.
+
+`scripts/pse inspect schema --descriptor CURRENT --compare-with BASE` reports structural
+differences and native Buf compatibility classifications. Intentional breaking changes are
+classification evidence. Generated-source associations retain their exact source and generator
+qualifications; descriptor names and field numbers alone establish no Rust semantic identity.
+
 ### Dependency, API and native documentation investigations
 
 `scripts/pse inspect dependency tokio --why` adds shortest metadata inclusion paths; `--feature-member VALUE`

@@ -46,6 +46,8 @@ pub mod prepared_xtask;
 pub mod probe;
 pub mod product_reader;
 pub mod repository;
+/// Explicit offline schema worlds, passive payloads and qualified contract changes.
+pub mod schema;
 pub mod selection;
 pub mod semantic;
 pub mod server;
@@ -95,6 +97,9 @@ pub enum HostError {
     /// API extraction, version preflight or addressed declaration failure.
     #[error(transparent)]
     Api(Box<api::ApiError>),
+    /// Explicit descriptor/payload interpretation preserves the schema owner's failure.
+    #[error(transparent)]
+    Schema(#[from] schema::SchemaError),
     /// Source-change reach preserves native Git and graph/map failures.
     #[error(transparent)]
     Affected(#[from] affected::AffectedError),
@@ -172,6 +177,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::PreparedNativeTool(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::Probe(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Api(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
+        Self::Schema(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Affected(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
         Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,

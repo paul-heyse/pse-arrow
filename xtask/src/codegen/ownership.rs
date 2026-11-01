@@ -33,6 +33,12 @@ fn inputs(root: &Path, producer: &str, tree: &GeneratedTree) -> Result<Vec<Scope
         scope(Path::new("crates/pse-schema/src"), ScopeKind::Tree)?,
         scope(Path::new("scripts/generated-outputs.rs"), ScopeKind::File)?,
     ]);
+    if producer == "code-intelligence" || producer == "plan61-fixtures" {
+        paths.insert(scope(
+            Path::new("scripts/protobuf-associations.rs"),
+            ScopeKind::File,
+        )?);
+    }
     if producer.starts_with("registry-rust") {
         paths.insert(scope(
             Path::new("xtask/src/development/catalog"),

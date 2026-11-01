@@ -98,9 +98,23 @@ complementary original source and artifact readers.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| D01 | planned | Descriptor investigation owner | Useful offline schema navigation with immutable identity and direct projection |
-| D02 | planned | Payload inspection owner | Passive schema-bound explanations with preservation and malformed-input limits |
-| D03 | planned | Contract/origin investigation owner | Classified changes and qualified generated-Rust/source associations |
+| D01 | in progress | Descriptor investigation owner | Useful offline schema navigation with immutable identity and direct projection |
+| D02 | in progress | Payload inspection owner | Passive schema-bound explanations with preservation and malformed-input limits |
+| D03 | in progress | Contract/origin investigation owner | Classified changes and qualified generated-Rust/source associations |
+
+### Execution checkpoint — 2026-11-01
+
+Execution covers D01–D03 and the coordinator's Q01. The native host has been explicitly
+restored after `cargo clean`. D01 owns immutable complete descriptor acquisition and shared
+search/inspection references; D02 and D03 consume that same bundle rather than acquiring
+independent schema worlds. Payload explanation and comparison/provenance are separate
+implementation assignments; the coordinator owns integration and public journeys.
+
+Textproto ingress uses descriptor-backed `protoc`, preserving original text and diagnostics;
+successful parsing is distinct from validation. Dynamic schemas expose constraints without
+claiming compiled validation. Generated declaration associations use explicit emitted Rust
+syntax and exact input/output identities. No new daemon, runtime CEL interpreter or persistent
+schema graph is selected. Q01 remains open until assembled acceptance and scope-end checks.
 
 ### Investigation findings — 2026-10-31
 

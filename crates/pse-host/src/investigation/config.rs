@@ -292,6 +292,10 @@ fn path_value(root: &Path, path: &str) -> Result<Value, Error> {
     ))
 }
 fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Error> {
+    if let Some(value) = predicate.get_mut("descriptor") {
+        let path: NativePath = serde_json::from_value(value.clone())?;
+        *value = serde_json::to_value(NativePath::from(absolute(root, &path.to_path_buf())))?;
+    }
     if let Some(value) = predicate.get_mut("artifact")
         && let Some(path) = value.as_str()
     {
@@ -314,6 +318,58 @@ fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Err
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn schema_descriptors_resolve_at_request_config_and_override_origins() {
+        let root = tempfile::tempdir().unwrap();
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        let path = serde_json::to_value(NativePath::from(PathBuf::from("schema.bin"))).unwrap();
+        let predicate = serde_json::json!({"kind":"schema","descriptor":path,"query":"Payload"});
+        let request = nested.join("request.json");
+        let configured = nested.join("saved.json");
+        std::fs::write(
+            &request,
+            serde_json::to_vec(&serde_json::json!({"predicate":predicate})).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            &configured,
+            serde_json::to_vec(&serde_json::json!({"queries":{"saved":{"predicate":predicate}}}))
+                .unwrap(),
+        )
+        .unwrap();
+        for (config, name, input) in [
+            (None, None, Some(request.as_path())),
+            (Some(configured.as_path()), Some("saved"), None),
+        ] {
+            let resolved =
+                resolve(root.path(), config, name, input, serde_json::json!({})).unwrap();
+            let super::super::Predicate::Schema(query) = resolved.predicate else {
+                panic!("lost schema predicate");
+            };
+            assert_eq!(query.descriptor.to_path_buf(), nested.join("schema.bin"));
+            let resolved = resolve(
+                root.path(),
+                config,
+                name,
+                input,
+                serde_json::json!({"predicate":predicate}),
+            )
+            .unwrap();
+            let super::super::Predicate::Schema(query) = resolved.predicate else {
+                panic!("lost schema override");
+            };
+            assert_eq!(
+                query.descriptor.to_path_buf(),
+                root.path().join("schema.bin")
+            );
+        }
+        let mut grouped = serde_json::json!({"kind":"any","clauses":[predicate]});
+        resolve_predicate_paths(&mut grouped, &nested).unwrap();
+        let path: NativePath =
+            serde_json::from_value(grouped["clauses"][0]["descriptor"].clone()).unwrap();
+        assert_eq!(path.to_path_buf(), nested.join("schema.bin"));
+    }
     #[test]
     fn nested_refinement_candidates_keep_their_request_and_configuration_directory() {
         let root = tempfile::tempdir().unwrap();

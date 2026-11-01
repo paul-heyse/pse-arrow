@@ -1694,7 +1694,7 @@ scientific permission. No NumPy product adapter is currently selected.
 ### 21.7 First-party host and future foreign adapters
 
 > Decision: [ADR-0235](../../adr/0235-code-intelligence-contract-foundation.md) (proposed;
-> operator-authorized Plan61 foundation and B/C realization; the scoped prospective review covers A02).
+> operator-authorized Plan61 foundation and B/C/D realization; the scoped prospective review covers A02).
 
 New code-intelligence wire meanings are authored in proto within the independent host;
 existing product-registry meanings remain derived and deliberate CLI presentation remains
@@ -1715,6 +1715,22 @@ rendering allowance, count precision and stable continuation retain their native
 questions share request-local preparation, authenticated clients and proofs qualified by their
 original use-site as well as entity/world identity. Original provider documents remain separately
 qualified inspection evidence; decision consumers do not reconstruct facts from category strings.
+
+Offline schema investigations acquire complete immutable descriptor bundles and bind navigation,
+payload interpretation and comparisons to their original byte digests. Conflicting logical files
+and incomplete declared imports refuse before pool construction. Schema addresses describe their
+selected bundle; they are not Rust entities or application truth. Descriptor comments and spans
+remain producer metadata until exact original source and coordinate conventions are verified.
+Source-only actions and native Rust world guards retain their existing owners.
+
+Payload inspection is passive. Original input identity remains separate from decoded projections
+and re-encoding. Generated static reflection and compiled validators serve the exact compiled
+schema world; external dynamic schemas expose constraint metadata without claiming evaluated
+validation. Descriptor-backed text parsing preserves diagnostics and is distinct from semantic
+validation. Contract comparison distinguishes structural observations from native compatibility
+classifications and semantic equivalence. Generated-Rust associations derive from explicit emitted
+trait/accessor evidence qualified by source, generator configuration and output bytes; unresolved
+correspondence stays unresolved. These capabilities require no new daemon or mutable global pool.
 
 The explicitly prepared semantic helper serves generated binary gRPC over HTTP/2 on its private
 Unix socket. Every physical client connection, including reconnects, authenticates the kernel peer

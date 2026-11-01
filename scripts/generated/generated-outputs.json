@@ -48,6 +48,10 @@
           "kind": "file"
         },
         {
+          "path": "scripts/protobuf-associations.rs",
+          "kind": "file"
+        },
+        {
           "path": "xtask/src/codegen",
           "kind": "tree"
         },
@@ -197,6 +201,10 @@
         },
         {
           "path": "scripts/generated-outputs.rs",
+          "kind": "file"
+        },
+        {
+          "path": "scripts/protobuf-associations.rs",
           "kind": "file"
         },
         {

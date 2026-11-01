@@ -47,6 +47,7 @@ fn global(predicate: &Predicate) -> bool {
     matches!(
         predicate,
         Predicate::Api(_)
+            | Predicate::Schema(_)
             | Predicate::History(_)
             | Predicate::Symbol(SymbolQuery {
                 provider: DiscoveryProvider::Semantic | DiscoveryProvider::Api,
@@ -456,6 +457,13 @@ fn pump(
         let producer = scope.spawn(move || {
             let mut forward = |event| send.send(event).map_err(|_| Error::Cancelled);
             match &selected.predicate {
+                Predicate::Schema(query) => crate::schema::search::run(
+                    root,
+                    &selected,
+                    query,
+                    &producer_token,
+                    &mut forward,
+                ),
                 Predicate::History(history) => native.block_on(providers::history(
                     root,
                     &selected,

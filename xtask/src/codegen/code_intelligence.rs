@@ -10,6 +10,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+mod associations;
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let (mut tree, production_inputs) = corpus(
@@ -148,6 +149,7 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     )?;
     tree.roots.extend(origins.roots);
     tree.files.extend(origins.files);
+    associations::generate(root, &source, &inputs, &bytes, &set, &mut tree)?;
     Ok((tree, inputs))
 }
 

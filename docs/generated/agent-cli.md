@@ -84,6 +84,7 @@ Find source, text, Rust entities and relationships through one typed query
 Usage: pse search [OPTIONS] [COMMAND]
 
 Commands:
+  schema      Search declarations in an explicitly selected complete descriptor set
   files       Discover selected files and their source kinds
   text        Search native text, preserving byte and encoding policies
   syntax      Match a native Rust syntax pattern or explicit Tree-sitter extraction query
@@ -119,6 +120,129 @@ Options:
 
       --query <QUERY>
           Select a saved typed query from configuration
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --path <PATHS>
+          Restrict source paths without requiring Cargo or analyzer preparation
+
+      --package <PACKAGE>
+
+
+      --glob <GLOB>
+
+
+      --exclude <EXCLUDE>
+
+
+      --type <TYPES>
+
+
+      --tracked
+
+
+      --untracked
+
+
+      --changed
+
+
+      --dependencies
+
+
+      --include-ignored
+
+
+      --hidden
+
+
+      --generated
+
+
+      --index
+
+
+      --revision <REVISION>
+
+
+      --limit <LIMIT>
+          Stop after this many useful results; the default is twenty
+
+      --all
+          Examine the complete selected scope instead of using the default result limit
+
+      --exists
+          Stop after a positive witness; a negative answer requires complete examination
+
+      --count
+
+
+      --count-unit <COUNT_UNIT>
+          Select the population counted by an explicit count demand
+
+          [possible values: matches, files, lines, entities]
+
+      --order <ORDER>
+          [possible values: arrival, deterministic]
+
+      --cursor <CURSOR>
+          Continue a deterministic page under its original query/source guards
+
+      --result-fields <RESULT_FIELDS>
+          Select result detail fields; source identity and coverage remain mandatory
+
+      --group-by <GROUP_BY>
+          Group returned witnesses, without claiming exhaustive group counts
+
+          [possible values: source, kind, name]
+
+      --explain
+          Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse search schema`
+
+~~~~text
+Search declarations in an explicitly selected complete descriptor set
+
+Usage: pse search schema [OPTIONS] --descriptor <DESCRIPTOR> <QUERY>
+
+Arguments:
+  <QUERY>
+
+
+Options:
+  -C <checkout>
+
+
+      --descriptor <DESCRIPTOR>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --kind <KINDS>
+
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --owner <OWNER>
+
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4628,6 +4752,8 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
+  payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
   outline             Read written declarations or document headings without semantic preparation
   declaration         Read a known declaration, literal item, position or exact original range
   origin              Inspect the declared authored owner of an exact generated-source hit
@@ -4707,6 +4833,114 @@ Options:
 
       --predicate <PREDICATE>
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect schema`
+
+~~~~text
+Navigate an explicitly supplied complete descriptor set, or compare schema worlds
+
+Usage: pse inspect schema [OPTIONS] --descriptor <DESCRIPTOR> [DECLARATION]
+
+Arguments:
+  [DECLARATION]
+          Exact schema declaration name or returned descriptor address; omission lists files
+
+Options:
+  -C <checkout>
+
+
+      --descriptor <DESCRIPTOR>
+          Complete descriptor set including imports
+
+      --compare-with <COMPARE_WITH>
+          Compare the selected current bundle with an explicit original baseline
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect payload`
+
+~~~~text
+Explain selected binary, JSON or textproto payloads without invoking an RPC
+
+Usage: pse inspect payload [OPTIONS] --descriptor <DESCRIPTOR> --message <MESSAGE> --input <INPUT> --encoding <ENCODING>
+
+Options:
+  -C <checkout>
+
+
+      --descriptor <DESCRIPTOR>
+          Complete descriptor-set artifact
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --message <MESSAGE>
+          Fully qualified message within that artifact
+
+      --fields <FIELDS>
+          Select comma-separated payload fields while retaining identity, state and coverage
+
+      --input <INPUT>
+          Original payload artifact
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --encoding <ENCODING>
+          Explicit input grammar
+
+          Possible values:
+          - binary:    Protocol buffer wire bytes
+          - json:      Schema-qualified protobuf JSON
+          - textproto: Protobuf text format parsed by native protoc
+
+      --depth <DEPTH>
+          Nested message expansion depth
+
+          [default: 2]
+
+      --limit <LIMIT>
+          Maximum members shown per message or collection
+
+          [default: 20]
+
+      --original
+          Include the exact original input bytes as base64
 
   -h, --help
           Print help (see a summary with '-h')

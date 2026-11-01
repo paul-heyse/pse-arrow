@@ -60,6 +60,14 @@ refuses stale premises. A reference must not silently reinterpret an identical p
 
 ## Written source and structural changes
 
+For protobuf questions, use `search schema NAME --descriptor FILE`, then expand its guarded
+reference with `inspect --result` or navigate directly with `inspect schema --descriptor FILE
+FULL.NAME`. `inspect payload --descriptor FILE --message FULL.NAME --input PAYLOAD --encoding
+binary` passively explains selected bytes; `json` and `textproto` are explicit alternatives.
+Use schema inspection's `--compare-with BASE` for contract differences. These offline routes
+do not prepare an analyzer or invoke an RPC. Validation coverage, original-byte preservation
+and any generated-Rust association remain separate evidence claims.
+
 Use source-only reads before preparing a semantic service when declaration structure or exact
 written bytes will settle the question. These reads also work outside a pse-arrow checkout.
 

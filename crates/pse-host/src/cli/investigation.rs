@@ -118,6 +118,16 @@ pub(super) struct Search {
 
 #[derive(Debug, Subcommand)]
 pub(super) enum Mode {
+    /// Search declarations in an explicitly selected complete descriptor set.
+    Schema {
+        query: String,
+        #[arg(long)]
+        descriptor: PathBuf,
+        #[arg(long = "kind")]
+        kinds: Vec<String>,
+        #[arg(long)]
+        owner: Option<String>,
+    },
     /// Discover selected files and their source kinds.
     Files,
     /// Search native text, preserving byte and encoding policies.
@@ -246,6 +256,7 @@ pub(super) enum View {
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub(super) enum Inspection {
+    Schema(Box<crate::schema::Report>),
     Source(Box<query::SearchResult>),
     Semantic(Box<query::rust::SemanticInspection>),
 }
@@ -370,6 +381,14 @@ impl Search {
         }
         if let Some(mode) = self.mode {
             let predicate = match mode {
+                Mode::Schema {
+                    query,
+                    descriptor,
+                    kinds,
+                    owner,
+                } => {
+                    json!({"kind":"schema","query":query,"descriptor":query::NativePath::from(descriptor),"kinds":kinds,"owner":owner})
+                }
                 Mode::Files => json!({"kind":"files"}),
                 Mode::Text {
                     pattern,
@@ -686,6 +705,9 @@ fn execute(
         query::composition::run(&root, &request, &token, &mut emit, &handle)
     } else {
         match &request.predicate {
+            query::Predicate::Schema(schema) => {
+                crate::schema::search::run(&root, &request, schema, &token, &mut emit)
+            }
             query::Predicate::Api(_)
             | query::Predicate::Symbol(query::SymbolQuery {
                 provider: query::DiscoveryProvider::Semantic | query::DiscoveryProvider::Api,
@@ -967,6 +989,8 @@ pub(super) fn inspect(
         Inspection::Semantic(Box::new(
             super::runtime()?.block_on(query::rust::semantic_view(&root, &locator, kind))?,
         ))
+    } else if matches!(locator, query::Locator::Schema { .. }) {
+        Inspection::Schema(Box::new(crate::schema::search::inspect(&root, &locator)?))
     } else if matches!(locator, query::Locator::Api { .. }) {
         Inspection::Source(Box::new(query::rust::inspect_api(&root, &locator)?))
     } else {
@@ -988,6 +1012,9 @@ pub(super) fn inspect(
         && output.presentation.budget.is_none()
     {
         let text = match &response.payload {
+            Inspection::Schema(answer) => {
+                serde_json::to_string_pretty(answer).map_err(query::Error::from)?
+            }
             Inspection::Source(row) => {
                 let path = row
                     .reference
