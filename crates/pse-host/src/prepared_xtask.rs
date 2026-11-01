@@ -745,6 +745,49 @@ impl PreparedNativeTool {
         }
         Ok(document)
     }
+    /// Read canonical associations from exactly the selected original document universe.
+    /// This requires an already prepared current interpreter and never prepares one.
+    pub fn document_associations(
+        &self,
+        path: &Path,
+        source: &crate::investigation::SourceKind,
+        source_sha256: &str,
+        citations: &[String],
+        environment: &Environment,
+    ) -> Result<crate::ownership::document::AssociationExport, PreparedNativeToolError> {
+        if self.manifest.target != NativeToolTarget::Xtask {
+            return Err(invalid("document associations require the xtask target"));
+        }
+        self.verify()?;
+        self.require_current_sources()?;
+        let mut command = self.command(environment);
+        command.args(["owner", "--associations", "--if-source", source_sha256]);
+        for citation in citations {
+            command.arg("--citation").arg(citation);
+        }
+        match source {
+            crate::investigation::SourceKind::Working => {}
+            crate::investigation::SourceKind::Index => {
+                command.arg("--index");
+            }
+            crate::investigation::SourceKind::Revision { revision } => {
+                command.arg("--revision").arg(revision);
+            }
+        }
+        command.arg("--").arg(path);
+        let output = process::run(command, MAX_DOCUMENT, Some(READ_TIMEOUT))?;
+        let bytes = successful(output, "document-associations", true)?;
+        let document: crate::ownership::document::AssociationExport =
+            serde_json::from_slice(&bytes)?;
+        let expected =
+            crate::ownership::resolve(&self.checkout.join(path)).map_err(crate::HostError::from)?;
+        if Path::new(&document.path) != expected || document.source_sha256 != source_sha256 {
+            return Err(invalid(
+                "native document association response names another selected source",
+            ));
+        }
+        Ok(document)
+    }
     fn command(&self, environment: &Environment) -> Command {
         let mut command = Command::new(&self.manifest.executable.captured);
         command

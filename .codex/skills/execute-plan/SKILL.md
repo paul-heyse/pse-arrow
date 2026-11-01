@@ -5,6 +5,9 @@ description: Execute authorized scope in an existing implementation plan through
 
 # Execute a plan
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help choose
+bounded source, context and validation checks within the authorized scope.
+
 Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
 together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 for consequential architectural and implementation choices. Consider relevant execution patterns

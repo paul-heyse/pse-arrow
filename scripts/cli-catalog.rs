@@ -323,6 +323,28 @@ pub struct Description {
     /// Introspection limitations that remain enforced by the owning parser.
     pub limitations: Vec<String>,
 }
+/// Concise discovery; full argument/usage metadata remains an explicit expansion.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct Summary {
+    /// Canonical parser path below the executable.
+    pub path: Vec<String>,
+    /// Owner-provided description.
+    pub about: Option<String>,
+    /// Actual accepted command aliases.
+    pub aliases: Vec<String>,
+    /// Ready argument vector for full parser metadata.
+    pub detail: Vec<String>,
+}
+fn summarize(command: Command, path: Vec<String>) -> Summary {
+    let mut detail = vec!["pse".into(), "help".into()];
+    detail.extend(path.iter().cloned());
+    Summary {
+        path,
+        about: command.get_about().map(ToString::to_string),
+        aliases: command.get_all_aliases().map(str::to_owned).collect(),
+        detail,
+    }
+}
 fn unavailable<T>(reason: &str) -> Information<T> {
     Information::Unavailable {
         reason: reason.into(),
@@ -441,6 +463,24 @@ pub fn commands(
     recursive: bool,
     window: &Window,
 ) -> Page<Description> {
+    select_commands(root, path, recursive, window, describe)
+}
+/// Compact parser-owned records without expanding every argument or rendering long help.
+pub fn summaries(
+    root: Command,
+    path: &[String],
+    recursive: bool,
+    window: &Window,
+) -> Page<Summary> {
+    select_commands(root, path, recursive, window, summarize)
+}
+fn select_commands<T>(
+    root: Command,
+    path: &[String],
+    recursive: bool,
+    window: &Window,
+    project: fn(Command, Vec<String>) -> T,
+) -> Page<T> {
     if let Some(refusal) = invalid_window(window) {
         return refusal;
     }
@@ -457,11 +497,12 @@ pub fn commands(
     if recursive {
         selected.build();
     }
-    fn collect(
+    fn collect<T>(
         command: Command,
         path: Vec<String>,
         recursive: bool,
-        values: &mut Vec<Description>,
+        values: &mut Vec<(Vec<String>, T)>,
+        project: fn(Command, Vec<String>) -> T,
     ) {
         let children = if recursive {
             command
@@ -472,22 +513,22 @@ pub fn commands(
         } else {
             Vec::new()
         };
-        values.push(describe(command, path.clone()));
+        values.push((path.clone(), project(command, path.clone())));
         for child in children {
             let mut next = path.clone();
             next.push(child.get_name().into());
-            collect(child, next, true, values);
+            collect(child, next, true, values, project);
         }
     }
     let mut values = Vec::new();
-    collect(selected, path, recursive, &mut values);
-    values.retain(|value| value.path.join(" ").starts_with(&window.prefix));
-    values.sort_by(|left, right| left.path.cmp(&right.path));
+    collect(selected, path, recursive, &mut values, project);
+    values.retain(|(path, _)| path.join(" ").starts_with(&window.prefix));
+    values.sort_by(|left, right| left.0.cmp(&right.0));
     page(
         Source::parser(),
         Availability::Available,
         Exhaustiveness::Exhaustive,
-        values,
+        values.into_iter().map(|(_, value)| value).collect(),
         window,
         Vec::new(),
     )

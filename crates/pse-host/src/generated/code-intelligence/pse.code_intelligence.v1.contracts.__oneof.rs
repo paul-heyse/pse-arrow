@@ -563,6 +563,9 @@ pub mod native_query {
         Visibility(
             ::buffa::alloc::boxed::Box<super::super::super::NativeVisibilityQuery>,
         ),
+        DocumentationLinks(
+            ::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>,
+        ),
     }
     impl ::buffa::Oneof for Kind {}
     impl From<super::super::super::NativeImportTarget> for Kind {
@@ -679,6 +682,9 @@ pub mod native_query {
                 }
                 Self::Visibility(v) => {
                     map.serialize_entry("visibility", &**v)?;
+                }
+                Self::DocumentationLinks(v) => {
+                    map.serialize_entry("documentationLinks", &**v)?;
                 }
             }
             map.end()

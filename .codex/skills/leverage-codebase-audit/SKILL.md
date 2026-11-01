@@ -5,6 +5,9 @@ description: Identify and refresh concrete codebase opportunities for library le
 
 # Identify codebase opportunities
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help explain
+responsibilities and evidence without prematurely selecting a library.
+
 Build a current, evidence-grounded account of where library capabilities could improve the
 codebase's responsibilities or enable a worthwhile intended activity. Start from the codebase
 and its consumers. An opportunity may involve existing machinery, an underused dependency,

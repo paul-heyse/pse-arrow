@@ -198,6 +198,7 @@ pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
                 Kind::Implementations => K::Implementations(Default::default()),
                 Kind::Macro => K::Macro(Default::default()),
                 Kind::Tests => K::Tests(Default::default()),
+                Kind::DocumentationLinks => K::DocumentationLinks(Default::default()),
                 Kind::Candidates => K::Candidates(Default::default()),
                 Kind::Symbols => K::Symbols(Default::default()),
                 Kind::Hints => K::Hints(Default::default()),
@@ -282,6 +283,7 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
                     K::Implementations(_) => Kind::Implementations,
                     K::Macro(_) => Kind::Macro,
                     K::Tests(_) => Kind::Tests,
+                    K::DocumentationLinks(_) => Kind::DocumentationLinks,
                     K::Candidates(_) => Kind::Candidates,
                     K::Symbols(_) => Kind::Symbols,
                     K::Hints(_) => Kind::Hints,
@@ -1804,6 +1806,10 @@ pub(super) fn failure_to_pb(value: Failure) -> Result<pb::Failure> {
         message: value.message,
         backend_code: value.backend_code,
         original: value.backend_data.as_ref().map(opaque).transpose()?.into(),
+        validation_disclosure: value
+            .validation
+            .map(|value| disclosure_to_pb(value.disclosure))
+            .into(),
         observed_cancellation: value
             .observed_cancellation
             .map(|value| cancellation_to_pb(*value))
@@ -1841,6 +1847,16 @@ pub(super) fn failure_from_pb(mut value: pb::Failure) -> Result<Failure> {
         message: value.message,
         backend_code: value.backend_code,
         backend_data: value.original.take().map(from_opaque).transpose()?,
+        validation: value
+            .validation_disclosure
+            .take()
+            .map(disclosure_from_pb)
+            .transpose()?
+            .map(|disclosure| crate::envelope::ValidationCorrection {
+                disclosure,
+                violations: Vec::new(),
+                diagnostics: Vec::new(),
+            }),
         observed_cancellation: value
             .observed_cancellation
             .take()
@@ -1848,6 +1864,124 @@ pub(super) fn failure_from_pb(mut value: pb::Failure) -> Result<Failure> {
             .transpose()?
             .map(Box::new),
     })
+}
+fn disclosure_to_pb(value: crate::envelope::ValidationDisclosure) -> pb::ValidationDisclosure {
+    use crate::envelope::{
+        ValidationCoverage as C, ValidationExposure as E, ValidationOutcome as O,
+    };
+    use pb::validation_disclosure as p;
+    pb::ValidationDisclosure {
+        message_type: value.message_type,
+        descriptor_sha256: value.descriptor_sha256,
+        outcome: match value.outcome {
+            O::Violations => p::Outcome::Violations,
+            O::CompileDefect => p::Outcome::CompileDefect,
+            O::EvaluationDefect => p::Outcome::EvaluationDefect,
+            O::InvalidEmptyError => p::Outcome::InvalidEmptyError,
+        }
+        .into(),
+        source_violation_count: value.source_violation_count,
+        emitted_violation_count: value.emitted_violation_count,
+        coverage: match value.coverage {
+            C::Unknown => p::Coverage::Unknown,
+            C::Complete => p::Coverage::Complete,
+            C::Truncated => p::Coverage::Truncated,
+            C::NotApplicable => p::Coverage::NotApplicable,
+        }
+        .into(),
+        selectors: match value.selectors {
+            E::Unknown => p::Exposure::ExposureUnknown,
+            E::OmittedByPolicy => p::Exposure::OmittedByPolicy,
+            E::AsReceived => p::Exposure::AsReceived,
+        }
+        .into(),
+        messages: match value.messages {
+            E::Unknown => p::Exposure::ExposureUnknown,
+            E::OmittedByPolicy => p::Exposure::OmittedByPolicy,
+            E::AsReceived => p::Exposure::AsReceived,
+        }
+        .into(),
+        ..Default::default()
+    }
+}
+fn disclosure_from_pb(
+    value: pb::ValidationDisclosure,
+) -> Result<crate::envelope::ValidationDisclosure> {
+    use crate::envelope::{
+        ValidationCoverage as C, ValidationDisclosure, ValidationExposure as E,
+        ValidationOutcome as O,
+    };
+    use pb::validation_disclosure as p;
+    let exposure = |value: buffa::EnumValue<p::Exposure>| match value.as_known() {
+        Some(p::Exposure::ExposureUnknown) => Ok(E::Unknown),
+        Some(p::Exposure::OmittedByPolicy) => Ok(E::OmittedByPolicy),
+        Some(p::Exposure::AsReceived) => Ok(E::AsReceived),
+        None => Err(malformed("validation_disclosure.exposure")),
+    };
+    let disclosure = ValidationDisclosure {
+        message_type: value.message_type,
+        descriptor_sha256: value.descriptor_sha256,
+        outcome: match value
+            .outcome
+            .as_known()
+            .ok_or_else(|| malformed("validation_disclosure.outcome"))?
+        {
+            p::Outcome::Violations => O::Violations,
+            p::Outcome::CompileDefect => O::CompileDefect,
+            p::Outcome::EvaluationDefect => O::EvaluationDefect,
+            p::Outcome::InvalidEmptyError => O::InvalidEmptyError,
+        },
+        source_violation_count: value.source_violation_count,
+        emitted_violation_count: value.emitted_violation_count,
+        coverage: match value
+            .coverage
+            .as_known()
+            .ok_or_else(|| malformed("validation_disclosure.coverage"))?
+        {
+            p::Coverage::Unknown => C::Unknown,
+            p::Coverage::Complete => C::Complete,
+            p::Coverage::Truncated => C::Truncated,
+            p::Coverage::NotApplicable => C::NotApplicable,
+        },
+        selectors: exposure(value.selectors)?,
+        messages: exposure(value.messages)?,
+    };
+    let counts = (
+        disclosure.source_violation_count,
+        disclosure.emitted_violation_count,
+    );
+    let valid = match disclosure.coverage {
+        C::Complete => {
+            disclosure.outcome == O::Violations
+                && matches!(counts, (Some(source), Some(emitted)) if source > 0 && source == emitted)
+        }
+        C::Truncated => {
+            disclosure.outcome == O::Violations
+                && matches!(counts, (Some(source), Some(emitted)) if source > emitted)
+        }
+        C::NotApplicable => {
+            disclosure.outcome != O::Violations
+                && disclosure
+                    .emitted_violation_count
+                    .is_none_or(|count| count == 0)
+        }
+        C::Unknown => true,
+    };
+    if !valid
+        || disclosure
+            .message_type
+            .as_deref()
+            .is_some_and(str::is_empty)
+        || disclosure
+            .descriptor_sha256
+            .as_deref()
+            .is_some_and(|digest| {
+                digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
+    {
+        return Err(malformed("validation_disclosure.coverage"));
+    }
+    Ok(disclosure)
 }
 fn cancellation_to_pb(value: CancellationObservation) -> Result<pb::NativeCancellationObservation> {
     Ok(pb::NativeCancellationObservation {
@@ -2234,6 +2368,7 @@ mod tests {
                     json!({"cpu_work_completed":true,"original_cause":{"native":"exact"}}),
                 ),
                 observed_cancellation: None,
+                validation: None,
             };
             let expected = serde_json::to_value(&failure).unwrap();
             let wire = failure_to_pb(failure).unwrap();
@@ -2275,6 +2410,7 @@ mod tests {
                         backend_code: Some(-32801),
                         backend_data: Some(json!({"original":"native-data"})),
                         observed_cancellation: None,
+                        validation: None,
                     }),
                 ] {
                     let failure = Failure {
@@ -2285,6 +2421,7 @@ mod tests {
                         backend_data: Some(
                             json!({"cpu_work_completed":false,"completion":"deliberately misleading provider data"}),
                         ),
+                        validation: None,
                         observed_cancellation: Some(Box::new(CancellationObservation {
                             completion,
                             original,

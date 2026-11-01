@@ -12,6 +12,8 @@ use std::{
     io::Write as _,
     path::{Path, PathBuf},
 };
+mod associations;
+pub use associations::read_associations;
 
 /// Native owner selection.
 #[derive(Debug, Args)]
@@ -22,6 +24,21 @@ pub struct Query {
     /// Emit the response schema without accessing a checkout.
     #[arg(long)]
     pub schema: bool,
+    /// Export canonical citations, native scope bindings and original input identities.
+    #[arg(long, requires = "path")]
+    pub associations: bool,
+    /// Read every required source/policy/configuration from this Git revision.
+    #[arg(long, requires = "associations", conflicts_with = "index")]
+    pub revision: Option<String>,
+    /// Read every required source/policy/configuration from the Git index.
+    #[arg(long, requires = "associations")]
+    pub index: bool,
+    /// Refuse when the selected document bytes differ from the original source witness.
+    #[arg(long, requires = "associations")]
+    pub if_source: Option<String>,
+    /// Explicit source documentation citations supplied by a lossless source reader.
+    #[arg(long = "citation", requires = "associations")]
+    pub citations: Vec<String>,
 }
 
 /// Interpret exactly one existing document through its native owners.
@@ -116,9 +133,23 @@ pub fn execute(root: &Path, query: Query) -> Result<()> {
     if query.schema {
         return schema();
     }
-    let value = read(root, query.path.as_deref().context("document path absent")?)?;
     let mut output = std::io::stdout().lock();
-    serde_json::to_writer_pretty(&mut output, &value)?;
+    let path = query.path.as_deref().context("document path absent")?;
+    if query.associations {
+        serde_json::to_writer_pretty(
+            &mut output,
+            &read_associations(
+                root,
+                path,
+                query.revision.as_deref(),
+                query.index,
+                query.if_source.as_deref(),
+                &query.citations,
+            )?,
+        )?;
+    } else {
+        serde_json::to_writer_pretty(&mut output, &read(root, path)?)?;
+    }
     writeln!(output)?;
     Ok(())
 }

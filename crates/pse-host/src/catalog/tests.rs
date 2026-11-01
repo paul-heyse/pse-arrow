@@ -50,6 +50,35 @@ fn fixture() -> Command {
     )
 }
 #[test]
+fn concise_discovery_expands_to_original_parser_without_rich_record_width() {
+    let compact = description::summaries(
+        fixture(),
+        &[],
+        true,
+        &Window {
+            limit: Some(1),
+            ..Window::default()
+        },
+    );
+    assert_eq!(compact.records.len(), 1);
+    let json = serde_json::to_value(&compact).unwrap();
+    assert!(json["records"][0].get("arguments").is_none());
+    assert!(json["records"][0].get("long_help").is_none());
+    let full = description::commands(
+        fixture(),
+        &["prepare".into()],
+        false,
+        &Window {
+            limit: Some(1),
+            ..Window::default()
+        },
+    );
+    assert!(full.records[0].arguments.len() > 2);
+    let compact = description::summaries(fixture(), &["prepare".into()], false, &Window::default());
+    assert_eq!(compact.records[0].detail, ["pse", "help", "prepare"]);
+    assert_eq!(compact.records[0].path, full.records[0].path);
+}
+#[test]
 fn actual_parser_metadata_preserves_values_groups_conflicts_and_private_rule_limits() {
     let page = description::commands(fixture(), &["prepare".into()], false, &Window::default());
     assert_eq!(page.availability, Availability::Available);

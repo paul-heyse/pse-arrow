@@ -42,9 +42,11 @@ pub(super) fn row(
         let _ = writeln!(text, "original_bytes={}", serde_json::to_string(bytes)?);
     }
     if let Some(reference) = &row.reference {
+        let _ = writeln!(text, "address={}", reference.encode()?);
         let _ = writeln!(text, "reference={}", serde_json::to_string(reference)?);
     }
     if let Some(reference) = &row.candidate_reference {
+        let _ = writeln!(text, "candidate_address={}", reference.encode()?);
         let _ = writeln!(
             text,
             "candidate_reference={}",

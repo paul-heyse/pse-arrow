@@ -43,8 +43,12 @@ impl Drop for Release {
 #[derive(Default)]
 pub(crate) struct Fixture {
     gates: Mutex<Vec<Arc<Gate>>>,
+    validation_error: Mutex<Option<protovalidate_buffa::ValidationError>>,
 }
 impl Fixture {
+    pub(crate) fn take_validation_error(&self) -> Option<protovalidate_buffa::ValidationError> {
+        self.validation_error.lock().unwrap().take()
+    }
     pub(crate) fn status(&self) -> semantic::SessionStatus {
         semantic::SessionStatus {
             configuration: semantic::Configuration {
@@ -574,6 +578,108 @@ async fn plan61_typed_caller_preserves_validation_field_locations_and_rule_ids()
     }));
     assert!(server.fixture.gates.lock().unwrap().is_empty());
     server.shutdown().await;
+}
+
+#[tokio::test]
+async fn unary_package_validation_preserves_origin_schema_and_original_details_before_admission() {
+    use crate::envelope::{ValidationCoverage, ValidationOutcome};
+    let server = Server::start().await;
+    let client = server.client().await;
+    let error = match client
+        .package_context(pb::NativePackageRequest::default())
+        .await
+    {
+        Err(error) => error,
+        Ok(_) => panic!("invalid unary request was admitted"),
+    };
+    let semantic::Error::Refusal(failure) = rpc::transport_error(error) else {
+        panic!("unary constraint lost its typed refusal")
+    };
+    assert!(matches!(failure.phase, semantic::FailurePhase::Constraint));
+    let correction = failure.validation.unwrap();
+    assert_eq!(
+        correction.disclosure.message_type.as_deref(),
+        Some("pse.code_intelligence.v1.NativePackageRequest")
+    );
+    assert_eq!(correction.disclosure.outcome, ValidationOutcome::Violations);
+    assert_eq!(correction.disclosure.coverage, ValidationCoverage::Complete);
+    assert_eq!(correction.disclosure.source_violation_count, Some(1));
+    assert_eq!(correction.disclosure.emitted_violation_count, Some(1));
+    assert!(correction.violations.iter().any(|violation| {
+        violation.rule_id.as_deref() == Some("string.min_len")
+            && violation.field.iter().any(|element| {
+                element.field_number == Some(1)
+                    && element.field_name.as_deref() == Some("package_id")
+            })
+    }));
+    let details: Vec<connectrpc::ErrorDetail> =
+        serde_json::from_value(failure.backend_data.unwrap()["original_rpc_details"].clone())
+            .unwrap();
+    assert!(details.iter().any(|detail| {
+        protovalidate_buffa::decode_violations(detail)
+            .unwrap()
+            .is_some()
+    }));
+    assert!(server.fixture.gates.lock().unwrap().is_empty());
+    server.shutdown().await;
+}
+
+#[tokio::test]
+async fn unary_validator_compile_and_evaluation_defects_remain_typed_through_real_http2() {
+    use crate::envelope::{ValidationCoverage, ValidationOutcome};
+    for (compile_error, runtime_error, expected) in [
+        (
+            Some("private malformed schema".into()),
+            None,
+            ValidationOutcome::CompileDefect,
+        ),
+        (
+            None,
+            Some("private evaluation detail".into()),
+            ValidationOutcome::EvaluationDefect,
+        ),
+    ] {
+        let server = Server::start().await;
+        *server.fixture.validation_error.lock().unwrap() =
+            Some(protovalidate_buffa::ValidationError {
+                compile_error,
+                runtime_error,
+                ..Default::default()
+            });
+        let error = match server
+            .client()
+            .await
+            .package_context(pb::NativePackageRequest {
+                package_id: "actual-package".into(),
+                ..Default::default()
+            })
+            .await
+        {
+            Err(error) => error,
+            Ok(_) => panic!("injected validator defect reached CPU admission"),
+        };
+        let semantic::Error::Refusal(failure) = rpc::transport_error(error) else {
+            panic!("unary validator defect became a transport error")
+        };
+        assert!(matches!(failure.phase, semantic::FailurePhase::Validator));
+        assert!(failure.backend_data.is_none());
+        assert!(!serde_json::to_string(&failure).unwrap().contains("private"));
+        let correction = failure.validation.unwrap();
+        assert_eq!(
+            correction.disclosure.message_type.as_deref(),
+            Some("pse.code_intelligence.v1.NativePackageRequest")
+        );
+        assert_eq!(correction.disclosure.outcome, expected);
+        assert_eq!(
+            correction.disclosure.coverage,
+            ValidationCoverage::NotApplicable
+        );
+        assert_eq!(correction.disclosure.source_violation_count, Some(0));
+        assert!(correction.violations.is_empty());
+        assert!(server.fixture.validation_error.lock().unwrap().is_none());
+        assert!(server.fixture.gates.lock().unwrap().is_empty());
+        server.shutdown().await;
+    }
 }
 
 #[tokio::test]

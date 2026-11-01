@@ -5,6 +5,9 @@ description: Develop a conversational approach to executing an existing approved
 
 # Plan the execution approach
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help resolve
+readiness and evidence dependencies while preserving the planning/action boundary.
+
 Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
 together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 for consequential architectural and implementation choices. Consider relevant execution patterns

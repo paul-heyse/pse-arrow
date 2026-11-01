@@ -21,8 +21,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use tokio_util::sync::CancellationToken;
+mod assertions;
 mod grammar;
 mod native;
+pub use assertions::{
+    AssertionObservation, BindingObservation, CallObservation, ValidationStructure,
+    validation_structure,
+};
 pub use grammar::{GrammarLanguage, GrammarReport, grammar};
 pub use native::{
     CompiledSyntax, NativeMatches, ParsedSyntax, SelectionDemand, native_rule, tree_sitter_query,

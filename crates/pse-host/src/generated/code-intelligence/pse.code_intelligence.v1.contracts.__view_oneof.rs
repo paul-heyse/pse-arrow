@@ -300,6 +300,11 @@ pub mod native_query {
                 super::super::super::super::__buffa::view::NativeVisibilityQueryView<'a>,
             >,
         ),
+        DocumentationLinks(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
     }
 }
 pub mod native_request {

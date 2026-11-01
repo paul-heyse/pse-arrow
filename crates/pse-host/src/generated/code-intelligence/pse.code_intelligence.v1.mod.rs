@@ -69,6 +69,7 @@ pub mod __buffa {
         reg.register_json_any(super::__API_DEFINITION_JSON_ANY);
         reg.register_json_any(super::__PREDICATE_FACT_JSON_ANY);
         reg.register_json_any(super::__FAILURE_JSON_ANY);
+        reg.register_json_any(super::__VALIDATION_DISCLOSURE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CANCELLATION_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__TERMINAL_JSON_ANY);
@@ -147,6 +148,7 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_COMPATIBILITY_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_ORIGIN_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_INVESTIGATION_FACTS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DOCUMENTATION_LINK_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_VISIBILITY_QUERY_JSON_ANY);
         reg.register_text_any(super::__COMPILER_FACTS_TEXT_ANY);
         reg.register_text_any(super::__COMPILER_SOURCE_FILE_TEXT_ANY);
@@ -183,6 +185,7 @@ pub mod __buffa {
         reg.register_text_any(super::__API_DEFINITION_TEXT_ANY);
         reg.register_text_any(super::__PREDICATE_FACT_TEXT_ANY);
         reg.register_text_any(super::__FAILURE_TEXT_ANY);
+        reg.register_text_any(super::__VALIDATION_DISCLOSURE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CANCELLATION_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__TERMINAL_TEXT_ANY);
@@ -261,6 +264,7 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_COMPATIBILITY_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_ORIGIN_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_INVESTIGATION_FACTS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DOCUMENTATION_LINK_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_VISIBILITY_QUERY_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
@@ -435,6 +439,10 @@ pub use self::__buffa::view::PredicateFactOwnedView;
 pub use self::__buffa::view::FailureView;
 #[doc(inline)]
 pub use self::__buffa::view::FailureOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ValidationDisclosureView;
+#[doc(inline)]
+pub use self::__buffa::view::ValidationDisclosureOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeCancellationObservationView;
 #[doc(inline)]
@@ -747,6 +755,10 @@ pub use self::__buffa::view::NativeOriginObservationOwnedView;
 pub use self::__buffa::view::NativeInvestigationFactsView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeInvestigationFactsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDocumentationLinkObservationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDocumentationLinkObservationOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeVisibilityQueryView;
 #[doc(inline)]

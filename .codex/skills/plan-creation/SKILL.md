@@ -5,6 +5,9 @@ description: Plan how to create an implementation-plan document from a design, f
 
 # Plan the creation of a plan
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help identify
+producer, consumer, contract and validation changes without authorizing implementation.
+
 Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
 together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 for consequential architectural and implementation choices. Consider relevant execution patterns

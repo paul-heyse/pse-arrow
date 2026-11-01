@@ -12,6 +12,7 @@ use std::io::IsTerminal as _;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
+pub(in crate::cli) mod comparison;
 mod delivery;
 mod evidence;
 mod human;
@@ -241,6 +242,9 @@ pub(super) struct Inspect {
     /// Expand one selected semantic fact through its original native provider.
     #[arg(long, value_enum)]
     pub view: Option<View>,
+    /// Enrich association/relevance evidence through an explicitly prepared native world.
+    #[arg(long, requires = "view")]
+    pub semantic: bool,
     /// Selected acquired-artifact edges for --view adjacency; omission selects all kinds.
     #[arg(long, value_enum, requires = "view")]
     pub adjacency: Vec<crate::api::query::adjacency::Relation>,
@@ -267,6 +271,10 @@ pub(super) struct Inspect {
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum View {
+    /// Explain qualified source, generator, document and lifecycle connections.
+    Associations,
+    /// Explain original test/setup/assertion evidence without executing tests.
+    Relevance,
     Adjacency,
     Compatibility,
     Visibility,
@@ -291,6 +299,8 @@ pub(super) enum View {
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub(super) enum Inspection {
+    Associations(Box<crate::associations::Report>),
+    Relevance(Box<crate::relevance::Report>),
     Lifetime(Box<query::lifetime::Report>),
     Schema(Box<crate::schema::Report>),
     Source(Box<query::SearchResult>),
@@ -338,6 +348,52 @@ pub(super) fn lifetime_inspection(
             }
         }
     })
+}
+
+fn evidence_view(
+    root: &Path,
+    locator: &query::Locator,
+    view: View,
+    semantic: bool,
+    output: &OutputOptions,
+) -> Result<i32, HostError> {
+    match view {
+        View::Associations => {
+            output.validate_for::<crate::associations::Report>("inspect associations")?
+        }
+        View::Relevance => output.validate_for::<crate::relevance::Report>("inspect relevance")?,
+        _ => {
+            return Err(
+                query::Error::Invalid("expected association or relevance view".into()).into(),
+            );
+        }
+    }
+    let report=super::runtime()?.block_on(async {
+        let token=CancellationToken::new();
+        let operation=async {
+            match view {
+                View::Associations=>crate::associations::inspect(root,locator,semantic,output.presentation.budget.unwrap_or(20),&token).await.map(|value|Inspection::Associations(Box::new(value))),
+                View::Relevance=>crate::relevance::inspect(root,locator,semantic,output.presentation.budget.unwrap_or(20),&token).await.map(|value|Inspection::Relevance(Box::new(value))),
+                _=>Err(query::Error::Invalid("unsupported evidence view".into()).into()),
+            }
+        };
+        tokio::pin!(operation);
+        tokio::select!{result=&mut operation=>result,signal=tokio::signal::ctrl_c()=>{signal?;token.cancel();operation.await}}
+    })?;
+    let complete = match &report {
+        Inspection::Associations(value) => value.complete,
+        Inspection::Relevance(value) => value.complete,
+        _ => false,
+    };
+    let mut response = Envelope::response(
+        "inspect",
+        "qualified original association/relevance evidence",
+        report,
+    );
+    if !complete {
+        response.observation.completeness = Completeness::Partial;
+    }
+    Ok(output.emit_page(response, crate::envelope::DetailView::default())?)
 }
 
 #[derive(Debug, Args)]
@@ -668,6 +724,7 @@ pub(super) fn search(
     }
     resolved.request.validate()?;
     if explain {
+        output.validate_for::<query::config::Resolved>("search explain")?;
         return output
             .emit_page(
                 Envelope::response(
@@ -679,6 +736,7 @@ pub(super) fn search(
             )
             .map_err(HostError::from);
     }
+    output.validate_for::<query::Report>("search")?;
     let request = resolved.request;
     let rt = super::runtime()?;
     let handle = rt.handle().clone();
@@ -937,6 +995,27 @@ pub(super) fn inspect(
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    if !options.adjacency.is_empty() && !matches!(options.view, Some(View::Adjacency)) {
+        return Err(query::Error::Invalid("--adjacency requires --view adjacency".into()).into());
+    }
+    if options.select.is_some() && !matches!(options.view, Some(View::Hint | View::Candidate)) {
+        return Err(
+            query::Error::Invalid("--select requires --view hint or candidate".into()).into(),
+        );
+    }
+    if options.predicate.is_some() && !matches!(options.view, Some(View::Predicate)) {
+        return Err(query::Error::Invalid("--predicate requires --view predicate".into()).into());
+    }
+    if matches!(options.view, Some(View::Hint | View::Candidate)) && options.select.is_none() {
+        return Err(
+            query::Error::Invalid("hint or candidate resolution requires --select".into()).into(),
+        );
+    }
+    if matches!(options.view, Some(View::Predicate)) && options.predicate.is_none() {
+        return Err(
+            query::Error::Invalid("predicate inspection requires --predicate".into()).into(),
+        );
+    }
     if options.compiler_layout.is_some() && !matches!(options.view, Some(View::Layout)) {
         return Err(
             query::Error::Invalid("--compiler-layout requires --view layout".into()).into(),
@@ -976,6 +1055,18 @@ pub(super) fn inspect(
             "visibility requires --against-result destination".into(),
         )
         .into());
+    }
+    match options.view {
+        Some(View::Associations) => {
+            output.validate_for::<crate::associations::Report>("inspect associations")?
+        }
+        Some(View::Relevance) => {
+            output.validate_for::<crate::relevance::Report>("inspect relevance")?
+        }
+        Some(View::Lifetime) => output.validate_for::<query::lifetime::Report>("inspect")?,
+        Some(View::Adjacency) => output.validate_for::<crate::api::query::Report>("inspect api")?,
+        None => {}
+        Some(_) => output.validate_for::<query::rust::SemanticInspection>("inspect")?,
     }
     if let Some(action) = options.action {
         return evidence::inspect(action, selected, output);
@@ -1027,6 +1118,39 @@ pub(super) fn inspect(
         } = &locator
     {
         root = original.to_path_buf();
+    }
+    if options.semantic && !matches!(options.view, Some(View::Associations | View::Relevance)) {
+        return Err(query::Error::Invalid(
+            "--semantic requires --view associations or relevance".into(),
+        )
+        .into());
+    }
+    if options.view.is_none() {
+        match &locator {
+            query::Locator::Source { .. } | query::Locator::Api { .. } => {
+                output.validate_for::<query::SearchResult>("inspect")?
+            }
+            query::Locator::Semantic { .. } => {
+                output.validate_for::<query::rust::SemanticInspection>("inspect")?
+            }
+            query::Locator::Schema { .. } => {
+                output.validate_for::<crate::schema::Report>("inspect")?
+            }
+            _ => {}
+        }
+    }
+    if matches!(locator, query::Locator::Context { .. }) && options.view.is_none() {
+        return comparison::inspect_context(&root, &locator, output);
+    }
+    if matches!(locator, query::Locator::FrozenTest { .. }) && options.view.is_none() {
+        return evidence_view(&root, &locator, View::Relevance, false, output);
+    }
+    if matches!(
+        locator,
+        query::Locator::Evidence { .. } | query::Locator::FrozenTest { .. }
+    ) && let Some(view @ (View::Associations | View::Relevance)) = options.view
+    {
+        return evidence_view(&root, &locator, view, options.semantic, output);
     }
     if matches!(locator, query::Locator::Evidence { .. }) {
         return evidence::inspect_locator(&locator, selected, output);
@@ -1099,8 +1223,8 @@ pub(super) fn inspect(
             *guard = input.guard;
         }
     }
-    if !options.adjacency.is_empty() && !matches!(options.view, Some(View::Adjacency)) {
-        return Err(query::Error::Invalid("--adjacency requires --view adjacency".into()).into());
+    if let Some(view @ (View::Associations | View::Relevance)) = options.view {
+        return evidence_view(&root, &locator, view, options.semantic, output);
     }
     if matches!(options.view, Some(View::Adjacency)) {
         let relations = if options.adjacency.is_empty() {
@@ -1185,6 +1309,9 @@ pub(super) fn inspect(
     let result = if matches!(locator, query::Locator::Semantic { .. }) {
         use crate::semantic::Kind;
         let kind = match options.view.unwrap_or(View::Declaration) {
+            View::Associations | View::Relevance => {
+                return Err(query::Error::Invalid("evidence view was not dispatched".into()).into());
+            }
             View::Adjacency => {
                 return Err(query::Error::Invalid(
                     "adjacency requires acquired API evidence".into(),
@@ -1307,6 +1434,9 @@ pub(super) fn inspect(
                         _ => None,
                     });
                 human::row(row, path)?
+            }
+            Inspection::Associations(_) | Inspection::Relevance(_) => {
+                serde_json::to_string_pretty(&response.payload).map_err(std::io::Error::other)?
             }
             Inspection::Lifetime(answer) => {
                 serde_json::to_string_pretty(answer).map_err(query::Error::from)?

@@ -168,9 +168,9 @@ resolution evidence. This journey consumes D04's working comparison slice, not a
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| E01 | planned | CLI/process guidance owner | Tested optional examples using delivered interfaces across the requested process categories |
-| E02 | planned | Test-relevance inspection owner | Original test/setup/assertion/outcome evidence with honest selection and assurance limits |
-| E03 | planned | Engineering workflow integration owner | New capabilities exercised through actual bounded agent journeys and updated focused guidance |
+| E01 | in progress | CLI/process guidance owner | Tested optional examples using delivered interfaces across the requested process categories |
+| E02 | in progress | Test-relevance inspection owner | Original test/setup/assertion/outcome evidence with honest selection and assurance limits |
+| E03 | in progress | Engineering workflow integration owner | New capabilities exercised through actual bounded agent journeys and updated focused guidance |
 
 ## Verification and handoff
 

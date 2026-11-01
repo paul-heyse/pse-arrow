@@ -5,6 +5,58 @@ use super::tests::{fixture, query};
 use super::*;
 
 #[tokio::test]
+async fn bounded_native_observation_preserves_relevance_incompleteness() {
+    let (root, configuration, file) = fixture();
+    std::fs::write(&file, "pub fn selected() {}\nfn first(){selected();}\nfn second(){selected();}\nfn third(){selected();}\n").unwrap();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    let mut selected = query(&file, "selected()", Kind::Refs);
+    selected.limit = 1;
+    let answer = engine
+        .start_query(selected, CancellationToken::new())
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        answer
+            .omitted_relationships
+            .values()
+            .any(|count| *count > 0),
+        "{answer:?}"
+    );
+    assert!(!crate::relevance::native_incompleteness(&answer).is_empty());
+}
+
+#[tokio::test]
+async fn documentation_links_resolve_in_native_owner_scope_and_preserve_unknown_targets() {
+    let (root, configuration, file) = fixture();
+    let source = "pub struct Same;\nmod nested {\n pub struct Same;\n /// Rejected alternative [Same](Same), unknown [Missing](Missing).\n pub fn selected() {}\n}\n";
+    std::fs::write(&file, source).unwrap();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    let answer = engine
+        .start_query(
+            query(&file, "selected()", Kind::DocumentationLinks),
+            CancellationToken::new(),
+        )
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    let links = answer.observed.investigation.unwrap().documentation_links;
+    assert_eq!(links.len(), 2, "{links:?}");
+    let same = links.iter().find(|link| link.written == "Same").unwrap();
+    let target = same.target.as_ref().unwrap();
+    assert!(
+        target.start > source.find("mod nested").unwrap(),
+        "namesakes must resolve in the doc owner's module"
+    );
+    assert!(source[target.start..target.end].contains("Same"));
+    let unknown = links.iter().find(|link| link.written == "Missing").unwrap();
+    assert!(unknown.target.is_none());
+    assert!(!unknown.limitations.is_empty());
+}
+
+#[tokio::test]
 async fn format_origins_skip_escaped_braces_and_refuse_custom_templates() {
     let (root, configuration, file) = fixture();
     let source = "macro_rules! custom { ($s:literal) => { $s }; }\n#[derive(Clone)]\n#[derive(Debug)]\nstruct Derived;\nfn target(){let named=7u8;let _=format!(\"{{literal}} {named}\");let _=custom!(\"{named}\");}\n";

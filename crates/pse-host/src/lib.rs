@@ -15,6 +15,7 @@ pub mod agent_hooks;
 pub mod api;
 pub mod applicable_rules;
 pub mod artifacts;
+pub mod associations;
 pub mod boundary;
 pub mod catalog;
 pub mod cli;
@@ -45,6 +46,7 @@ pub mod paths;
 pub mod prepared_xtask;
 pub mod probe;
 pub mod product_reader;
+pub mod relevance;
 pub mod repository;
 /// Explicit offline schema worlds, passive payloads and qualified contract changes.
 pub mod schema;
@@ -168,6 +170,7 @@ pub enum HostError {
 pse_diagnostics::impl_diagnostic! {
     HostError,
     code(this) { Some(match this {
+        Self::Io(error) if envelope::PresentationError::from_io(error).is_some() => pse_diagnostics::DiagnosticCode::AuthoringParseUnknownKey,
         Self::Io(_) => pse_diagnostics::DiagnosticCode::HostIo,
         Self::InvocationIdentity(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::Task(_) => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
@@ -195,7 +198,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceOwnership(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedNativeTool(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::SourceQuery(error) => Some(error), Self::Investigation(error) => Some(error), Self::Semantic(error) => Some(error.as_ref()), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Io(error) if envelope::PresentationError::from_io(error).is_some() => envelope::PresentationError::from_io(error).map(|error| -> &dyn pse_diagnostics::TypedDiagnostic { error }), Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedNativeTool(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::SourceQuery(error) => Some(error), Self::Investigation(error) => Some(error), Self::Semantic(error) => Some(error.as_ref()), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this {
         Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },

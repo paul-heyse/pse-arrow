@@ -750,6 +750,43 @@ fn t03_namesakes_graph_entry() {
         inspected["payload"]["native"]["observed"]["relationships"][0]["location"].is_object(),
         "{inspected}"
     );
+    let relevance = value(
+        fixture
+            .command(false)
+            .args(["inspect", "--result", &primary, "--view", "relevance"])
+            .output()
+            .unwrap(),
+    );
+    assert!(
+        relevance["payload"]["structure"]["calls"].is_array(),
+        "external prepared project source must remain inspectable: {relevance}"
+    );
+    assert_eq!(
+        relevance["payload"]["source"]["reference"]["locator"]["guard"]["root"],
+        fixture.project.path().to_str().unwrap()
+    );
+    let mut stale_native: ResultReference =
+        serde_json::from_value(row["reference"].clone()).unwrap();
+    if let Locator::Semantic { generation, .. } = &mut stale_native.locator {
+        *generation = Some("999999999".into());
+    } else {
+        panic!("resolved native witness expected");
+    }
+    let stale = fixture
+        .command(false)
+        .args([
+            "inspect",
+            "--result",
+            &stale_native.encode().unwrap(),
+            "--view",
+            "relevance",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !stale.status.success(),
+        "native generations must be authenticated before source projection: {stale:?}"
+    );
     let selection = value(
         fixture
             .command(false)

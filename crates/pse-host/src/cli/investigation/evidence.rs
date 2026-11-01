@@ -19,6 +19,8 @@ mod source;
 /// Explicit evidence kinds never guess whether an operand is a file or invocation.
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
+    /// Compare explicitly addressed source, API, retained context or native world evidence.
+    Comparison(super::comparison::Args),
     /// Navigate an explicitly supplied complete descriptor set, or compare schema worlds.
     Schema(schema::Args),
     /// Explain selected binary, JSON or textproto payloads without invoking an RPC.
@@ -102,7 +104,12 @@ pub(super) enum Action {
         length: NonZeroU64,
     },
     /// Inspect the original compiler-generation context, outcome and checked file index.
-    CompilerArtifacts { invocation: String },
+    CompilerArtifacts {
+        invocation: String,
+        /// Explicit retained metadata to address alongside original admitted units.
+        #[arg(long)]
+        metadata: Option<PathBuf>,
+    },
     /// Read compiler-verified original source bytes from an acquired facts artifact.
     CompilerSource {
         invocation: String,
@@ -222,7 +229,8 @@ pub(super) fn inspect(
     let selected = selected.or(original_root.as_deref());
     let plain_source = matches!(
         &action,
-        Action::Outline(_)
+        Action::Comparison(_)
+            | Action::Outline(_)
             | Action::Declaration(_)
             | Action::Origin(_)
             | Action::Artifact { .. }
@@ -235,6 +243,7 @@ pub(super) fn inspect(
         super::super::checkout_root(selected)?
     };
     match action {
+        Action::Comparison(args) => super::comparison::dispatch(args, selected, output),
         Action::Schema(args) => schema::inspect(args, &root, output),
         Action::Payload(mut args) => {
             args.descriptor = root.join(args.descriptor);
@@ -448,7 +457,21 @@ pub(super) fn inspect(
             response.command = "inspect compiler-artifact".into();
             Ok(output.emit(response)?)
         }
-        Action::CompilerArtifacts { invocation } => {
+        Action::CompilerArtifacts {
+            invocation,
+            metadata,
+        } => {
+            if let Some(metadata) = metadata {
+                output.validate_for::<super::comparison::ContextInspection>(
+                    "inspect compiler-artifacts metadata",
+                )?;
+                let report = super::comparison::context_inspection(
+                    &root,
+                    &invocation,
+                    &root.join(metadata),
+                )?;
+                return Ok(output.emit(Envelope::response("inspect compiler-artifacts metadata","explicit retained metadata and original compiler context; association remains qualified",report))?);
+            }
             let state =
                 crate::paths::CheckoutState::resolve(&root, &std::env::vars_os().collect())?;
             let mut response =

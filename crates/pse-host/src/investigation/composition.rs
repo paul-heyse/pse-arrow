@@ -1744,6 +1744,7 @@ mod tests {
                 backend_code: Some(-32800),
                 backend_data: Some(serde_json::json!({"cpu_settled":true,"original":123})),
                 observed_cancellation: None,
+                validation: None,
             };
             let error =
                 Error::Semantic(Box::new(crate::semantic::Error::Refusal(original.clone())));
@@ -1777,6 +1778,7 @@ mod tests {
                 backend_code: Some(91),
                 backend_data: Some(serde_json::json!({"original":true})),
                 observed_cancellation: None,
+                validation: None,
             },
         )));
         let row: SearchResult = serde_json::from_value(

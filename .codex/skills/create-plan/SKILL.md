@@ -5,6 +5,9 @@ description: Create or revise an implementation plan from a design, functional-e
 
 # Create a plan
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help ground
+the change footprint and revealing checks; this skill retains planning authority.
+
 Use [design principles](../../../docs/design_review/design_principles/core/design-principles.md)
 together with [Heuristics for Efficient Architecture](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md)
 for consequential architectural and implementation choices. Consider relevant execution patterns

@@ -18,6 +18,10 @@ Do not guess options or response fields.
 
 ## Choose by question
 
+For optional review/planning examples and their evidence limits, see
+[engineering inquiries](references/engineering-inquiries.md). The calling process retains
+its own judgment and publication boundary.
+
 | Need | Start with |
 |---|---|
 | Find files, text, Rust syntax or declarations across source/configuration | `search` with an explicit mode and useful path/package scope; default first 20 arrivals |

@@ -66,6 +66,8 @@ pub struct Validation {
     pub state: String,
     /// Native validator diagnostics, when evaluated.
     pub diagnostics: Vec<String>,
+    /// Supported original field/rule paths and loss-aware disclosure.
+    pub correction: Option<crate::envelope::ValidationCorrection>,
 }
 /// A field read through its message's own reflection descriptors.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -226,7 +228,9 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
     } else {
         None
     };
-    let (preview, validation, representation) = if let Some((preview, validation)) = static_value {
+    let (preview, mut validation, representation) = if let Some((preview, validation)) =
+        static_value
+    {
         (preview, validation, "generated_static")
     } else {
         let value = if matches!(args.encoding, Encoding::Json) {
@@ -238,8 +242,11 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
             DynamicMessage::decode(Arc::clone(&bundle.pool), index, &wire)
                 .map_err(|e| SchemaError::Decode(e.to_string()))?
         };
-        (message_preview(&value, args.depth, args.limit), Validation { state: "not_evaluated".into(), diagnostics: vec!["Arbitrary acquired schemas have no compiled validator; constraints are metadata, not an established valid payload.".into()] }, "acquired_dynamic")
+        (message_preview(&value, args.depth, args.limit), Validation { state: "not_evaluated".into(), diagnostics: vec!["Arbitrary acquired schemas have no compiled validator; constraints are metadata, not an established valid payload.".into()], correction: None }, "acquired_dynamic")
     };
+    if let Some(correction) = &mut validation.correction {
+        correction.disclosure.descriptor_sha256 = Some(bundle.digest.clone());
+    }
     Ok(Report {
         descriptor: bundle.path.clone().into(), descriptor_sha256: bundle.digest.clone(),
         input: input_path.into(), payload_sha256: Sha256::digest(&input).iter().map(|byte| format!("{byte:02x}")).collect(), payload_bytes: input.len(),
@@ -350,17 +357,29 @@ fn static_preview<T: buffa::Message + DeserializeOwned + ReflectMessage + Valida
         Ok(()) => Validation {
             state: "passed".into(),
             diagnostics: vec![],
+            correction: None,
         },
         Err(error) => Validation {
             state: if error.compile_error.is_some() {
                 "compile_error"
             } else if error.runtime_error.is_some() {
                 "evaluation_error"
+            } else if error.violations.is_empty() {
+                "evaluation_error"
             } else {
                 "violations"
             }
             .into(),
-            diagnostics: vec![error.to_string()],
+            diagnostics: error
+                .compile_error
+                .iter()
+                .chain(error.runtime_error.iter())
+                .map(|message| crate::envelope::RedactionPolicy::from_environment().redact(message))
+                .collect(),
+            correction: Some(crate::envelope::ValidationCorrection::local(
+                &error,
+                value.message_descriptor().full_name(),
+            )),
         },
     };
     Ok((message_preview(&value, depth, limit), validation))

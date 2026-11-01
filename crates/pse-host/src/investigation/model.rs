@@ -868,6 +868,28 @@ pub enum EvidenceKind {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Locator {
+    /// Original admitted compiler context and exact captured metadata.
+    Context {
+        /// Absolute captured metadata artifact; inspection does not acquire another one.
+        metadata: NativePath,
+        /// Digest of the original metadata bytes.
+        metadata_sha256: String,
+        /// Authenticated original compiler invocation.
+        compiler_invocation: String,
+        /// Digest of the admitted compiler context.
+        compiler_context_sha256: String,
+    },
+    /// One row in an authenticated, immutable test workflow report.
+    FrozenTest {
+        /// Original checkout-authenticated invocation.
+        invocation: String,
+        /// Digest of the original complete report.
+        report_sha256: String,
+        /// Original population digest, required for a test selection.
+        inventory_sha256: Option<String>,
+        /// Exact test identity or ordered failure row.
+        selection: FrozenTestSelection,
+    },
     /// A declaration in one exact immutable descriptor artifact.
     Schema {
         /// Original descriptor artifact, preserving native path bytes.
@@ -940,14 +962,97 @@ pub enum Locator {
         session_invocation: Option<String>,
     },
 }
-/// Portable source-bound address; no response database is required.
+/// Address a frozen test independently of the population-page cursor grammar.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum FrozenTestSelection {
+    /// Full test identity in the selected original population.
+    Test {
+        /// Build context, package, binary and harness identity.
+        identity: crate::discovery::TestIdentity,
+    },
+    /// Ordered diagnostic, runner or test failure under the report digest.
+    Failure {
+        /// Zero-based ordinal in the original failure-row projection.
+        ordinal: usize,
+    },
+}
+/// Portable source-bound address; no response database is required.
+#[derive(Clone, Debug)]
 pub struct ResultReference {
     /// Explicit locator version.
     pub version: u32,
     /// Minimum addressing and freshness premises.
     pub locator: Locator,
+}
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ReferencePublication {
+    version: u32,
+    locator: Locator,
+    /// Native opaque handoff; copy unchanged instead of round-tripping locator numbers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    address: Option<String>,
+}
+impl Serialize for ResultReference {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct as _;
+        let mut value = serializer.serialize_struct("ResultReference", 3)?;
+        value.serialize_field("version", &self.version)?;
+        value.serialize_field("locator", &self.locator)?;
+        value.serialize_field(
+            "address",
+            &self.encode().map_err(serde::ser::Error::custom)?,
+        )?;
+        value.end()
+    }
+}
+impl<'de> Deserialize<'de> for ResultReference {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let published = ReferencePublication::deserialize(deserializer)?;
+        let value = Self {
+            version: published.version,
+            locator: published.locator,
+        };
+        if let Some(address) = published.address
+            && address != value.encode().map_err(serde::de::Error::custom)?
+        {
+            return Err(serde::de::Error::custom(
+                "reference address disagrees with its structured identity; copy the original opaque address unchanged",
+            ));
+        }
+        Ok(value)
+    }
+}
+impl JsonSchema for ResultReference {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "ResultReference".into()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        ReferencePublication::json_schema(generator)
+    }
+}
+#[cfg(test)]
+mod reference_publication_tests {
+    use super::*;
+    #[test]
+    fn every_reference_publishes_opaque_identity_without_recursive_or_mutable_state() {
+        let reference = ResultReference::new(Locator::Evidence {
+            invocation: "original".into(),
+            kind: EvidenceKind::Diagnostic,
+            selector: Some("0".into()),
+        });
+        let encoded = reference.encode().unwrap();
+        let bytes = URL_SAFE_NO_PAD.decode(&encoded).unwrap();
+        let identity: Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(identity.get("address").is_none());
+        let mut published = serde_json::to_value(&reference).unwrap();
+        assert_eq!(published["address"], encoded);
+        let restored: ResultReference = serde_json::from_value(published.clone()).unwrap();
+        assert_eq!(restored.encode().unwrap(), encoded);
+        published["locator"]["invocation"] = "other".into();
+        assert!(serde_json::from_value::<ResultReference>(published).is_err());
+    }
 }
 impl ResultReference {
     /// Construct a current typed reference.
@@ -959,7 +1064,16 @@ impl ResultReference {
     }
     /// Encode URL-safe, shell-safe bytes without losing native paths.
     pub fn encode(&self) -> Result<String, Error> {
-        Ok(URL_SAFE_NO_PAD.encode(serde_json::to_vec(self)?))
+        // Encode only the native identity; publication's derived address must not recurse.
+        #[derive(Serialize)]
+        struct Identity<'a> {
+            version: u32,
+            locator: &'a Locator,
+        }
+        Ok(URL_SAFE_NO_PAD.encode(serde_json::to_vec(&Identity {
+            version: self.version,
+            locator: &self.locator,
+        })?))
     }
     /// Refuse unknown interpretation before using a supplied address.
     pub fn decode(value: &str) -> Result<Self, Error> {
@@ -974,6 +1088,45 @@ impl ResultReference {
     }
     /// Validate the same premises for inline request references and portable CLI forms.
     pub fn validate(&self) -> Result<(), Error> {
+        let digest =
+            |value: &str| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit());
+        match &self.locator {
+            Locator::Context {
+                metadata,
+                metadata_sha256,
+                compiler_invocation,
+                compiler_context_sha256,
+            } => {
+                if !metadata.to_path_buf().is_absolute()
+                    || !digest(metadata_sha256)
+                    || !digest(compiler_context_sha256)
+                    || crate::envelope::CliInvocationId::try_from(compiler_invocation.clone())
+                        .is_err()
+                {
+                    return Err(Error::Invalid("context reference requires absolute metadata, exact digests and an original compiler invocation".into()));
+                }
+            }
+            Locator::FrozenTest {
+                invocation,
+                report_sha256,
+                inventory_sha256,
+                selection,
+            } => {
+                let selection_valid = match selection {
+                    FrozenTestSelection::Test { identity } => {
+                        inventory_sha256.as_deref().is_some_and(digest)
+                            && !identity.package_id.is_empty()
+                            && !identity.binary_id.is_empty()
+                            && !identity.test_name.is_empty()
+                    }
+                    FrozenTestSelection::Failure { .. } => inventory_sha256.is_none(),
+                };
+                if invocation.is_empty() || !digest(report_sha256) || !selection_valid {
+                    return Err(Error::Invalid("frozen test reference requires an original invocation, exact report/population digests and a complete row selection".into()));
+                }
+            }
+            _ => {}
+        }
         if let Locator::Schema {
             descriptor,
             descriptor_sha256,

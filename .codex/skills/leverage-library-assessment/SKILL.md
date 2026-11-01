@@ -5,6 +5,9 @@ description: Assess focused library capabilities against identified codebase opp
 
 # Assess library opportunity applicability
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) connect exact
+capabilities and conditions to needs; they do not replace applicability judgment.
+
 Determine which concrete library capabilities could address identified codebase opportunities,
 under what conditions and with what residual work. Preserve reusable capability knowledge as it
 accumulates, independently of the lifetime of its current codebase matches.

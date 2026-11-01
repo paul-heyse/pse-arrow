@@ -73,6 +73,18 @@ fn target_kind(k: OriginTargetKind) -> pb::native_origin_observation::TargetKind
 }
 pub(super) fn to_pb(v: NativeInvestigationFacts) -> Result<pb::NativeInvestigationFacts> {
     Ok(pb::NativeInvestigationFacts {
+        documentation_links: v
+            .documentation_links
+            .into_iter()
+            .map(|link| pb::NativeDocumentationLinkObservation {
+                written: link.written,
+                owner: link.owner.map(native_location_to_pb).into(),
+                target: link.target.map(native_location_to_pb).into(),
+                namespace: link.namespace,
+                limitations: link.limitations,
+                ..Default::default()
+            })
+            .collect(),
         body: v
             .body
             .map(|b| pb::NativeBodyObservation {
@@ -120,6 +132,23 @@ pub(super) fn to_pb(v: NativeInvestigationFacts) -> Result<pb::NativeInvestigati
 }
 pub(super) fn from_pb(mut v: pb::NativeInvestigationFacts) -> Result<NativeInvestigationFacts> {
     Ok(NativeInvestigationFacts {
+        documentation_links: v
+            .documentation_links
+            .into_iter()
+            .map(|mut link| {
+                Ok(DocumentationLinkObservation {
+                    written: link.written,
+                    owner: link.owner.take().map(native_location_from_pb).transpose()?,
+                    target: link
+                        .target
+                        .take()
+                        .map(native_location_from_pb)
+                        .transpose()?,
+                    namespace: link.namespace,
+                    limitations: link.limitations,
+                })
+            })
+            .collect::<Result<_>>()?,
         body: v
             .body
             .take()

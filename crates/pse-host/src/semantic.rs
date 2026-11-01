@@ -33,7 +33,7 @@ pub use service::{
 use std::path::PathBuf;
 
 /// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 6;
+pub const SESSION_PROTOCOL_VERSION: u32 = 7;
 
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
@@ -253,6 +253,8 @@ pub struct Query {
 #[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Kind {
+    /// Resolve authored Rust intra-documentation links in the selected native declaration.
+    DocumentationLinks,
     /// Selected body observations from the same immutable snapshot.
     Body,
     /// Original format-string or derive provenance.
@@ -538,6 +540,9 @@ pub struct Failure {
     pub backend_data: Option<serde_json::Value>,
     /// Typed observed settlement; original provider data never supplies this control fact.
     pub observed_cancellation: Option<Box<CancellationObservation>>,
+    /// Schema-addressed correction derived from canonical details and origin disclosure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<crate::envelope::ValidationCorrection>,
 }
 /// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
@@ -602,6 +607,7 @@ impl Failure {
                 .redact(&error.to_string()),
             backend_code: None,
             backend_data: None,
+            validation: None,
             observed_cancellation: match error {
                 Error::CancelledObserved {
                     completion,
@@ -721,6 +727,7 @@ impl Error {
             backend_code: None,
             backend_data: None,
             observed_cancellation: None,
+            validation: None,
         })
     }
 }
@@ -737,6 +744,7 @@ mod failure_tests {
             backend_code: Some(-32801),
             backend_data: Some(serde_json::json!({"original":"provider"})),
             observed_cancellation: None,
+            validation: None,
         };
         let failure = Failure::from_error(&Error::CancelledObserved {
             completion: Settlement::CpuSettled,

@@ -20,6 +20,190 @@ fn value(output: Output) -> Value {
     assert!(output.status.success(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()
 }
+fn qualified_value(output: Output) -> Value {
+    assert!(matches!(output.status.code(), Some(0 | 1)), "{output:?}");
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["outcome"], "success", "{response}");
+    assert!(
+        response["failures"].as_array().unwrap().is_empty(),
+        "{response}"
+    );
+    if !output.status.success() {
+        assert_eq!(
+            response["observation"]["completeness"], "partial",
+            "{response}"
+        );
+    }
+    response
+}
+
+#[test]
+fn engineering_quantity_inquiry_hands_off_opaque_source_without_native_preparation() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        pse(root)
+            .env("XDG_STATE_HOME", state.path())
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let found = value(run(&[
+        "search",
+        "symbol",
+        "QuantityRegistryBuilder",
+        "--path",
+        "crates/pse-quantity/src/registry.rs",
+        "--limit",
+        "2",
+    ]));
+    let reference = &found["payload"]["results"][0]["reference"];
+    let address = reference["address"]
+        .as_str()
+        .expect("native publisher supplies an opaque source address");
+    let inspected = value(run(&["inspect", "--result", address]));
+    assert!(!inspected["payload"].is_null());
+    let human = run(&["inspect", "--result", address, "--format", "human"]);
+    assert!(human.status.success(), "{human:?}");
+    assert!(
+        String::from_utf8(human.stdout)
+            .unwrap()
+            .contains("QuantityRegistryBuilder")
+    );
+    let streamed = run(&[
+        "search",
+        "symbol",
+        "QuantityRegistryBuilder",
+        "--path",
+        "crates/pse-quantity/src/registry.rs",
+        "--format",
+        "ndjson",
+        "--limit",
+        "1",
+    ]);
+    assert!(streamed.status.success(), "{streamed:?}");
+    let events = String::from_utf8(streamed.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    assert!(
+        events.iter().any(|event| event["event"] == "result"),
+        "{events:?}"
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|event| event["event"] == "terminal")
+            .count(),
+        1,
+        "{events:?}"
+    );
+    let relevance = run(&[
+        "inspect",
+        "--source",
+        "crates/pse-quantity/src/registry.rs",
+        "--view",
+        "relevance",
+        "--budget",
+        "3",
+    ]);
+    assert!(
+        matches!(relevance.status.code(), Some(0 | 1)),
+        "{relevance:?}"
+    );
+    let relevance: Value = serde_json::from_slice(&relevance.stdout).unwrap();
+    assert!(relevance["payload"]["structure"].is_object(), "{relevance}");
+    assert!(relevance["payload"]["native_tests"].is_null());
+    let described = value(run(&["commands", "search", "--limit", "1"]));
+    assert!(!described["payload"].is_null());
+    let invalid = run(&[
+        "inspect",
+        "--source",
+        "crates/pse-quantity/src/registry.rs",
+        "--fields",
+        "records.path",
+    ]);
+    assert!(!invalid.status.success());
+    let invalid: Value = serde_json::from_slice(&invalid.stderr).unwrap();
+    assert!(
+        invalid["failures"]
+            .as_array()
+            .is_some_and(|failures| !failures.is_empty())
+    );
+    let incompatible = run(&[
+        "inspect",
+        "--source",
+        "missing.rs",
+        "--view",
+        "relevance",
+        "--adjacency",
+        "contains",
+    ]);
+    assert!(!incompatible.status.success());
+    let incompatible: Value = serde_json::from_slice(&incompatible.stderr).unwrap();
+    assert!(
+        incompatible["failures"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("--adjacency requires"),
+        "{incompatible}"
+    );
+    let passive = run(&[
+        "inspect",
+        "--source",
+        "missing.rs",
+        "--fields",
+        "records.path",
+    ]);
+    assert_eq!(passive.status.code(), Some(2), "{passive:?}");
+    let passive: Value = serde_json::from_slice(&passive.stderr).unwrap();
+    assert!(
+        passive["failures"][0]
+            .to_string()
+            .contains("Valid choices:"),
+        "{passive}"
+    );
+    let missing_selector = run(&["inspect", "--source", "missing.rs", "--view", "hint"]);
+    assert_eq!(
+        missing_selector.status.code(),
+        Some(2),
+        "{missing_selector:?}"
+    );
+    let missing_selector: Value = serde_json::from_slice(&missing_selector.stderr).unwrap();
+    assert!(
+        missing_selector["failures"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("requires --select"),
+        "{missing_selector}"
+    );
+    let adjacency_fields = run(&[
+        "inspect",
+        "--source",
+        "missing.rs",
+        "--view",
+        "adjacency",
+        "--fields",
+        "graph.nodes",
+    ]);
+    assert_eq!(
+        adjacency_fields.status.code(),
+        Some(2),
+        "{adjacency_fields:?}"
+    );
+    let adjacency_fields: Value = serde_json::from_slice(&adjacency_fields.stderr).unwrap();
+    assert!(
+        adjacency_fields["failures"][0]
+            .to_string()
+            .contains("Valid choices:"),
+        "{adjacency_fields}"
+    );
+}
 #[test]
 fn direct_outline_and_declaration_work_without_checkout_or_analyzer_preparation() {
     let root = tempfile::tempdir().unwrap();
@@ -320,5 +504,167 @@ fn source_trait_witness_and_proposal_reach_current_native_selection_without_list
     assert!(
         !stale.status.success(),
         "changed original source must refuse selection: {stale:?}"
+    );
+}
+
+#[test]
+fn relevance_exposes_shared_expectations_positional_assertions_and_opaque_macros_without_preparation()
+ {
+    let root = tempfile::tempdir().unwrap();
+    let source = "fn calculation(v:u32)->u32 {v+1}\nfn comparator(_left:u32,_right:u32)->bool {true}\nmacro_rules! opaque { ($a:expr,$b:expr)=>{} }\nfn first(){let expected=calculation(2);let actual=calculation(2);assert_eq!(actual,expected);assert!(comparator(actual,expected));}\nfn second(){assert!(comparator(calculation(4),99));opaque!(4,99);}\n";
+    std::fs::write(root.path().join("source.rs"), source).unwrap();
+    let response = value(
+        pse(root.path())
+            .args(["inspect", "--source", "source.rs", "--view", "relevance"])
+            .output()
+            .unwrap(),
+    );
+    let report = &response["payload"];
+    assert!(report["original"].is_null());
+    assert!(report["native_tests"].is_null());
+    assert!(report["native_calls"].is_null());
+    let structure = &report["structure"];
+    assert_eq!(structure["bindings"].as_array().unwrap().len(), 2);
+    assert_eq!(structure["assertions"][0]["operands"][0]["text"], "actual");
+    assert_eq!(
+        structure["assertions"][0]["operands"][1]["text"],
+        "expected"
+    );
+    assert!(
+        structure["assertions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["interpretation"]
+                .as_str()
+                .unwrap()
+                .starts_with("opaque_custom_macro"))
+    );
+    assert!(
+        report["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str().unwrap().contains("oracle-independence"))
+    );
+    let reference = report["reference"]["address"].as_str().unwrap();
+    std::fs::write(root.path().join("source.rs"), source.replace("v+1", "v+2")).unwrap();
+    let stale = pse(root.path())
+        .args(["inspect", "--result", reference, "--view", "relevance"])
+        .output()
+        .unwrap();
+    assert!(!stale.status.success(), "{stale:?}");
+    assert!(!root.path().join("target").exists());
+    assert!(!root.path().join("Cargo.lock").exists());
+}
+
+#[test]
+fn associations_keep_rejected_alternative_citations_separate_from_declared_authority() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join("source.rs"),
+        "/// Rejected alternative [Other](missing.md); see blueprint §24.2.\nfn selected() {}\n",
+    )
+    .unwrap();
+    let response = qualified_value(
+        pse(root.path())
+            .args(["inspect", "--source", "source.rs", "--view", "associations"])
+            .output()
+            .unwrap(),
+    );
+    let report = &response["payload"];
+    assert_eq!(report["owning_plan"]["status"], "not_declared");
+    assert!(
+        report["document"].is_null(),
+        "unprepared interpreter must remain unavailable: {response}"
+    );
+    assert!(
+        report["citations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["written"] == "missing.md" && row["resolved"].is_null())
+    );
+    assert!(
+        report["citations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["written"] == "blueprint §24.2")
+    );
+    assert!(report["reference"]["locator"]["guard"]["sha256"].is_string());
+    let address = report["reference"]["address"].as_str().unwrap();
+    std::fs::write(root.path().join("source.rs"), "fn changed() {}\n").unwrap();
+    let stale = pse(root.path())
+        .args(["inspect", "--result", address, "--view", "associations"])
+        .output()
+        .unwrap();
+    assert!(!stale.status.success(), "{stale:?}");
+    let stale: Value = serde_json::from_slice(&stale.stderr).unwrap();
+    assert!(!stale["failures"].as_array().unwrap().is_empty(), "{stale}");
+    assert!(!root.path().join("target").exists());
+    assert!(!root.path().join("Cargo.lock").exists());
+}
+
+#[test]
+fn associations_read_comment_and_literal_doc_attribute_citations_from_original_facts() {
+    let root = tempfile::tempdir().unwrap();
+    let prose = "Rejected alternative [Other](missing.md); see blueprint §24.2.";
+    for (path, source) in [
+        ("comment.rs", format!("/// {prose}\nfn selected() {{}}\n")),
+        (
+            "attribute.rs",
+            format!("#[doc = {prose:?}]\nfn selected() {{}}\n"),
+        ),
+    ] {
+        std::fs::write(root.path().join(path), source).unwrap();
+        let response = qualified_value(
+            pse(root.path())
+                .args(["inspect", "--source", path, "--view", "associations"])
+                .output()
+                .unwrap(),
+        );
+        let report = &response["payload"];
+        let written = report["citations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| row["written"].as_str().unwrap())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(
+            written,
+            ["missing.md", "blueprint §24.2"].into_iter().collect(),
+            "{response}"
+        );
+        assert!(
+            report["documentation"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|fact| !fact["value"].is_null()),
+            "{response}"
+        );
+        assert_eq!(report["owning_plan"]["status"], "not_declared");
+    }
+    assert!(!root.path().join("target").exists());
+}
+
+fn original_relevance_setup() -> (u32, u32) {
+    (2, 9)
+}
+fn original_relevance_comparator(actual: u32, expected: u32) -> bool {
+    actual == expected
+}
+
+/// Explicit failing child control for the public original-outcome/relevance journey.
+/// Run only by selecting this exact ignored fixture through the real native test owner;
+/// its expected failure creates original custody, never a synthetic performing report.
+#[test]
+#[ignore = "explicit original-failure evidence control; intentionally fails when selected"]
+fn original_relevance_failure_fixture() {
+    let (actual, expected) = original_relevance_setup();
+    assert!(
+        original_relevance_comparator(actual, expected),
+        "intentional original relevance control"
     );
 }

@@ -1677,6 +1677,8 @@ pub async fn resolve_entity_with_context(
 /// A faithful native-owner result, retaining the exact selected context locator.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct SemanticInspection {
+    /// Original inspected position with the actual observed source and generation guards.
+    pub reference: ResultReference,
     /// Original guarded semantic address, not a display-name identity.
     pub locator: Locator,
     /// Actual native answer including source/generation, sections and checked proposal.
@@ -1703,7 +1705,27 @@ pub async fn semantic_view(
     locator: &Locator,
     kind: crate::semantic::Kind,
 ) -> Result<SemanticInspection, Error> {
-    let native = semantic_operation(root, locator, kind).await?;
+    let mut original = locator.clone();
+    if let Locator::Semantic {
+        session_invocation, ..
+    } = &mut original
+        && session_invocation.is_none()
+    {
+        let record = crate::semantic::load(root, &environment())?.ok_or_else(|| {
+            Error::Unavailable("explicitly prepare the original native context".into())
+        })?;
+        *session_invocation = Some(record.invocation.as_str().into());
+    }
+    let native = semantic_operation(root, &original, kind).await?;
+    if let Locator::Semantic {
+        generation,
+        source_sha256,
+        ..
+    } = &mut original
+    {
+        *generation = Some(native.generation.to_string());
+        *source_sha256 = Some(native.source.source_sha256().into());
+    }
     let mut followups = Vec::new();
     for handle in &native.observed.candidates {
         let view = match handle.kind {
@@ -1711,7 +1733,7 @@ pub async fn semantic_view(
             crate::semantic::CandidateKind::Hint => "hint",
             crate::semantic::CandidateKind::Assist => "assist",
         };
-        let mut selected = locator.clone();
+        let mut selected = original.clone();
         if let Locator::Semantic {
             generation,
             source_sha256,
@@ -1730,7 +1752,8 @@ pub async fn semantic_view(
         });
     }
     Ok(SemanticInspection {
-        locator: locator.clone(),
+        reference: ResultReference::new(original.clone()),
+        locator: original,
         native,
         followups,
         compiler_layout: None,
@@ -1789,7 +1812,7 @@ pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error
         refinement: None,
     })
 }
-fn checked_api(root: &Path, locator: &Locator) -> Result<crate::api::Artifact, Error> {
+pub(crate) fn checked_api(root: &Path, locator: &Locator) -> Result<crate::api::Artifact, Error> {
     let artifact = checked_api_surface(root, locator)?;
     if let Locator::Api {
         item,

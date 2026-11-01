@@ -23,6 +23,8 @@ use std::{
 /// One indivisible actual selected test, preserving its original compiler context.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct TestRow {
+    /// Exact row in the authenticated original inventory and report.
+    pub reference: crate::investigation::ResultReference,
     /// Original group, package, binary and exact harness ID.
     pub identity: crate::discovery::TestIdentity,
     /// Same-build target name, independent of the test's spelling.
@@ -85,11 +87,15 @@ pub struct FailureCursor {
 pub enum FailureRow {
     /// Original typed infrastructure, compiler, setup or runner diagnostic.
     Diagnostic {
+        /// Exact row in the authenticated original report.
+        reference: Option<crate::investigation::ResultReference>,
         /// Original typed diagnostic with source/help records.
         diagnostic: Box<crate::envelope::ErrorRecord>,
     },
     /// Exact failed test in its native completed artifact. XML text is not raw process output.
     Test {
+        /// Exact row in the authenticated original report.
+        reference: Option<crate::investigation::ResultReference>,
         /// Original group, package, binary and exact test ID.
         identity: crate::discovery::TestIdentity,
         /// Original completed native artifact containing assertion output.
@@ -101,6 +107,8 @@ pub enum FailureRow {
     },
     /// Original setup or runner context, retaining wrapper/native distinctions.
     Runner {
+        /// Exact row in the authenticated original report.
+        reference: Option<crate::investigation::ResultReference>,
         /// Original compiler context ordinal.
         group: usize,
         /// Original completed native artifact, possibly absent on startup failure.
@@ -175,6 +183,7 @@ fn failure_rows(report: &[u8]) -> Result<Vec<FailureRow>, HostError> {
         .failures
         .into_iter()
         .map(|diagnostic| FailureRow::Diagnostic {
+            reference: None,
             diagnostic: Box::new(diagnostic),
         })
         .collect();
@@ -189,6 +198,7 @@ fn failure_rows(report: &[u8]) -> Result<Vec<FailureRow>, HostError> {
                 .iter()
                 .find(|detail| detail.identity == identity);
             FailureRow::Test {
+                reference: None,
                 message: detail.and_then(|detail| detail.message.clone()),
                 description: detail.and_then(|detail| detail.description.clone()),
                 identity,
@@ -201,6 +211,7 @@ fn failure_rows(report: &[u8]) -> Result<Vec<FailureRow>, HostError> {
             || summary.setup == "failed_by_runner"
         {
             rows.push(FailureRow::Runner {
+                reference: None,
                 group,
                 report: observation.report,
                 child_exit: summary.child_exit,
@@ -224,7 +235,8 @@ pub fn failures(
 ) -> Result<Envelope<FailurePage>, HostError> {
     let (id, report, _) = captured_report(store, selector, session)?;
     let sha = digest(&report);
-    let rows = failure_rows(&report)?;
+    let mut rows = failure_rows(&report)?;
+    address_failures(&mut rows, &id, &sha);
     let total = rows.len();
     let offset = match cursor {
         None => 0,
@@ -304,6 +316,122 @@ fn digest(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+fn address_failures(rows: &mut [FailureRow], id: &CliInvocationId, sha: &str) {
+    for (ordinal, row) in rows.iter_mut().enumerate() {
+        let address = Some(crate::investigation::ResultReference::new(
+            crate::investigation::Locator::FrozenTest {
+                invocation: id.to_string(),
+                report_sha256: sha.into(),
+                inventory_sha256: None,
+                selection: crate::investigation::FrozenTestSelection::Failure { ordinal },
+            },
+        ));
+        match row {
+            FailureRow::Diagnostic { reference, .. }
+            | FailureRow::Test { reference, .. }
+            | FailureRow::Runner { reference, .. } => *reference = address,
+        }
+    }
+}
+
+/// An exact frozen row and the original report context; no execution verdict is reconstructed.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FrozenRecord {
+    /// Guarded original row address.
+    pub reference: crate::investigation::ResultReference,
+    /// Original selected test, when a population row was selected.
+    pub test: Option<TestRow>,
+    /// Original diagnostic/test/runner failure, when selected.
+    pub failure: Option<FailureRow>,
+    /// Original frozen action/outcome/phase/setup inputs, retaining their original vocabulary.
+    pub context: serde_json::Value,
+}
+
+/// Resolve exact original bytes, never treating the reference as execution or rerun authority.
+pub fn frozen(
+    store: &InvocationStore,
+    reference: &crate::investigation::ResultReference,
+) -> Result<FrozenRecord, HostError> {
+    use crate::investigation::{FrozenTestSelection, Locator};
+    reference.validate()?;
+    let Locator::FrozenTest {
+        invocation,
+        report_sha256,
+        inventory_sha256,
+        selection,
+    } = &reference.locator
+    else {
+        return Err(invalid("expected a frozen test/failure row"));
+    };
+    let (id, report, _) = captured_report(store, invocation, None)?;
+    if digest(&report) != *report_sha256 {
+        return Err(invalid("frozen report digest changed"));
+    }
+    let mut original: serde_json::Value =
+        serde_json::from_slice(&report).map_err(io::Error::other)?;
+    let (test, failure) = match selection {
+        FrozenTestSelection::Failure { ordinal } => {
+            let mut rows = failure_rows(&report)?;
+            address_failures(&mut rows, &id, report_sha256);
+            let row = rows
+                .into_iter()
+                .nth(*ordinal)
+                .ok_or_else(|| invalid("frozen failure ordinal is outside original report"))?;
+            (None, Some(row))
+        }
+        FrozenTestSelection::Test { identity } => {
+            let captured = captured(store, invocation, None)?;
+            if inventory_sha256.as_deref() != Some(&captured.inventory_sha256) {
+                return Err(invalid("frozen inventory digest changed"));
+            }
+            let offset = captured
+                .inventory
+                .selected_tests_iter()
+                .position(|candidate| candidate == *identity)
+                .ok_or_else(|| invalid("exact original test identity is absent"))?;
+            let cursor = Cursor {
+                invocation: id,
+                inventory_sha256: captured.inventory_sha256,
+                offset,
+            };
+            let one = NonZeroUsize::new(1).ok_or_else(|| invalid("invalid row extent"))?;
+            let bytes =
+                NonZeroUsize::new(usize::MAX).ok_or_else(|| invalid("invalid row budget"))?;
+            let row = read(store, invocation, None, Some(&cursor), one, bytes)?
+                .payload
+                .records
+                .into_iter()
+                .next()
+                .ok_or_else(|| invalid("original selected row disappeared"))?;
+            (Some(row), None)
+        }
+    };
+    // These are exact original values, not a second status/setup interpreter.
+    let mut context = serde_json::Map::new();
+    if let Some(object) = original.as_object_mut() {
+        for key in [
+            "invocation",
+            "action",
+            "outcome",
+            "selection",
+            "admission",
+            "pending",
+            "phases",
+            "fixture_requirements",
+            "required_capture_complete",
+        ] {
+            if let Some(value) = object.remove(key) {
+                context.insert(key.into(), value);
+            }
+        }
+    }
+    Ok(FrozenRecord {
+        reference: reference.clone(),
+        test,
+        failure,
+        context: context.into(),
+    })
 }
 fn checked_parent(path: &Path) -> Result<(), HostError> {
     let metadata = fs::symlink_metadata(path)?;
@@ -412,6 +540,7 @@ pub fn read(
         inventory,
         inventory_sha256: sha,
     } = captured(store, selector, session)?;
+    let report_sha256 = digest(&report);
     #[derive(Deserialize)]
     struct Declarations {
         #[serde(default)]
@@ -461,6 +590,16 @@ pub fn read(
                     .collect()
             });
         let row = TestRow {
+            reference: crate::investigation::ResultReference::new(
+                crate::investigation::Locator::FrozenTest {
+                    invocation: id.to_string(),
+                    report_sha256: report_sha256.clone(),
+                    inventory_sha256: Some(sha.clone()),
+                    selection: crate::investigation::FrozenTestSelection::Test {
+                        identity: identity.clone(),
+                    },
+                },
+            ),
             group_capabilities: group.build.resolution.native_capabilities.clone(),
             fixtures,
             identity,
@@ -561,6 +700,33 @@ mod tests {
         assert!(position(Some(&cursor), &CliInvocationId::new(), "original", 3).is_err());
         assert!(position(Some(&cursor), &id, "changed", 3).is_err());
         assert!(position(Some(&cursor), &id, "original", 1).is_err());
+    }
+    #[test]
+    fn frozen_failure_addresses_bind_order_and_exact_report_separately_from_population_cursors() {
+        let source = serde_json::json!({"failures":[],"observations":[{"kind":"test","group":2,"observation":{"report":"/owned/junit.xml","summary":{"failed":[{"group":2,"package_id":"original","binary_id":"binary","test_name":"same"}],"child_exit":1,"native_child_exit":0,"fixture_settled":false,"setup":"succeeded_by_runner"}}}]});
+        let mut rows = failure_rows(&serde_json::to_vec(&source).unwrap()).unwrap();
+        let invocation = CliInvocationId::new();
+        let sha = "a".repeat(64);
+        address_failures(&mut rows, &invocation, &sha);
+        for (ordinal, row) in rows.iter().enumerate() {
+            let reference = match row {
+                FailureRow::Diagnostic { reference, .. }
+                | FailureRow::Test { reference, .. }
+                | FailureRow::Runner { reference, .. } => reference.as_ref().unwrap(),
+            };
+            reference.validate().unwrap();
+            assert!(
+                matches!(&reference.locator, crate::investigation::Locator::FrozenTest { invocation: original, report_sha256, inventory_sha256: None, selection: crate::investigation::FrozenTestSelection::Failure { ordinal: original_ordinal } } if original == invocation.as_str() && report_sha256 == &sha && *original_ordinal == ordinal)
+            );
+        }
+        assert!(matches!(
+            rows[1],
+            FailureRow::Runner {
+                native_child_exit: Some(0),
+                fixture_settled: Some(false),
+                ..
+            }
+        ));
     }
     #[test]
     fn evidence_reads_refuse_symlinked_files_and_nonprivate_directories() {

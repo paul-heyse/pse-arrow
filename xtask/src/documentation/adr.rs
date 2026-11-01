@@ -178,16 +178,19 @@ pub(super) fn adr_paths(root: &Path) -> Result<Vec<PathBuf>> {
     }
     for entry in fs::read_dir(dir)? {
         let path = entry?.path();
-        if path.extension().is_some_and(|s| s == "md")
-            && !["README.md", "template.md", "register.md"]
-                .iter()
-                .any(|name| path.file_name().is_some_and(|s| s == *name))
-        {
+        if is_adr_path(&path) {
             paths.push(path);
         }
     }
     paths.sort();
     Ok(paths)
+}
+/// Canonical decision-source category, also used for captured historical memberships.
+pub(super) fn is_adr_path(path: &Path) -> bool {
+    path.extension().is_some_and(|extension| extension == "md")
+        && !["README.md", "template.md", "register.md"]
+            .iter()
+            .any(|name| path.file_name().is_some_and(|file| file == *name))
 }
 fn text_value(value: &Value) -> String {
     match value {

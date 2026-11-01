@@ -5,6 +5,9 @@ description: Audit the codebase broadly against the design principles and refres
 
 # Audit design principle alignment
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help locate
+guarded evidence; diagnosis and publication remain with this audit.
+
 Develop a current, evidence-grounded account of design principle misalignment across the codebase,
 without an incoming remediation objective, library preference or principle subset. The system's
 functional target supplies the context for judgment. An audit can establish a structural problem

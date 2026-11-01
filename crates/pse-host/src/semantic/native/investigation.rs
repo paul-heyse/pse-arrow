@@ -36,7 +36,7 @@ where
     let source = sema.source(definition)?;
     mapped(sema, source.value.syntax(), paths)
 }
-fn definition_location(
+pub(super) fn definition_location(
     sema: &Semantics<'_, ra_ap_ide_db::RootDatabase>,
     definition: ra_ap_hir::ModuleDef,
     paths: &BTreeMap<ra_ap_ide::FileId, PathBuf>,
@@ -57,7 +57,7 @@ fn definition_location(
         ModuleDef::BuiltinType(_) => None,
     }
 }
-fn mapped(
+pub(super) fn mapped(
     sema: &Semantics<'_, ra_ap_ide_db::RootDatabase>,
     node: &native_ra_syntax::SyntaxNode,
     paths: &BTreeMap<ra_ap_ide::FileId, PathBuf>,

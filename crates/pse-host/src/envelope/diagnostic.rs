@@ -249,6 +249,23 @@ impl ErrorRecord {
             .unwrap_or_default();
         record
     }
+    /// Recover a source-owned presentation cause without interpreting its display string.
+    pub fn from_host(error: &crate::HostError, policy: &RedactionPolicy) -> Self {
+        if let crate::HostError::Io(error) = error
+            && let Some(original) = super::PresentationError::from_io(error)
+        {
+            let mut record = Self::from_typed(original, policy);
+            record
+                .parser_context
+                .insert("valid_fields".into(), original.choices.join(","));
+            record.parser_context.insert(
+                "field_grammar".into(),
+                "comma-separated literal top-level payload names".into(),
+            );
+            return record;
+        }
+        Self::from_typed(error, policy)
+    }
     /// Capture miette's protocol, inheriting the parent's source for related labels.
     pub fn from_diagnostic(
         error: &dyn Diagnostic,

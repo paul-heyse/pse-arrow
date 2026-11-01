@@ -8,6 +8,9 @@ model-baseline: claude-5 (2026-08)
 
 # Design review
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) support
+source/capability comparisons; this review retains its selected lens and judgment.
+
 Assess the architecture's ability to support expected changes and its behavioral contracts.
 Use the form requested by the user; a formal review has one accountable principal document in
 the binding's review location, with supporting analysis where useful. Advice about the process

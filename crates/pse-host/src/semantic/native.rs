@@ -28,6 +28,7 @@ use tokio_util::sync::CancellationToken;
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod actions;
 mod candidates;
+mod doc_links;
 mod graph;
 mod importability;
 mod investigation;
@@ -1840,6 +1841,18 @@ fn query_world(
                 paths,
                 digests,
             )?);
+        }
+        Kind::DocumentationLinks => {
+            let facts = doc_links::inspect(db, paths, position, query.limit)?;
+            for link in &facts.documentation_links {
+                linked_paths.extend(
+                    link.owner
+                        .iter()
+                        .chain(&link.target)
+                        .map(|location| location.path.clone()),
+                );
+            }
+            observed.investigation = Some(facts);
         }
         Kind::Tests => {
             let (tests, coverage) =

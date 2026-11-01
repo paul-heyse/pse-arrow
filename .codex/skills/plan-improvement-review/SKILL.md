@@ -5,6 +5,9 @@ description: Review the remaining change footprint of an implementation plan or 
 
 # Review plan improvements
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) help reconcile
+remaining footprint and migration consequences; they do not determine adoption or authority.
+
 Investigate how the remaining changes could produce a better system and a better route to
 delivery. Give the selected change footprint comprehensive consideration, including opportunities
 to improve design-principle alignment and the general quality and capabilities of affected

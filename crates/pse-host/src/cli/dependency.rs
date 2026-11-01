@@ -39,21 +39,21 @@ pub(super) struct UnitContext {
 }
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-enum JoinState {
+pub(in crate::cli) enum JoinState {
     UniqueCandidate,
     Ambiguous,
     NoMatchingProfile,
     NativeWorldUnavailable,
 }
 #[derive(Debug, Serialize, JsonSchema)]
-struct WorldJoin {
+pub(in crate::cli) struct WorldJoin {
     /// Index in this context's dependency_units, not a cross-context unit identity.
-    unit: usize,
-    state: JoinState,
+    pub(in crate::cli) unit: usize,
+    pub(in crate::cli) state: JoinState,
     /// Indexes in native_world.packages with matching observed package/profile dimensions.
-    profiles: Vec<usize>,
+    pub(in crate::cli) profiles: Vec<usize>,
     /// A loaded analyzer profile never establishes exact admitted rustc-unit equivalence.
-    compiler_equivalence: &'static str,
+    pub(in crate::cli) compiler_equivalence: &'static str,
 }
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "availability", rename_all = "snake_case")]
@@ -67,9 +67,22 @@ enum NativeWorld {
     NotRequested,
 }
 fn join_units(units: &[crate::correctness::CompilerUnit], world: &NativeWorld) -> Vec<WorldJoin> {
+    profile_joins(
+        units,
+        match world {
+            NativeWorld::Available { observation } => Some(&observation.packages),
+            _ => None,
+        },
+    )
+}
+/// Pure projection shared by live inspection and original retained-context comparison.
+pub(in crate::cli) fn profile_joins(
+    units: &[crate::correctness::CompilerUnit],
+    profiles: Option<&[crate::semantic::NativePackageContext]>,
+) -> Vec<WorldJoin> {
     units.iter().enumerate().map(|(unit, selected)| {
-        let profiles = match world {
-            NativeWorld::Available { observation } => observation.packages.iter().enumerate().filter_map(|(index, native)| {
+        let matching = match profiles {
+            Some(packages) => packages.iter().enumerate().filter_map(|(index, native)| {
                 let role = if selected.mode == "test" && selected.target_kinds.iter().any(|kind| kind == "lib") { "lib-test" }
                     else if selected.target_kinds.iter().any(|kind| kind == "proc-macro") { "proc-macro" }
                     else if selected.target_kinds.iter().any(|kind| kind == "lib") { "lib" } else { return None };
@@ -77,9 +90,9 @@ fn join_units(units: &[crate::correctness::CompilerUnit], world: &NativeWorld) -
                     && native.features == selected.features && native.target == selected.platform && native.role == role).then_some(index)
             }).collect::<Vec<_>>(), _ => Vec::new(),
         };
-        let state = if !matches!(world, NativeWorld::Available { .. }) { JoinState::NativeWorldUnavailable }
-            else { match profiles.len() { 0 => JoinState::NoMatchingProfile, 1 => JoinState::UniqueCandidate, _ => JoinState::Ambiguous } };
-        WorldJoin { unit, state, profiles, compiler_equivalence: "not_established; package/library/features/target/role association only" }
+        let state = if profiles.is_none() { JoinState::NativeWorldUnavailable }
+            else { match matching.len() { 0 => JoinState::NoMatchingProfile, 1 => JoinState::UniqueCandidate, _ => JoinState::Ambiguous } };
+        WorldJoin { unit, state, profiles:matching, compiler_equivalence: "not_established; package/library/features/target/role association only" }
     }).collect()
 }
 

@@ -5,6 +5,9 @@ description: Discover and assess valuable additions or improvements to product, 
 
 # Review functional extensions
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) support
+capability exploration without requiring an existing caller or diagnostic finding.
+
 Explore what valuable capabilities the system could gain and which additions or improvements
 are worth pursuing. Functional value includes product behavior, developer workflows, operational
 control and research capabilities. Useful opportunities can address design gaps, enable new

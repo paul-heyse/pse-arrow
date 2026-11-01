@@ -117,7 +117,20 @@ pub(crate) fn transport_error(error: ConnectError) -> Error {
     }
 }
 
-fn validation_error(error: protovalidate_buffa::ValidationError) -> ConnectError {
+fn validation_error(
+    error: protovalidate_buffa::ValidationError,
+    message_type: &str,
+) -> ConnectError {
+    use crate::envelope::{
+        ValidationCorrection, ValidationCoverage, ValidationDisclosure, ValidationOutcome,
+    };
+    use sha2::Digest as _;
+    let descriptor_sha256 = sha2::Sha256::digest(crate::code_intelligence_contracts::DESCRIPTORS)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let mut disclosure =
+        ValidationDisclosure::original(&error, message_type, Some(descriptor_sha256));
     let category = if error.compile_error.is_some()
         || error.runtime_error.is_some()
         || error.violations.is_empty()
@@ -126,11 +139,29 @@ fn validation_error(error: protovalidate_buffa::ValidationError) -> ConnectError
     } else {
         Error::InvalidRequest("request constraint rejected".into())
     };
-    let diagnostic =
-        crate::envelope::RedactionPolicy::from_environment().redact(&error.to_string());
     let mut failure = super::Failure::from_error(&category);
-    failure.backend_data = Some(serde_json::json!({"original_validation_diagnostic":diagnostic}));
+    // Upstream retains the typed error as its source. Publishing its Display here would
+    // restore map keys/messages intentionally removed from canonical public details.
     let transport = error.into_connect_error();
+    // Count the actual upstream-encoded canonical details, never a reimplemented encoder or
+    // the rendered transport message. The originating count was captured before conversion.
+    let projection = ValidationCorrection::rpc(&transport.details, Some(disclosure.clone()));
+    if let Some(projection) = projection {
+        if projection.diagnostics.is_empty() && disclosure.outcome == ValidationOutcome::Violations
+        {
+            let emitted = projection.violations.len() as u64;
+            disclosure.emitted_violation_count = Some(emitted);
+            disclosure.coverage = if disclosure.source_violation_count == Some(emitted) {
+                ValidationCoverage::Complete
+            } else {
+                ValidationCoverage::Truncated
+            };
+        }
+        failure.validation = Some(ValidationCorrection {
+            disclosure,
+            ..projection
+        });
+    }
     match wire::failure_to_pb(failure) {
         Ok(failure) => transport.with_detail(connectrpc::ErrorDetail::from_message(
             "pse.code_intelligence.v1.Failure",
@@ -140,6 +171,8 @@ fn validation_error(error: protovalidate_buffa::ValidationError) -> ConnectError
     }
 }
 fn retain_rpc_details(mut failure: super::Failure, error: &ConnectError) -> super::Failure {
+    let disclosure = failure.validation.take().map(|value| value.disclosure);
+    failure.validation = crate::envelope::ValidationCorrection::rpc(&error.details, disclosure);
     let originals = error
         .details
         .iter()
@@ -486,7 +519,7 @@ impl Session {
             let request = match first {
                 Some(Ok(pb::NativeControl { action: Some(pb::native_control::Action::Start(request)), .. })) => {
                     use protovalidate_buffa::Validate as _;
-                    match request.validate().map_err(validation_error).and_then(|()| wire::request_from_pb(*request).map_err(|error| typed_error(&error, ConnectError::invalid_argument(error.to_string())))) {
+                    match request.validate().map_err(|error| validation_error(error, <pb::NativeRequest as buffa::MessageName>::FULL_NAME)).and_then(|()| wire::request_from_pb(*request).map_err(|error| typed_error(&error, ConnectError::invalid_argument(error.to_string())))) {
                         Ok(request) => request,
                         Err(error) => { let _sent = tx.try_send(Err(error)); return; }
                     }
@@ -773,6 +806,23 @@ async fn settle_cpu<T>(
 
 struct Implementation(Arc<Session>);
 impl Implementation {
+    fn validate_request(
+        &self,
+        request: &impl protovalidate_buffa::Validate,
+        message_type: &str,
+    ) -> std::result::Result<(), ConnectError> {
+        // The fixture can expose generated-validator defects through the actual unary HTTP2
+        // route. Production always validates this borrowed request exactly once.
+        #[cfg(test)]
+        if let ServiceEngine::Fixture(fixture) = self.0.engine.as_ref()
+            && let Some(error) = fixture.take_validation_error()
+        {
+            return Err(validation_error(error, message_type));
+        }
+        request
+            .validate()
+            .map_err(|error| validation_error(error, message_type))
+    }
     async fn session_status(
         &self,
         deadline: Option<std::time::Instant>,
@@ -800,7 +850,6 @@ fn authenticated(context: &connectrpc::RequestContext) -> std::result::Result<()
     let _identity = (peer.gid, peer.pid);
     Ok(())
 }
-#[protovalidate_buffa::connect_impl]
 impl bindings::NativeSemantic for Implementation {
     async fn status<'a>(
         &'a self,
@@ -850,6 +899,10 @@ impl bindings::NativeSemantic for Implementation {
         impl connectrpc::Encodable<pb::NativePackageReply> + Send + use<'a>,
     > {
         authenticated(&context)?;
+        self.validate_request(
+            request.view(),
+            <pb::NativePackageRequest as buffa::MessageName>::FULL_NAME,
+        )?;
         let request = request
             .view()
             .to_owned_message()
@@ -972,4 +1025,120 @@ pub(crate) async fn serve_fixture(
         terminate,
     )
     .await
+}
+
+#[cfg(test)]
+mod correction_tests {
+    use super::*;
+    use crate::envelope::{ValidationCoverage, ValidationExposure, ValidationOutcome};
+    fn violations(rule: &str, count: usize) -> protovalidate_buffa::ValidationError {
+        use protovalidate_buffa::{FieldPath, FieldPathElement, Subscript, Violation};
+        protovalidate_buffa::ValidationError {
+            violations: (0..count)
+                .map(|_| Violation {
+                    field: FieldPath {
+                        elements: vec![FieldPathElement {
+                            field_number: Some(1),
+                            field_name: Some("entries".into()),
+                            subscript: Some(Subscript::StringKey("private-map-key".into())),
+                            ..Default::default()
+                        }],
+                    },
+                    rule: FieldPath::default(),
+                    rule_id: rule.to_owned().into(),
+                    message: "private-message".into(),
+                    for_key: true,
+                })
+                .collect(),
+            ..Default::default()
+        }
+    }
+    fn roundtrip(error: protovalidate_buffa::ValidationError) -> super::super::Failure {
+        let transport =
+            validation_error(error, <pb::NativeRequest as buffa::MessageName>::FULL_NAME);
+        // The original typed validator cause remains upstream's source, independently of
+        // the sanitized canonical details and the application's authored failure envelope.
+        assert!(std::error::Error::source(&transport).is_some());
+        let Error::Refusal(failure) = transport_error(transport) else {
+            panic!("missing typed refusal")
+        };
+        failure
+    }
+    #[test]
+    fn native_origin_reports_exact_whole_violation_truncation_without_text_parsing() {
+        for (rule, count, coverage, emitted) in [
+            (
+                "required".to_owned(),
+                1,
+                ValidationCoverage::Complete,
+                Some(1),
+            ),
+            ("x".repeat(5000), 1, ValidationCoverage::Truncated, Some(0)),
+            ("x".repeat(1000), 8, ValidationCoverage::Truncated, None),
+        ] {
+            let failure = roundtrip(violations(&rule, count));
+            let text = serde_json::to_string(&failure).unwrap();
+            assert!(!text.contains("private-map-key"));
+            assert!(!text.contains("private-message"));
+            assert!(!text.contains("original_validation_diagnostic"));
+            let correction = failure.validation.unwrap();
+            assert_eq!(
+                correction.disclosure.source_violation_count,
+                Some(count as u64)
+            );
+            assert_eq!(correction.disclosure.coverage, coverage);
+            assert_eq!(
+                correction.disclosure.emitted_violation_count,
+                Some(correction.violations.len() as u64)
+            );
+            if let Some(emitted) = emitted {
+                assert_eq!(correction.disclosure.emitted_violation_count, Some(emitted));
+            }
+            assert_eq!(
+                correction.disclosure.selectors,
+                ValidationExposure::OmittedByPolicy
+            );
+            assert_eq!(
+                correction.disclosure.messages,
+                ValidationExposure::OmittedByPolicy
+            );
+            assert_eq!(
+                correction.disclosure.message_type.as_deref(),
+                Some("pse.code_intelligence.v1.NativeRequest")
+            );
+            assert!(correction.disclosure.descriptor_sha256.is_some());
+        }
+    }
+    #[test]
+    fn native_compile_and_evaluation_defects_keep_validator_phase_and_typed_origin() {
+        for (compile_error, runtime_error, expected) in [
+            (
+                Some("private compile diagnostic".into()),
+                None,
+                ValidationOutcome::CompileDefect,
+            ),
+            (
+                None,
+                Some("private evaluation diagnostic".into()),
+                ValidationOutcome::EvaluationDefect,
+            ),
+        ] {
+            let failure = roundtrip(protovalidate_buffa::ValidationError {
+                compile_error,
+                runtime_error,
+                ..Default::default()
+            });
+            assert!(matches!(
+                failure.phase,
+                super::super::FailurePhase::Validator
+            ));
+            let correction = failure.validation.unwrap();
+            assert_eq!(correction.disclosure.outcome, expected);
+            assert_eq!(
+                correction.disclosure.coverage,
+                ValidationCoverage::NotApplicable
+            );
+            assert!(correction.violations.is_empty());
+        }
+    }
 }

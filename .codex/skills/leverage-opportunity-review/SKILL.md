@@ -5,6 +5,9 @@ description: Compare complete options for identified codebase opportunities usin
 
 # Review library leverage options
 
+Optional [engineering inquiries](../pse-cli/references/engineering-inquiries.md) supply guarded
+evidence for comparing complete options; this review owns the recommendation.
+
 Recommend the best ways to address selected codebase opportunities. Use the opportunity account
 and accumulated library applicability as challengeable inputs, then investigate enough to judge
 complete options and their interactions. The result is a comparative judgment and bounded target

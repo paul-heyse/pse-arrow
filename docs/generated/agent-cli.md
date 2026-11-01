@@ -63,7 +63,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -116,7 +116,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --query <QUERY>
           Select a saved typed query from configuration
@@ -239,7 +239,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --owner <OWNER>
 
@@ -352,7 +352,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -472,7 +472,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --word
 
@@ -607,7 +607,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --grammar [<GRAMMAR>]
           Inspect the linked grammar's NODE_TYPES without acquiring sources or an analyzer
@@ -737,7 +737,7 @@ Options:
           [possible values: contains, exact, prefix, fuzzy]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --kind <KINDS>
 
@@ -869,7 +869,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --input <INPUT>
 
@@ -998,7 +998,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1118,7 +1118,7 @@ Options:
           [possible values: log, blame, pickaxe, pickaxe-lines]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1235,7 +1235,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1308,7 +1308,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Require the original source digest before constructing a preview
@@ -1348,7 +1348,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1382,7 +1382,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1416,7 +1416,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1453,7 +1453,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1490,7 +1490,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1530,7 +1530,7 @@ Options:
           Right-hand Rust expression
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -1578,7 +1578,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -1644,7 +1644,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -1710,7 +1710,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -1773,7 +1773,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -1839,7 +1839,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -1909,7 +1909,7 @@ Options:
           [default: smart]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --inside <INSIDE>
           Require an ancestor matching each native pattern
@@ -1989,7 +1989,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2042,7 +2042,7 @@ Options:
           MIR substring, or exact owning body path for facts (including nested closures/coroutines)
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2129,7 +2129,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2181,7 +2181,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2225,7 +2225,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --warm
           Submit the existing detached workspace check after preparation succeeds
@@ -2267,7 +2267,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2311,7 +2311,7 @@ Options:
           Associate this bundle and its children with an explicit agent session
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2363,7 +2363,7 @@ Options:
           [default: HEAD]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2482,7 +2482,7 @@ Options:
           [default: HEAD]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2595,7 +2595,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
   -p, --package <SPEC>
           Package to process (see `cargo help pkgid`)
@@ -2681,7 +2681,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2717,7 +2717,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2753,7 +2753,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2794,7 +2794,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2835,7 +2835,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2880,7 +2880,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2925,7 +2925,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -2977,7 +2977,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3025,7 +3025,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3071,7 +3071,7 @@ Options:
           [default: 30]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3117,7 +3117,7 @@ Options:
           [default: 30]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3159,7 +3159,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3193,7 +3193,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3230,7 +3230,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3271,7 +3271,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3311,7 +3311,7 @@ Options:
           Existing JSON file containing only the product request, not a transport wrapper
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3351,7 +3351,7 @@ Options:
           Product-owned investigate request; passive query never grants attachment permission
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3391,7 +3391,7 @@ Options:
           Initial product follow request; resume coordinates remain product-owned
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --samples <SAMPLES>
           Maximum whole snapshots emitted before observation stops
@@ -3447,7 +3447,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3494,7 +3494,7 @@ Options:
           Explicit target triple; default is the pinned rustc's observed host
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --kind <KIND>
           Possible values:
@@ -3607,7 +3607,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3646,7 +3646,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3695,7 +3695,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3741,7 +3741,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3775,7 +3775,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3814,7 +3814,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3855,7 +3855,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3896,7 +3896,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3934,7 +3934,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -3981,7 +3981,7 @@ Options:
           Query candidates for this argument ID or long option, rather than command descriptions
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4040,7 +4040,7 @@ Options:
           Query candidates for this argument ID or long option, rather than command descriptions
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4095,7 +4095,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4133,7 +4133,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4168,7 +4168,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4204,7 +4204,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4240,7 +4240,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4276,7 +4276,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4312,7 +4312,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4353,7 +4353,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4385,7 +4385,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4423,7 +4423,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --organization <ORGANIZATION>
           [default: default]
@@ -4467,7 +4467,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4502,7 +4502,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4537,7 +4537,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4572,7 +4572,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4607,7 +4607,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4643,7 +4643,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4678,7 +4678,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4710,7 +4710,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4746,7 +4746,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4784,7 +4784,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --long-hold
 
@@ -4825,7 +4825,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --long-hold
 
@@ -4866,7 +4866,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --json
 
@@ -4915,7 +4915,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -4955,7 +4955,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --limit <LIMIT>
           [default: 20]
@@ -5000,7 +5000,7 @@ Options:
           Explicit session association; never used as a filesystem path
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --resource-class <RESOURCE_CLASS>
           Explicit finite workload class; ordinary work keeps the configured host policy
@@ -5038,7 +5038,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5073,7 +5073,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5092,6 +5092,7 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  comparison          Compare explicitly addressed source, API, retained context or native world evidence
   schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
   payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
   outline             Read written declarations or document headings without semantic preparation
@@ -5133,7 +5134,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5169,6 +5170,8 @@ Options:
           Expand one selected semantic fact through its original native provider
 
           Possible values:
+          - associations:    Explain qualified source, generator, document and lifecycle connections
+          - relevance:       Explain original test/setup/assertion evidence without executing tests
           - adjacency
           - compatibility
           - visibility
@@ -5187,6 +5190,9 @@ Options:
           - hint
           - candidate
           - predicate
+
+      --semantic
+          Enrich association/relevance evidence through an explicitly prepared native world
 
       --adjacency <ADJACENCY>
           Selected acquired-artifact edges for --view adjacency; omission selects all kinds
@@ -5230,6 +5236,58 @@ Options:
 
 ~~~~
 
+## `pse inspect comparison`
+
+~~~~text
+Compare explicitly addressed source, API, retained context or native world evidence
+
+Usage: pse inspect comparison [OPTIONS] <--request <REQUEST>|--before-result <BEFORE_RESULT>>
+
+Options:
+  -C <checkout>
+
+
+      --request <REQUEST>
+          Complete versioned pair request. Exclusive with all pair flags
+
+      --before-result <BEFORE_RESULT>
+          Source selector or original opaque address; supplied guards are enforced unchanged
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --after-result <AFTER_RESULT>
+          Source selector or original opaque address for the after observation
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --view <VIEW>
+          [possible values: source, api, context, semantic]
+
+      --before-checkout <BEFORE_CHECKOUT>
+          Explicit original invocation owner for the before native/context address
+
+      --after-checkout <AFTER_CHECKOUT>
+          Explicit original invocation owner for the after native/context address
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
 ## `pse inspect schema`
 
 ~~~~text
@@ -5264,7 +5322,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5304,7 +5362,7 @@ Options:
           Fully qualified message within that artifact
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --input <INPUT>
           Original payload artifact
@@ -5372,7 +5430,7 @@ Options:
           Read the raw staging-index blob rather than working bytes
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --revision <REVISION>
           Read a committed blob; resolve the revision before returning its identity
@@ -5440,7 +5498,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --at-column <AT_COLUMN>
 
@@ -5517,7 +5575,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
 
@@ -5592,7 +5650,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --if-source <IF_SOURCE>
           Refuse if the original source digest differs
@@ -5702,7 +5760,7 @@ Options:
           Explicit target triple; default is the pinned rustc's observed host
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --kind <KIND>
           Possible values:
@@ -5810,7 +5868,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5857,7 +5915,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5907,7 +5965,7 @@ Options:
           [default: 4096]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -5964,7 +6022,7 @@ Options:
           [default: all]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6016,7 +6074,7 @@ Options:
           [default: HEAD]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6129,7 +6187,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
   -p, --package <SPEC>
           Package to process (see `cargo help pkgid`)
@@ -6216,7 +6274,7 @@ Options:
           Existing metadata snapshot; absence queries locked offline Cargo metadata without a build
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6258,7 +6316,7 @@ Options:
           Existing exact Cargo metadata; omission collects locked offline metadata without building
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6299,7 +6357,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6343,7 +6401,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --offset <OFFSET>
           [default: 0]
@@ -6399,7 +6457,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6449,7 +6507,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --session <SESSION>
 
@@ -6508,7 +6566,7 @@ Options:
           [default: 4096]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6533,6 +6591,9 @@ Options:
   -C <checkout>
 
 
+      --metadata <METADATA>
+          Explicit retained metadata to address alongside original admitted units
+
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
 
@@ -6546,7 +6607,7 @@ Options:
           [default: auto]
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6593,7 +6654,7 @@ Options:
 
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -6643,7 +6704,7 @@ Options:
           Conservatively select changed source owners and reverse dependencies
 
       --fields <FIELDS>
-          Select comma-separated payload fields while retaining identity, state and coverage
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --base <BASE>
           Git base for --changed, including observed index/worktree/untracked changes

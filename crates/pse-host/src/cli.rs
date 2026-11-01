@@ -64,7 +64,7 @@ pub(crate) struct Cli {
     /// Human output on terminals, JSON on pipes, or compact NDJSON observations.
     format: OutputFormat,
     #[arg(long, global = true, value_delimiter = ',')]
-    /// Select comma-separated payload fields while retaining identity, state and coverage.
+    /// Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices.
     fields: Option<Vec<String>>,
     #[arg(long, global = true)]
     /// Limit whole payload records; producer pages retain their omission and continuation facts.
@@ -669,6 +669,17 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<crate::investigation::Report>("search", &view)
         }
         "inspect" => envelope::schema::<investigation::Inspection>(command, view),
+        "inspect comparison" => {
+            envelope::schema::<investigation::comparison::Report>(command, view)
+        }
+        "inspect comparison request" => {
+            envelope::schema::<investigation::comparison::Request>(command, view)
+        }
+        "inspect context" => {
+            envelope::schema::<investigation::comparison::ContextExpansion>(command, view)
+        }
+        "inspect associations" => envelope::schema::<crate::associations::Report>(command, view),
+        "inspect relevance" => envelope::schema::<crate::relevance::Report>(command, view),
         "inspect schema" => envelope::schema::<crate::schema::Report>(command, view),
         "inspect schema compare" => {
             envelope::schema::<crate::schema::compare::Comparison>(command, view)
@@ -710,6 +721,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "inspect compiler-artifacts" => {
             envelope::schema::<crate::compiler_investigation::artifact::Observation>(command, view)
+        }
+        "inspect compiler-artifacts metadata" => {
+            envelope::schema::<investigation::comparison::ContextInspection>(command, view)
         }
         "inspect compiler-facts" => {
             envelope::schema::<crate::compiler_investigation::facts::Report>(command, view)
@@ -765,7 +779,10 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "code session stop" => envelope::schema::<control::ControlView>(command, view),
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
-        "commands" | "help" => envelope::schema::<
+        "commands" => envelope::schema::<
+            crate::catalog::description::Page<crate::catalog::description::Summary>,
+        >(command, view),
+        "help" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
         "commands candidates" | "help candidates" => envelope::schema::<
@@ -1611,6 +1628,9 @@ fn catalog_dispatch(
         presentation.format = OutputFormat::Json;
     }
     if let Some(argument) = &args.argument {
+        presentation.validate_for::<description::Page<description::Candidate>>(&format!(
+            "{command} candidates"
+        ))?;
         let mut provider_failures = Vec::new();
         let page = description::candidates(
             catalog::command_tree(),
@@ -1681,8 +1701,15 @@ fn catalog_dispatch(
         }
         Ok(presentation.emit(response)?)
     } else {
-        let page = catalog::commands(&args.path, recursive, &window);
-        Ok(presentation.emit(catalog_envelope(page, command, args.path.join(" ")))?)
+        if recursive {
+            presentation.validate_for::<description::Page<description::Summary>>(command)?;
+            let page = description::summaries(catalog::command_tree(), &args.path, true, &window);
+            Ok(presentation.emit(catalog_envelope(page, command, args.path.join(" ")))?)
+        } else {
+            presentation.validate_for::<description::Page<description::Description>>(command)?;
+            let page = catalog::commands(&args.path, false, &window);
+            Ok(presentation.emit(catalog_envelope(page, command, args.path.join(" ")))?)
+        }
     }
 }
 
@@ -1870,15 +1897,31 @@ pub fn main(kind: BinKind) -> ExitCode {
         Ok(code) => ExitCode::from(u8::try_from(code).unwrap_or(125)),
         Err(error) => {
             if !raw_protocol {
-                let outcome = if matches!(&error,HostError::Io(error) if error.kind()==io::ErrorKind::InvalidInput)
-                {
+                let invalid_request = match &error {
+                    HostError::Io(error) => error.kind() == io::ErrorKind::InvalidInput,
+                    HostError::Investigation(error) => matches!(
+                        error,
+                        crate::investigation::Error::Invalid(_)
+                            | crate::investigation::Error::Json(_)
+                            | crate::investigation::Error::Reference(_)
+                            | crate::investigation::Error::Configuration(_)
+                    ),
+                    HostError::Schema(error) => matches!(
+                        error,
+                        crate::schema::SchemaError::Invalid(_)
+                            | crate::schema::SchemaError::Decode(_)
+                            | crate::schema::SchemaError::Json(_)
+                    ),
+                    _ => false,
+                };
+                let outcome = if invalid_request {
                     CommandOutcome::Usage
                 } else {
                     CommandOutcome::BoundaryFailure
                 };
                 return ExitCode::from(
                     u8::try_from(failure(
-                        ErrorRecord::from_typed(&error, &policy),
+                        ErrorRecord::from_host(&error, &policy),
                         outcome,
                         &presentation,
                         Some(&error),
@@ -2303,7 +2346,8 @@ mod tests {
         );
         snapshot(
             "commands",
-            crate::catalog::commands(
+            crate::catalog::description::summaries(
+                crate::catalog::command_tree(),
                 &["native".into()],
                 false,
                 &crate::catalog::description::Window::default(),

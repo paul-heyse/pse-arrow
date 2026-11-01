@@ -47,6 +47,7 @@ pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) ->
             lspf::ClientError::Remote(error) => Error::Refusal(super::Failure {
                 phase: super::FailurePhase::Provider,
                 observed_cancellation: None,
+                validation: None,
                 state: match error.code {
                     -32800 | -32802 => super::FailureState::Cancelled,
                     -32801 => super::FailureState::Stale,
@@ -574,6 +575,7 @@ impl Engine {
         let limit = query.limit;
         match &query.kind {
             Kind::Importable { .. }
+            | Kind::DocumentationLinks
             | Kind::Body
             | Kind::Compatibility { .. }
             | Kind::Origins { .. }

@@ -131,9 +131,9 @@ newer main claims, so keep the qualified strict protoc route. No version bump is
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| F01 | planned | Parser/catalog and reference adapters | Concise discovery and opaque addresses exercised by actual callers |
-| F02 | planned | Request/configuration and envelope adapters | Effective input and actionable typed correction with original diagnostics |
-| F03 | planned | Schema/payload and RPC inspection | Structured violations with explicit redaction/truncation/defect limits |
+| F01 | in progress | Parser/catalog and reference adapters | Concise discovery and opaque addresses exercised by actual callers |
+| F02 | in progress | Request/configuration and envelope adapters | Effective input and actionable typed correction with original diagnostics |
+| F03 | in progress | Schema/payload and RPC inspection | Structured violations with explicit redaction/truncation/defect limits |
 
 **Proposed verification:** targeted parser/envelope/reference/schema checks and actual public
 interactions accompany changes; regenerate authored contract changes. E03 consumes F01–F03

@@ -195,10 +195,10 @@ meanings remain separate under AP-04/DP-04/DP-09.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| D01 | planned | Source/API comparison owner | Qualified original differences and guarded before/after inspection |
-| D02 | planned | Investigation/document bridge owner | Read-only associations preserving native authority, basis and status |
-| D03 | planned | Native context comparison owner | Public selected-world comparison with cfg and ambiguous mapping acceptance |
-| D04 | planned | Cargo/unit context comparison owner | Aligned original package/unit deltas, qualified correspondence and independently useful passive inspection |
+| D01 | in progress | Source/API comparison owner | Qualified original differences and guarded before/after inspection |
+| D02 | in progress | Investigation/document bridge owner | Read-only associations preserving native authority, basis and status |
+| D03 | in progress | Native context comparison owner | Public selected-world comparison with cfg and ambiguous mapping acceptance |
+| D04 | in progress | Cargo/unit context comparison owner | Aligned original package/unit deltas, qualified correspondence and independently useful passive inspection |
 
 ## Verification and handoff
 

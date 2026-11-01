@@ -72,6 +72,50 @@ pub struct Presentation {
 fn invalid(detail: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, detail.into())
 }
+/// Invalid presentation input, preserving correction independently of I/O failure.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+#[error("{message}")]
+#[diagnostic(code(authoring::parse::unknown_key), help("{guidance}"))]
+pub struct PresentationError {
+    /// Original rejected selection.
+    pub message: String,
+    /// Supported selection grammar and actual payload choices.
+    pub guidance: String,
+    /// Actual schema-owned top-level choices, not a second field catalog.
+    pub choices: Vec<String>,
+}
+impl pse_diagnostics::TypedDiagnostic for PresentationError {
+    fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
+        Some(pse_diagnostics::DiagnosticCode::AuthoringParseUnknownKey)
+    }
+}
+impl PresentationError {
+    fn requires_object() -> io::Error {
+        io::Error::new(io::ErrorKind::InvalidInput, Self { message: "--fields requires an object payload".into(), guidance: "Use schema to inspect this command's payload. --fields selects literal top-level object names; it cannot project scalar or positional array payloads.".into(), choices: Vec::new() })
+    }
+    fn invalid_field(field: &str, choices: Vec<String>) -> io::Error {
+        let guidance = format!(
+            "--fields accepts comma-separated literal top-level payload names; dots and slashes do not navigate nested data. Valid choices: {}. Use schema for full metadata.",
+            if choices.is_empty() {
+                "unavailable for this payload".into()
+            } else {
+                choices.join(", ")
+            }
+        );
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            Self {
+                message: format!("unknown payload field {field}"),
+                guidance,
+                choices,
+            },
+        )
+    }
+    /// Recover native presentation metadata through existing fallible writer boundaries.
+    pub fn from_io(error: &io::Error) -> Option<&Self> {
+        error.get_ref()?.downcast_ref::<Self>()
+    }
+}
 pub(super) fn identity(command: &str, view: &Presentation) -> String {
     let command = command.replace(' ', "/");
     let fields = view.fields.as_ref().map_or("full".into(), |fields| {
@@ -118,6 +162,50 @@ fn record_array(schema: &Value) -> bool {
         && schema.get("prefixItems").is_none()
         && schema.get("minItems").and_then(Value::as_u64).unwrap_or(0) == 0
 }
+fn finite_properties(value: &Value, root: &Schema) -> Option<serde_json::Map<String, Value>> {
+    let value = dereference(value, root);
+    if let Some(properties) = value.get("properties").and_then(Value::as_object) {
+        return Some(properties.clone());
+    }
+    let variants = value
+        .get("oneOf")
+        .or_else(|| value.get("anyOf"))?
+        .as_array()?;
+    let mut properties = serde_json::Map::new();
+    for variant in variants {
+        for (name, shape) in finite_properties(variant, root)? {
+            if let Some(previous) = properties.remove(&name) {
+                properties.insert(name, serde_json::json!({"anyOf":[previous,shape]}));
+            } else {
+                properties.insert(name, shape);
+            }
+        }
+    }
+    Some(properties)
+}
+fn permits_object(value: &Value, root: &Schema) -> bool {
+    let value = dereference(value, root);
+    if let Some(allowed) = value.as_bool() {
+        return allowed;
+    }
+    match value.get("type") {
+        Some(Value::String(kind)) => return kind == "object",
+        Some(Value::Array(kinds)) => {
+            return kinds.iter().any(|kind| kind.as_str() == Some("object"));
+        }
+        _ => {}
+    }
+    if let Some(variants) = value
+        .get("oneOf")
+        .or_else(|| value.get("anyOf"))
+        .and_then(Value::as_array)
+    {
+        return variants.iter().any(|variant| permits_object(variant, root));
+    }
+    // Opaque JSON and open provider shapes have no declared scalar/object restriction.
+    // Their actual object shape and duplicate fields are checked before publication.
+    true
+}
 /// Serialization-direction schema for the exact full/projected view.
 pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<Schema> {
     let mut schema = SchemaSettings::draft2020_12()
@@ -129,6 +217,24 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         .ok_or_else(|| invalid("envelope payload schema missing"))?;
     let mut payload = dereference(payload, &schema);
     if let Some(fields) = &view.fields {
+        if payload.get("properties").is_none()
+            && let Some(properties) = finite_properties(&payload, &schema)
+        {
+            payload = serde_json::json!({"type":"object","properties":properties});
+        }
+        if payload.get("properties").is_none() && !permits_object(&payload, &schema) {
+            return Err(PresentationError::requires_object());
+        }
+        let choices = payload
+            .get("properties")
+            .and_then(Value::as_object)
+            .map(|properties| properties.keys().cloned().collect::<Vec<_>>())
+            .unwrap_or_default();
+        for field in fields {
+            if field.is_empty() || (!choices.is_empty() && !choices.contains(field)) {
+                return Err(PresentationError::invalid_field(field, choices));
+            }
+        }
         if payload.get("properties").is_none() {
             let field_type = payload
                 .get("additionalProperties")
@@ -139,10 +245,13 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         let properties = payload
             .get_mut("properties")
             .and_then(Value::as_object_mut)
-            .ok_or_else(|| invalid("--fields requires an object payload"))?;
+            .ok_or_else(PresentationError::requires_object)?;
         for field in fields {
             if !properties.contains_key(field) {
-                return Err(invalid(format!("unknown payload field {field}")));
+                return Err(PresentationError::invalid_field(
+                    field,
+                    properties.keys().cloned().collect(),
+                ));
             }
         }
         properties.retain(|name, _| fields.contains(name));
@@ -250,7 +359,10 @@ fn present<'a>(
         if let Some(requested) = &view.fields {
             for field in requested {
                 if !fields.contains_key(field) {
-                    return Err(invalid(format!("unknown payload field {field}")));
+                    return Err(PresentationError::invalid_field(
+                        field,
+                        fields.keys().cloned().collect(),
+                    ));
                 }
             }
         }
@@ -281,7 +393,7 @@ fn present<'a>(
         Presented::Object(presented)
     } else {
         if view.fields.is_some() {
-            return Err(invalid("--fields requires an object payload"));
+            return Err(PresentationError::requires_object());
         }
         records(
             raw,

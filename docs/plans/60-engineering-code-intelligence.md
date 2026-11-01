@@ -280,3 +280,12 @@ them. Existing Plan61/62 preparation, typed producers and original-evidence work
 consumed rather than rescheduled. Remaining companions retain their own package states;
 E03/Q01 engineering journeys and final qualification remain separate. B04 and deeper compiler,
 indexing and remote alternatives retain their observable triggers.
+
+Remaining-scope implementation is active from `cea33a310`, with target contracts published at
+`2412905bc` before source changes. Comparison, association/relevance, agent correction and the
+shared optional inquiry guidance are integrated. Targeted native-host units, public source and
+handoff/correction consumers, and canonical document-owner fixtures pass. Integration repairs
+preserve primary source guards, unknown comparison prefixes, bounded profile indexes and
+original validation disclosure. These checks do not close assembled qualification. The real
+two-owner native comparison, assembled native/API/lifetime journeys and Q01 scope-end checks
+remain next, alongside the independent quantity-registry inquiry already exercised publicly.

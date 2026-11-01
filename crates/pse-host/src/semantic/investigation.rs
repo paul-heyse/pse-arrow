@@ -101,6 +101,8 @@ pub struct OriginObservation {
 /// Typed views consumed by lifetime, compatibility, visibility and provenance inspection.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct NativeInvestigationFacts {
+    /// Authored Rust intra-document links resolved under this exact native owner.
+    pub documentation_links: Vec<DocumentationLinkObservation>,
     /// Body mapping for the selected original context.
     pub body: Option<NativeBodyObservation>,
     /// Requested pairwise comparison.
@@ -110,5 +112,19 @@ pub struct NativeInvestigationFacts {
     /// Source-origin observations, preserving multiplicity.
     pub origins: Vec<OriginObservation>,
     /// Question-level coverage limits.
+    pub limitations: Vec<String>,
+}
+/// A written Rustdoc symbol link and its separately qualified native target.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct DocumentationLinkObservation {
+    /// Written destination, preserving unresolved entries.
+    pub written: String,
+    /// Original containing declaration, when uniquely mapped.
+    pub owner: Option<NativeLocation>,
+    /// Native resolved original source location, absent for unmappable or unresolved targets.
+    pub target: Option<NativeLocation>,
+    /// Requested namespace, when explicitly disambiguated.
+    pub namespace: Option<String>,
+    /// Mapping and resolution qualifications.
     pub limitations: Vec<String>,
 }

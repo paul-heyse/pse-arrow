@@ -3,10 +3,15 @@
 //! Command presentation, independent subject evidence and serialization contracts.
 mod diagnostic;
 mod presentation;
+mod validation;
 pub use diagnostic::{ErrorRecord, RedactionPolicy};
-pub use presentation::{OutputFormat, Presentation, schema, write};
+pub use presentation::{OutputFormat, Presentation, PresentationError, schema, write};
 use schemars::JsonSchema;
 use serde::Serialize;
+pub use validation::{
+    ValidationCorrection, ValidationCoverage, ValidationDisclosure, ValidationExposure,
+    ValidationOutcome, ValidationPathElement, ValidationSelector, ValidationViolation,
+};
 
 /// Shared invocation presentation, selected once by the command boundary.
 #[derive(Clone, Debug)]
@@ -21,6 +26,10 @@ pub struct OutputOptions {
     pub artifact_directory: Option<std::path::PathBuf>,
 }
 impl OutputOptions {
+    /// Validate selected payload fields from the same schema before starting providers.
+    pub fn validate_for<T: JsonSchema>(&self, command: &str) -> std::io::Result<()> {
+        schema::<T>(command, &self.presentation).map(|_| ())
+    }
     /// Emit a page already selected by its producer, without retaining a rebuildable full answer.
     /// The producer supplies omission facts and has applied the requested record allowance.
     pub fn emit_page<T: Serialize + JsonSchema>(

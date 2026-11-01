@@ -336,6 +336,69 @@ fn invalid_projected_view_is_rejected_before_retaining_an_artifact() {
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
 }
 #[test]
+fn presentation_preflight_preserves_typed_correction_and_valid_top_level_choices() {
+    let options = OutputOptions {
+        format: OutputFormat::Json,
+        presentation: Presentation {
+            fields: Some(vec!["records.path".into()]),
+            budget: None,
+        },
+        invocation_id: CliInvocationId::new(),
+        artifact_directory: None,
+    };
+    let error = options.validate_for::<Payload>("fixture").unwrap_err();
+    let cause = PresentationError::from_io(&error).unwrap();
+    assert!(cause.choices.contains(&"records".into()));
+    let error = crate::HostError::Io(error);
+    let record = ErrorRecord::from_host(&error, &RedactionPolicy::default());
+    assert_eq!(record.class.as_deref(), Some("authoring.parse"));
+    assert_eq!(record.code.as_deref(), Some("authoring.parse.unknown_key"));
+    assert!(record.help.unwrap().contains("top-level"));
+    assert!(record.parser_context["valid_fields"].contains("records"));
+}
+#[test]
+fn untagged_payload_choices_come_from_each_existing_variant_schema() {
+    #[derive(Serialize, JsonSchema)]
+    #[serde(untagged)]
+    enum Union {
+        First { first: String },
+        Second { second: usize },
+    }
+    let error = schema::<Union>(
+        "union",
+        &Presentation {
+            fields: Some(vec!["unsupported".into()]),
+            budget: None,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        PresentationError::from_io(&error).unwrap().choices,
+        ["first", "second"]
+    );
+    let response = Envelope::response(
+        "union",
+        "original first variant",
+        Union::First {
+            first: "visible".into(),
+        },
+    );
+    let mut frame = Vec::new();
+    write(
+        &mut frame,
+        response,
+        OutputFormat::Json,
+        &Presentation {
+            fields: Some(vec!["first".into()]),
+            budget: None,
+        },
+    )
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&frame).unwrap();
+    assert_eq!(value["payload"]["first"], "visible");
+    let _ = Union::Second { second: 3 };
+}
+#[test]
 fn exit_classes_keep_launch_wait_workload_failure_and_settlement_distinct() {
     let mut response = Envelope::response("wait", "still active", ());
     response.subject_state = SubjectState::Launched;
@@ -503,6 +566,21 @@ fn ordinary_causes_and_diagnostic_delegation_survive_as_independent_relationship
     assert_eq!(delegated.labels[0].byte_offset, 4);
 }
 #[test]
+fn diagnostic_report_wrapping_preserves_rich_metadata_before_envelope_capture() {
+    let error = Parent {
+        src: miette::NamedSource::new("模型.rs", "abc\né 🦀".to_owned()),
+        children: vec![Leaf {
+            span: (4, 2).into(),
+        }],
+    };
+    let report = miette::Report::new(error).wrap_err("original request context");
+    let record = ErrorRecord::from_diagnostic(report.as_ref(), None, &RedactionPolicy::default());
+    let json = serde_json::to_string(&record).unwrap();
+    assert!(json.contains("模型.rs"));
+    assert!(json.contains("correct the authored location"));
+    assert!(json.contains("byte_offset"));
+}
+#[test]
 fn early_format_selection_does_not_interpret_child_options() {
     let args = |values: &[&str]| {
         values
@@ -637,6 +715,28 @@ fn retained_full_response_precedes_projection_and_has_matching_identity_and_dige
     let value: serde_json::Value = serde_json::from_slice(&projected).unwrap();
     assert_eq!(value["view"]["omitted_records"], 3);
     assert_eq!(value["artifacts"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn opaque_projection_treats_punctuation_as_literal_top_level_names() {
+    let payload = serde_json::json!({"actual.name":1,"path/key":2,"actual":{"name":3}});
+    let view = Presentation {
+        fields: Some(vec!["actual.name".into(), "path/key".into()]),
+        budget: None,
+    };
+    let mut output = Vec::new();
+    write(
+        &mut output,
+        Envelope::response("opaque", "literal projection", payload),
+        OutputFormat::Json,
+        &view,
+    )
+    .unwrap();
+    let response: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(
+        response["payload"],
+        serde_json::json!({"actual.name":1,"path/key":2})
+    );
 }
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[error("native numerical observation")]
