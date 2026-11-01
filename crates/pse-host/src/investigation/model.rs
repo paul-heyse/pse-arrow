@@ -897,6 +897,9 @@ impl ResultReference {
 /// Compact row with original witnesses, not repeated provider metadata.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct SearchResult {
+    /// Native written source containment/call context, preserving its original source identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_relationship: Option<crate::source_query::SourceRelationship>,
     /// Shared source identifier.
     pub source: String,
     /// Native result kind.
@@ -1359,6 +1362,7 @@ mod tests {
             }),
         });
         let row = SearchResult {
+            source_relationship: None,
             source: source.id.clone(),
             kind: "text".into(),
             name: None,

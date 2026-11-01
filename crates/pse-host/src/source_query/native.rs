@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Demand-aware native structural rules, with no count-before-production pass.
 use super::*;
+use ast_grep_core::{Matcher as _, meta_var::MetaVariable};
 use std::collections::BTreeMap;
 use tree_sitter::StreamingIterator as _;
 
@@ -14,6 +15,45 @@ pub struct NativeMatches {
     pub complete: bool,
     /// Parsing recovered syntax rather than establishing valid Rust.
     pub recovery: bool,
+    /// Qualifying witnesses seen; exact only when complete is true.
+    pub total_matches: usize,
+    /// Native template edits retain matcher-consumed extents independently from full nodes.
+    pub(crate) edits: Vec<EditCandidate>,
+}
+
+/// Requested upstream work, independent from retained result payload size.
+#[derive(Clone, Copy, Debug)]
+pub enum SelectionDemand {
+    /// Stop immediately after the first positive witness.
+    Witness,
+    /// Stop after N witnesses; no exact omitted count is claimed.
+    First(usize),
+    /// Examine every candidate and retain all rows.
+    Inventory,
+    /// Examine every candidate but retain at most this many rows.
+    ExactTotal {
+        /// Maximum retained rows; every qualifying witness is counted.
+        retain: usize,
+    },
+}
+impl SelectionDemand {
+    fn retain(self) -> usize {
+        match self {
+            Self::Witness => 1,
+            Self::First(n) | Self::ExactTotal { retain: n } => n,
+            Self::Inventory => usize::MAX,
+        }
+    }
+    fn stop(self, seen: usize) -> bool {
+        matches!(self, Self::Witness | Self::First(_)) && seen >= self.retain()
+    }
+}
+
+pub(super) struct RuleSelection<'a> {
+    pub demand: SelectionDemand,
+    pub captures: &'a [String],
+    pub template: Option<&'a TemplateFix>,
+    pub containing: Option<std::ops::Range<usize>>,
 }
 
 /// One compatible immutable native selector, shared only for the owning request.
@@ -48,6 +88,14 @@ impl std::fmt::Debug for ParsedSyntax {
     }
 }
 impl ParsedSyntax {
+    pub(super) fn recovery_regions(&self, source: &SourceText) -> Vec<SourceLocator> {
+        self.tree
+            .root()
+            .dfs()
+            .filter(|node| node.is_error() || node.is_missing())
+            .map(|node| locator(source, node.range()))
+            .collect()
+    }
     /// Parse once from the exact acquired source; no reparsing is needed for another selector.
     pub fn new(source: &SourceText) -> Result<Self, QueryError> {
         Ok(Self {
@@ -55,6 +103,44 @@ impl ParsedSyntax {
                 StrDoc::try_new(source.text(), RustGrammar).map_err(QueryError::Parse)?,
             ),
         })
+    }
+    /// Parse with the native progress callback; cancellation is an incomplete acquisition.
+    pub fn cancellable(
+        source: &SourceText,
+        token: &CancellationToken,
+    ) -> Result<Option<Self>, QueryError> {
+        use std::ops::ControlFlow;
+        if token.is_cancelled() {
+            return Ok(None);
+        }
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&RustGrammar.get_ts_language())
+            .map_err(|error| QueryError::Parse(error.to_string()))?;
+        let mut progress = |_: &tree_sitter::ParseState| {
+            if token.is_cancelled() {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        };
+        let mut input = |offset, _| &source.text().as_bytes()[offset..];
+        let tree = parser.parse_with_options(
+            &mut input,
+            None,
+            Some(tree_sitter::ParseOptions::new().progress_callback(&mut progress)),
+        );
+        match tree {
+            Some(tree) => Ok(Some(Self {
+                tree: AstGrep::doc(StrDoc {
+                    src: source.text().into(),
+                    lang: RustGrammar,
+                    tree,
+                }),
+            })),
+            None if token.is_cancelled() => Ok(None),
+            None => Err(QueryError::Parse("native parser returned no tree".into())),
+        }
     }
 }
 impl CompiledSyntax {
@@ -98,16 +184,49 @@ impl CompiledSyntax {
         limit: Option<usize>,
         token: &CancellationToken,
     ) -> Result<NativeMatches, QueryError> {
+        self.select(
+            source,
+            parsed,
+            limit.map_or(SelectionDemand::Inventory, SelectionDemand::First),
+            None,
+            token,
+        )
+    }
+    /// Select under an explicit demand and optional full containment constraint.
+    /// Tree-sitter cursor byte ranges intersect; this boundary independently checks every capture.
+    pub fn select(
+        &self,
+        source: &SourceText,
+        parsed: &ParsedSyntax,
+        demand: SelectionDemand,
+        containing: Option<std::ops::Range<usize>>,
+        token: &CancellationToken,
+    ) -> Result<NativeMatches, QueryError> {
         if token.is_cancelled() {
             return Ok(NativeMatches {
                 matches: Vec::new(),
                 complete: false,
                 recovery: parsed.tree.root().get_inner_node().has_error(),
+                total_matches: 0,
+                edits: Vec::new(),
             });
         }
         match self {
-            Self::Rule(matcher) => rule_matches(source, parsed, matcher, limit, token),
-            Self::TreeSitter(query) => tree_sitter_matches(source, parsed, query, limit, token),
+            Self::Rule(matcher) => select_rule(
+                source,
+                parsed,
+                matcher,
+                RuleSelection {
+                    demand,
+                    captures: &[],
+                    template: None,
+                    containing,
+                },
+                token,
+            ),
+            Self::TreeSitter(query) => {
+                tree_sitter_matches(source, parsed, query, demand, containing, token)
+            }
         }
     }
 }
@@ -119,28 +238,56 @@ pub fn native_rule(
     limit: Option<usize>,
     token: &CancellationToken,
 ) -> Result<NativeMatches, QueryError> {
-    CompiledSyntax::rule(rule)?.evaluate(source, &ParsedSyntax::new(source)?, limit, token)
+    let selector = CompiledSyntax::rule(rule)?;
+    let Some(parsed) = ParsedSyntax::cancellable(source, token)? else {
+        return Ok(NativeMatches {
+            matches: Vec::new(),
+            complete: false,
+            recovery: false,
+            total_matches: 0,
+            edits: Vec::new(),
+        });
+    };
+    selector.evaluate(source, &parsed, limit, token)
 }
-fn rule_matches(
+pub(super) fn select_rule(
     source: &SourceText,
     parsed: &ParsedSyntax,
     matcher: &ast_grep_config::RuleCore,
-    limit: Option<usize>,
+    selection: RuleSelection<'_>,
     token: &CancellationToken,
 ) -> Result<NativeMatches, QueryError> {
     let root = parsed.tree.root();
     let mut recovery = root.get_inner_node().has_error();
     let mut matches = Vec::new();
     let mut complete = true;
+    let mut total_matches = 0;
+    let mut edits = Vec::new();
+    let kinds = matcher.potential_kinds();
     for node in root.dfs() {
-        if token.is_cancelled() || limit.is_some_and(|limit| matches.len() >= limit) {
+        if token.is_cancelled() || selection.demand.stop(total_matches) {
             complete = false;
             break;
         }
         recovery |= node.is_error() || node.is_missing();
+        if kinds
+            .as_ref()
+            .is_some_and(|kinds| !kinds.contains(node.kind_id().into()))
+        {
+            continue;
+        }
         let Some(matched) = matcher.match_node(node) else {
             continue;
         };
+        if selection.containing.as_ref().is_some_and(|range| {
+            matched.range().start < range.start || matched.range().end > range.end
+        }) {
+            continue;
+        }
+        total_matches += 1;
+        if matches.len() >= selection.demand.retain() {
+            continue;
+        }
         let mut captures = Vec::new();
         for variable in matched.get_env().get_matched_variables() {
             let (name, sequence) = match variable {
@@ -148,6 +295,9 @@ fn rule_matches(
                 MetaVariable::MultiCapture(name) => (name, true),
                 _ => continue,
             };
+            if !selection.captures.is_empty() && !selection.captures.contains(&name) {
+                continue;
+            }
             let nodes = if sequence {
                 matched.get_env().get_multiple_matches(&name)
             } else {
@@ -171,21 +321,36 @@ fn rule_matches(
             });
         }
         captures.sort_by(|a, b| a.name.cmp(&b.name));
+        if let Some(template) = selection.template {
+            let edit = matched.replace_by(template);
+            edits.push(EditCandidate::new(
+                source.identity().clone(),
+                edit.position..edit.position + edit.deleted_length,
+                String::from_utf8(edit.inserted_text)
+                    .map_err(|error| QueryError::Parse(error.to_string()))?,
+            ));
+        }
         matches.push(SyntaxMatch {
             index: matches.len(),
             locator: locator(source, matched.range()),
             kind: matched.kind().into_owned(),
             text: matched.text().into_owned(),
             captures,
+            relationship: None,
         });
     }
     if token.is_cancelled() {
         complete = false;
     }
+    if !token.is_cancelled() {
+        explain(source, &mut matches);
+    }
     Ok(NativeMatches {
         matches,
         complete,
         recovery,
+        total_matches,
+        edits,
     })
 }
 
@@ -196,13 +361,24 @@ pub fn tree_sitter_query(
     limit: Option<usize>,
     token: &CancellationToken,
 ) -> Result<NativeMatches, QueryError> {
-    CompiledSyntax::tree_sitter(query)?.evaluate(source, &ParsedSyntax::new(source)?, limit, token)
+    let selector = CompiledSyntax::tree_sitter(query)?;
+    let Some(parsed) = ParsedSyntax::cancellable(source, token)? else {
+        return Ok(NativeMatches {
+            matches: Vec::new(),
+            complete: false,
+            recovery: false,
+            total_matches: 0,
+            edits: Vec::new(),
+        });
+    };
+    selector.evaluate(source, &parsed, limit, token)
 }
 fn tree_sitter_matches(
     source: &SourceText,
     parsed: &ParsedSyntax,
     query: &tree_sitter::Query,
-    limit: Option<usize>,
+    demand: SelectionDemand,
+    containing: Option<std::ops::Range<usize>>,
     token: &CancellationToken,
 ) -> Result<NativeMatches, QueryError> {
     use std::ops::ControlFlow;
@@ -217,18 +393,30 @@ fn tree_sitter_matches(
     };
     let mut matches = Vec::new();
     let mut complete = true;
+    let mut total_matches = 0;
     {
         let options = tree_sitter::QueryCursorOptions::new().progress_callback(&mut progress);
         let mut native =
             cursor.matches_with_options(query, root, source.text().as_bytes(), options);
         while let Some(found) = native.next() {
-            if token.is_cancelled() || limit.is_some_and(|limit| matches.len() >= limit) {
+            if token.is_cancelled() || demand.stop(total_matches) {
                 complete = false;
                 break;
             }
             let Some(first) = found.captures().first() else {
                 continue;
             };
+            if containing.as_ref().is_some_and(|range| {
+                found.captures().iter().any(|capture| {
+                    capture.node.start_byte() < range.start || capture.node.end_byte() > range.end
+                })
+            }) {
+                continue;
+            }
+            total_matches += 1;
+            if matches.len() >= demand.retain() {
+                continue;
+            }
             let start = found
                 .captures()
                 .iter()
@@ -262,6 +450,7 @@ fn tree_sitter_matches(
                         nodes,
                     })
                     .collect(),
+                relationship: None,
             });
         }
     }
@@ -273,7 +462,12 @@ fn tree_sitter_matches(
     if token.is_cancelled() {
         complete = false;
     }
+    if !token.is_cancelled() {
+        explain(source, &mut matches);
+    }
     Ok(NativeMatches {
+        total_matches,
+        edits: Vec::new(),
         matches,
         complete,
         recovery: root.has_error(),
@@ -283,6 +477,57 @@ fn tree_sitter_matches(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn demand_totals_containment_and_parse_cancellation_preserve_limits() {
+        let source = SourceText::new(
+            "/demand.rs".into(),
+            "fn f(){ outer(inner(a)); other(b); }".into(),
+        )
+        .unwrap();
+        let token = CancellationToken::new();
+        let parsed = ParsedSyntax::cancellable(&source, &token).unwrap().unwrap();
+        let selector =
+            CompiledSyntax::rule(&serde_json::json!({"kind":"call_expression"})).unwrap();
+        let witness = selector
+            .select(&source, &parsed, SelectionDemand::Witness, None, &token)
+            .unwrap();
+        assert_eq!(witness.matches.len(), 1);
+        assert!(!witness.complete);
+        let counted = selector
+            .select(
+                &source,
+                &parsed,
+                SelectionDemand::ExactTotal { retain: 1 },
+                None,
+                &token,
+            )
+            .unwrap();
+        assert_eq!(counted.total_matches, 3);
+        assert_eq!(counted.matches.len(), 1);
+        assert!(counted.complete);
+        let selector = CompiledSyntax::tree_sitter(
+            "(call_expression function: (_) @function arguments: (arguments) @args)",
+        )
+        .unwrap();
+        let start = source.text().find("inner").unwrap();
+        let bounded = selector
+            .select(
+                &source,
+                &parsed,
+                SelectionDemand::Inventory,
+                Some(start..start + "inner(a)".len()),
+                &token,
+            )
+            .unwrap();
+        assert_eq!(bounded.matches.len(), 1);
+        assert_eq!(bounded.matches[0].text, "inner(a)");
+        token.cancel();
+        assert!(
+            ParsedSyntax::cancellable(&source, &token)
+                .unwrap()
+                .is_none()
+        );
+    }
     #[test]
     fn native_rules_scope_bindings_and_first_demand() {
         let source = SourceText::new(
@@ -372,6 +617,21 @@ mod tests {
                 .matches
                 .len(),
             1
+        );
+    }
+    #[test]
+    fn explicit_native_stop_boundary_excludes_a_nested_declaration() {
+        let source = SourceText::new(
+            "/owners.rs".into(),
+            "fn outer(){ foo(); fn nested(){ foo(); } }".into(),
+        )
+        .unwrap();
+        let rule = serde_json::json!({"all":[{"pattern":"foo()"},{"inside":{"kind":"function_item","has":{"kind":"identifier","regex":"^outer$","field":"name"},"stopBy":{"kind":"function_item"}}}]});
+        let result = native_rule(&source, &rule, None, &CancellationToken::new()).unwrap();
+        assert_eq!(result.matches.len(), 1);
+        assert_eq!(
+            result.matches[0].locator.range.byte_start,
+            source.text().find("foo()").unwrap()
         );
     }
     #[test]

@@ -10,7 +10,9 @@ use std::ops::Range;
 
 mod acquisition;
 pub use acquisition::{SourceIdentity, SourceOrigin, SourceRequest, SourceText};
+mod facts;
 mod navigation;
+pub use facts::{AttributeMeta, InterpretedValue, SourceFact, ValueMapping};
 pub use navigation::byte_offset;
 pub(crate) use navigation::outline as outline_page;
 pub use navigation::{OutlineCursor, PageRequest, PageState, PositionSelector, SourceLocator};
@@ -224,6 +226,8 @@ pub struct Outline {
     pub entries: Vec<Entry>,
     /// Original syntax errors; their absence does not establish compiler acceptance.
     pub parse_issues: Vec<ParseIssue>,
+    /// Lossless literal/doc/attribute observations from this exact parse, including root docs.
+    pub facts: Vec<SourceFact>,
 }
 
 /// Logical Rust identifier from an actual parsed name; raw syntax is retained in source bytes.
@@ -263,8 +267,38 @@ pub(super) fn rust_bounded(
     offset: usize,
     limit: usize,
 ) -> (Outline, usize) {
-    let lines = line_starts(source);
     let parsed = SourceFile::parse(source, edition.native());
+    rust_parsed(source, edition, offset, limit, &parsed)
+}
+pub(crate) fn rust_with_syntax(source: &str, edition: RustEdition) -> (Outline, SyntaxNode) {
+    let parsed = SourceFile::parse(source, edition.native());
+    (
+        rust_parsed(source, edition, 0, usize::MAX, &parsed).0,
+        parsed.syntax_node(),
+    )
+}
+pub(crate) fn rust_parse_issues(source: &str, edition: RustEdition) -> Vec<ParseIssue> {
+    let lines = line_starts(source);
+    SourceFile::parse(source, edition.native())
+        .errors()
+        .into_iter()
+        .map(|error| ParseIssue {
+            message: error.to_string(),
+            range: location(
+                &lines,
+                usize::from(error.range().start())..usize::from(error.range().end()),
+            ),
+        })
+        .collect()
+}
+fn rust_parsed(
+    source: &str,
+    edition: RustEdition,
+    offset: usize,
+    limit: usize,
+    parsed: &ra_ap_syntax::Parse<SourceFile>,
+) -> (Outline, usize) {
+    let lines = line_starts(source);
     let mut total = 0;
     let entries = parsed
         .tree()
@@ -352,6 +386,7 @@ pub(super) fn rust_bounded(
             backend: "ra_ap_syntax/0.0.360".into(),
             entries,
             parse_issues,
+            facts: facts::collect(parsed.tree().syntax(), &lines),
         },
         total,
     )
@@ -429,6 +464,7 @@ pub(super) fn markdown_bounded(source: &str, offset: usize, limit: usize) -> (Ou
             backend: "pulldown-cmark/0.13.5".into(),
             entries,
             parse_issues: Vec::new(),
+            facts: Vec::new(),
         },
         headings.len(),
     )

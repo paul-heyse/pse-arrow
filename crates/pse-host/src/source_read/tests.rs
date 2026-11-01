@@ -405,3 +405,85 @@ fn acquisition_separates_working_index_and_resolved_committed_bytes_with_native_
         .is_err()
     );
 }
+#[test]
+fn interpreted_facts_preserve_escapes_raw_delimiters_docs_and_cfg_predicates() {
+    let source = r####"//! crate docs
+/// outer docs
+#[cfg_attr(feature = "x", cfg_attr(unix, doc = "nested"), allow(dead_code))]
+fn actual() {
+    let escaped = "a\n\u{3b2}";
+    let raw = r##"raw\n"##;
+    let bytes = c"\xFF";
+    fn nested() { let inner = "owned"; }
+}
+
+#[test]
+fn invalid_literal_interpretations_retain_spelling_without_fabricated_decoded_ranges() {
+    let outline = rust(r#"fn f(){ let invalid = "a\qz"; let valid = "β"; }"#, RustEdition::E2024);
+    let invalid = outline.facts.iter().find(|fact| fact.written == r#""a\qz""#).unwrap();
+    assert!(invalid.interpretation_error.is_some());
+    assert!(invalid.value.is_none() && invalid.mapping.is_empty());
+    let valid = outline.facts.iter().find(|fact| fact.written == "\"β\"").unwrap();
+    assert!(valid.map_interpreted_range(0..1).is_none());
+    assert!(valid.map_interpreted_range(0..2).is_some());
+}
+fn broken(
+"####;
+    let outline = super::rust(source, super::RustEdition::E2024);
+    assert!(!outline.parse_issues.is_empty());
+    assert_eq!(
+        outline
+            .facts
+            .iter()
+            .filter(|fact| fact.kind == "documentation")
+            .count(),
+        2
+    );
+    let escaped = outline
+        .facts
+        .iter()
+        .find(|fact| fact.written == r#""a\n\u{3b2}""#)
+        .unwrap();
+    assert!(
+        matches!(&escaped.value, Some(super::InterpretedValue::Text(value)) if value == "a\nβ")
+    );
+    let newline = &escaped.mapping[1];
+    assert_eq!(
+        escaped.map_interpreted_range(1..2),
+        Some(newline.source.clone())
+    );
+    assert_eq!(newline.interpreted, 1..2);
+    assert_eq!(
+        &source[newline.source.byte_start..newline.source.byte_end],
+        r"\n"
+    );
+    let beta = &escaped.mapping[2];
+    assert_eq!(beta.interpreted, 2..4);
+    assert_eq!(
+        &source[beta.source.byte_start..beta.source.byte_end],
+        r"\u{3b2}"
+    );
+    assert!(
+        outline
+            .facts
+            .iter()
+            .any(|fact| fact.written == "r##\"raw\\n\"##")
+    );
+    assert!(outline.facts.iter().any(
+        |fact| matches!(&fact.value, Some(super::InterpretedValue::Bytes(value)) if value == &[255])
+    ));
+    let attribute = outline
+        .facts
+        .iter()
+        .find_map(|fact| fact.meta.as_ref())
+        .unwrap();
+    assert_eq!(attribute.predicate.as_deref(), Some("feature = \"x\""));
+    assert_eq!(attribute.children[0].predicate.as_deref(), Some("unix"));
+    let owned = outline
+        .facts
+        .iter()
+        .find(|fact| fact.written == "\"owned\"")
+        .unwrap();
+    let owner = owned.owner.as_ref().unwrap();
+    assert!(source[owner.byte_start..owner.byte_end].starts_with("fn nested"));
+}

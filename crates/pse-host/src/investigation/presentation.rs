@@ -65,6 +65,7 @@ mod tests {
     #[test]
     fn selection_keeps_identity_and_grouping_uses_original_name() {
         let mut row = SearchResult {
+            source_relationship: None,
             source: "s1".into(),
             kind: "function".into(),
             name: Some("model::prepare".into()),

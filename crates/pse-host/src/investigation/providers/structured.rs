@@ -506,6 +506,7 @@ async fn history_records<R: tokio::io::AsyncRead + Unpin>(
                     },
                 });
                 Some(SearchResult {
+                    source_relationship: None,
                     source: source.clone(),
                     kind: "git_blame_line_porcelain".into(),
                     name: None,
@@ -557,6 +558,7 @@ async fn history_records<R: tokio::io::AsyncRead + Unpin>(
                 });
                 fields.clear();
                 Some(SearchResult {
+                    source_relationship: None,
                     source: source.clone(),
                     kind: "git_commit".into(),
                     name: Some(commit),

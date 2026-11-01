@@ -14,6 +14,8 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
 };
+mod grammar;
+pub use grammar::{GrammarEdit, preview_grammar};
 
 /// Producer provenance; syntax mode has no semantic identity or resolution field.
 ///
@@ -445,6 +447,9 @@ impl ChangeProposal {
 /// Typed construction or stale-input refusal, before an output envelope is created.
 #[derive(Debug, thiserror::Error)]
 pub enum ProposalError {
+    /// Grammar-only construction refused an unsupported node or malformed fragment.
+    #[error("grammar preview: {0}")]
+    Grammar(String),
     /// Only regular working files have supported create/delete/rename proposal semantics.
     #[error("file operations require addressed working files")]
     UnsupportedFileOperation,

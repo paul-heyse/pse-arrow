@@ -13,17 +13,18 @@ use crate::{
 use ast_grep_core::{
     AstGrep, Language, MatchStrictness, Pattern, PatternError,
     matcher::{MatcherExt as _, PatternBuilder},
-    meta_var::MetaVariable,
     replacer::TemplateFix,
     tree_sitter::{LanguageExt, StrDoc, TSLanguage},
 };
 use rayon::prelude::*;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use tokio_util::sync::CancellationToken;
 mod native;
-pub use native::{CompiledSyntax, NativeMatches, ParsedSyntax, native_rule, tree_sitter_query};
+pub use native::{
+    CompiledSyntax, NativeMatches, ParsedSyntax, SelectionDemand, native_rule, tree_sitter_query,
+};
 
 #[derive(Clone, Debug)]
 struct RustGrammar;
@@ -137,7 +138,7 @@ pub struct Capture {
     pub nodes: Vec<CapturedNode>,
 }
 /// Captured original source, without token regeneration.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct CapturedNode {
     /// Exact original source coordinates.
     pub locator: SourceLocator,
@@ -157,6 +158,80 @@ pub struct SyntaxMatch {
     pub text: String,
     /// Explicit selected captures, sorted by name.
     pub captures: Vec<Capture>,
+    /// Same-source native containment/call evidence; no binding or effective-cfg claim.
+    pub relationship: Option<SourceRelationship>,
+}
+/// Original authored context for one structural witness, excluding nested declaration ownership.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct SourceRelationship {
+    /// Closest containing declaration from the same immutable source.
+    pub enclosing: Option<SourceLocator>,
+    /// Native method receiver, if the selected node is a method call.
+    pub receiver: Option<CapturedNode>,
+    /// Native positional arguments in authored order.
+    pub arguments: Vec<CapturedNode>,
+    /// Authored docs/attributes owned by precisely this declaration, never nested ones.
+    pub attributes: Vec<crate::source_read::SourceFact>,
+}
+fn explain(source: &SourceText, matches: &mut [SyntaxMatch]) {
+    use ra_ap_syntax::{AstNode as _, ast, ast::HasArgList as _};
+    if matches.is_empty() {
+        return;
+    }
+    let (outline, syntax) = crate::source_read::rust_with_syntax(source.text(), RustEdition::E2024);
+    let capture = |node: ra_ap_syntax::SyntaxNode| {
+        let range = node.text_range();
+        CapturedNode {
+            locator: locator(source, usize::from(range.start())..usize::from(range.end())),
+            text: node.text().to_string(),
+        }
+    };
+    for matched in matches {
+        let range = &matched.locator.range;
+        let enclosing = outline
+            .entries
+            .iter()
+            .filter(|entry| {
+                entry.range.byte_start <= range.byte_start && entry.range.byte_end >= range.byte_end
+            })
+            .min_by_key(|entry| entry.range.byte_end - entry.range.byte_start);
+        let mut receiver = None;
+        let mut arguments = Vec::new();
+        if let Some(node) = syntax.descendants().find(|node| {
+            usize::from(node.text_range().start()) == range.byte_start
+                && usize::from(node.text_range().end()) == range.byte_end
+        }) {
+            let args = if let Some(method) = ast::MethodCallExpr::cast(node.clone()) {
+                receiver = method.receiver().map(|node| capture(node.syntax().clone()));
+                method.arg_list()
+            } else {
+                ast::CallExpr::cast(node).and_then(|call| call.arg_list())
+            };
+            if let Some(args) = args {
+                arguments = args
+                    .args()
+                    .map(|node| capture(node.syntax().clone()))
+                    .collect();
+            }
+        }
+        matched.relationship = Some(SourceRelationship {
+            enclosing: enclosing.map(|entry| SourceLocator {
+                source: source.identity().clone(),
+                range: entry.range.clone(),
+            }),
+            receiver,
+            arguments,
+            attributes: outline
+                .facts
+                .iter()
+                .filter(|fact| {
+                    matches!(fact.kind.as_str(), "attribute" | "documentation")
+                        && enclosing.is_some_and(|entry| fact.owner.as_ref() == Some(&entry.range))
+                })
+                .cloned()
+                .collect(),
+        });
+    }
 }
 /// Examined source and recovery regions remain visible even when it had no matches.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -169,8 +244,10 @@ pub struct SourceCoverage {
     pub recovery_regions: Vec<SourceLocator>,
     /// Explicit-edition Rust parser diagnostics, independent of tree-sitter matching.
     pub rust_parse_issues: Vec<crate::source_read::ParseIssue>,
-    /// Total qualifying matches, including omitted/nested matches.
+    /// Qualifying witnesses observed, including omitted/nested matches; exact only if complete.
     pub total_matches: usize,
+    /// False when parse/selection cancellation prevented exact totals.
+    pub complete: bool,
 }
 /// One completed syntax query, not name resolution or compiler acceptance.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -187,9 +264,9 @@ pub struct QueryReport {
     pub sources: Vec<SourceCoverage>,
     /// Returned matches, including nested/overlapping candidates.
     pub matches: Vec<SyntaxMatch>,
-    /// Total qualifying matches across examined sources.
+    /// Qualifying witnesses across examined sources; exact when every source completed.
     pub total_matches: usize,
-    /// Matches omitted by the producer's explicit global record allowance.
+    /// Observed witnesses omitted by the producer's allowance, excluding unexamined scope.
     pub omitted_matches: usize,
     /// Cancellation observed by the actual CPU owner.
     pub cancellation_requested: bool,
@@ -319,85 +396,47 @@ fn analyze(
     query: &Query,
     prepared: &PreparedQuery,
     limit: usize,
+    token: &CancellationToken,
 ) -> Result<FileResult, QueryError> {
-    let document = StrDoc::try_new(source.text(), RustGrammar).map_err(QueryError::Parse)?;
-    let tree = AstGrep::doc(document);
-    let root = tree.root();
-    let recovery_regions = root
-        .dfs()
-        .filter(|node| node.is_error() || node.is_missing())
-        .map(|node| locator(source, node.range()))
-        .collect();
-    let mut matches = Vec::new();
-    let mut edits = Vec::new();
-    let mut total = 0;
-    // find_all traverses every native node; replace_all intentionally skips nested matches.
-    for matched in root.find_all(&prepared.matcher) {
-        total += 1;
-        if matches.len() >= limit {
-            continue;
-        }
-        let mut captures = Vec::new();
-        for variable in matched.get_env().get_matched_variables() {
-            let (name, sequence) = match variable {
-                MetaVariable::Capture(name, _) => (name, false),
-                MetaVariable::MultiCapture(name) => (name, true),
-                _ => continue,
-            };
-            if !query.captures.is_empty() && !query.captures.contains(&name) {
-                continue;
-            }
-            let nodes = if sequence {
-                matched.get_env().get_multiple_matches(&name)
-            } else {
-                matched
-                    .get_env()
-                    .get_match(&name)
-                    .cloned()
-                    .into_iter()
-                    .collect()
-            };
-            captures.push(Capture {
-                name,
-                sequence,
-                nodes: nodes
-                    .into_iter()
-                    .map(|node| CapturedNode {
-                        locator: locator(source, node.range()),
-                        text: node.text().into_owned(),
-                    })
-                    .collect(),
-            });
-        }
-        captures.sort_by(|left, right| left.name.cmp(&right.name));
-        if let Some(template) = &prepared.template {
-            let edit = matched.replace_by(template);
-            let text = String::from_utf8(edit.inserted_text)
-                .map_err(|error| QueryError::Parse(error.to_string()))?;
-            edits.push(EditCandidate::new(
-                source.identity().clone(),
-                edit.position..edit.position + edit.deleted_length,
-                text,
-            ));
-        }
-        matches.push(SyntaxMatch {
-            index: matches.len(),
-            locator: locator(source, matched.range()),
-            kind: matched.kind().into_owned(),
-            text: matched.text().into_owned(),
-            captures,
-        });
-    }
-    let diagnostics = crate::source_read::rust_bounded(source.text(), query.edition, 0, 0)
-        .0
-        .parse_issues;
+    let parsed = ParsedSyntax::cancellable(source, token)?;
+    let selected = parsed
+        .as_ref()
+        .map(|parsed| {
+            native::select_rule(
+                source,
+                parsed,
+                &prepared.matcher,
+                native::RuleSelection {
+                    demand: SelectionDemand::ExactTotal { retain: limit },
+                    captures: &query.captures,
+                    template: prepared.template.as_ref(),
+                    containing: None,
+                },
+                token,
+            )
+        })
+        .transpose()?;
+    let recovery_regions = parsed
+        .as_ref()
+        .map_or_else(Vec::new, |parsed| parsed.recovery_regions(source));
+    let diagnostics = if token.is_cancelled() {
+        Vec::new()
+    } else {
+        crate::source_read::rust_parse_issues(source.text(), query.edition)
+    };
+    let complete = selected.as_ref().is_some_and(|selected| selected.complete);
+    let (matches, edits, total_matches) = selected.map_or_else(
+        || (Vec::new(), Vec::new(), 0),
+        |selected| (selected.matches, selected.edits, selected.total_matches),
+    );
     Ok(FileResult {
         coverage: SourceCoverage {
             source: source.identity().clone(),
             examined_range: coordinates(source.text(), 0..source.text().len()),
             recovery_regions,
             rust_parse_issues: diagnostics,
-            total_matches: total,
+            total_matches,
+            complete,
         },
         matches,
         edits,
@@ -426,6 +465,7 @@ fn execute(
                 &query,
                 &prepared,
                 query.max_records.unwrap_or(usize::MAX),
+                &token,
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -509,7 +549,13 @@ pub fn preview_selected(
         max_records: None,
     };
     let prepared = PreparedQuery::new(&query, Some(replacement))?;
-    let result = analyze(&source, &query, &prepared, usize::MAX)?;
+    let result = analyze(
+        &source,
+        &query,
+        &prepared,
+        usize::MAX,
+        &CancellationToken::new(),
+    )?;
     let Some(index) = result.matches.iter().position(|candidate| {
         candidate.locator.range.byte_start == selected.start
             && candidate.locator.range.byte_end == selected.end
@@ -545,7 +591,9 @@ pub fn start_query(
 ) -> CpuTask<Result<Envelope<QueryReport>, QueryError>> {
     spawn_cpu(cancellation, move |token| {
         let (report, _) = execute(requests, query, None, vec![], token)?;
-        let partial = report.omitted_matches > 0
+        let partial = report.cancellation_requested
+            || report.sources.iter().any(|source| !source.complete)
+            || report.omitted_matches > 0
             || report.sources.iter().any(|source| {
                 !source.recovery_regions.is_empty() || !source.rust_parse_issues.is_empty()
             });
@@ -565,7 +613,9 @@ pub fn start_preview(
 ) -> CpuTask<Result<Envelope<PreviewReport>, QueryError>> {
     spawn_cpu(cancellation, move |token| {
         let (report, proposal) = execute(requests, query, Some(replacement), selected, token)?;
-        let partial = report.omitted_matches > 0
+        let partial = report.cancellation_requested
+            || report.sources.iter().any(|source| !source.complete)
+            || report.omitted_matches > 0
             || report.sources.iter().any(|source| {
                 !source.recovery_regions.is_empty() || !source.rust_parse_issues.is_empty()
             });

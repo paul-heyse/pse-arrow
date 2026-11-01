@@ -148,6 +148,7 @@ pub fn run(
             continue;
         }
         emit(Event::Result(Box::new(SearchResult {
+            source_relationship: None,
             source: source.clone(),
             kind: node.kind.clone(),
             name: Some(node.name.clone()),

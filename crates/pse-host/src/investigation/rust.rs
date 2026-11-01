@@ -165,6 +165,7 @@ impl EvaluationContext {
         &mut self,
         root: &Path,
         input: &ProviderInput,
+        token: &CancellationToken,
     ) -> Result<(&SourceText, &crate::source_query::ParsedSyntax), Error> {
         self.source(root, input)?;
         let source = self
@@ -172,7 +173,11 @@ impl EvaluationContext {
             .as_ref()
             .ok_or_else(|| Error::Unavailable("exact source was not retained".into()))?;
         if self.parsed.is_none() {
-            self.parsed = Some(crate::source_query::ParsedSyntax::new(source).map_err(native)?);
+            self.parsed =
+                crate::source_query::ParsedSyntax::cancellable(source, token).map_err(native)?;
+            if self.parsed.is_none() {
+                return Err(Error::Cancelled);
+            }
         }
         Ok((
             source,
@@ -235,6 +240,7 @@ fn record(
     let mut guard = input.guard.clone().unwrap_or_default();
     guard.sha256 = Some(source.identity().source_sha256().into());
     SearchResult {
+        source_relationship: None,
         source: String::new(),
         kind,
         name,
@@ -283,7 +289,7 @@ pub fn evaluate(
     match predicate {
         Predicate::Syntax(query) => {
             let selector = context.program.syntax(query)?;
-            let (source, parsed) = context.parsed(root, input)?;
+            let (source, parsed) = context.parsed(root, input, token)?;
             let native = selector
                 .evaluate(source, parsed, limit, token)
                 .map_err(native)?;
@@ -300,6 +306,7 @@ pub fn evaluate(
                     None,
                     matched.text,
                 );
+                row.source_relationship = matched.relationship;
                 for capture in matched.captures {
                     if !query.capture.is_empty() && !query.capture.contains(&capture.name) {
                         continue;
@@ -778,6 +785,7 @@ pub async fn global_search(
                 )?;
                 if request.answer.kind != AnswerKind::Count {
                     emit(Event::Result(Box::new(SearchResult {
+                        source_relationship: None,
                         source: "semantic".into(),
                         kind: kind.into(),
                         name: Some(name),
@@ -1682,6 +1690,7 @@ pub async fn relationship_with_context(
                     None
                 };
                 rows.push(SearchResult {
+                    source_relationship: None,
                     source: "native_relationship".into(),
                     kind: format!("{relation:?}").to_lowercase(),
                     name: evidence.name.clone(),
@@ -1817,6 +1826,7 @@ pub fn inspect_api(root: &Path, locator: &Locator) -> Result<SearchResult, Error
         .get(&rustdoc_types::Id(id))
         .ok_or_else(|| Error::Stale("original API artifact has no selected declaration".into()))?;
     Ok(SearchResult {
+        source_relationship: None,
         source: artifact.sha256,
         kind: "api_declaration".into(),
         name: public_path.clone().or_else(|| declaration.name.clone()),
@@ -2092,6 +2102,7 @@ fn api_search(
         }
         if request.answer.kind != AnswerKind::Count {
             emit(Event::Result(Box::new(SearchResult {
+                source_relationship: None,
                 source: "api".into(),
                 kind: format!("{:?}", candidate.kind),
                 name: Some(candidate.public_path.clone()),
@@ -2242,6 +2253,12 @@ mod tests {
         let parsed: *const crate::source_query::ParsedSyntax = context.parsed.as_ref().unwrap();
         assert_eq!(a.rows.len(), 1);
         assert!(a.rows[0].captures.contains_key("A"));
+        let relation = a.rows[0].source_relationship.as_ref().unwrap();
+        assert_eq!(relation.arguments[0].text, "x");
+        assert_eq!(
+            relation.enclosing.as_ref().unwrap().source.path(),
+            root.path().join("control.rs")
+        );
         let b = evaluate(
             root.path(),
             &input,

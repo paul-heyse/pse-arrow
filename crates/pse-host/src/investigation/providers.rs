@@ -537,6 +537,7 @@ pub(super) fn record(
     context: String,
 ) -> SearchResult {
     SearchResult {
+        source_relationship: None,
         source: String::new(),
         kind: kind.into(),
         name: None,

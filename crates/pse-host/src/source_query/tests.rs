@@ -24,7 +24,7 @@ fn observe(
     limit: usize,
 ) -> Result<FileResult, QueryError> {
     let prepared = PreparedQuery::new(query, replacement)?;
-    analyze(source, query, &prepared, limit)
+    analyze(source, query, &prepared, limit, &CancellationToken::new())
 }
 
 #[test]
@@ -54,6 +54,52 @@ fn native_grammar_abi_named_and_sequence_captures_retain_exact_unicode() {
             assert_eq!(node.locator.select(&original).unwrap(), node.text);
         }
     }
+}
+
+#[test]
+fn relation_explanation_retains_exact_owner_receiver_arguments_and_authored_attributes() {
+    let original =
+        source("#[inline]\nfn outer(){ fn nested(){ inner.call(a); } receiver.call(b, c); }");
+    let result = observe(
+        &original,
+        &query("$RECEIVER.call($$$ARGS)"),
+        None,
+        usize::MAX,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 2);
+    let nested = result
+        .matches
+        .iter()
+        .find(|matched| matched.text == "inner.call(a)")
+        .unwrap()
+        .relationship
+        .as_ref()
+        .unwrap();
+    assert!(nested.attributes.is_empty());
+    let outer = result
+        .matches
+        .iter()
+        .find(|matched| matched.text == "receiver.call(b, c)")
+        .unwrap()
+        .relationship
+        .as_ref()
+        .unwrap();
+    assert_eq!(outer.receiver.as_ref().unwrap().text, "receiver");
+    assert_eq!(
+        outer
+            .arguments
+            .iter()
+            .map(|argument| argument.text.as_str())
+            .collect::<Vec<_>>(),
+        ["b", "c"]
+    );
+    assert_eq!(outer.attributes.len(), 1);
+    assert_eq!(outer.attributes[0].written, "#[inline]");
+    assert_eq!(
+        outer.enclosing.as_ref().unwrap().source,
+        *original.identity()
+    );
 }
 
 #[test]

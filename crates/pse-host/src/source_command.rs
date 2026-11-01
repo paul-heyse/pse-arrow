@@ -53,6 +53,8 @@ pub struct FileSelection {
     pub parse_issues: Vec<source_read::ParseIssue>,
     /// Exact original UTF-8 text; line numbering is a separate human presentation.
     pub selection: SourceSelection,
+    /// Interpreted observations inside the exact selected source extent.
+    pub facts: Vec<source_read::SourceFact>,
 }
 /// Source reading refuses unsupported or ambiguous selectors without guessing.
 #[derive(Debug, thiserror::Error)]
@@ -450,6 +452,7 @@ pub fn show_addressed(
             locator,
             backend: outline.backend,
             rust_edition: outline.rust_edition,
+            facts: outline.facts.into_iter().filter(|fact| fact.range.byte_start >= selection.range.byte_start && fact.range.byte_end <= selection.range.byte_end).collect(),
             parse_issues: outline.parse_issues,
             selection,
         },
