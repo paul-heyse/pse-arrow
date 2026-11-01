@@ -95,13 +95,13 @@ pub(crate) fn transport_error(error: ConnectError) -> Error {
                 let decoded = base64::engine::general_purpose::STANDARD_NO_PAD
                     .decode(value)
                     .or_else(|_| base64::engine::general_purpose::STANDARD.decode(value));
-                if let Ok(bytes) = decoded {
-                    if let Ok(failure) = pb::Failure::decode_from_slice(&bytes) {
-                        return wire::failure_from_pb(failure).map_or_else(
-                            |error| error,
-                            |failure| Error::Refusal(retain_rpc_details(failure, &error)),
-                        );
-                    }
+                if let Ok(bytes) = decoded
+                    && let Ok(failure) = pb::Failure::decode_from_slice(&bytes)
+                {
+                    return wire::failure_from_pb(failure).map_or_else(
+                        |error| error,
+                        |failure| Error::Refusal(retain_rpc_details(failure, &error)),
+                    );
                 }
             }
             return Error::Transport("malformed typed semantic RPC failure detail".into());
@@ -609,9 +609,11 @@ fn encoded_failure(failure: super::Failure) -> pb::Failure {
 }
 fn response_from_event(event: pb::NativeEvent) -> Result<Option<Result<Response>>> {
     Ok(match event.item {
-        Some(pb::native_event::Item::Query(answer)) => {
-            Some(wire::answer_from_pb(*answer).map(Response::Query))
-        }
+        Some(pb::native_event::Item::Query(answer)) => Some(
+            wire::answer_from_pb(*answer)
+                .map(Box::new)
+                .map(Response::Query),
+        ),
         Some(pb::native_event::Item::Workspace(answer)) => {
             Some(wire::workspace_from_pb(*answer).map(Response::WorkspaceSymbols))
         }
@@ -686,7 +688,9 @@ impl ServiceEngine {
                         Request::PackageContext { .. } => Err(Error::unsupported(
                             "selected LSP session has no captured native package context",
                         )),
-                        Request::Query(query) => engine.query(query).await.map(Response::Query),
+                        Request::Query(query) => {
+                            engine.query(query).await.map(Box::new).map(Response::Query)
+                        }
                         Request::WorkspaceSymbols(query) => engine
                             .workspace_symbols(query)
                             .await
@@ -704,6 +708,7 @@ impl ServiceEngine {
                     Request::Query(query) => {
                         settle_cpu(engine.start_query(query, token.clone()), &token)
                             .await
+                            .map(Box::new)
                             .map(Response::Query)
                     }
                     Request::WorkspaceSymbols(query) => {
@@ -924,7 +929,13 @@ pub(super) async fn serve(
             _ = terminate.recv() => break Ok(()),
             _ = tokio::signal::ctrl_c() => break Ok(()),
             Some(_) = connections.join_next(), if !connections.is_empty() => {},
-            _ = check.tick() => { if let Err(error) = session.reap() { break Err(error); } if engine.driver_finished() { break Err(Error::Protocol("analyzer connection terminated".into())); } }
+            _ = check.tick() => {
+                if let Err(error) = session.reap() {
+                    break Err(error);
+                } else if engine.driver_finished() {
+                    break Err(Error::Protocol("analyzer connection terminated".into()));
+                }
+            }
         }
     };
     let drained = session.shutdown().await;

@@ -7,6 +7,7 @@ use std::{
     process::{Command, Output},
 };
 
+#[cfg(test)]
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -16,6 +17,7 @@ fn root() -> PathBuf {
         .to_owned()
 }
 
+#[cfg(test)]
 fn cli(arguments: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_pse"))
         .current_dir(root())
@@ -25,6 +27,7 @@ fn cli(arguments: &[&str]) -> Output {
         .unwrap()
 }
 
+#[cfg(test)]
 fn value(output: Output) -> Value {
     assert!(output.status.success(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()

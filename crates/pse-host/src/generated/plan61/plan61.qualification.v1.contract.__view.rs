@@ -55,7 +55,7 @@ impl<'a> ::buffa::MessageView<'a> for PayloadView<'a> {
         ctx: ::buffa::DecodeContext<'_>,
     ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
         let _ = ctx;
-        #[allow(unused_variables)]
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         let view = self;
         let mut cur = cur;
         match tag.field_number() {
@@ -174,12 +174,12 @@ impl<'a> ::buffa::MessageView<'a> for PayloadView<'a> {
     ) -> ::core::result::Result<super::super::Payload, ::buffa::DecodeError> {
         self.to_owned_from_source(None)
     }
-    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn to_owned_from_source(
         &self,
         __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
     ) -> ::core::result::Result<super::super::Payload, ::buffa::DecodeError> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::alloc::string::ToString as _;
         let _ = __buffa_src;
         ::core::result::Result::Ok(super::super::Payload {
@@ -215,9 +215,9 @@ impl<'a> ::buffa::MessageView<'a> for PayloadView<'a> {
     }
 }
 impl<'a> ::buffa::ViewEncode<'a> for PayloadView<'a> {
-    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         if let Some(v) = self.count {
@@ -269,13 +269,13 @@ impl<'a> ::buffa::ViewEncode<'a> for PayloadView<'a> {
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
-    #[allow(clippy::needless_borrow)]
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn write_to(
         &self,
         __cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         if let Some(v) = self.count {
             ::buffa::types::put_int64_field(1u32, v, buf);
@@ -576,7 +576,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for PayloadView<'a> {
         &self,
         field: &::buffa_descriptor::FieldDescriptor,
     ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.count.unwrap_or(0)),
@@ -646,6 +646,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for PayloadView<'a> {
             }
         }
     }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
         let bytes = ::buffa::ViewEncode::encode_to_vec(self);
         let options = ::buffa::DecodeOptions::new()
@@ -677,6 +678,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for PayloadView<'a> {
     }
 }
 impl<'a> PayloadView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
     /// associated fn (not a free fn) so sibling views in the same module
@@ -726,7 +728,7 @@ impl<'a> ::buffa::MessageView<'a> for UnsafeDivisionView<'a> {
         ctx: ::buffa::DecodeContext<'_>,
     ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
         let _ = ctx;
-        #[allow(unused_variables)]
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         let view = self;
         let mut cur = cur;
         match tag.field_number() {
@@ -750,12 +752,12 @@ impl<'a> ::buffa::MessageView<'a> for UnsafeDivisionView<'a> {
     ) -> ::core::result::Result<super::super::UnsafeDivision, ::buffa::DecodeError> {
         self.to_owned_from_source(None)
     }
-    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn to_owned_from_source(
         &self,
         __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
     ) -> ::core::result::Result<super::super::UnsafeDivision, ::buffa::DecodeError> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::alloc::string::ToString as _;
         let _ = __buffa_src;
         ::core::result::Result::Ok(super::super::UnsafeDivision {
@@ -766,9 +768,9 @@ impl<'a> ::buffa::MessageView<'a> for UnsafeDivisionView<'a> {
     }
 }
 impl<'a> ::buffa::ViewEncode<'a> for UnsafeDivisionView<'a> {
-    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         if self.divisor != 0i64 {
@@ -777,13 +779,13 @@ impl<'a> ::buffa::ViewEncode<'a> for UnsafeDivisionView<'a> {
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
-    #[allow(clippy::needless_borrow)]
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn write_to(
         &self,
         _cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         if self.divisor != 0i64 {
             ::buffa::types::put_int64_field(1u32, self.divisor, buf);
@@ -957,7 +959,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for UnsafeDivisionView<'a> 
         &self,
         field: &::buffa_descriptor::FieldDescriptor,
     ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.divisor),
@@ -991,6 +993,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for UnsafeDivisionView<'a> 
             }
         }
     }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
         let bytes = ::buffa::ViewEncode::encode_to_vec(self);
         let options = ::buffa::DecodeOptions::new()
@@ -1022,6 +1025,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for UnsafeDivisionView<'a> 
     }
 }
 impl<'a> UnsafeDivisionView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
     /// associated fn (not a free fn) so sibling views in the same module
@@ -1069,7 +1073,7 @@ impl<'a> ::buffa::MessageView<'a> for MaskedAllView<'a> {
         ctx: ::buffa::DecodeContext<'_>,
     ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
         let _ = ctx;
-        #[allow(unused_variables)]
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         let view = self;
         let mut cur = cur;
         match tag.field_number() {
@@ -1086,12 +1090,12 @@ impl<'a> ::buffa::MessageView<'a> for MaskedAllView<'a> {
     ) -> ::core::result::Result<super::super::MaskedAll, ::buffa::DecodeError> {
         self.to_owned_from_source(None)
     }
-    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn to_owned_from_source(
         &self,
         __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
     ) -> ::core::result::Result<super::super::MaskedAll, ::buffa::DecodeError> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::alloc::string::ToString as _;
         let _ = __buffa_src;
         ::core::result::Result::Ok(super::super::MaskedAll {
@@ -1101,21 +1105,21 @@ impl<'a> ::buffa::MessageView<'a> for MaskedAllView<'a> {
     }
 }
 impl<'a> ::buffa::ViewEncode<'a> for MaskedAllView<'a> {
-    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
-    #[allow(clippy::needless_borrow)]
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn write_to(
         &self,
         _cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -1272,7 +1276,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for MaskedAllView<'a> {
         &self,
         field: &::buffa_descriptor::FieldDescriptor,
     ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
             _ => {
@@ -1304,6 +1308,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for MaskedAllView<'a> {
             }
         }
     }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
         let bytes = ::buffa::ViewEncode::encode_to_vec(self);
         let options = ::buffa::DecodeOptions::new()
@@ -1335,6 +1340,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for MaskedAllView<'a> {
     }
 }
 impl<'a> MaskedAllView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
     /// associated fn (not a free fn) so sibling views in the same module
@@ -1382,7 +1388,7 @@ impl<'a> ::buffa::MessageView<'a> for MaskedExistsView<'a> {
         ctx: ::buffa::DecodeContext<'_>,
     ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
         let _ = ctx;
-        #[allow(unused_variables)]
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         let view = self;
         let mut cur = cur;
         match tag.field_number() {
@@ -1399,12 +1405,12 @@ impl<'a> ::buffa::MessageView<'a> for MaskedExistsView<'a> {
     ) -> ::core::result::Result<super::super::MaskedExists, ::buffa::DecodeError> {
         self.to_owned_from_source(None)
     }
-    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn to_owned_from_source(
         &self,
         __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
     ) -> ::core::result::Result<super::super::MaskedExists, ::buffa::DecodeError> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::alloc::string::ToString as _;
         let _ = __buffa_src;
         ::core::result::Result::Ok(super::super::MaskedExists {
@@ -1414,21 +1420,21 @@ impl<'a> ::buffa::MessageView<'a> for MaskedExistsView<'a> {
     }
 }
 impl<'a> ::buffa::ViewEncode<'a> for MaskedExistsView<'a> {
-    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
-    #[allow(clippy::needless_borrow)]
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn write_to(
         &self,
         _cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -1585,7 +1591,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for MaskedExistsView<'a> {
         &self,
         field: &::buffa_descriptor::FieldDescriptor,
     ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
             _ => {
@@ -1617,6 +1623,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for MaskedExistsView<'a> {
             }
         }
     }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
         let bytes = ::buffa::ViewEncode::encode_to_vec(self);
         let options = ::buffa::DecodeOptions::new()
@@ -1648,6 +1655,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for MaskedExistsView<'a> {
     }
 }
 impl<'a> MaskedExistsView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
     /// associated fn (not a free fn) so sibling views in the same module
@@ -1695,7 +1703,7 @@ impl<'a> ::buffa::MessageView<'a> for ErrorExistsOneView<'a> {
         ctx: ::buffa::DecodeContext<'_>,
     ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
         let _ = ctx;
-        #[allow(unused_variables)]
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         let view = self;
         let mut cur = cur;
         match tag.field_number() {
@@ -1712,12 +1720,12 @@ impl<'a> ::buffa::MessageView<'a> for ErrorExistsOneView<'a> {
     ) -> ::core::result::Result<super::super::ErrorExistsOne, ::buffa::DecodeError> {
         self.to_owned_from_source(None)
     }
-    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn to_owned_from_source(
         &self,
         __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
     ) -> ::core::result::Result<super::super::ErrorExistsOne, ::buffa::DecodeError> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::alloc::string::ToString as _;
         let _ = __buffa_src;
         ::core::result::Result::Ok(super::super::ErrorExistsOne {
@@ -1727,21 +1735,21 @@ impl<'a> ::buffa::MessageView<'a> for ErrorExistsOneView<'a> {
     }
 }
 impl<'a> ::buffa::ViewEncode<'a> for ErrorExistsOneView<'a> {
-    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
-    #[allow(clippy::needless_borrow)]
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn write_to(
         &self,
         _cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -1900,7 +1908,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for ErrorExistsOneView<'a> 
         &self,
         field: &::buffa_descriptor::FieldDescriptor,
     ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
             _ => {
@@ -1932,6 +1940,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for ErrorExistsOneView<'a> 
             }
         }
     }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
         let bytes = ::buffa::ViewEncode::encode_to_vec(self);
         let options = ::buffa::DecodeOptions::new()
@@ -1963,6 +1972,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for ErrorExistsOneView<'a> 
     }
 }
 impl<'a> ErrorExistsOneView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
     /// associated fn (not a free fn) so sibling views in the same module
@@ -2012,7 +2022,7 @@ impl<'a> ::buffa::MessageView<'a> for RangeConstructionErrorView<'a> {
         ctx: ::buffa::DecodeContext<'_>,
     ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
         let _ = ctx;
-        #[allow(unused_variables)]
+        #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         let view = self;
         let mut cur = cur;
         match tag.field_number() {
@@ -2039,7 +2049,7 @@ impl<'a> ::buffa::MessageView<'a> for RangeConstructionErrorView<'a> {
     > {
         self.to_owned_from_source(None)
     }
-    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn to_owned_from_source(
         &self,
         __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
@@ -2047,7 +2057,7 @@ impl<'a> ::buffa::MessageView<'a> for RangeConstructionErrorView<'a> {
         super::super::RangeConstructionError,
         ::buffa::DecodeError,
     > {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::alloc::string::ToString as _;
         let _ = __buffa_src;
         ::core::result::Result::Ok(super::super::RangeConstructionError {
@@ -2058,9 +2068,9 @@ impl<'a> ::buffa::MessageView<'a> for RangeConstructionErrorView<'a> {
     }
 }
 impl<'a> ::buffa::ViewEncode<'a> for RangeConstructionErrorView<'a> {
-    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         if self.denom != 0i64 {
@@ -2069,13 +2079,13 @@ impl<'a> ::buffa::ViewEncode<'a> for RangeConstructionErrorView<'a> {
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
-    #[allow(clippy::needless_borrow)]
+    #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     fn write_to(
         &self,
         _cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         if self.denom != 0i64 {
             ::buffa::types::put_int64_field(1u32, self.denom, buf);
@@ -2251,7 +2261,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for RangeConstructionErrorV
         &self,
         field: &::buffa_descriptor::FieldDescriptor,
     ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.denom),
@@ -2285,6 +2295,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectMessage for RangeConstructionErrorV
             }
         }
     }
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
         let bytes = ::buffa::ViewEncode::encode_to_vec(self);
         let options = ::buffa::DecodeOptions::new()
@@ -2316,6 +2327,7 @@ impl<'a> ::buffa_descriptor::reflect::ReflectElement for RangeConstructionErrorV
     }
 }
 impl<'a> RangeConstructionErrorView<'a> {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
     /// Memoized `MessageIndex` for this view's message type, resolved
     /// once against the package's embedded descriptor pool. An inherent
     /// associated fn (not a free fn) so sibling views in the same module

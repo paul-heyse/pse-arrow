@@ -770,8 +770,8 @@ mod tests {
                     field: vec![FieldDescriptorProto {
                         name: Some("count".into()),
                         number: Some(1),
-                        label: Some(Label::LABEL_REQUIRED.into()),
-                        r#type: Some(Type::TYPE_INT64.into()),
+                        label: Some(Label::LABEL_REQUIRED),
+                        r#type: Some(Type::TYPE_INT64),
                         ..Default::default()
                     }],
                     ..Default::default()

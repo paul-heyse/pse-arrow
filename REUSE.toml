@@ -9,6 +9,24 @@ SPDX-PackageSupplier = "Paul Heyse <paul@heyse.io>"
 SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
 
 [[annotations]]
+path = [
+  "crates/pse-host/proto/buf.yaml",
+  "crates/pse-host/proto/buf.gen.yaml",
+  "crates/pse-host/tests/fixtures/plan61/buf.yaml",
+  "crates/pse-host/tests/fixtures/plan61/buf.gen.yaml",
+  "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+[[annotations]]
+path = ["vendor/protoc-gen-protovalidate-buffa/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Mathematic Inc and contributors"
+SPDX-License-Identifier = "Apache-2.0 OR MIT"
+
+[[annotations]]
 path = ["vendor/salsa/**"]
 precedence = "override"
 SPDX-FileCopyrightText = [

@@ -11,22 +11,22 @@ include!("pse.code_intelligence.v1.contracts.rs");
     clippy::uninlined_format_args,
     clippy::doc_lazy_continuation,
     clippy::module_inception
-)]
+, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
 pub mod __buffa {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     pub mod view {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use super::*;
         include!("pse.code_intelligence.v1.contracts.__view.rs");
         pub mod oneof {
-            #[allow(unused_imports)]
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
             use super::*;
             include!("pse.code_intelligence.v1.contracts.__view_oneof.rs");
         }
     }
     pub mod oneof {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use super::*;
         include!("pse.code_intelligence.v1.contracts.__oneof.rs");
     }

@@ -1385,7 +1385,9 @@ fn cancellation_from_pb(
 pub(super) fn response_event(value: Response) -> Result<pb::NativeEvent> {
     Ok(pb::NativeEvent {
         item: Some(match value {
-            Response::Query(value) => pb::native_event::Item::Query(Box::new(answer_to_pb(value)?)),
+            Response::Query(value) => {
+                pb::native_event::Item::Query(Box::new(answer_to_pb(*value)?))
+            }
             Response::WorkspaceSymbols(value) => {
                 pb::native_event::Item::Workspace(Box::new(workspace_to_pb(value)?))
             }
@@ -1711,8 +1713,10 @@ mod tests {
                     .unwrap();
             assert_eq!(serde_json::to_value(received).unwrap(), expected);
         }
-        let mut unknown = pb::Failure::default();
-        unknown.phase = 99.into();
+        let unknown = pb::Failure {
+            phase: 99.into(),
+            ..Default::default()
+        };
         assert!(failure_from_pb(unknown).is_err());
         assert!(source_from_pb(pb::NativeSourceIdentity::default()).is_err());
     }

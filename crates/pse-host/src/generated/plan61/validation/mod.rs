@@ -13,7 +13,7 @@
     clippy::uninlined_format_args,
     clippy::doc_lazy_continuation,
     clippy::module_inception
-)]
+, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
 pub mod plan61 {
     use super::*;
     pub mod qualification {

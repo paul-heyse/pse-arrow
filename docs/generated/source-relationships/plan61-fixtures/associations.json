@@ -6,7 +6,7 @@
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
     "scripts/protobuf-associations.rs": "5b30385260b7c9693affca32df93a5f7a0f6cf1a7093352de9cbcc6124776a9b",
-    "xtask/src/codegen/code_intelligence.rs": "62f7c1f34c7214bedc32e9d190d8e440d7319513dfd820e50e8037da8a48cd23",
+    "xtask/src/codegen/code_intelligence.rs": "c3d884b81a6c42b1e35936a79080931e135445558919018808663d23ee1beb99",
     "xtask/src/codegen/code_intelligence/associations.rs": "4e7edb6835049e1f1c113d4bbe3b40a17e1c2561050f4abf5738dcb50ee07926"
   },
   "associations": [
@@ -15,7 +15,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "ErrorExistsOneView < 'a >",
       "rust_field": null,
       "state": ""
@@ -25,7 +25,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "MaskedAllView < 'a >",
       "rust_field": null,
       "state": ""
@@ -35,7 +35,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "MaskedExistsView < 'a >",
       "rust_field": null,
       "state": ""
@@ -45,7 +45,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": null,
       "state": ""
@@ -55,7 +55,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "count",
       "state": ""
@@ -65,7 +65,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "path",
       "state": ""
@@ -75,7 +75,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "truth",
       "state": ""
@@ -85,7 +85,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "detail",
       "state": ""
@@ -95,7 +95,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "mask",
       "state": ""
@@ -105,7 +105,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "label",
       "state": ""
@@ -115,7 +115,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "precision",
       "state": ""
@@ -125,7 +125,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "source_guard",
       "state": ""
@@ -135,7 +135,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "context",
       "state": ""
@@ -145,7 +145,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "PayloadView < 'a >",
       "rust_field": "measured_count",
       "state": ""
@@ -155,7 +155,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "RangeConstructionErrorView < 'a >",
       "rust_field": null,
       "state": ""
@@ -165,7 +165,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "RangeConstructionErrorView < 'a >",
       "rust_field": "denom",
       "state": ""
@@ -175,7 +175,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "UnsafeDivisionView < 'a >",
       "rust_field": null,
       "state": ""
@@ -185,7 +185,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.__view.rs",
-      "output_sha256": "753c640743c5460d44af801b8017b72199272c3f6049b216bb1970bc2f170509",
+      "output_sha256": "d91afd78b9275d9e6106db8e03d19456a5a8135030e7dd505b5c14842e0b2a1f",
       "rust_type": "UnsafeDivisionView < 'a >",
       "rust_field": "divisor",
       "state": ""
@@ -195,7 +195,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "ErrorExistsOne",
       "rust_field": null,
       "state": ""
@@ -205,7 +205,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "MaskedAll",
       "rust_field": null,
       "state": ""
@@ -215,7 +215,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "MaskedExists",
       "rust_field": null,
       "state": ""
@@ -225,7 +225,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": null,
       "state": ""
@@ -235,7 +235,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "count",
       "state": ""
@@ -245,7 +245,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "path",
       "state": ""
@@ -255,7 +255,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "truth",
       "state": ""
@@ -265,7 +265,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "detail",
       "state": ""
@@ -275,7 +275,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "mask",
       "state": ""
@@ -285,7 +285,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "label",
       "state": ""
@@ -295,7 +295,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "precision",
       "state": ""
@@ -305,7 +305,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "source_guard",
       "state": ""
@@ -315,7 +315,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "context",
       "state": ""
@@ -325,7 +325,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "Payload",
       "rust_field": "measured_count",
       "state": ""
@@ -335,7 +335,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "RangeConstructionError",
       "rust_field": null,
       "state": ""
@@ -345,7 +345,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "RangeConstructionError",
       "rust_field": "denom",
       "state": ""
@@ -355,7 +355,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "UnsafeDivision",
       "rust_field": null,
       "state": ""
@@ -365,7 +365,7 @@
       "source": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
       "source_sha256": "b9146c21fdd4957671a36e72dbcc345836fe6a3f06d6ed5c2fbd3ae94f07a34e",
       "output": "crates/pse-host/src/generated/plan61/plan61.qualification.v1.contract.rs",
-      "output_sha256": "0e2d8921b2e90650f366f61aac28260542a49d268a6d4c303a6ca5b6ff0f6b88",
+      "output_sha256": "a4a18b2670329ed9351061bd065bfe10cf4cf02f7c402ef2dd37c4aa24fbee02",
       "rust_type": "UnsafeDivision",
       "rust_field": "divisor",
       "state": ""

@@ -237,9 +237,235 @@ fn reject_conflicting_files(set: &FileDescriptorSet) -> Result<()> {
     Ok(())
 }
 
+fn prepared_plugins(root: &Path, binaries: &Path) -> Result<()> {
+    let metadata: toml::Value = toml::from_str(
+        &std::fs::read_to_string(root.join(".local/plan61-tools/.crates.toml"))
+            .context("prepare exact Plan61 generators explicitly in .local/plan61-tools")?,
+    )?;
+    let installed = metadata
+        .get("v1")
+        .and_then(toml::Value::as_table)
+        .context("Plan61 generator installation metadata has no v1 table")?;
+    for (package, version, binary) in [
+        ("protoc-gen-buffa", "0.9.2", "protoc-gen-buffa"),
+        (
+            "protoc-gen-buffa-packaging",
+            "0.9.2",
+            "protoc-gen-buffa-packaging",
+        ),
+        ("connectrpc-codegen", "0.9.0", "protoc-gen-connect-rust"),
+        (
+            "protoc-gen-protovalidate-buffa",
+            "0.7.2",
+            "protoc-gen-protovalidate-buffa",
+        ),
+    ] {
+        let prefix = format!("{package} {version} (");
+        let matched = installed.iter().any(|(key, files)| {
+            key.starts_with(&prefix)
+                && (package != "protoc-gen-protovalidate-buffa"
+                    || key
+                        .strip_prefix(&prefix)
+                        .and_then(|source| source.strip_suffix(')'))
+                        .and_then(|source| source.strip_prefix("path+"))
+                        .and_then(|source| url::Url::parse(source).ok())
+                        .and_then(|url| url.to_file_path().ok())
+                        .is_some_and(|source| {
+                            source == root.join("vendor/protoc-gen-protovalidate-buffa")
+                        }))
+                && files
+                    .as_array()
+                    .is_some_and(|files| files.iter().any(|file| file.as_str() == Some(binary)))
+        });
+        if !matched || !binaries.join(binary).is_file() {
+            bail!(
+                "prepare {package} {version} ({binary}) explicitly in .local/plan61-tools; global tools are not selected"
+            );
+        }
+    }
+    Ok(())
+}
+
+fn collect(
+    base: &Path,
+    directory: &Path,
+    destination: &Path,
+    tree: &mut GeneratedTree,
+) -> Result<()> {
+    for entry in std::fs::read_dir(directory)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect(base, &path, destination, tree)?;
+        } else {
+            let mut bytes = std::fs::read(&path)?;
+            if path.extension().is_some_and(|extension| extension == "rs") {
+                bytes = qualify_generated_rust(std::str::from_utf8(&bytes)?)?.into_bytes();
+            }
+            tree.files
+                .insert(destination.join(path.strip_prefix(base)?), bytes);
+        }
+    }
+    Ok(())
+}
+
+/// Keep upstream code intact while qualifying its explicit lint escapes and fixed-data
+/// assertions. Byte-span edits preserve generated comments and source spelling.
+fn qualify_generated_rust(source: &str) -> Result<String> {
+    use syn::{spanned::Spanned as _, visit::Visit as _};
+    struct Expects {
+        count: usize,
+        unknown: Vec<String>,
+    }
+    impl<'ast> syn::visit::Visit<'ast> for Expects {
+        fn visit_expr_method_call(&mut self, expression: &'ast syn::ExprMethodCall) {
+            if expression.method == "expect" {
+                self.count += 1;
+                let message = expression.args.first().and_then(|argument| match argument {
+                    syn::Expr::Lit(literal) => match &literal.lit {
+                        syn::Lit::Str(value) => Some(value.value()),
+                        _ => None,
+                    },
+                    _ => None,
+                });
+                if !matches!(
+                    message.as_deref(),
+                    Some(
+                        "buffa-codegen emitted a decodable FileDescriptorSet"
+                            | "generated message is registered in the embedded descriptor pool"
+                            | "generated view type is registered in the embedded descriptor pool"
+                            | "view re-encodes to bytes decodable against its own descriptor"
+                    )
+                ) {
+                    self.unknown
+                        .push(message.unwrap_or_else(|| "non-literal expect".into()));
+                }
+            }
+            syn::visit::visit_expr_method_call(self, expression);
+        }
+    }
+    struct Qualifier<'a> {
+        source: &'a str,
+        edits: Vec<(usize, String)>,
+        errors: Vec<String>,
+    }
+    impl Qualifier<'_> {
+        fn function(&mut self, name: &str, start: usize, block: &syn::Block) {
+            let mut expects = Expects {
+                count: 0,
+                unknown: Vec::new(),
+            };
+            expects.visit_block(block);
+            self.errors.extend(expects.unknown);
+            if expects.count != 0 {
+                if !matches!(
+                    name,
+                    "descriptor_pool" | "__buffa_reflect_message_index" | "to_dynamic"
+                ) {
+                    self.errors.push(format!(
+                        "expect outside pinned descriptor/reflection functions: {name}"
+                    ));
+                    return;
+                }
+                let line = self.source[..start]
+                    .rfind('\n')
+                    .map_or(0, |newline| newline + 1);
+                let indentation = &self.source[line..start];
+                self.edits.push((start, format!("#[allow(clippy::expect_used, reason = \"Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible\")]\n{indentation}")));
+            }
+        }
+    }
+    impl<'ast> syn::visit::Visit<'ast> for Qualifier<'_> {
+        fn visit_attribute(&mut self, attribute: &'ast syn::Attribute) {
+            if attribute.path().is_ident("allow") {
+                let arguments = attribute.parse_args_with(
+                    syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated,
+                );
+                match arguments {
+                    Ok(arguments)
+                        if !arguments
+                            .iter()
+                            .any(|argument| argument.path().is_ident("reason")) =>
+                    {
+                        let range = attribute.span().byte_range();
+                        if let Some(relative) = self.source[range.clone()].rfind(')') {
+                            let position = range.start + relative;
+                            let comma = if arguments.is_empty() || arguments.trailing_punct() {
+                                ""
+                            } else {
+                                ","
+                            };
+                            self.edits.push((position, format!("{comma} reason = \"Pinned protobuf generator emits portable schema spelling and implementation scaffolding\"")));
+                        } else {
+                            self.errors
+                                .push("allow attribute has no closing delimiter".into());
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(error) => self.errors.push(error.to_string()),
+                }
+            }
+            syn::visit::visit_attribute(self, attribute);
+        }
+        fn visit_item_fn(&mut self, function: &'ast syn::ItemFn) {
+            self.function(
+                &function.sig.ident.to_string(),
+                function.span().byte_range().start,
+                &function.block,
+            );
+            syn::visit::visit_item_fn(self, function);
+        }
+        fn visit_impl_item_fn(&mut self, function: &'ast syn::ImplItemFn) {
+            self.function(
+                &function.sig.ident.to_string(),
+                function.span().byte_range().start,
+                &function.block,
+            );
+            syn::visit::visit_impl_item_fn(self, function);
+        }
+    }
+    let syntax = syn::parse_file(source)?;
+    let mut qualifier = Qualifier {
+        source,
+        edits: Vec::new(),
+        errors: Vec::new(),
+    };
+    qualifier.visit_file(&syntax);
+    anyhow::ensure!(
+        qualifier.errors.is_empty(),
+        "unsupported generated Rust lint invariant: {:?}",
+        qualifier.errors
+    );
+    qualifier
+        .edits
+        .sort_by_key(|(position, _)| std::cmp::Reverse(*position));
+    let mut output = source.to_owned();
+    for (position, insertion) in qualifier.edits {
+        output.insert_str(position, &insertion);
+    }
+    syn::parse_file(&output).context("qualified generated Rust must remain valid syntax")?;
+    Ok(output)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn generated_lint_qualification_preserves_spelling_and_limits_expect_permissions() {
+        let source = "// source comment\n#![allow(dead_code)]\n#[allow(unused_imports,)]\nmod schema {}\nfn descriptor_pool() { parsed.expect(\"buffa-codegen emitted a decodable FileDescriptorSet\"); }\n";
+        let output = qualify_generated_rust(source).unwrap();
+        assert!(output.starts_with("// source comment\n"));
+        assert_eq!(output.matches("reason =").count(), 3);
+        assert!(output.contains("allow(clippy::expect_used"));
+        assert!(
+            output
+                .contains("parsed.expect(\"buffa-codegen emitted a decodable FileDescriptorSet\")")
+        );
+        assert!(
+            qualify_generated_rust("fn parse() { input.expect(\"untrusted input\"); }").is_err()
+        );
+        let ordinary = qualify_generated_rust("fn parse() { let value = decode()?; } ").unwrap();
+        assert!(!ordinary.contains("expect_used"));
+    }
     use buffa_descriptor::generated::descriptor::FileDescriptorProto;
 
     #[test]
@@ -403,73 +629,4 @@ mod tests {
         .unwrap();
         assert!(prepared_plugins(root, &binaries).is_err());
     }
-}
-
-fn prepared_plugins(root: &Path, binaries: &Path) -> Result<()> {
-    let metadata: toml::Value = toml::from_str(
-        &std::fs::read_to_string(root.join(".local/plan61-tools/.crates.toml"))
-            .context("prepare exact Plan61 generators explicitly in .local/plan61-tools")?,
-    )?;
-    let installed = metadata
-        .get("v1")
-        .and_then(toml::Value::as_table)
-        .context("Plan61 generator installation metadata has no v1 table")?;
-    for (package, version, binary) in [
-        ("protoc-gen-buffa", "0.9.2", "protoc-gen-buffa"),
-        (
-            "protoc-gen-buffa-packaging",
-            "0.9.2",
-            "protoc-gen-buffa-packaging",
-        ),
-        ("connectrpc-codegen", "0.9.0", "protoc-gen-connect-rust"),
-        (
-            "protoc-gen-protovalidate-buffa",
-            "0.7.2",
-            "protoc-gen-protovalidate-buffa",
-        ),
-    ] {
-        let prefix = format!("{package} {version} (");
-        let matched = installed.iter().any(|(key, files)| {
-            key.starts_with(&prefix)
-                && (package != "protoc-gen-protovalidate-buffa"
-                    || key
-                        .strip_prefix(&prefix)
-                        .and_then(|source| source.strip_suffix(')'))
-                        .and_then(|source| source.strip_prefix("path+"))
-                        .and_then(|source| url::Url::parse(source).ok())
-                        .and_then(|url| url.to_file_path().ok())
-                        .is_some_and(|source| {
-                            source == root.join("vendor/protoc-gen-protovalidate-buffa")
-                        }))
-                && files
-                    .as_array()
-                    .is_some_and(|files| files.iter().any(|file| file.as_str() == Some(binary)))
-        });
-        if !matched || !binaries.join(binary).is_file() {
-            bail!(
-                "prepare {package} {version} ({binary}) explicitly in .local/plan61-tools; global tools are not selected"
-            );
-        }
-    }
-    Ok(())
-}
-
-fn collect(
-    base: &Path,
-    directory: &Path,
-    destination: &Path,
-    tree: &mut GeneratedTree,
-) -> Result<()> {
-    for entry in std::fs::read_dir(directory)? {
-        let path = entry?.path();
-        if path.is_dir() {
-            collect(base, &path, destination, tree)?;
-        } else {
-            tree.files.insert(
-                destination.join(path.strip_prefix(base)?),
-                std::fs::read(path)?,
-            );
-        }
-    }
-    Ok(())
 }

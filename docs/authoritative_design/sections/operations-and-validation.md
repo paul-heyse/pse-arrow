@@ -1011,6 +1011,17 @@ The original typed reproducer and `OriginalFailureReproduced` meaning are unchan
 
 ### 24.2 Current qualification basis
 
+Plan61's generated contracts, typed source/API/native observations, authenticated local RPC
+and offline schema/payload/comparison workflows have local Linux qualification. The
+[Plan61 Outcome](../../plans/61-code-intelligence-foundations.md#outcome) owns the selected
+commands and limits: final corrected-source 58-case controls, twelve actual native/LSP cases
+and four composed native/API journeys passed, alongside source/diagnostic controls and final
+generation, hygiene, native-feature lint and host powerset checks. Original construction
+refusals remain historical failures rather than acceptance; the final native populations ran
+in full after explicit preparation. This evidence does not establish new scientific results,
+universal protobuf/CEL conformance, remote deployment or measured performance gains. ADR-0235
+remains proposed and its prospective design review remains A02-scoped.
+
 Plan59's delivered Rust-centered investigation surface has targeted local Linux source,
 native-analysis/API, original-compiler and actual native-agent consumer evidence.
 [Plan59 P02](../../plans/59-agent-cli.md#p02) owns the assembled campaign commands, results,

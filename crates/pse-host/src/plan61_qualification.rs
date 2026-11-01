@@ -3,7 +3,7 @@
 //! Test-only exact-release composition. No production caller uses this protocol.
 #[path = "generated/plan61/mod.rs"]
 #[rustfmt::skip]
-#[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, unreachable_pub, missing_debug_implementations, reason = "Pinned protobuf generator output uses portable spellings and public items inside this test-only module")]
+#[allow(elided_lifetimes_in_paths, trivial_numeric_casts, unreachable_pub, missing_debug_implementations, clippy::upper_case_acronyms, reason = "Pinned protobuf generator output uses authored wire enum spellings and public items inside this test-only module")]
 pub(crate) mod pb;
 #[path = "generated/plan61/validation/mod.rs"]
 #[rustfmt::skip]
@@ -73,8 +73,9 @@ fn plan61_existing_truth_count_and_raw_path_keep_their_meaning() {
         Truth::Unknown
     );
     let native_count = NativeCount::AtLeast(u64::MAX);
-    let NativeCount::AtLeast(value) = native_count else {
-        unreachable!()
+    let value = match native_count {
+        NativeCount::AtLeast(value) => value,
+        other => panic!("expected lower-bound count, got {other:?}"),
     };
     let count = Count {
         precision: Some(Precision::LowerBound(value)),

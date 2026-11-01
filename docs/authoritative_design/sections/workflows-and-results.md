@@ -1731,6 +1731,9 @@ validation. Contract comparison distinguishes structural observations from nativ
 classifications and semantic equivalence. Generated-Rust associations derive from explicit emitted
 trait/accessor evidence qualified by source, generator configuration and output bytes; unresolved
 correspondence stays unresolved. These capabilities require no new daemon or mutable global pool.
+Generated lint qualification preserves source comments and restricts assertion permissions to
+exact pinned reflection functions and immutable metadata/self-encoding invariants; unknown
+assertion patterns refuse generation. Acquired-input decoding remains fallible.
 
 The explicitly prepared semantic helper serves generated binary gRPC over HTTP/2 on its private
 Unix socket. Every physical client connection, including reconnects, authenticates the kernel peer

@@ -19,9 +19,9 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 pub(super) enum ServiceEngine {
-    Lsp(Engine),
+    Lsp(Box<Engine>),
     #[cfg(feature = "native-hir")]
-    Snapshot(super::native::Engine),
+    Snapshot(Box<super::native::Engine>),
     #[cfg(test)]
     Fixture(Arc<crate::plan61_rpc_qualification::Fixture>),
 }
@@ -46,7 +46,7 @@ impl ServiceEngine {
     }
     async fn shutdown(self) -> Result<()> {
         match self {
-            Self::Lsp(engine) => engine.shutdown().await,
+            Self::Lsp(engine) => (*engine).shutdown().await,
             #[cfg(feature = "native-hir")]
             Self::Snapshot(_) => Ok(()),
             #[cfg(test)]
@@ -267,7 +267,9 @@ pub async fn serve(
     #[cfg(feature = "native-hir")]
     let mut terminate = terminate;
     let engine = match configuration.backend {
-        Backend::Lsp => ServiceEngine::Lsp(Engine::start(&root, configuration, stderr).await?),
+        Backend::Lsp => {
+            ServiceEngine::Lsp(Box::new(Engine::start(&root, configuration, stderr).await?))
+        }
         Backend::NativeSnapshot => {
             #[cfg(feature = "native-hir")]
             {
@@ -293,7 +295,7 @@ pub async fn serve(
                         return Err(Error::Cancelled);
                     },
                 };
-                ServiceEngine::Snapshot(engine)
+                ServiceEngine::Snapshot(Box::new(engine))
             }
             #[cfg(not(feature = "native-hir"))]
             {

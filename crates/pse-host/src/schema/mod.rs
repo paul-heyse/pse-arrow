@@ -48,15 +48,15 @@ pse_diagnostics::impl_diagnostic! {SchemaError,
 #[derive(Debug)]
 pub struct Bundle {
     /// Absolute original artifact path, preserving native path bytes.
-    pub path: PathBuf,
+    path: PathBuf,
     /// Digest of original bytes, not their re-encoding.
-    pub digest: String,
+    digest: String,
     /// Original complete artifact bytes.
-    pub original: Vec<u8>,
+    original: Vec<u8>,
     /// Linked request-local immutable schema world.
-    pub pool: Arc<DescriptorPool>,
+    pool: Arc<DescriptorPool>,
     /// Complete source-aware descriptors, including raw options.
-    pub set: FileDescriptorSet,
+    set: FileDescriptorSet,
     declarations: Vec<Declaration>,
 }
 
@@ -83,6 +83,14 @@ pub struct Declaration {
     pub relationships: Vec<String>,
     /// Original descriptor coordinates, not claimed UTF-8 byte ranges.
     pub source_info: Option<SourceInfo>,
+}
+
+struct NodeIdentity<'a> {
+    address: String,
+    name: String,
+    kind: &'a str,
+    parent: Option<String>,
+    number: Option<i32>,
 }
 /// Descriptor producer coordinates remain unqualified until original source is verified.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -250,14 +258,17 @@ impl Bundle {
         &self,
         file: &FileDescriptorProto,
         path: Vec<i32>,
-        address: String,
-        name: String,
-        kind: &str,
-        parent: Option<String>,
-        number: Option<i32>,
+        identity: NodeIdentity<'_>,
         details: Value,
         relationships: Vec<String>,
     ) -> Declaration {
+        let NodeIdentity {
+            address,
+            name,
+            kind,
+            parent,
+            number,
+        } = identity;
         let location = file
             .source_code_info
             .as_option()
@@ -311,16 +322,18 @@ impl Bundle {
                 for (method_index, method) in service.method.iter().enumerate() {
                     let method_name = qualified(&name, method.name.as_deref().unwrap_or(""));
                     methods.push(method_name.clone());
-                    nodes.push(self.node(file,vec![6,index as i32,2,method_index as i32],method_name.clone(),method_name,"method",Some(name.clone()),None,json!({"input":method.input_type,"output":method.output_type,"client_streaming":method.client_streaming.unwrap_or(false),"server_streaming":method.server_streaming.unwrap_or(false),"options":self.options(method.options.as_option())?}),[method.input_type.as_deref(),method.output_type.as_deref()].into_iter().flatten().map(|name|name.trim_start_matches('.').into()).collect()));
+                    nodes.push(self.node(file, vec![6,index as i32,2,method_index as i32], NodeIdentity { address: method_name.clone(), name: method_name, kind: "method", parent: Some(name.clone()), number: None }, json!({"input":method.input_type,"output":method.output_type,"client_streaming":method.client_streaming.unwrap_or(false),"server_streaming":method.server_streaming.unwrap_or(false),"options":self.options(method.options.as_option())?}), [method.input_type.as_deref(),method.output_type.as_deref()].into_iter().flatten().map(|name|name.trim_start_matches('.').into()).collect()));
                 }
                 nodes.push(self.node(
                     file,
                     vec![6, index as i32],
-                    name.clone(),
-                    name,
-                    "service",
-                    Some(address.clone()),
-                    None,
+                    NodeIdentity {
+                        address: name.clone(),
+                        name,
+                        kind: "service",
+                        parent: Some(address.clone()),
+                        number: None,
+                    },
                     json!({"options":self.options(service.options.as_option())?}),
                     methods,
                 ));
@@ -340,7 +353,7 @@ impl Bundle {
                 )?;
             }
             children.extend(file.dependency.iter().map(|name| format!("file:{name}")));
-            nodes.push(self.node(file,vec![],address,filename,"file",None,None,json!({"package":file.package,"syntax":file.syntax,"edition":file.edition.map(|edition|format!("{edition:?}")),"imports":file.dependency,"public_imports":file.public_dependency,"weak_imports":file.weak_dependency,"option_imports":file.option_dependency,"options":self.options(file.options.as_option())?}),children));
+            nodes.push(self.node(file, vec![], NodeIdentity { address, name: filename, kind: "file", parent: None, number: None }, json!({"package":file.package,"syntax":file.syntax,"edition":file.edition.map(|edition|format!("{edition:?}")),"imports":file.dependency,"public_imports":file.public_dependency,"weak_imports":file.weak_dependency,"option_imports":file.option_dependency,"options":self.options(file.options.as_option())?}), children));
         }
         nodes.sort_by(|a, b| a.address.cmp(&b.address));
         Ok(nodes)
@@ -379,11 +392,13 @@ impl Bundle {
                 self.node(
                     file,
                     child_path(&path, 8, index),
-                    child,
-                    qualified(&name, oneof.name.as_deref().unwrap_or("")),
-                    "oneof",
-                    Some(name.clone()),
-                    None,
+                    NodeIdentity {
+                        address: child,
+                        name: qualified(&name, oneof.name.as_deref().unwrap_or("")),
+                        kind: "oneof",
+                        parent: Some(name.clone()),
+                        number: None,
+                    },
                     json!({"options":self.options(oneof.options.as_option())?}),
                     message
                         .field
@@ -405,7 +420,7 @@ impl Bundle {
             self.enumeration(file, enumeration, child, child_path(&path, 4, index), nodes)?;
         }
         let parent = schema_parent(file, &name);
-        nodes.push(self.node(file,path,name.clone(),name,"message",Some(parent),None,json!({"options":self.options(message.options.as_option())?,"reserved_names":message.reserved_name,"reserved_ranges":serde_json::to_value(&message.reserved_range)?}),children));
+        nodes.push(self.node(file, path, NodeIdentity { address: name.clone(), name, kind: "message", parent: Some(parent), number: None }, json!({"options":self.options(message.options.as_option())?,"reserved_names":message.reserved_name,"reserved_ranges":serde_json::to_value(&message.reserved_range)?}), children));
         Ok(())
     }
     fn field(
@@ -434,7 +449,7 @@ impl Bundle {
         } else {
             parent.into()
         };
-        nodes.push(self.node(file,path,address,name,if extension{"extension"}else{"field"},Some(container),field.number,json!({"type":field.r#type.map(|kind|format!("{kind:?}")),"type_name":field.type_name,"label":field.label.map(|label|format!("{label:?}")),"presence":resolved.map(|field|format!("{:?}",field.presence())),"proto3_optional":field.proto3_optional,"oneof_index":field.oneof_index,"default":field.default_value,"json_name":field.json_name,"extendee":field.extendee,"options":self.options(field.options.as_option())?}),field.type_name.iter().chain(&field.extendee).map(|name|name.trim_start_matches('.').into()).collect()));
+        nodes.push(self.node(file, path, NodeIdentity { address, name, kind: if extension{"extension"}else{"field"}, parent: Some(container), number: field.number }, json!({"type":field.r#type.map(|kind|format!("{kind:?}")),"type_name":field.type_name,"label":field.label.map(|label|format!("{label:?}")),"presence":resolved.map(|field|format!("{:?}",field.presence())),"proto3_optional":field.proto3_optional,"oneof_index":field.oneof_index,"default":field.default_value,"json_name":field.json_name,"extendee":field.extendee,"options":self.options(field.options.as_option())?}), field.type_name.iter().chain(&field.extendee).map(|name|name.trim_start_matches('.').into()).collect()));
         Ok(())
     }
     fn enumeration(
@@ -452,11 +467,13 @@ impl Bundle {
             nodes.push(self.node(
                 file,
                 child_path(&path, 2, index),
-                child,
-                qualified(&name, value.name.as_deref().unwrap_or("")),
-                "enum_value",
-                Some(name.clone()),
-                None,
+                NodeIdentity {
+                    address: child,
+                    name: qualified(&name, value.name.as_deref().unwrap_or("")),
+                    kind: "enum_value",
+                    parent: Some(name.clone()),
+                    number: None,
+                },
                 json!({"number":value.number,"options":self.options(value.options.as_option())?}),
                 vec![],
             ));
@@ -465,11 +482,13 @@ impl Bundle {
         nodes.push(self.node(
             file,
             path,
-            name.clone(),
-            name,
-            "enum",
-            Some(parent),
-            None,
+            NodeIdentity {
+                address: name.clone(),
+                name,
+                kind: "enum",
+                parent: Some(parent),
+                number: None,
+            },
             json!({"options":self.options(enumeration.options.as_option())?}),
             children,
         ));

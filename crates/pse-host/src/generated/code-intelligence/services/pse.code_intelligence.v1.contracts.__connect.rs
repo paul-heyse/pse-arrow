@@ -329,7 +329,7 @@ pub const INVESTIGATION_RUN_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::serve
 /// item inside the stream body and yield
 /// [`PreEncoded`](::connectrpc::PreEncoded) — see its `# Streaming
 /// example` doc.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
 pub trait Investigation: Send + Sync + 'static {
     /// Handle the Inspect RPC.
     ///
@@ -869,7 +869,7 @@ pub const NATIVE_SEMANTIC_RUN_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::ser
 /// item inside the stream body and yield
 /// [`PreEncoded`](::connectrpc::PreEncoded) — see its `# Streaming
 /// example` doc.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
 pub trait NativeSemantic: Send + Sync + 'static {
     /// Handle the Status RPC.
     ///

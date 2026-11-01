@@ -1,6 +1,8 @@
 ---
 title: "Plan61: Code-intelligence foundations"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Highest-numbered plan; Plan60 and proposed ADR-0235 consume its foundation and qualification evidence."
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/README.md
@@ -76,8 +78,8 @@ runtime fallback. Existing unrelated Prost/Tonic integrations are outside this c
 ## Opportunity dispositions
 
 The source review's opportunity identifiers retain their meanings. All selected capabilities
-are scheduled; conditional branches inside them retain explicit triggers. Scheduling is not
-resolution. The work owners below link the only execution-status tables.
+are complete within their recorded qualification boundaries; conditional branches inside them
+retain explicit triggers. The work owners below link the only execution-status tables.
 
 | Opportunity | Disposition | Work owner | Required evidence or trigger |
 | --- | --- | --- | --- |
@@ -85,13 +87,13 @@ resolution. The work owners below link the only execution-status tables.
 | O02 — compact answers | complete | B02 | Bounded projection/guarded expansion preserve context, coverage and finality in actual journeys |
 | O03 — generated local communication | complete | C01, C02 | Authenticated connection/reconnect, Start/Cancel/Terminal and actual native drain exercised |
 | O04 — one declaration | complete | A00, A02 | Authored/derived ownership and generated outputs agree; formal ADR acceptance remains separate |
-| O05 — descriptors/discovery | open — partial | A02, D01 | A02 complete; useful offline schema inspection remains D01 |
+| O05 — descriptors/discovery | complete | A02, D01 | Complete immutable descriptor worlds, offline navigation and guarded expansion exercised |
 | O06 — declarative validation | complete | A01, A02, C02 | Selected owned/view and stream-item validation preserves violations versus validator defects |
-| O07 — external diagnostics | open — partial | D02, B03 | B03 complete; descriptor/payload-specific external-tool workflows remain D02 |
-| O08 — explicit evolution/cutover | open — partial | A02, Q01 | Helper hard cutover complete; full-series retirement and qualification remain Q01 |
-| O09 — schema/Rust investigation | scheduled | D01, D03 | Descriptor relationships and qualified generated-origin navigation |
-| O10 — payload explanation | scheduled | D02 | Exact descriptor/payload binding, selective inspection and malformed/unknown distinctions |
-| O11 — contract comparison | scheduled | D03 | Binary/JSON/Rust/constraint changes distinguished; native links retain independent qualification |
+| O07 — external diagnostics | complete | D02, B03 | Original tool/validator diagnostics and passive payload interpretation exercised |
+| O08 — explicit evolution/cutover | complete | A02, Q01 | Migrated consumers retain no replaced framing/category compatibility path; assembled acceptance and static checks passed |
+| O09 — schema/Rust investigation | complete | D01, D03 | Descriptor relationships and qualified, guarded generated-origin navigation exercised |
+| O10 — payload explanation | complete | D02 | Exact descriptor/payload binding, selective inspection and malformed/unknown distinctions exercised |
+| O11 — contract comparison | complete | D03 | Binary/JSON/Rust/constraint observations remain distinct; native links retain independent qualification |
 | O12 — query diagnostics/observation | complete | B03, C02 | Original phase/cause, validation locations, settlement and original outcome preserved |
 | O13 — batch/typed clients | complete | B02, B03, C02 | Grouped intent, request-local proof/connection reuse and checked generated caller exercised; remote deployment conditional |
 
@@ -177,7 +179,7 @@ deviations. Plan61 authoring does not itself amend other plans or perform those 
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| Q01 | planned | Plan61 integration owner | Actual assembled acceptance, complete hard cutover, scope-end checks and durable publication |
+| Q01 | complete | Plan61 integration owner | Actual assembled acceptance, hard cutover, scope-end checks and durable publication |
 
 ## Current checkpoint
 
@@ -205,8 +207,72 @@ native/API/LSP callers, explicit cancellation, same-client reconnect and origina
 are exercised. Controlled transport and composite native evidence retain their stated limits.
 New/helper protocol consumers moved together; replaced framing/category decoders were deleted.
 
-D01 is now ready from the completed A02/B01 foundation; D02/D03 follow its actual products.
-Those packages and Q01 assembled/static qualification remain open and are not actioned by this
-B/C execution. The completed companions remain retained dependencies. ADR-0235 remains proposed
-pending its governing PR; its review remains A02-scoped. No measured benefit or whole-product
-qualification follows from package acceptance.
+D01–D03 and Q01 are complete; [61d's Outcome](61d-schema-payload-and-contract-investigation.md#outcome)
+owns the offline schema/payload/comparison realization. The completed companions remain retained
+dependencies for Plan60 and proposed ADR-0235; the latter's review remains A02-scoped and its
+formal status remains proposed. No Plan60 execution, measured benefit or scientific/deployment
+qualification follows from this closure.
+
+## Outcome
+
+**Implemented:** the complete selected Plan61 foundation is integrated. Offline schema and
+payload investigation reuse existing search/inspection, typed output and supervised native
+tool ownership. Generated associations preserve original source/world qualification and
+guard drill-through; no descriptor name establishes a Rust entity. The migrated semantic
+consumers use generated RPC and typed facts, with no retained replaced listener or category
+decoder. Enduring contracts and limits are published in blueprint §21.7 and §24.2.
+
+**Tested — 2026-11-01, local Linux, pinned toolchain, configured unbounded execution:**
+
+| Command / selected scope | Result against zero failures |
+| --- | --- |
+| `cargo t -p pse-host --lib --test schema_payload_workflows -E 'test(schema::) \| test(schema_descriptors) \| test(plan61_) \| test(semantic::wire::) \| binary(schema_payload_workflows)'` | 58/58 passed on final corrected source |
+| Existing B/C library selector recorded in 61b/61c, including configuration, stream, typed facts and controlled RPC | 62/62 passed |
+| `cargo t -p pse-host --test investigations` | 15/15 passed |
+| `cargo t -p pse-host --test investigation_evidence --test source_commands --test source_queries` | 15/15 passed |
+| `cargo t -p pse-host --lib --features native-hir` with the native/engine, authenticated cancellation, actual CLI reuse/stop, socket-custody and compact-answer selectors below | 12/12 passed in a fresh final run after explicit latest native preparation |
+| `cargo t -p pse-host --test composed_investigations` | 4/4 passed in a fresh final run, covering actual native/API worlds and proposals |
+| Focused generator explicit-association and lint-qualification cases | Each selected case passed |
+| Production `Location` origin lookup and its returned guarded authored-source action; offline `grpcurl` service descriptions | Passed; no running schema service used |
+
+The final native filter was:
+
+```text
+test(semantic::native::) | test(semantic::engine::tests::) | test(native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session) | test(native_cli_reuses_original_session_fences_sources_and_proves_stop) | test(socket_peer_cannot_supply_its_own_pid_or_receive_input_without_original_custody) | test(compact_native_sections_and_workspace_answers_round_trip_without_invented_facts)
+```
+
+Final native preparation used `scripts/pse tools prepare native-analysis`; all selected
+work/session owners settled. Earlier runs encountered source-generation safety refusals
+during concurrent edits. Those failed attempts receive no acceptance credit; the final
+12-case and four-case populations each passed in full after preparation on stable source.
+Controlled CPU/router tests and actual native/LSP journeys retain their different meanings.
+
+**Interface-checked:** full `just codegen` passed all ten targets; selected regeneration then
+refreshed qualified outputs after generator-only maintenance. Final `scripts/pse run-all
+hygiene lint-native-contracts lint-native-data` passed every child, including both workspace
+Clippy modes with `--keep-going` and `-D warnings`, type/lint checks and full generation
+comparison. Explicit host Clippy with `--features native-hir --all-targets` passed without
+warnings. `just governance`, `just docs` and the host-scoped cargo-hack depth-two powerset
+passed; the latter freshly checked both no-default and native-hir combinations. Baseline is
+zero throughout. These are developer-tooling checks, not Plan58h scientific/reference,
+deployment or performance campaigns, blanket CEL/protobuf conformance or measured savings.
+
+### Mistakes corrected
+
+Independent implementation review exposed descriptor rebasing, extension navigation, native
+classification failure reporting and origin-qualification errors; 61d records their corrections.
+Final qualification also exposed generated attributes without reasons, unchecked assumptions
+about generated lint eligibility, missing REUSE metadata and oversized handwritten enum
+variants. Generator-owned qualification, exact reflection-invariant restrictions, proper test
+scope and structural boxing corrected them. Generated files were regenerated, never hand edited;
+the final keep-going checks report no warnings or errors.
+
+### Deliberate deviations and retention
+
+Strict textproto uses descriptor-backed protoc; dynamic constraints remain metadata unless an
+actual compiled validator applies. Existing `syn` parses explicit generated associations.
+No remote registry/reflection acquisition, embedded compiler, runtime CEL interpreter, lazy
+view subsystem or persistent schema graph is added without its recorded consumer trigger.
+Plan61 remains retained as the highest-numbered series and a dependency of Plan60 and
+proposed ADR-0235. All selected execution packages are complete; those independent plans,
+conditional capability triggers and the governing ADR process retain their own authority.

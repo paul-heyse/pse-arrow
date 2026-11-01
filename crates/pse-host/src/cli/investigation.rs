@@ -264,8 +264,8 @@ pub(super) enum Inspection {
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub(super) enum Preview {
-    Syntax(crate::source_proposal::ChangeProposal),
-    Semantic(query::rust::SemanticInspection),
+    Syntax(Box<crate::source_proposal::ChangeProposal>),
+    Semantic(Box<query::rust::SemanticInspection>),
 }
 
 #[derive(Debug, Args)]
@@ -1089,18 +1089,20 @@ pub(super) fn propose(
                 query::Error::Invalid("select a native semantic preview operation".into()).into(),
             );
         };
-        Preview::Semantic(super::runtime()?.block_on(query::rust::semantic_view(
-            &root,
-            &reference.locator,
-            kind,
-        ))?)
+        Preview::Semantic(Box::new(
+            super::runtime()?.block_on(query::rust::semantic_view(
+                &root,
+                &reference.locator,
+                kind,
+            ))?,
+        ))
     } else {
-        Preview::Syntax(query::rust::propose(
+        Preview::Syntax(Box::new(query::rust::propose(
             &root,
             &reference.locator,
             options.replacement,
             options.rename,
-        )?)
+        )?))
     };
     output
         .emit_page(

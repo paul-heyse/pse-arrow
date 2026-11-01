@@ -21,10 +21,10 @@ fn checked_pool(mut set: FileDescriptorSet) -> Result<DescriptorPool, String> {
     for file in &set.file {
         let name = file.name.as_deref().ok_or("descriptor filename missing")?;
         let bytes = file.encode_to_vec();
-        if let Some(previous) = files.insert(name, bytes.clone()) {
-            if previous != bytes {
-                return Err(format!("conflicting descriptor file: {name}"));
-            }
+        if let Some(previous) = files.insert(name, bytes.clone())
+            && previous != bytes
+        {
+            return Err(format!("conflicting descriptor file: {name}"));
         }
     }
     let mut seen = BTreeSet::new();

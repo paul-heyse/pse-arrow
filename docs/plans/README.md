@@ -9,7 +9,6 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [61: Code-intelligence foundations](61-code-intelligence-foundations.md) | Typed evidence and generated local RPC B/C scope complete; schema/payload D scope and Q01 assembled qualification remain. [Dependencies and execution route](61-code-intelligence-foundations.md#dependencies-and-execution-route) identifies readiness; its coordinator owns O01–O13 dispositions and companions own progress. Existing plans retain their independent scope. |
 | [60: Engineering code intelligence](60-engineering-code-intelligence.md) | New proposed extensions on the delivered CLI: [evidence/composition](60a-evidence-contracts-and-query-composition.md), [native relationships/lifetimes](60b-native-relationships-and-lifetime-evidence.md), [API evidence](60c-library-api-and-compatibility-evidence.md), [change/document associations](60d-change-and-document-evidence.md) and [validation/adoption](60e-validation-relevance-and-workflow-adoption.md). The coordinator owns O01–O11 dispositions; companion tables own execution state. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
@@ -17,6 +16,12 @@ resume stopped work or establish implementation, qualification or measured benef
 | [40: Simulation diagnostics](40-simulation-performance-diagnostics.md) | Native simulation diagnostics and its independent campaign status. |
 | [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
 | [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
+
+[Plan61: Code-intelligence foundations](61-code-intelligence-foundations.md#outcome) is complete
+and retained as the highest-numbered series and a foundation for Plan60 and proposed ADR-0235.
+Its [schema/payload Outcome](61d-schema-payload-and-contract-investigation.md#outcome) and
+coordinator own implementation, assembled acceptance and evidence limits. Formal ADR acceptance
+and the independent plans below retain their own authority.
 
 Plan60's [dependencies and execution route](60-engineering-code-intelligence.md#dependencies-and-execution-route)
 contains the package graph and prerequisite-readiness table. Its initial route is existing-feature

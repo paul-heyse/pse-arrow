@@ -1,6 +1,7 @@
 ---
 title: "Plan61d: Schema, payload and contract investigation"
-status: active
+status: complete
+doc_retention: while-dependent
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/61-code-intelligence-foundations.md
@@ -98,9 +99,9 @@ complementary original source and artifact readers.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| D01 | in progress | Descriptor investigation owner | Useful offline schema navigation with immutable identity and direct projection |
-| D02 | in progress | Payload inspection owner | Passive schema-bound explanations with preservation and malformed-input limits |
-| D03 | in progress | Contract/origin investigation owner | Classified changes and qualified generated-Rust/source associations |
+| D01 | complete | Descriptor investigation owner | Offline discovery/navigation, complete immutable worlds and guarded expansion exercised |
+| D02 | complete | Payload inspection owner | Passive binary/JSON/textproto explanations, static validation coverage and malformed-input limits exercised |
+| D03 | complete | Contract/origin investigation owner | Native classifications and qualified generated-origin drill-through exercised |
 
 ### Execution checkpoint — 2026-11-01
 
@@ -114,12 +115,70 @@ Textproto ingress uses descriptor-backed `protoc`, preserving original text and 
 successful parsing is distinct from validation. Dynamic schemas expose constraints without
 claiming compiled validation. Generated declaration associations use explicit emitted Rust
 syntax and exact input/output identities. No new daemon, runtime CEL interpreter or persistent
-schema graph is selected. Q01 remains open until assembled acceptance and scope-end checks.
+schema graph is selected. The coordinator owns Q01 assembled acceptance and scope-end checks.
+
+## Outcome
+
+**Implemented:** D01–D03 extend `search schema`, `inspect schema`, `inspect payload` and
+`inspect origin`. Descriptor construction validates the full declared closure before linking;
+private bundle state prevents consumers from mutating bytes, identity or linked metadata
+independently. Native paths, original artifact digests, presence, unknown wire data, options
+and interpretation limits remain explicit. Supplied dynamic constraints are not claimed to
+have run through compiled validation. Text parsing and native compatibility classification
+use the installed tools through existing supervised-child ownership and actual drain.
+
+**Implemented:** producer-owned associations derive from explicit generated message names and
+numbered accessor syntax using the existing `syn` parser. They bind descriptor, emitter,
+configuration, authored source and output bytes. Working-source origin lookup uses the actual
+enclosing Rust declaration and offers guarded authored-source expansion. Historical/index
+hits do not inherit current-generation origin; schema associations do not establish native
+Rust identity. There is no new service, mutable global pool, dynamic CEL evaluator or second
+descriptor implementation.
+
+**Tested — 2026-11-01, local Linux, configured unbounded execution:**
+
+```text
+cargo t -p pse-host --lib --test schema_payload_workflows -E 'test(schema::) | test(schema_descriptors) | test(plan61_) | test(semantic::wire::) | binary(schema_payload_workflows)'
+```
+
+58 selected tests passed, zero failures against zero (682 unselected). This covers original
+bundle/query/reference identity, unused missing imports, conflicting files, option metadata,
+service navigation, extension links, raw paths, configuration rebasing, strict JSON/text input,
+payload presence/unknowns, selected validation, native Buf classifications and qualified
+source associations. An actual production `Location` origin inspection and its returned guarded
+authored-source action also succeeded. Offline `grpcurl` described both production services;
+Buf 1.75.0 and protoc 36.2 supplied the selected native interpretations. These controls do not
+establish universal protobuf/CEL conformance, native generic applicability or measured benefit.
+
+**Interface-checked:** full `just codegen` passed all ten targets; the subsequent
+code-intelligence-only regeneration refreshed emitter-qualified sidecars after lint fixes.
+The focused generator qualifier test passed, including refusal of unknown assertion patterns.
+Q01's final scope-end evidence remains with the coordinator.
+
+### Mistakes corrected
+
+Initial integration missed request/config-relative descriptor rebasing, extension parent links,
+failure envelopes for unavailable Buf, raw temporary paths and ordinary generated-origin
+navigation. Review exposed and corrected these, plus historical-origin and unguarded-action
+errors. Generated JSON's unknown-key behavior required explicit schema-key preflight rather
+than assuming parsing was strict. Focused tests challenge the corrected boundaries.
+
+### Deliberate deviations
+
+Strict descriptor-backed text parsing uses protoc because Buffa 0.9.2's generated reader drops
+unknown names; required-field warnings remain distinct from validation. `syn` reads explicit
+generated syntax instead of introducing another parser dependency. Generated lint qualification
+preserves comments and permits assertions only in pinned reflection functions with exact known
+immutable-metadata/self-encoding invariants; unknown functions or assertion messages refuse
+generation. No acquired-input decoder receives a blanket assertion exemption. Source spans
+remain unqualified producer coordinates; the source action reads verified original file bytes
+without inventing a declaration byte range.
 
 ### Investigation findings — 2026-10-31
 
 The qualification corpus is authored under `crates/pse-host/tests/fixtures/plan61`;
-xtask's explicit `codegen --only plan61` owns its generated test output. It is not the
+xtask's current explicit `codegen --only code-intelligence` route owns its generated test
+output alongside production contracts. The qualification corpus itself is not the
 production D01–D03 interface. Test-only host consumers investigate complete descriptors,
 direct projection and payload interpretation without launching an analyzer or schema service.
 

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 325
+revision: 326
 date: 2026-11-01
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 326 | 2026-11-01 | Close Plan61 selected scope with assembled local Linux evidence, immutable descriptor ownership, guarded origin qualification and narrowly bounded generated reflection assertions (§21.7, §24.2). | Operator-authorized Plan61 Q01 publication; final runtime and keep-going static checks passed. ADR-0235 remains proposed with A02-scoped review; scientific/deployment/performance qualification remains separate. |
 | 325 | 2026-11-01 | Plan61 D offline descriptor worlds, passive schema-bound payload inspection, contract classifications and qualified generated associations (§21.7). | Operator-authorized realization within proposed ADR-0235; scoped A02 review and formal ADR status remain unchanged. D package evidence and Q01 assembled qualification retain their owning plans. |
 | 324 | 2026-11-01 | Plan61 B/C typed source/API/native facts, request-local proof/client reuse, authenticated generated UDS RPC and transport-independent operation settlement (§21.7). | Operator-authorized realization within proposed ADR-0235; scoped A02 review and formal ADR status remain unchanged. Package evidence and Q01 assembled qualification retain their owning plans. |
 | 323 | 2026-10-31 | Plan61 A02 scoped proto authority, single-input explicit generation, descriptor identity and CEL preflight/error semantics (§21.7). | Proposed ADR-0235; operator-authorized foundation with scoped prospective review. Production migration, assembled qualification and formal ADR acceptance remain separate. |

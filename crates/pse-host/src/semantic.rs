@@ -427,7 +427,7 @@ pub enum Response {
     /// Actual prepared analyzer status.
     Status(SessionStatus),
     /// Settled selected source query.
-    Query(Answer),
+    Query(Box<Answer>),
     /// Actual name-first native discovery.
     WorkspaceSymbols(WorkspaceAnswer),
     /// Qualified loaded Cargo/VFS package context.
@@ -439,7 +439,7 @@ impl Response {
     /// Extract the selected source answer, refusing a different operation result.
     pub fn into_query(self) -> Result<Answer> {
         match self {
-            Self::Query(value) => Ok(value),
+            Self::Query(value) => Ok(*value),
             _ => Err(Error::Protocol("expected native query response".into())),
         }
     }

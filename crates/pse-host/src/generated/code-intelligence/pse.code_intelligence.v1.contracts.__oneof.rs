@@ -2,7 +2,7 @@
 // source: pse/code_intelligence/v1/contracts.proto
 
 pub mod predicate {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Question {
@@ -166,7 +166,7 @@ pub mod predicate {
     }
 }
 pub mod syntax_query {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Matcher {
@@ -201,7 +201,7 @@ pub mod syntax_query {
     }
 }
 pub mod refinement {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Filter {
@@ -237,7 +237,7 @@ pub mod refinement {
     }
 }
 pub mod count {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Precision {
@@ -277,7 +277,7 @@ pub mod count {
     }
 }
 pub mod native_cancellation_observation {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum OriginalOutcome {
@@ -320,7 +320,7 @@ pub mod native_cancellation_observation {
     }
 }
 pub mod observation {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Fact {
@@ -396,7 +396,7 @@ pub mod observation {
     }
 }
 pub mod terminal {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum OriginalOutcome {
@@ -439,7 +439,7 @@ pub mod terminal {
     }
 }
 pub mod control {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Action {
@@ -482,7 +482,7 @@ pub mod control {
     }
 }
 pub mod event {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Item {
@@ -530,7 +530,7 @@ pub mod event {
     }
 }
 pub mod native_query {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Kind {
@@ -640,7 +640,7 @@ pub mod native_query {
     }
 }
 pub mod native_request {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Operation {
@@ -689,7 +689,7 @@ pub mod native_request {
     }
 }
 pub mod native_package_reply {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Result {
@@ -740,7 +740,7 @@ pub mod native_package_reply {
     }
 }
 pub mod native_location {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Coordinates {
@@ -792,7 +792,7 @@ pub mod native_location {
     }
 }
 pub mod native_control {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Action {
@@ -835,7 +835,7 @@ pub mod native_control {
     }
 }
 pub mod native_event {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     #[derive(Clone, PartialEq, Debug)]
     pub enum Item {

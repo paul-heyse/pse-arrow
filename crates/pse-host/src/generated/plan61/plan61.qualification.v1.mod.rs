@@ -11,17 +11,17 @@ include!("plan61.qualification.v1.contract.rs");
     clippy::uninlined_format_args,
     clippy::doc_lazy_continuation,
     clippy::module_inception
-)]
+, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
 pub mod __buffa {
-    #[allow(unused_imports)]
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     use super::*;
     pub mod view {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use super::*;
         include!("plan61.qualification.v1.contract.__view.rs");
     }
     pub mod ext {
-        #[allow(unused_imports)]
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use super::*;
         include!("plan61.qualification.v1.contract.__ext.rs");
     }
