@@ -103,6 +103,8 @@ pub struct DependencyKind {
 pub struct PackageFacts {
     /// Locked package identity.
     pub package: PackageIdentity,
+    /// Actual Cargo targets, distinct from discovered tests and analyzer commands.
+    pub targets: Vec<PackageTarget>,
     /// Enabled features in this metadata graph, or unknown if --no-deps omitted the graph.
     pub metadata_features: Option<Vec<String>>,
     /// Authored feature declarations, not a promise that every feature is enabled.
@@ -113,6 +115,26 @@ pub struct PackageFacts {
     pub pin_reason: Option<String>,
     /// Exact filename-matched library overviews. Combined overviews may require explicit lookup.
     pub overview_candidates: Vec<PathBuf>,
+}
+/// Authored target eligibility from the selected native metadata.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct PackageTarget {
+    /// Native target name.
+    pub name: String,
+    /// Native target roles, retaining future kinds.
+    pub kinds: Vec<String>,
+    /// Original source identity.
+    pub source: PathBuf,
+    /// Authored target edition.
+    pub edition: String,
+    /// Required features; metadata membership does not imply their activation.
+    pub required_features: Vec<String>,
+    /// Participation in Cargo's test selection.
+    pub test: bool,
+    /// Benchmark kind is retained above; metadata omits authored `bench` eligibility.
+    pub bench: Option<bool>,
+    /// Participation in doctest selection, not a transformation or execution verdict.
+    pub doctest: bool,
 }
 /// Name lookup preserves ambiguity instead of selecting the first locked source/version.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -374,6 +396,11 @@ fn facts(metadata: &Metadata, package: &Package) -> PackageFacts {
         .join(format!("{}.md", package.name));
     PackageFacts {
         package: package.into(),
+        targets: package.targets.iter().map(|target| PackageTarget {
+            name: target.name.clone(), kinds: target.kind.iter().map(ToString::to_string).collect(),
+            source: target.src_path.as_std_path().to_owned(), edition: target.edition.to_string(),
+            required_features: target.required_features.clone(), test: target.test, bench: None, doctest: target.doctest,
+        }).collect(),
         metadata_features: node.map(|node| node.features.iter().map(ToString::to_string).collect()),
         declared_features: package
             .features
@@ -401,6 +428,10 @@ pub fn capture(
     root: &Path,
     environment: &Environment,
 ) -> Result<MetadataSnapshot, CorrectnessError> {
+    capture_original(root, environment).map(|(snapshot, _)| snapshot)
+}
+/// Preserve the original response alongside its typed view without reconstruction.
+pub fn capture_original(root: &Path, environment: &Environment) -> Result<(MetadataSnapshot, Vec<u8>), CorrectnessError> {
     let mut builder = cargo_metadata::MetadataCommand::new();
     builder
         .cargo_path(crate::correctness::real_cargo_in(environment)?)
@@ -419,10 +450,10 @@ pub fn capture(
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
-    Ok(MetadataSnapshot {
+    Ok((MetadataSnapshot {
         metadata: serde_json::from_slice(&output.stdout)?,
         digest,
-    })
+    }, output.stdout))
 }
 
 #[cfg(test)]

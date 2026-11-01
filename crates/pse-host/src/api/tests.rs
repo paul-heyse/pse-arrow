@@ -342,3 +342,51 @@ fn extraction_removes_reexec_transport_from_both_context_and_actual_compiler_inp
         original.get(OsStr::new("CUSTOM_BUILD_INPUT"))
     );
 }
+
+#[test]
+fn native_doctest_format2_retains_real_wrappers_attributes_and_never_executes_examples() {
+    let temporary = tempfile::tempdir().unwrap();
+    let sentinel = temporary.path().join("must-not-exist");
+    let source = temporary.path().join("lib.rs");
+    fs::write(temporary.path().join("guide.md"), "```no_run\nlet carrier = 1;\n```\n").unwrap();
+    fs::write(&source, format!(r##"
+/// ```
+/// #![allow(unused)]
+/// ##[allow(unused_variables)]
+/// # let setup = 1;
+/// std::fs::write({:?}, "executed")?;
+/// assert_eq!(setup, 1);
+/// Ok::<(), std::io::Error>(())
+/// ```
+/// ```test_harness,standalone_crate
+/// #[test] fn sample() {{}}
+/// ```
+/// ```ignore-linux,edition2024
+/// let conditional = 1;
+/// ```
+pub struct Examples;
+#[cfg(doctest)]
+#[doc = include_str!("guide.md")]
+pub struct Guide;
+"##, sentinel)).unwrap();
+    let output = Command::new("rustdoc").args(["-Zunstable-options", "--output-format=doctest", "--edition=2024"]).arg(&source).output().unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let document = doctests::decode(&output.stdout).unwrap();
+    assert_eq!(document.format_version, 2);
+    assert_eq!(document.doctests.len(), 4);
+    let transformed = document.doctests.iter().find(|example| example.original_code.contains("std::fs::write")).unwrap().doctest_code.as_ref().unwrap();
+    assert!(transformed.wrapper.as_ref().unwrap().returns_result);
+    assert!(transformed.crate_level.contains("allow(unused)"));
+    assert!(transformed.code.contains("let setup = 1"));
+    assert!(transformed.code.contains("#[allow(unused_variables)]"));
+    assert!(!sentinel.exists(), "preprocessing must not run the example");
+    let harness = document.doctests.iter().find(|example| example.doctest_attributes.test_harness).unwrap();
+    assert!(harness.doctest_attributes.standalone_crate);
+    assert!(harness.doctest_code.as_ref().unwrap().wrapper.is_none());
+    assert!(document.doctests.iter().any(|example| matches!(&example.doctest_attributes.ignore, doctests::Ignore::Some(targets) if targets == &["linux"])));
+    assert!(document.doctests.iter().any(|example| example.original_code.contains("carrier")));
+    assert!(doctests::decode(br#"{"format_version":999,"doctests":false}"#).is_err());
+    let mut value = serde_json::to_value(document).unwrap();
+    value["doctests"][0]["doctest_code"] = serde_json::Value::Null;
+    assert!(doctests::decode(&serde_json::to_vec(&value).unwrap()).unwrap().doctests[0].doctest_code.is_none());
+}

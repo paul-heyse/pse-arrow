@@ -23,6 +23,7 @@ use std::{
 pub mod bridge;
 pub mod comparison;
 pub mod query;
+pub mod doctests;
 
 /// A version, acquisition or original native input failure.
 #[derive(Debug, thiserror::Error)]
@@ -664,13 +665,28 @@ pub fn prepare(
     target: Option<&str>,
     environment: &Environment,
 ) -> Result<Acquisition, ApiError> {
+    prepare_mode(root, store, snapshot, query, target, environment, false)
+}
+pub(crate) fn prepare_mode(
+    root: &Path,
+    store: &Path,
+    snapshot: &MetadataSnapshot,
+    query: &str,
+    target: Option<&str>,
+    environment: &Environment,
+    doctests: bool,
+) -> Result<Acquisition, ApiError> {
     let environment = extraction_environment(environment)?;
     let Observation {
-        context,
+        mut context,
         files,
         library,
         unit_graph,
     } = observed_context(root, store, snapshot, query, target, &environment)?;
+    if doctests {
+        context.extraction_flags = vec!["-Z".into(), "unstable-options".into(), "--output-format".into(), "doctest".into()];
+        context.rustdoc_format = doctests::FORMAT_VERSION;
+    }
     let directory = store
         .join("api")
         .join(context.key()?)
@@ -760,13 +776,27 @@ pub fn finish(
     acquisition: &Acquisition,
     snapshot: &MetadataSnapshot,
 ) -> Result<Artifact, ApiError> {
+    validate_acquisition(acquisition, snapshot)?;
+    let bytes = fs::read(&acquisition.json_output)?;
+    let document = decode(&bytes)?;
+    if document.target.triple != acquisition.context.target {
+        return Err(invalid("rustdoc output target differs from acquisition context"));
+    }
+    let path = acquisition.directory.join("document.json");
+    write(&path, &bytes)?;
+    write(&acquisition.directory.join("artifact.json"), &serde_json::to_vec(&ArtifactRecord {
+        context_key: acquisition.context.key()?, sha256: probe::digest(&bytes),
+    })?)?;
+    Ok(Artifact { context: acquisition.context.clone(), path, sha256: probe::digest(&bytes), document })
+}
+fn validate_acquisition(acquisition: &Acquisition, snapshot: &MetadataSnapshot) -> Result<(), ApiError> {
     let store = acquisition
         .directory
         .parent()
         .and_then(Path::parent)
         .and_then(Path::parent)
         .ok_or_else(|| invalid("API acquisition has no addressed store"))?;
-    let after = observed_context(
+    let mut after = observed_context(
         &acquisition.cwd,
         store,
         snapshot,
@@ -774,33 +804,16 @@ pub fn finish(
         Some(&acquisition.context.target),
         &acquisition.environment,
     )?;
+    if acquisition.context.extraction_flags.last().is_some_and(|flag| flag == "doctest") {
+        after.context.extraction_flags = vec!["-Z".into(), "unstable-options".into(), "--output-format".into(), "doctest".into()];
+        after.context.rustdoc_format = doctests::FORMAT_VERSION;
+    }
     if after.context != acquisition.context {
         return Err(invalid(
             "API source/build context changed during extraction; retain original diagnostics and reacquire",
         ));
     }
-    let bytes = fs::read(&acquisition.json_output)?;
-    let document = decode(&bytes)?;
-    if document.target.triple != acquisition.context.target {
-        return Err(invalid(
-            "rustdoc output target differs from acquisition context",
-        ));
-    }
-    let path = acquisition.directory.join("document.json");
-    write(&path, &bytes)?;
-    write(
-        &acquisition.directory.join("artifact.json"),
-        &serde_json::to_vec(&ArtifactRecord {
-            context_key: acquisition.context.key()?,
-            sha256: probe::digest(&bytes),
-        })?,
-    )?;
-    Ok(Artifact {
-        context: acquisition.context.clone(),
-        path,
-        sha256: probe::digest(&bytes),
-        document,
-    })
+    Ok(())
 }
 /// A successfully acquired, decoded declaration artifact. It grants no compilation verdict.
 #[derive(Debug)]

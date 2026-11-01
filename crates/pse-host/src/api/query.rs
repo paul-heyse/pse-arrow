@@ -7,6 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 mod definitions;
+pub mod contracts;
 pub use definitions::QualificationContext;
 /// Revalidate an explicit facade-to-definition qualification against its original
 /// acquired dependency edge and source/build inputs; never select a newer artifact.
@@ -452,7 +453,9 @@ pub struct Candidate {
     /// Expanded authored docs only when requested.
     pub docs: Option<String>,
     /// Declared rustdoc attributes; absent cfg information stays unknown.
-    pub attributes: Vec<String>,
+    pub attributes: Vec<contracts::Attribute>,
+    /// Rich schema61 constraints and metadata; no solver or layout inference.
+    pub contract: contracts::Contract,
     /// Authored deprecation release and note, when rustdoc supplies them.
     pub deprecation: Option<Deprecation>,
     /// Original definition location when supplied by rustdoc.
@@ -495,6 +498,8 @@ pub struct ReexportSource {
     pub item_id: u32,
     /// Exact original reexport syntax span when rustdoc retained it.
     pub source: Option<Location>,
+    /// Stability of this public route, separate from the defining declaration.
+    pub stability: Option<contracts::Stability>,
 }
 /// Retained declaration deprecation, independent of its availability in a chosen build.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -612,6 +617,11 @@ pub(crate) struct ExternalUse {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "availability", rename_all = "snake_case")]
 pub enum Report {
+    /// Original native preprocessing, separate from authored fence reading and execution.
+    NativeExamples {
+        /// Whole extracted examples from one addressed native artifact.
+        page: super::doctests::Page,
+    },
     /// Native structural differences over two original acquired artifacts.
     Comparison {
         /// Whole differences selected by the comparison producer.
@@ -1520,7 +1530,8 @@ pub fn inspect(
                 signature,
                 signature_complete,
                 docs: query.docs.then(|| item.docs.clone()).flatten(),
-                attributes: item.attrs.iter().map(|attr| format!("{attr:?}")).collect(),
+                attributes: contracts::project(&item.attrs)?,
+                contract: contracts::contract(definition.as_ref().map_or(&artifact.document, |(artifact, _, _)| &artifact.document), item)?,
                 deprecation: item.deprecation.as_ref().map(|value| Deprecation {
                     since: value.since.clone(),
                     note: value.note.clone(),
@@ -1534,15 +1545,16 @@ pub fn inspect(
                     .reexports
                     .into_iter()
                     .filter_map(|id| artifact.document.index.get(&id))
-                    .map(|reexport| ReexportSource {
+                    .map(|reexport| Ok::<_, ApiError>(ReexportSource {
                         item_id: reexport.id.0,
                         source: reexport.span.as_ref().map(|span| Location {
                             filename: span.filename.clone(),
                             begin: span.begin,
                             end: span.end,
                         }),
-                    })
-                    .collect(),
+                        stability: reexport.stability.as_ref().map(contracts::project).transpose()?,
+                    }))
+                    .collect::<Result<Vec<_>, _>>()?,
                 trait_provenance: address.trait_provenance,
                 incomplete_declaration,
                 ordinary_build_availability: "unknown; rustdoc cfg(doc) is a documentation context",
