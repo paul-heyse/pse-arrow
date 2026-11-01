@@ -5396,8 +5396,6 @@ to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state:
 kind = "depends-on"
 
 
-
-
 [[relationships]]
 from = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A03"
 to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
@@ -5409,12 +5407,10 @@ to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-stat
 kind = "depends-on"
 
 
-
 [[relationships]]
 from = "docs/plans/60d-change-and-document-evidence.md::package-state::D03"
 to = "docs/plans/60d-change-and-document-evidence.md::package-state::D01"
 kind = "depends-on"
-
 
 
 [[relationships]]
@@ -6210,7 +6206,12 @@ kind = "depends-on"
 path = "docs/plans/60-engineering-code-intelligence.md"
 name = "improvement-review-dispositions"
 heading = "Improvement review dispositions"
-headers = ["Recommendation", "Disposition", "Work owner", "Required evidence or trigger"]
+headers = [
+  "Recommendation",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(I[0-9]+)'
@@ -6222,7 +6223,12 @@ owner_column = 2
 path = "docs/plans/60-engineering-code-intelligence.md"
 name = "functional-extension-dispositions"
 heading = "Functional extension dispositions"
-headers = ["Opportunity", "Disposition", "Work owner", "Required evidence or trigger"]
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(O[0-9]+)'
@@ -6281,20 +6287,6 @@ kind = "depends-on"
 from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
 to = "docs/plans/60f-agent-interaction-and-contract-diagnostics.md::package-state::F03"
 kind = "depends-on"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 [[relationships]]

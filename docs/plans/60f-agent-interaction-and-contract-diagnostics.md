@@ -16,6 +16,11 @@ adrs: []
 **Proposed:** deliver improvement I06 and functional O05/O06 through existing parser,
 envelope, configuration and schema owners. The coordinator owns dispositions. A03 owns
 question-shaped evidence; E01/E03 own guidance and assembled use. This document owns F01–F03.
+Starting codebase is `42bede27a`, after Plan62's completed
+[Outcome](62-code-intelligence-capability-expansion.md#outcome). Protocol4 typed outcomes,
+guarded native actions and exact proto-source origins are available foundations, not F work
+to rebuild. F01–F03 still require their new discovery/handoff/correction consumers and evidence;
+Plan62 completion does not mark these packages complete.
 Plan61 supplies generated contracts/validators and original RPC diagnostics. Existing catalog,
 Figment composition, ResultReference::encode/decode and diagnostic projections are foundations.
 Review probes demonstrated overly wide discovery, invalid-field classification and JavaScript

@@ -19,14 +19,18 @@ to original [O04/O06](60-engineering-code-intelligence.md#opportunity-dispositio
 and functional [O03/O04](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md#O03).
 The coordinator owns dispositions; this document owns D01–D04 execution state.
 
-Authoring baseline is `ccf1b42da` plus relevant concurrent Plan62 changes. Existing Git/history,
+Starting baseline is `42bede27a` and Plan62's completed
+[Outcome](62-code-intelligence-capability-expansion.md#outcome). Existing Git/history,
 lossless syntax, API comparison, generated-origin and document/lifecycle readers remain the
 producers. Plan61 supplies typed contracts and original evidence guards. Plan62 supplies rich
 API/native correspondence, explicit native worlds and package/compiler-unit explanations.
 `cli::dependency::{UnitContext,join_units}`, `correctness::{Resolution,CompilerUnit}` and
 `semantic::NativePackageContext` are starting points, not missing resolvers to recreate. Their
-implementation and qualification retain their original owners; this revision grants no new
-Plan62 acceptance. Source `ownership::PlanOwnership` currently has `NotDeclared`; package
+completed implementation and qualification retain their original owners. D04 compares two
+selected retained contexts; it does not rebuild Plan62's one-context package/unit/world join.
+Exact proto origins now use authenticated native byte ranges; reuse those original associations
+for D02 rather than revive removed descriptor-column conversion. Source
+`ownership::PlanOwnership` currently has `NotDeclared`; package
 membership and `xtask::documentation::ownership` do not infer code-path-to-plan authority.
 
 The source review O04/O06 and blueprint §21.7 preserve origin and interpretation. Document

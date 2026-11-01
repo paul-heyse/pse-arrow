@@ -20,22 +20,37 @@ and [functional review](../functional_reviews/plan60-agent-engineering-opportuni
 on 2026-11-01, retaining explicit triggers for conditional investigation. Plan60 implementation
 has not started; document publication does not execute this target.
 
-Inspected revision: `ccf1b42da` plus concurrent native/API/compiler/proto/generator and
-documentation changes. Plan61's [Outcome](61-code-intelligence-foundations.md#outcome) owns
-assembled typed generation, RPC, validation and schema acceptance. Plan62's
-[remaining-scope checkpoint](62-code-intelligence-capability-expansion.md#remaining-scope-implementation-checkpoint--2026-11-01)
-owns richer source/API/Cargo/native/compiler implementation and pending assembled acceptance.
-Consume those foundations; older open tables do not erase newer implementation, and source
-presence does not confer qualification. Plan59/61 completed scope and independent Plan62 work
-are not reopened.
+Starting implementation baseline: `42bede27a`, following code completion `244e86e9f` and
+Plan62's [Outcome](62-code-intelligence-capability-expansion.md#outcome). Production source is
+committed; remaining operator library-document edits are preserved reference inputs, not
+unfinished Plan62 production work. Plan61's [Outcome](61-code-intelligence-foundations.md#outcome)
+owns generated-contract/RPC/schema acceptance. Plan62's completed selected scope supplies
+source/API/Cargo/native/compiler capabilities with recorded local Linux acceptance. Its earlier
+investigation and in-progress checkpoints are historical, not current readiness blockers.
+
+Plan62's Outcome retains exact commands, failed-attempt corrections, final affected reruns and
+scope limits. The operator-excluded copyright-header lint was not passed and the full hygiene
+aggregate is not green. ADR-0233/0235 remain proposed. No performance, remote deployment,
+scientific qualification or universal native/compiler equivalence follows from that completion.
+Reuse the completed foundation within these limits; Plan59/61/62 delivery is not reopened and
+does not implement or qualify Plan60's additional consumer behavior.
 
 Existing constructors, one query validator, proof/client reuse, guarded references, compact
 answers, API contracts, runnables and qualified contexts are available foundations. Remaining
 work includes structural edges rather than rendered context, multi-seed traversal independent
 of output scope, richer matcher inputs, selected-context deltas and useful evidence paths.
 SearchResult.source_relationship records written source context, not the full native edge
-contract. Reconcile actual consumed prerequisites again at execution; retain original evidence
-conditions and qualification at their owners.
+contract. The remaining packages extend and compose these producers; they do not rebuild
+Plan62 preparation, contextual inference, runnable discovery, compiler acquisition or exact
+proto-origin extraction. Retain original evidence conditions and qualification at their owners.
+
+| Completed foundation consumed by Plan60 | Remaining Plan60 responsibility |
+| --- | --- |
+| Native worlds, call-site substitutions/adjustments/obligations, typed predicate outcomes and layouts — Plan62a | B01/B05 structural/provenance edges, B02 joined lifetime questions and B03 additional named contextual predicates |
+| Source interpretation, demand-aware queries, grammar/SSR previews and exact schema origins — Plan62b | A01/A02 typed structural composition, A03 focused evidence and D02 qualified associations |
+| Rich API contracts/examples, actual Cargo/unit/world explanations and guarded runnable-to-selection routes — Plan62c | C01/C02 adjacency and matcher inputs, D04 paired deltas and E02 assertion/setup relevance |
+| Original capture/suspension/initialization/cleanup acquisitions — Plan62d | B02 source/provider/invocation correspondence and bounded engineering interpretation |
+| Generated contracts, direct reflection, immutable descriptors, diagnostics and RPC custody — Plan61 | Consumed extensions and F01–F03 agent discovery/handoff/correction |
 
 Blueprint §21.7 owns contracts. Core3.4, Efficient Architecture1.0, Test Assessment1.2 and the
 binding shape this plan; Process Simulator1.5 limits scientific interpretation. Code/schema
@@ -156,9 +171,11 @@ architecture amendments in their normal decision route and accepted ADRs immutab
 ## Dependencies and execution route
 
 Dependencies describe consumed capabilities rather than whole-document barriers.
-Plan61's delivered contract is not a new A01 build prerequisite. Plan62 acceptance remains
-required at its owner for behavior claimed as qualified; authoring can use current sources
-without marking that acceptance complete.
+Plan61's delivered contract is not a new A01 build prerequisite. Plan62's selected acceptance
+is complete at its owner; it is an available starting foundation, not an open phase before
+Plan60 can begin. Execution still explicitly prepares the provider/profile/artifact needed by
+the selected question and checks freshness. Existing acceptance does not supply new Plan60
+consumer or assembled acceptance, and unavailable contexts retain their original refusals.
 
 | Work | Required readiness and reason | Independent progress |
 | --- | --- | --- |
@@ -247,6 +264,8 @@ mistake made/corrected and deliberate deviations in the final Outcome.
 The 2026-11-01 revision integrates all I01–I08 and new functional O01–O06 into proposed
 scope, with O07/O08 and modeled/alternative branches explicitly conditional. Implementation
 under this series has not started. First work is the A01/B01/A02 slice alongside F01/F02/E01;
-remaining packages use the readiness table above. Refresh Plan62's actual completion/acceptance
-before claiming a consumed foundation qualified. Existing evidence retains its original scope.
+remaining packages use the readiness table above. The post-Plan62 baseline refresh inspected
+`42bede27a` and the completed companion Outcomes; no Plan60 package was implemented by that
+delivery. Existing preparation, typed producer and original-evidence work is consumed rather
+than rescheduled. All Plan60 package states and its own E03/Q01 acceptance remain planned.
 Publication is document acceptance only; no new product Tested/Measured claim follows.

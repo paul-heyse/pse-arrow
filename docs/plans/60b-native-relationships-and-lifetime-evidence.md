@@ -23,13 +23,14 @@ functional review's [O01](../functional_reviews/plan60-agent-engineering-opportu
 These review-local references do not rename original opportunities. The operator retained
 explicit triggers for B04 and deeper compiler alternatives on 2026-11-01.
 
-The authoring baseline is `ccf1b42da` plus relevant concurrent Plan62 native/proto/compiler
-changes. Plan61 delivers typed constructors, generated RPC, validation and original context
-guards. Plan62 source projects semantic roles/operations, captures, callable context, layout,
-predicates and selected compiler capture/suspension/cleanup facts, while its latest checkpoint
-leaves native/composed/compiler journeys and Q01 open. Reuse those producers with their limits;
-this plan neither rebuilds them nor grants qualification credit to source existence. Blueprint
-§21.7 and `semantic::{native,engine}` retain authority.
+The starting codebase is `42bede27a`, including Plan62's completed native/compiler producers
+and local Linux acceptance in its [Outcome](62-code-intelligence-capability-expansion.md#outcome).
+Plan61 supplies typed constructors, RPC, validation and original context guards. Plan62 supplies
+roles/operations, captures, actual-call substitutions/receiver adjustments/supported obligations,
+typed predicate outcomes, layouts and original compiler capture/suspension/initialization/cleanup
+facts. Consume these qualified producers with their recorded limits. B02 joins their evidence;
+B03 adds only missing named operations/consumers, not another candidate/predicate producer or
+boolean truth projection. Blueprint §21.7 and `semantic::{native,engine}` retain authority.
 
 The native HIR/IDE family is 0.0.358; standalone syntax 0.0.360 is intentionally separate.
 The live provider already has supported call/predicate operations and typed snapshots already
@@ -144,6 +145,9 @@ require mandatory feasibility studies to complete this series.
 Consumes existing Plan61/62 qualified type identities, predicate facts and refinement/unknown
 representation. New B01 edges are needed only for a consumer that traverses them. Expose the
 requested operation/premises through the existing owner, extending only missing consumed facts.
+Existing actual-call context, supported obligation results and Holds/NotProven/Invalid/Unsupported
+transport are supplied by completed Plan62a; the remaining scope is additional named contextual
+queries and their engineering consumers. Do not rebuild that inference or restore FactTruth.
 Distinguish exact type equality, possible deep unification, coercion and trait applicability.
 HIR0.0.358 provides
 `could_unify_with_deeply`, `could_coerce_to`, `impls_trait`, `has_any_impl` and supported

@@ -23,11 +23,15 @@ their compliance or automate conclusions.
 The revised basis includes the improvement review's
 [I07/I08](../plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md#I07) and
 functional review's [O04](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md#O04).
-These identifiers are local to those reviews. Authoring baseline is `ccf1b42da` plus relevant
-concurrent Plan62 changes. Plan61 delivers typed evidence/RPC, context guards and compact answers.
-Plan62 source supplies richer source facts, qualified runnables, transformed examples and
-Cargo/native-world evidence, while its assembled journeys and Q01 remain open at the inspected
-checkpoint. Source existence is not new qualification credit.
+These identifiers are local to those reviews. Starting baseline is `42bede27a`, with Plan62's
+completed [Outcome](62-code-intelligence-capability-expansion.md#outcome). Plan61 delivers typed
+evidence/RPC, context guards and compact answers. Plan62 delivers source facts, runnables,
+transformed examples and Cargo/native-world evidence with recorded local Linux acceptance.
+Direct and consolidated native runnable inspection already route guarded current-checkout
+sources to existing test selection; cfg, Cargo-feature eligibility and passive snapshot-update
+intent are distinct facts, and analyzer argv is not execution authority. Reuse those completed
+routes. E02 adds setup/assertion paths; E03/Q01 qualify Plan60's new assembled consumers rather
+than repeat Plan62 delivery or claim its evidence as Plan60 acceptance.
 
 Current `pse-cli` guidance, saved queries/scopes/JSON/explain, original diagnostics,
 `test_inventory::{TestRow,FailureRow}`, fixture declarations, retained outcomes and selection

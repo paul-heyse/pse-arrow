@@ -27,9 +27,11 @@ an unqualified JSON bag. The source review's O01/O02/O07/O08 explains the functi
 limits; blueprint §21.7 remains the contract owner.
 
 Plan61 already supplies authored proto, Buffa/ConnectRPC generation, validators, typed facts,
-direct VTable projection and request-local client/proof reuse. Plan62 supplies richer native/
-source observations, with assembled acceptance still pending at the inspected checkpoint.
-Reuse them. Current destination rows and rendered relationship context are insufficient for
+direct VTable projection and request-local client/proof reuse. The starting codebase is
+`42bede27a`, including Plan62's completed native/source observations and selected assembled
+acceptance recorded in its [Outcome](62-code-intelligence-capability-expansion.md#outcome).
+Reuse protocol4 typed predicates, original use-site guards and existing compact views rather
+than schedule their producer/cutover work again. Current destination rows and rendered relationship context are insufficient for
 role-qualified edges. Improvement review I01/I02 and functional review O01 explain this residual.
 The coordinator owns dispositions; blueprint §21.7 remains authoritative.
 

@@ -19,13 +19,16 @@ adrs: []
 and [functional O02](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md#O02).
 The coordinator owns their dispositions; this document owns C01/C02 execution state.
 
-Authoring baseline is `ccf1b42da` plus the relevant concurrent Plan62/API changes inspected by
-the reviews and refreshed during authoring. `crates/pse-host/src/api/{query,bridge,comparison}.rs`
+Starting baseline is `42bede27a`, including Plan62's completed selected API/native acceptance
+in its [Outcome](62-code-intelligence-capability-expansion.md#outcome).
+`crates/pse-host/src/api/{query,bridge,comparison}.rs`
 already supply structural `TypePattern`, original declaration/docs, qualified facade/definition
 and local-use joins, and comparisons. Plan61 supplies typed evidence and generated contracts.
 Plan62 supplies rich schema61 contracts, native doctest original/transformed/wrapper evidence,
 and guarded API/native correspondence. Those are consumed foundations, not packages to rebuild.
-Their qualification remains with Plan61/62; source presence does not close their pending work.
+Their completed qualification remains with Plan61/62 under its recorded conditions. Plan60
+adds adjacency, richer matcher inputs and new library-fit journeys, not another rich-contract,
+example-transformer or actual-call substitution producer.
 
 Existing input patterns cover paths/type arguments, references, tuples, slices, pointers,
 qualified associated types and `_`; `TypePattern::from_syn` still rejects lifetime/const/binding
@@ -89,7 +92,9 @@ O11: inspect an actual acquired artifact's `Span`/local `Location` conversion at
 multibyte source location. Review comments disagree about column bases; no producer defect is
 established. Make the actual producer convention and conversion explicit, with boundary tests,
 without treating comment text as authority. Other artifact-only navigation need not wait for
-this source-link slice.
+this source-link slice. Plan62's completed native proto-byte origin work answers a different
+coordinate question: reuse it for generated-contract navigation, but do not treat it as proof
+of rustdoc Span conventions or schedule descriptor-column conversion again.
 
 Acceptance covers a reexport with separate definition, two artifacts reusing a numeric item
 ID, a compiler-resolved versus prose-only link, absent defining artifact, a provided default
