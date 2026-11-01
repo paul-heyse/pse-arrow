@@ -267,14 +267,14 @@ mod tests {
         let first = artifact(&directory.path().join("first.json"), first_doc.clone());
         let mut second = artifact(&directory.path().join("second.json"), first_doc);
         second.context.package_id = "different-source-qualified-package".into();
-        let left = api_declaration(&first, 1, "demo::same", "function", None, None).unwrap();
-        let right = api_declaration(&second, 1, "demo::same", "function", None, None).unwrap();
-        assert_eq!(project_declaration(&left).unwrap().name, "demo::same");
+        let left = api_declaration(&first, 1, "fixture::same", "function", None, None).unwrap();
+        let right = api_declaration(&second, 1, "fixture::same", "function", None, None).unwrap();
+        assert_eq!(project_declaration(&left).unwrap().name, "fixture::same");
         assert_eq!(left.item_id, right.item_id);
         assert_ne!(left.context_key, right.context_key);
         assert_ne!(left.artifact, right.artifact);
         assert!(matches!(left.reflect(), ReflectCow::Borrowed(_)));
-        assert!(api_declaration(&first, 999, "demo::missing", "function", None, None).is_err());
+        assert!(api_declaration(&first, 999, "fixture::missing", "function", None, None).is_err());
         assert!(super::super::retained(&directory.path().join("absent/document.json")).is_err());
         let page =
             crate::api::query::inspect(&first, &crate::api::query::Query::default(), 20, None)
@@ -282,7 +282,7 @@ mod tests {
         assert!(
             page.candidates
                 .iter()
-                .any(|candidate| candidate.public_path == "demo::same")
+                .any(|candidate| candidate.public_path == "fixture::same")
         );
     }
     #[test]

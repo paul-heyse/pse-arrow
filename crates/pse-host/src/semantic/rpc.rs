@@ -327,48 +327,10 @@ impl Client {
                         *cause
                     }
                 })?;
-                if !terminal.completed {
-                    return Err(Error::Protocol(
-                        "semantic Terminal did not establish operation completion".into(),
-                    ));
-                }
                 let outcome = outcome.ok_or_else(|| {
-                    Error::Protocol("semantic Terminal has no original operation outcome".into())
+                    Error::Schema("semantic Terminal has no original operation outcome".into())
                 })?;
-                if requested {
-                    let completion = match terminal.completion.as_known() {
-                        Some(pb::terminal::Completion::CpuSettled) => super::Settlement::CpuSettled,
-                        Some(pb::terminal::Completion::LspReturned) => {
-                            super::Settlement::LspReturned
-                        }
-                        Some(pb::terminal::Completion::LspDetached) => {
-                            super::Settlement::LspDetached
-                        }
-                        _ => {
-                            return Err(Error::CancellationUnobserved {
-                                cause: Box::new(Error::Protocol(
-                                    "unobserved terminal settlement".into(),
-                                )),
-                            });
-                        }
-                    };
-                    let original = match terminal.original_outcome {
-                        Some(pb::terminal::OriginalOutcome::Succeeded(_)) => {
-                            super::OriginalOutcome::Succeeded
-                        }
-                        Some(pb::terminal::OriginalOutcome::Failed(failure)) => {
-                            super::OriginalOutcome::Failed(wire::failure_from_pb(*failure)?)
-                        }
-                        None => {
-                            return Err(Error::Protocol("Terminal omitted original outcome".into()));
-                        }
-                    };
-                    return Err(Error::CancelledObserved {
-                        completion,
-                        original,
-                    });
-                }
-                outcome
+                finish_run(outcome, *terminal, requested)
             }
         }
     }
@@ -384,6 +346,55 @@ pub(super) async fn client(
         .await?
         .request(request, cancellation)
         .await
+}
+
+/// Validate settlement for every conversation, independently of whether this caller cancelled.
+pub(crate) fn finish_run(
+    outcome: Result<Response>,
+    terminal: pb::Terminal,
+    requested: bool,
+) -> Result<Response> {
+    if !terminal.completed {
+        return Err(Error::Schema(
+            "semantic Terminal did not establish operation completion".into(),
+        ));
+    }
+    let completion = match terminal.completion.as_known() {
+        Some(pb::terminal::Completion::CpuSettled) => super::Settlement::CpuSettled,
+        Some(pb::terminal::Completion::LspReturned) => super::Settlement::LspReturned,
+        Some(pb::terminal::Completion::LspDetached) => super::Settlement::LspDetached,
+        _ => {
+            let cause = Error::Schema("unknown or unobserved terminal settlement".into());
+            return Err(if requested {
+                Error::CancellationUnobserved {
+                    cause: Box::new(cause),
+                }
+            } else {
+                cause
+            });
+        }
+    };
+    let original = match terminal.original_outcome {
+        Some(pb::terminal::OriginalOutcome::Succeeded(_)) => super::OriginalOutcome::Succeeded,
+        Some(pb::terminal::OriginalOutcome::Failed(failure)) => {
+            super::OriginalOutcome::Failed(wire::failure_from_pb(*failure)?)
+        }
+        None => return Err(Error::Schema("Terminal omitted original outcome".into())),
+    };
+    if outcome.is_ok() && matches!(&original, super::OriginalOutcome::Failed(_)) {
+        return Err(Error::Schema(
+            "successful semantic result contradicts failed original outcome".into(),
+        ));
+    }
+    // A control/deadline failure can differ from the original provider outcome.
+    if requested {
+        Err(Error::CancelledObserved {
+            completion,
+            original,
+        })
+    } else {
+        outcome
+    }
 }
 
 pub(crate) struct Session {
@@ -413,7 +424,11 @@ impl Session {
         self.workers.drain().await
     }
 
-    async fn unary(self: &Arc<Self>, request: Request) -> Result<Response> {
+    async fn unary(
+        self: &Arc<Self>,
+        request: Request,
+        deadline: Option<std::time::Instant>,
+    ) -> Result<Response> {
         let token = self.stop.child_token();
         let _guard = CancelOnDrop(token.clone());
         let (tx, rx) = oneshot::channel();
@@ -421,7 +436,16 @@ impl Session {
         self.workers.spawn(
             async move {
                 tracing::debug!("semantic unary work admitted");
-                let outcome = session.engine.execute(request, token).await;
+                let work = session.engine.execute(request, token.clone());
+                tokio::pin!(work);
+                let outcome = tokio::select! {
+                    outcome = &mut work => outcome,
+                    _ = deadline_elapsed(deadline) => {
+                        tracing::debug!(control = "deadline", "semantic cancellation requested");
+                        token.cancel();
+                        work.await
+                    },
+                };
                 tracing::debug!(
                     completion = outcome.completion.name(),
                     original_success = outcome.result.is_ok(),
@@ -434,16 +458,31 @@ impl Session {
         rx.await.map_err(super::engine::protocol)?
     }
 
+    #[cfg(test)]
     pub(crate) fn run(
         self: &Arc<Self>,
+        requests: ServiceStream<pb::NativeControl>,
+    ) -> Result<ServiceStream<pb::NativeEvent>> {
+        self.run_with_deadline(requests, None)
+    }
+
+    fn run_with_deadline(
+        self: &Arc<Self>,
         mut requests: ServiceStream<pb::NativeControl>,
+        deadline: Option<std::time::Instant>,
     ) -> Result<ServiceStream<pb::NativeEvent>> {
         let token = self.stop.child_token();
         let guard = CancelOnDrop(token.clone());
         let (tx, rx) = mpsc::channel(1);
         let session = self.clone();
         self.workers.spawn(async move {
-            let first = tokio::select! { first = requests.next() => first, _ = token.cancelled() => return };
+            let expiry = deadline_elapsed(deadline);
+            tokio::pin!(expiry);
+            let first = tokio::select! {
+                first = requests.next() => first,
+                _ = token.cancelled() => return,
+                _ = &mut expiry => { let _sent = tx.try_send(Err(ConnectError::deadline_exceeded("semantic request deadline elapsed before Start"))); return; },
+            };
             let request = match first {
                 Some(Ok(pb::NativeControl { action: Some(pb::native_control::Action::Start(request)), .. })) => {
                     use protovalidate_buffa::Validate as _;
@@ -455,12 +494,17 @@ impl Session {
                 Some(Err(error)) => { let _sent = tx.try_send(Err(error)); return; }
                 _ => { let error = Error::InvalidRequest("exactly one Start must be first".into()); let _sent = tx.try_send(Err(typed_error(&error, ConnectError::invalid_argument(error.to_string())))); return; }
             };
+            if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+                let _sent = tx.try_send(Err(ConnectError::deadline_exceeded("semantic request deadline elapsed before admission")));
+                return;
+            }
             tracing::debug!(operation = operation_name(&request), "semantic conversation work admitted");
             let work = session.engine.execute(request, token.clone());
             tokio::pin!(work);
             let mut open = true;
             let mut cancelled = false;
             let mut control_failure = None;
+            let mut expired = false;
             let outcome = loop {
                 tokio::select! {
                     next = requests.next(), if open => match next {
@@ -470,6 +514,13 @@ impl Session {
                         Some(Err(error)) => { tracing::debug!(control = "transport_error", "semantic cancellation requested"); control_failure = Some(transport_error(error)); cancelled = true; open = false; token.cancel(); }
                     },
                     result = &mut work => break result,
+                    _ = &mut expiry, if !expired => {
+                        tracing::debug!(control = "deadline", "semantic cancellation requested");
+                        expired = true;
+                        cancelled = true;
+                        control_failure = Some(Error::Transport("semantic RPC deadline elapsed".into()));
+                        token.cancel();
+                    },
                     _ = tx.closed() => { tracing::debug!(control = "output_closed", "semantic cancellation requested"); token.cancel(); cancelled = true; break work.await; },
                 }
             };
@@ -489,6 +540,12 @@ impl Session {
             (rx, guard),
             |(mut rx, guard)| async move { rx.recv().await.map(|item| (item, (rx, guard))) },
         )))
+    }
+}
+async fn deadline_elapsed(deadline: Option<std::time::Instant>) {
+    match deadline {
+        Some(deadline) => tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)).await,
+        None => std::future::pending().await,
     }
 }
 async fn deliver(
@@ -699,9 +756,12 @@ async fn settle_cpu<T>(
 
 struct Implementation(Arc<Session>);
 impl Implementation {
-    async fn session_status(&self) -> std::result::Result<pb::NativeSessionStatus, ConnectError> {
+    async fn session_status(
+        &self,
+        deadline: Option<std::time::Instant>,
+    ) -> std::result::Result<pb::NativeSessionStatus, ConnectError> {
         self.0
-            .unary(Request::Status {})
+            .unary(Request::Status {}, deadline)
             .await
             .and_then(Response::into_status)
             .and_then(wire::status_to_pb)
@@ -733,7 +793,9 @@ impl bindings::NativeSemantic for Implementation {
         impl connectrpc::Encodable<pb::NativeSessionStatus> + Send + use<'a>,
     > {
         authenticated(&context)?;
-        Ok(connectrpc::Response::new(self.session_status().await?))
+        Ok(connectrpc::Response::new(
+            self.session_status(context.deadline()).await?,
+        ))
     }
     async fn capabilities<'a>(
         &'a self,
@@ -743,7 +805,9 @@ impl bindings::NativeSemantic for Implementation {
         impl connectrpc::Encodable<pb::NativeSessionStatus> + Send + use<'a>,
     > {
         authenticated(&context)?;
-        Ok(connectrpc::Response::new(self.session_status().await?))
+        Ok(connectrpc::Response::new(
+            self.session_status(context.deadline()).await?,
+        ))
     }
     async fn stop<'a>(
         &'a self,
@@ -775,9 +839,12 @@ impl bindings::NativeSemantic for Implementation {
             .map_err(|error| ConnectError::invalid_argument(error.to_string()))?;
         let response = self
             .0
-            .unary(Request::PackageContext {
-                package_id: request.package_id,
-            })
+            .unary(
+                Request::PackageContext {
+                    package_id: request.package_id,
+                },
+                context.deadline(),
+            )
             .await;
         let result = match response
             .and_then(Response::into_package_context)
@@ -804,9 +871,10 @@ impl bindings::NativeSemantic for Implementation {
         authenticated(&context)?;
         let stream = self
             .0
-            .run(Box::pin(
-                requests.map(|item| item.map(|value| value.to_owned_message())),
-            ))
+            .run_with_deadline(
+                Box::pin(requests.map(|item| item.map(|value| value.to_owned_message()))),
+                context.deadline(),
+            )
             .map_err(|error| ConnectError::unavailable(error.to_string()))?;
         Ok(connectrpc::Response::new(stream))
     }

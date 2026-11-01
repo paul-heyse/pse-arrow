@@ -574,3 +574,151 @@ async fn plan61_typed_caller_preserves_validation_field_locations_and_rule_ids()
     assert!(server.fixture.gates.lock().unwrap().is_empty());
     server.shutdown().await;
 }
+
+#[tokio::test]
+async fn plan61_server_deadline_cancels_retained_cpu_with_open_client_transport() {
+    let server = Server::start().await;
+    let client = server.client().await;
+    // Assert only wire metadata: no local client timeout or reset drives cancellation.
+    let mut stream = client
+        .run_with_options(
+            connectrpc::client::CallOptions::default().with_header("grpc-timeout", "500m"),
+        )
+        .await
+        .unwrap();
+    stream.send(start()).await.unwrap();
+    let gate = gate(&server.fixture, 0).await;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        gate.cancelled.notified(),
+    )
+    .await
+    .unwrap();
+    assert!(!gate.completed.load(Ordering::SeqCst));
+    gate.release();
+    let failure = stream
+        .message::<pb::NativeEvent>()
+        .await
+        .unwrap()
+        .unwrap()
+        .to_owned_message();
+    assert!(
+        matches!(failure.item, Some(pb::native_event::Item::Failure(f)) if f.phase == pb::failure::Phase::Transport)
+    );
+    let finality = stream
+        .message::<pb::NativeEvent>()
+        .await
+        .unwrap()
+        .unwrap()
+        .to_owned_message();
+    assert!(
+        matches!(finality.item, Some(pb::native_event::Item::Terminal(t)) if t.completed && t.cancelled && t.completion == pb::terminal::Completion::CpuSettled)
+    );
+    assert!(stream.message::<pb::NativeEvent>().await.unwrap().is_none());
+    assert!(gate.completed.load(Ordering::SeqCst));
+    server.shutdown().await;
+}
+
+#[test]
+fn plan61_client_validates_every_terminal_without_a_cancel_request() {
+    fn success() -> semantic::Result<semantic::Response> {
+        let configuration = Fixture::default().status().configuration;
+        Ok(semantic::Response::WorkspaceSymbols(
+            semantic::WorkspaceAnswer {
+                session: semantic::AnalysisContext {
+                    backend: "controlled native".into(),
+                    configuration,
+                    position_encoding: "utf-8".into(),
+                    backend_status: None,
+                    preparation: "test controlled".into(),
+                },
+                generation: 1,
+                symbols: semantic::Section {
+                    category: "workspace_symbols".into(),
+                    evidence: serde_json::json!([]),
+                    omitted: 0,
+                    handles: vec![],
+                },
+                observed: vec![],
+                limitations: vec![],
+            },
+        ))
+    }
+    fn finality() -> pb::Terminal {
+        pb::Terminal {
+            completed: true,
+            completion: pb::terminal::Completion::CpuSettled.into(),
+            original_outcome: Some(pb::terminal::OriginalOutcome::Succeeded(Default::default())),
+            ..Default::default()
+        }
+    }
+    let mut absent_settlement = finality();
+    absent_settlement.completion = pb::terminal::Completion::Unobserved.into();
+    let mut unknown_settlement = finality();
+    unknown_settlement.completion = buffa::EnumValue::Unknown(99);
+    let mut absent_original = finality();
+    absent_original.original_outcome = None;
+    let mut invalid_original = finality();
+    invalid_original.original_outcome = Some(pb::terminal::OriginalOutcome::Failed(Box::new(
+        pb::Failure {
+            state: buffa::EnumValue::Unknown(99),
+            ..Default::default()
+        },
+    )));
+    let mut contradicted_success = finality();
+    contradicted_success.original_outcome = Some(pb::terminal::OriginalOutcome::Failed(Box::new(
+        pb::Failure {
+            state: pb::failure::State::Failed.into(),
+            phase: pb::failure::Phase::Provider.into(),
+            message: "actual provider failed".into(),
+            ..Default::default()
+        },
+    )));
+    for terminal in [
+        absent_settlement,
+        unknown_settlement,
+        absent_original,
+        invalid_original,
+        contradicted_success,
+    ] {
+        assert!(matches!(
+            rpc::finish_run(success(), terminal, false),
+            Err(semantic::Error::Schema(_))
+        ));
+    }
+    assert!(rpc::finish_run(success(), finality(), false).is_ok());
+    assert!(
+        matches!(
+            rpc::finish_run(
+                Err(semantic::Error::InvalidRequest(
+                    "invalid post-Start control".into()
+                )),
+                finality(),
+                false
+            ),
+            Err(semantic::Error::InvalidRequest(_))
+        ),
+        "control failure must remain distinct from the original successful provider result"
+    );
+    let mut original_cancelled = finality();
+    original_cancelled.original_outcome = Some(pb::terminal::OriginalOutcome::Failed(Box::new(
+        pb::Failure {
+            state: pb::failure::State::Cancelled.into(),
+            phase: pb::failure::Phase::Settlement.into(),
+            ..Default::default()
+        },
+    )));
+    assert!(
+        matches!(
+            rpc::finish_run(
+                Err(semantic::Error::InvalidRequest(
+                    "invalid post-Start control".into()
+                )),
+                original_cancelled,
+                false
+            ),
+            Err(semantic::Error::InvalidRequest(_))
+        ),
+        "control failure must not be equated with a settled native cancellation"
+    );
+}
