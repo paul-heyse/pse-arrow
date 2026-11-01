@@ -145,6 +145,25 @@ Precisely mapped field/accessor selection reaches the exact authored field.
 
 ## Verification and handoff
 
+### B04 annotation assessment — 2026-11-01
+
+**Interface-checked:** selected buffa/codegen/packaging0.9.2 and connectrpc-codegen0.9.0 response
+constructors supply names/content but no generated annotations. The locally corrected validator
+0.7.2 explicitly assigns `generated_code_info: None`. Descriptor SourceCodeInfo supplies authored
+locations, not generated Rust byte correspondence. Inspected sources are the installed plugins'
+`main.rs`, Buffa `GeneratedFile`, Connect `codegen.rs` and local validator `emit/mod.rs` constructors.
+
+**Tested:** a direct-plugin scalar-message/unary-service probe against all four selected executables
+returned four successful responses, nine files and zero File.generated_code_info fields. The
+Connect request initially failed for missing extern_path; adding `extern_path=.=crate::probe`
+passed. This establishes bounded emission behavior, not generated-code compilation or origin
+navigation. No production generator/output was edited.
+
+Do not select annotation acquisition for these producers. Continue B04's typed Syn recognition
+and authenticated field/accessor manifest associations. Revisit only when a selected producer
+emits reliable descriptor paths/generated-byte spans and their mapping survives postprocessing.
+The investigation is settled; B04's actual implementation and acceptance remain open.
+
 **Proposed:** source fixtures expose punctuation, nested ownership, escapes, malformed syntax,
 Unicode boundaries and overlaps. Native SSR needs actual semantic fixtures in addition to proposal
 unit tests. Generator tests include an independent known descriptor/field expectation; comparing

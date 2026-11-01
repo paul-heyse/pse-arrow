@@ -274,6 +274,37 @@ coherent target amendment with corresponding consumers, dependencies and evidenc
 
 ## Verification and current checkpoint
 
+### Conditional assessment: representation and protocol — 2026-11-01
+
+**Interface-checked:** retain owned small facts and direct generated VTable reflection as the
+default. `code_intelligence_contracts/local.rs::project_declaration` already borrows name/kind
+through `ReflectMessage::get`/`ValueRef`; no dynamic transcode is needed for this actual consumer.
+Future capture/candidate facts must keep their native meaning rather than acquire a representation
+rewrite merely because additional view APIs exist.
+
+Select eager views or `OwnedView::reborrow` only for a concrete binary consumer retaining input
+past a handler. Exact installed Buffa0.9.2 `src/view.rs` and ConnectRPC0.9.1 `src/request.rs`
+establish owning-buffer lifetime support. `ServiceRequest::to_owned_view` rebuilds the view with
+a decode walk; `to_owned_message` still allocates strings/repeated fields. Neither warrants a
+claim of allocation-free whole requests. No current inspected declaration projection needs
+ownership beyond its borrowed message, so no new owning adapter is selected in this wave.
+
+Do not select lazy views for the consumed reflected/validated fact surface: the documented .9.2
+lazy family lacks reflection and OwnedView integration and defers nested failures. Reconsider
+only for a separately qualified, sparsely accessed large nested body whose consumer tolerates
+those semantics. Custom Bytes storage, boxing and Rope/segmented output remain unselected:
+the existing compiler/provider artifact owner addresses large bodies separately, while current
+fact consumers need small selected records. Rope only removes copying if the downstream path
+retains segments; flattening to a contiguous transport body can eliminate that benefit. A future
+large binary in-message consumer or demonstrated enum/allocation problem is the revisit trigger.
+No benchmark benefit, view lifetime integration or new storage configuration was executed here.
+
+No concrete contract, validation or authenticated local transport gap was identified in these
+inspected consumers. The trigger for Prost/Tonic/Rust-first replacement is therefore absent;
+retain Buffa/ConnectRPC without building a second decoder, generator or service. Context7 main
+examples supplied leads; the versioned installed sources and reviewed release limitations govern.
+T02 production migration remains open, and these choices confer no new RPC acceptance.
+
 **Proposed verification:** package compile checks and revealing targeted tests accompany functional
 changes; Q01 owns integrated checks after selected scope. Research source checks are Interface-checked
 only for their named APIs. Publication checks establish document usability, not delivered features.
@@ -281,7 +312,37 @@ Investigations may complete with supported rejection/defer decisions; unresolved
 cannot be labeled complete because feasibility work finished. Conditional mechanisms require
 explicit outcome, consequence and observable revisit trigger at their owning package.
 
-All packages are open. No Plan62 feature, producer, extended preparation, runtime test or efficiency
-benefit is claimed Implemented, Tested or Measured. The next executable work is T01 and the first
-A02/T02/T03 slice. Existing functionality, prepared tools and independent qualification retain their
-own current evidence; this proposed series does not recertify or resume unrelated work.
+### Investigation-wave checkpoint — 2026-11-01
+
+The authorized conditional investigations are complete within their recorded evidence limits:
+
+| Decision | Outcome and authoritative detail |
+| --- | --- |
+| Synthesis | A03 selects existing hole-oriented term-search assist reuse; separate arbitrary-goal surface deferred; no observed exhaustion API |
+| Recursive layout | A04 inferred adapter compiles; fallible, explicitly qualified HIR remains structured authority |
+| Native retrieval/export | A05 selects direct scoped queries; corpus index/export await their distinct repeated/global or external-consumer triggers |
+| Typed wrappers | A05 rejects adding runtime0.26 bridge to current0.27 merely for accessors; compatible substantive extraction consumer required |
+| Compiler depth | D01 narrow capture/coroutine query producer feasible; selected cleanup questions use native artifacts |
+| Loans/Polonius | D04 trigger absent for demonstrated question already answered by diagnostics/witnesses/MIR |
+| Dependency graphs | C03 keeps existing petgraph/Cargo owners; modeled graph/impact alternatives require their named counterfactual or set-query consumers |
+| Example modes | C02 separately identifies scraped reverse-dependency usages and standalone Markdown transformation; acquisition triggers not met in this wave |
+| Generated annotations | B04 selected four plugins emit no generated annotations; retain typed/authenticated association route |
+| Representations and proto alternatives | T02 keeps owned facts/direct reflection, limits optional views/storage to actual consumers; no stack-replacement trigger |
+
+**Tested, bounded:** compiler callback/MIR probes and positive/negative external layout compiles
+settled the key interfaces; plugin response emission was exercised. Matching rustc-dev preparation
+and `just ready` succeeded. These are investigation evidence, not delivered production answers or
+performance measurements. Source-only decisions were not turned into mandatory prototypes.
+
+T01's investigation-readiness classification required no new production binding/crate or metadata
+contract: isolated test inputs suffice. RC01's governing preparation amendment and RC02's eventual
+producer integration still precede their production changes. The retained compiler probe sources
+are fixtures, not an automatically installed backend. No public CLI/wire API, root manifest, pin,
+production consumer or generator output was changed. Relevant companion sections own the exact
+decision, failure/negative-control distinctions, unexercised breadth and revisit condition.
+
+All production packages remain open, including D01's production preparation seam. The conditional
+assessment portions are settled; that does not close their enclosing delivery/migration obligations.
+The next implementation scope remains T01 and the first A02/T02/T03 slice, using these outcomes
+to avoid redundant synthesis, ambiguous layout projections or premature indexing. Existing
+qualification retains its original limits; Plan62 Q01 has not run or been claimed complete.

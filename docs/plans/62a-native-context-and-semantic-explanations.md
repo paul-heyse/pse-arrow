@@ -56,8 +56,11 @@ inferred requirements and proven contextual applicability remain different obser
 Candidate discovery composes `iterate_method_candidates`, trait-aware variants, associated-item
 iteration, callable substitutions and contextual coercion/unification with existing API evidence.
 It explains an import, adjustment or bound instead of returning another opaque completion list.
-`term_search` is an optional bounded producer: expose fuel/alternative exhaustion and `Many`;
-an empty search is not impossibility. Use native source/path rendering and `traits_used` for previews.
+`term_search` is an optional bounded producer: expose configured limits and unknown completeness,
+not an observed exhaustion flag absent from the .358 API. Top-level `Many` is filtered before
+return; nested unresolved alternatives can survive. An empty search is not impossibility.
+Native rendering does not insert required imports; `traits_used` is not a proven exhaustive import
+closure. Preserve unresolved placeholders and contextual import obligations in previews.
 
 Prefer HIR `Type::layout` with explicit errors for ordinary structured layouts. IDE recursive
 layout is conditional on a usable pinned adapter: its structs are not ordinary public reexports,
@@ -121,8 +124,8 @@ otherwise record the unsupported/limited question and retain discovery. No compl
 Native semantic edits become guarded B03 proposals rather than direct mutation.
 
 Acceptance: String/str method access, a missing extension import and unmet blanket bound produce
-different explanations; same-spelled unrelated methods stay separate. Search exhaustion remains
-incomplete, and proposed source preserves required contextual imports.
+different explanations; same-spelled unrelated methods stay separate. A bounded result has unknown
+completeness, nested alternatives remain unresolved, and proposed source preserves import obligations.
 
 ### A04 — Qualified layout and deferred semantic detail
 
@@ -163,9 +166,71 @@ type-sitter remain alternatives, not automatic dependencies. Source trees alone 
 
 ## Verification and handoff
 
+### Conditional assessment outcomes — 2026-11-01
+
+**Interface-checked, A03:** select the existing .358 `ide-assists/handlers/term_search.rs` assist
+as the first synthesis realization through B03. It resolves core todo!/unimplemented!, obtains
+adjusted expected type/scope, calls HIR term_search with configured fuel, renders candidates and
+emits grouped `AssistId::generate("term_search")` edits. Existing source tests cover local values,
+fields and constructors, but were not rerun. Reusing this hole-oriented assist avoids a second
+engine/command for the same workflow. A separate arbitrary-goal surface is deferred until a
+specific question needs constructions outside that workflow; A03 contextual discovery remains
+selected. HIR term_search returns `Vec<Expr>`, not fuel-used/exhaustion metadata. Its top-level Many
+filter and nested todo! rendering require conservative completeness/placeholder handling. These
+are actual API limits, not a reason to fork merely for counters. No synthesis integration was run.
+
+**Tested, A04:** a separate external Rust crate using the inferred return from
+`Analysis::get_recursive_memory_layout` compiled against existing .358 metadata and projected its
+public nodes/hierarchy fields. Explicit `ra_ap_ide::RecursiveMemoryLayout` naming intentionally
+failed E0603. Thus a local inferred adapter is technically possible without a fork. Positive probe:
+
+```rust
+pub fn read(a: &ra_ap_ide::Analysis, p: ra_ap_ide::FilePosition) -> Option<Vec<u64>> {
+    let layout = a.get_recursive_memory_layout(p).ok()??;
+    Some(layout.nodes.into_iter().map(|node| node.size).collect())
+}
+```
+
+The exercised projection additionally read names, alignment, offsets and parent/child indices.
+The positive compile exited0 and the private-name negative exited1/E0603. Initial harness attempts
+selected an rlib metadata stub, then omitted proc-macro shared-library dependency directories;
+using complete rmeta plus both metadata and proc-macro search directories fixed artifact discovery.
+An initial pipe-capturing wrapper was terminated after its child had exited; regular-file capture
+settled. These harness failures do not establish analyzer limitations. No analyzer rebuild or
+runtime layout journey was requested; incidental host refresh completed normally.
+
+Select fallible HIR layout as the structured authority anyway. IDE recursion chooses first_crate
+and guesses edition, converts child errors/missing offsets to zeros plus text, and does not supply
+an explicit enum-variant/failure contract superior to HIR. Compose public HIR fields/tuple_fields,
+variant APIs and Layout size/align/field_offset/niches with selected-world identity. Recursive IDE
+output is only a possible display adapter if a future consumer specifically benefits; not a typed
+fact authority. A04 production layout support remains open.
+
+**Interface-checked, A05:** select direct native queries and existing prepared-world reuse for the
+representative scoped definition/reference question. StaticIndex.compute enumerates all known
+crate modules, applies library/vendored selection, deduplicates physical files and materializes
+tokens; it has no general requested-file/subtree parameter. That adds unneeded population work
+for current position/name/scope inquiries. It borrows Analysis, supports optional hovers and has
+folds/tokens rather than hints. No measured speed claim or index/runtime journey follows.
+
+Revisit session-owned indexing for actual repeated corpus-wide navigation needing a materialized
+population. A representative inquiry can justify this assessment before T03 delivery, but is not
+production usage evidence. SCIP/LSIF exporters consume StaticIndex; select them only for an
+independent consumer requiring the format. Their command route may load build outputs/macros and
+prime caches, so it cannot silently export a restricted world as equivalent. No export ran. Neither
+trigger requires a permanent service. A05 investigation is settled; selected future reuse remains
+conditional and the parent package is not reported delivered.
+
+Typed wrappers were assessed separately: upstream type-sitter0.10.1 currently declares Tree-sitter
+0.26 versus the repository's0.27.0. Grammar ABI compatibility does not unify Rust Node types.
+Retain existing RA typed syntax and narrow Tree-sitter field/query adapters. Do not add another
+runtime, downgrade or unsafe node bridge for accessor convenience. Revisit when a concrete
+extraction consumer removes substantial repeated interpretation and a compatible wrapper release
+or justified maintained upgrade exists. No wrapper was installed/generated/compiled.
+
 **Proposed:** targeted tests cover provider extraction and typed round trips; selected native
-journeys exercise actual preparation, context guards, macro failures and real settlement. No tests
-were run and no new native capability was implemented by this plan. Scope-end Q01 owns assembled
+journeys exercise actual preparation, context guards, macro failures and real settlement. Only the
+bounded adapter compiles above ran; no new native product capability was implemented. Q01 owns assembled
 qualification and applicable static checks; latency/memory improvements remain unmeasured until
 an explicitly selected comparison establishes them. No serialized native IDs or unsafe type-system
 garbage collection become routine memory controls. Remove replaced consumers/tests together once

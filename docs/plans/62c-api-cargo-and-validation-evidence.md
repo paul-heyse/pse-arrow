@@ -175,6 +175,49 @@ metadata and stale historical witness rejected for current selection. See
 
 ## Verification and handoff
 
+### Conditional acquisition and graph decisions — 2026-11-01
+
+**Interface-checked:** scraped API-use examples and standalone Markdown have distinct value and
+remain separate modes. Pinned rustdoc c1070d693 `scrape_examples.rs` pairs
+`--scrape-examples-output-path` with `--scrape-examples-target-crate`; optional `--scrape-tests`
+widening typechecks selected targets. It records direct/method call sites keyed by DefPathHash,
+skips macro-expanded calls and writes opaque compiler-private encoded data for `--with-examples`.
+Select that native acquisition when an investigation needs example usages from explicitly
+acquired reverse dependencies outside the loaded local world. No such target population was
+selected in this conditional wave: no scraper adapter or stable JSON usage index is justified.
+Its output cannot establish exhaustive calls or interchangeable compiler identities.
+
+Pinned rustdoc `lib.rs::main_args` routes Markdown with `--output-format=doctest` through
+`doctest::test_markdown`; plain Markdown otherwise renders HTML. Select native transformation
+when a concrete README/tutorial fence requires it, retaining format2 and original-source context.
+No particular standalone document was selected here, so additional Markdown acquisition is not
+implemented. This does not defer C02's selected Rust-source/doctest-carrier preprocessing. Neither
+conditional mode compiled or executed examples in this wave. Original fence reading remains useful.
+
+**Interface-checked:** Guppy0.19.1 PackageGraph/query_forward/query_reverse/resolve_with_fn and
+PackageSet algebra are credible for richer repeated graph queries. They do not replace a bespoke
+shortest-path solver here: `dependency.rs::inclusion_paths` already uses petgraph `astar`.
+`affected.rs::WorkspaceGraph` also deliberately includes authored optional/path edges and
+uncertainty widening; a resolved-only graph would weaken that meaning. Retain the existing owners.
+Revisit Guppy when a concrete package-set/conditional-edge consumer removes substantial additional
+traversal and adaptation, not merely to express the current inclusion path differently.
+
+CargoSet/CargoOptions model host/target features with resolver V1/V1Install/V2/V3. Exact0.19.1
+defaults are resolverV3, no dev dependencies and PlatformSpec::Any. Its source exposes no matching
+experimental workspace feature-unification setting. Do not substitute it for CheckIntent admission
+and actual Cargo-selected planned CompilerUnit records. Counterfactual summaries remain candidates
+for a deliberately modeled question with its assumptions explicit. Planned actions are not executed
+compilation. Hakari remains unselected, as previously settled.
+
+Determinator0.13.0 `new(old,new)`, `add_changed_paths`, `set_rules` and
+`compute().affected_set` can nominate cross-revision package impact. Its none/default/all-feature
+simulations cannot replace existing generator-aware conservative reach or certify exhaustive impact.
+Revisit for an explicit dependency/feature-change comparison needing that nomination. No new graph
+or impact dependency is selected for C03's current unit explanations. Exact downloaded release
+sources (`graph/query.rs`, `resolve.rs`, `cargo/cargo_api.rs`, Determinator's `determinator.rs`)
+settled these choices without a compilation probe; unsuccessful Context7 resolution was not used
+as absence evidence. C01–C04 production work remains open.
+
 **Proposed:** compile touched packages with `scripts/pse check <package> --all-targets` and exercise
 new behavior with `scripts/pse test <package> --lib -E '<filterset>'`, using the existing selected native
 feature/preparation route where needed. T02 integrates each consumed generated declaration with

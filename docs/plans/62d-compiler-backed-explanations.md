@@ -229,6 +229,45 @@ assessment obligation; it cannot be reported as implemented borrow-fact support.
 
 ## Verification and handoff
 
+### D01/D04 conditional investigation outcome — 2026-11-01
+
+**Tested, bounded:** selected interface feasibility is established at c1070d693 after explicit
+matching rustc-dev installation. Retained driver/input/negative controls under
+`crates/pse-host/tests/fixtures/plan62/` (see its README)
+reproduce the probe without a new crate or production dependency. An `after_expansion` callback
+queried `tcx.closure_captures`, `closure_kind_origin` and `mir_coroutine_witnesses`. pair.0 was
+ByRef(Immutable), pair.1 ByValue; coroutine fields/variants/source information/conflict matrix
+were returned. This public query works despite private lowering helpers. Select a narrow owned
+query projection under the existing compiler-investigation owner for D02's structured questions.
+
+Promoted MIR was Analysis(Initial) before `optimized_mir`; afterward `is_stolen()` was true and
+optimized phase Runtime(Optimized). Copy needed analysis facts before consuming later queries.
+The probe checked this safely, without reading stolen MIR. The witness retained an Rc at the
+second await despite an explicit earlier drop: witness membership is conservative compiler state,
+not proof of dynamically live resources. Preserve actual diagnostics/source/phase alongside it.
+
+For D03's selected partial-move/FFI questions, six native before/after dump files suffice. Drop
+elaboration explicitly cleans up the remaining String field. AbortUnwindingCalls changes an
+extern C caller's edge to `unwind terminate(abi)`, while C-unwind retains `unwind continue`.
+Select original phase-qualified artifacts here, not a general textual MIR parser or extra loan
+driver. Structured initialization queries remain a candidate only for an actual unanswered question.
+
+D04 trigger is not met for the demonstrated non-Send question: ordinary compiler JSON identifies
+the Rc, declaration, await and required Send bound. Combined with witness/native artifacts this
+supplies the required explanation without loans/Polonius. Revisit for a concrete loan/region state
+question unavailable from diagnostics/analyzer/original MIR; this does not reject borrow facts
+universally. No borrow-fact API or Polonius solver was executed.
+
+Driver compilation, callback execution and MIR generation each passed with exit0; the negative
+Send control intentionally returned exit1 and one substantive error, with complete settlement.
+Original invocations are respectively `01a195f9-55c8-716f-b33a-5cedb9e578a7`,
+`01a195f9-9e4e-74e2-89cc-5d69dde3fdfd`, `01a195f9-bb11-702d-84a7-725c34281d2c` and
+`01a195fa-6598-777e-b1f9-8f825b433bbd`; inspect their native logs for original bytes. No unexpected
+compiler failure remains. These selected checks do not qualify arbitrary/synthetic/nested bodies,
+after_analysis placement, cancellation, cross-target layouts or runtime destruction. Production
+preparation, typed T02 projection, supported/refused contexts and consumers remain unimplemented.
+D01's full package and D02/D03 stay open; D04's trigger assessment is settled, not delivered loans.
+
 **Proposed verification:** each implemented slice uses `scripts/pse check <package> --all-targets`
 and `scripts/pse test <package> --lib -E '<filterset>'` controls for the
 new behavior. Compiler-specific controls must identify the exact pin, target, selected body,
@@ -244,7 +283,7 @@ performance benefit is claimed; a measurement campaign requires a specific unres
 question rather than being an automatic package gate.
 
 **Interface-checked planning evidence:** the source review and exact source references support
-the named candidate mechanisms and limits. **Not run during plan creation:** compiler probes,
+the named candidate mechanisms and limits. **Not run during original plan creation:** compiler probes,
 builds, tests, services and product qualification. The next executable step is T01 followed by
 D01; an investigation outcome is a design input until its required producer/consumers and tests
 are implemented.
