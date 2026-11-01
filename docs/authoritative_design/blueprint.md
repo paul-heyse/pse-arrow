@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 323
-date: 2026-10-31
+revision: 324
+date: 2026-11-01
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 324 | 2026-11-01 | Plan61 B/C typed source/API/native facts, request-local proof/client reuse, authenticated generated UDS RPC and transport-independent operation settlement (§21.7). | Operator-authorized realization within proposed ADR-0235; scoped A02 review and formal ADR status remain unchanged. Package evidence and Q01 assembled qualification retain their owning plans. |
 | 323 | 2026-10-31 | Plan61 A02 scoped proto authority, single-input explicit generation, descriptor identity and CEL preflight/error semantics (§21.7). | Proposed ADR-0235; operator-authorized foundation with scoped prospective review. Production migration, assembled qualification and formal ADR acceptance remain separate. |
 | 322 | 2026-10-31 | Preserve the Plan59 K–M investigation realization: native demand/output ownership, opt-in descendant cancellation over one immutable analysis world, original API/dependency-byte qualification and request-owned proof reuse, consistent physical compiler selection (§21.7, §23.2, §24.2). | Proposed ADR-0233/0234 realization; component/public-source controls and bounded independent source review support implementation. P02 owns assembled qualification; formal ADR acceptance remains separate. |
 | 321 | 2026-10-31 | Plan59 A11 selects an explicitly prepared immutable native HIR/IDE snapshot context, optional separately prepared helper, one selected semantic owner and original session/source guards (§21.7). | Positive G11 compatible0.0.358 typed-method/type/reference and Cargo/VFS probes support proposed ADR-0233 target before G12; production acceptance and formal ADR status remain separate. |

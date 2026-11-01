@@ -12,7 +12,7 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A consumed wire meaning needs competing declarations, direct reflection needs repeated dynamic transcoding, or generated validation cannot preserve required CEL error semantics.
-verification: Plan61 A02 targeted generation/preflight, descriptor preservation, owned/view validation and generated service tests; B/C/D and Q01 retain consumer and assembled acceptance.
+verification: Plan61 A02 generation/preflight, descriptors and validation; B/C typed source/API/native consumers, authenticated local RPC and original work settlement; D and Q01 retain schema/payload and assembled acceptance.
 standard: {core: "3.4", process-simulator: "1.5"}
 scenarios: [docs/plans/61a-contracts-generation-and-validation.md]
 ---
@@ -53,6 +53,13 @@ New code-intelligence wire meanings are proto-authored. Existing registry meanin
 derived; deliberate CLI presentation remains Serde/Schemars-owned. Generated types can be
 consumed directly; checked construction adds contextual invariants, not a mirror wire DTO.
 
+The B/C realization uses generated binary gRPC on the existing private Unix socket. Kernel peer
+authentication repeats before each physical connection, including reconnects. Session-retained
+workers own native completion independently of handlers and delivery; explicit cancellation
+preserves the original outcome through Terminal. Plain observation DTOs remain available without
+HIR execution dependencies. Native public presentation remains deliberate Serde/Schemars output;
+original provider documents remain qualified inspection evidence. No legacy listener is retained.
+
 ### Consequences
 
 Publish messages/views/validators/service bindings and full descriptors through GeneratedTree.
@@ -84,9 +91,13 @@ no general new CEL engine is selected.
 ## More information
 
 - [Plan61a](../plans/61a-contracts-generation-and-validation.md) owns progress.
+- [Plan61b](../plans/61b-typed-investigation-and-agent-answers.md) and
+  [Plan61c](../plans/61c-local-rpc-and-native-completion.md) own consumer/transport acceptance.
 - [Scoped review](../design_review/reviews/design_review_code-intelligence-contract-foundation_2026-10-31.md).
 - [Architecture](../authoritative_design/sections/workflows-and-results.md#section-21-7).
 
 ## Status history
 
 - 2026-10-31 — proposed for operator-authorized A02 implementation; formal status unchanged.
+- 2026-11-01 — recorded operator-authorized B/C realization within the selected boundary; the
+  scoped review remains A02-only and formal status remains proposed.

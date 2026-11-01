@@ -145,6 +145,12 @@ move with their packages; remove superseded declarations/generators as soon as r
 
 ## Package state
 
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| A00 | complete | Contract/decision integration owner | Qualification placement and production decision/review route published above; no ADR acceptance inferred |
+| A01 | complete | Generated-contract integration owner | Representative exact-family owned/view/VTable/validation/generated-RPC composition tested; CEL defect limits and production obligations recorded |
+| A02 | complete | Explicit codegen/validation owner | Production contracts, full descriptors/origins, shared-input publication and corrected CEL preflight validated; downstream migration remains with B/C/D |
+
 ### Qualification realization — 2026-10-31
 
 #### A02 execution checkpoint
@@ -221,12 +227,6 @@ Investigate type-appropriate checked lowering and CEL error propagation, includi
 and short-circuit semantics, against upstream cases. Catching a panic in a negative test is
 evidence of the defect, not the proposed production remedy. No generator fork or upstream
 contact is part of the present qualification result.
-
-| Package | Status | Owner | Completion |
-| --- | --- | --- | --- |
-| A00 | complete | Contract/decision integration owner | Qualification placement and production decision/review route published above; no ADR acceptance inferred |
-| A01 | complete | Generated-contract integration owner | Representative exact-family owned/view/VTable/validation/generated-RPC composition tested; CEL defect limits and production obligations recorded |
-| A02 | complete | Explicit codegen/validation owner | Production contracts, full descriptors/origins, shared-input publication and corrected CEL preflight validated; downstream migration remains with B/C/D |
 
 **Proposed verification:** targeted generator, validator and schema tests; regeneration belongs
 to declaration changes. Q01 owns assembled/static qualification. A01's successful small example

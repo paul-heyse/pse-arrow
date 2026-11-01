@@ -160,6 +160,11 @@ caller. Live-LSP detachment does not prove completion inside rust-analyzer. A he
 with the replaced protocol must be stopped and explicitly prepared again; original native
 status and stop authority remain available.
 
+For component fixtures that deliberately prepare independent persistent semantic sessions,
+use the top-level `cargo t` route in the qualification guide. Wrapping those fixtures in
+`pse test` or `pse-env` creates an enclosing workload whose independent detachment correctly
+refuses. Ordinary correctness tests continue through `pse test`.
+
 ## Locked APIs and dependency context
 
 Use `pse inspect api` for the exact locked dependency context before designing against remembered APIs.

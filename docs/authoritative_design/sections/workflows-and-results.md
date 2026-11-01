@@ -1694,7 +1694,7 @@ scientific permission. No NumPy product adapter is currently selected.
 ### 21.7 First-party host and future foreign adapters
 
 > Decision: [ADR-0235](../../adr/0235-code-intelligence-contract-foundation.md) (proposed;
-> operator-authorized Plan61 A02 foundation, scoped prospective review).
+> operator-authorized Plan61 foundation and B/C realization; the scoped prospective review covers A02).
 
 New code-intelligence wire meanings are authored in proto within the independent host;
 existing product-registry meanings remain derived and deliberate CLI presentation remains
@@ -1705,7 +1705,32 @@ metadata remains distinct from the stripped runtime pool; HIR/rustdoc/source ide
 their original world and artifact qualification. Generated validation must preserve CEL error
 and arithmetic semantics without treating evaluator defects as user violations. No ordinary
 read/launch starts a generator. This target adds no workspace crate or universal service;
-Plan61 B/C/D own live consumer migration and original custody/settlement acceptance.
+Plan61 retains package acceptance and assembled qualification ownership.
+
+Consumed source/API/native observations have typed fact constructors and explicit provider/world
+guards. Direct VTable projection borrows generated fields without a dynamic-message transcode;
+a reflected shape does not establish applicability or native identity. Ordinary callers can decode
+native type facts without loading HIR libraries. Source selection, predicate truth, answer demand,
+rendering allowance, count precision and stable continuation retain their native owners. Grouped
+questions share request-local preparation, authenticated clients and proofs qualified by their
+original use-site as well as entity/world identity. Original provider documents remain separately
+qualified inspection evidence; decision consumers do not reconstruct facts from category strings.
+
+The explicitly prepared semantic helper serves generated binary gRPC over HTTP/2 on its private
+Unix socket. Every physical client connection, including reconnects, authenticates the kernel peer
+against original managed custody before negotiation. Server request identity comes from Unix
+credentials. Fixed status/package/capability operations are unary; a conversation admits one Start
+and idempotent Cancel controls. Graceful input half-close permits completion. Session-owned workers
+retain admitted native work beyond handler/stream loss, deadline or cancellation and join the actual
+CPU task. Stop closes admission, cancels and drains workers before releasing the provider. Bounded
+output delivery cannot prevent that drain. Terminal distinguishes cancellation request, original
+work outcome and CPU settlement from live-LSP return/detachment; missing delivery establishes no
+client-observed settlement. Schema, constraint, context, validator, provider, transport and settlement
+diagnostics preserve original causes. Neither transport status nor task detachment proves native
+CPU completion. The replaced JSON-line/control-byte protocol has no compatibility listener;
+incompatible prepared selectors retain original native administration and require explicit
+stop/repreparation for queries. The pinned snapshot VFS requires UTF-8 source paths, with explicit
+unsupported refusal outside that scope; source-only raw-path access remains independent.
 
 > Decision: ADR-0233 (proposed; operator-confirmed Plan59 A07 target).
 

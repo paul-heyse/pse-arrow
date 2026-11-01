@@ -1,6 +1,7 @@
 ---
 title: "Plan61c: Local RPC and native completion"
-status: active
+status: complete
+doc_retention: while-dependent
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/61-code-intelligence-foundations.md
@@ -85,6 +86,11 @@ native composition against this working contract.
 
 ## Package state
 
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| C01 | complete | Helper transport/session owner | Production authenticated connector/reconnect, retained workers and original managed stop/drain exercised |
+| C02 | complete | Native/RPC cutover owner | Actual typed producer/caller migration, settled cancellation, native/public journeys and legacy framing deletion exercised |
+
 ### Bounded transport investigation — 2026-10-31
 
 The test-only generated service uses released ConnectRPC 0.9.1 through a custom Hyper
@@ -107,10 +113,56 @@ full HIR/native provider behavior or production caller migration. C01 must integ
 exercise all actual helper callers and delete the old framing at cutover. No compatibility
 listener or public RPC service was introduced by this investigation.
 
-| Package | Status | Owner | Completion |
-| --- | --- | --- | --- |
-| C01 | planned | Helper transport/session owner | Authenticated UDS hosting and retained work ownership under transport loss |
-| C02 | planned | Native/RPC cutover owner | Actual native producer-to-caller migration, settlement acceptance and legacy deletion |
+## Verification
+
+**Tested — 2026-11-01, zero failure baseline:** fourteen controlled scenarios passed in
+`plan61_rpc_qualification` as part of [61b's 61-test command](61b-typed-investigation-and-agent-answers.md#verification).
+They exercise the production router and surviving worker owner with real `CpuTask` work:
+half-close, explicit/repeated Cancel, reset/handler loss, unary loss, metadata-only deadlines,
+sibling isolation, invalid controls, blocked output during shutdown, validation field locations
+and terminal invariants even without local cancellation. The duplicate test-only Session and
+handler implementation were removed. Controlled CPU work does not itself qualify HIR or custody.
+
+**Tested, composite native evidence:** `scripts/pse test pse-host --lib --features native-hir
+-E 'test(semantic::native::) | test(semantic::tests::) | test(semantic::engine::tests::)'`
+selected thirteen tests. Eleven passed; helper metadata and an incorrectly migrated test
+selector caused two failures. After correction, the documented top-level route
+`cargo t -p pse-host --lib --features native-hir -E 'test(semantic::tests::native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session) | test(semantic::tests::native_cli_reuses_original_session_fences_sources_and_proves_stop)'`
+passed both originally failed journeys. This is composite focused evidence, not a fresh
+whole-series run. The native cancellation journey first authenticates a real managed helper,
+cancels and settles one actual HIR request while its sibling remains usable, then stops the
+original helper and reuses the same client against a replacement same-UID socket. Reconnect
+refuses before sending HTTP/2 bytes. The live-LSP journey exercises ordinary public inspection,
+checked edit previews, source/macro-input invalidation, session reuse and original stop/drain.
+
+**Tested:** `scripts/pse tools prepare native-analysis` succeeded after migrating its metadata
+verifier; `scripts/pse test pse-host --lib -E 'test(native_analysis_protocol_has_real_schema_documents_and_no_phantom_catalog)'`
+passed. It rejects legacy versions and unrelated service advertisements. All four actual public
+native/API composition journeys passed under `cargo t -p pse-host --test composed_investigations`.
+Default and native-feature all-target checks pass; [61b](61b-typed-investigation-and-agent-answers.md#verification)
+owns the shared command accounting. Q01 retains assembled/static qualification.
+
+## Outcome
+
+**Implemented and Tested:** C01/C02 are complete. Generated gRPC/HTTP2 over the original private
+UDS replaces private newline JSON and the cancellation control byte. Every physical connection
+authenticates original managed custody before handshake; server identity comes from Unix
+credentials. All actual query/status/package/symbol/preview consumers use typed responses.
+There is no compatibility listener or generic `Reply::Answer { value }` production adapter.
+
+Session-retained workers own actual CPU tasks beyond handler/stream loss and deadline expiry.
+Stop serializes against admission, cancels, drains workers and then releases the engine. Every
+Run validates one Start, keeps repeated Cancel idempotent, permits input half-close and preserves
+the original result separately from control/deadline failure. Terminal separates completion,
+cancellation and original outcome; ordinary clients validate it even without cancellation.
+LSP detachment remains distinct from returned protocol work and joined native CPU work. Missing
+terminal delivery remains unobserved. Bounded queues cannot hold session drain indefinitely.
+
+The maintained helper version and generated service identity now qualify explicit preparation;
+legacy selectors retain original native administration only. RPC tracing instruments admission,
+control cancellation and settlement without full payload logging or a collector prerequisite.
+Durable explanation is in blueprint §21.7 and the agent environment/CLI guidance. ADR-0235 stays
+proposed, its review stays scoped to A02, and D/Q01 and measured benefit remain separate.
 
 **Proposed:** targeted service/connector/native tests exercise real ownership boundaries;
 standalone gRPC examples are insufficient. grpcurl/buf curl can challenge descriptor and protocol

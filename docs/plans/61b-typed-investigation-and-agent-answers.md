@@ -1,6 +1,7 @@
 ---
 title: "Plan61b: Typed investigation and agent answers"
-status: active
+status: complete
+doc_retention: while-dependent
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/61-code-intelligence-foundations.md
@@ -98,9 +99,69 @@ Remote/browser clients and durable sessions remain conditional, not requirements
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| B01 | planned | Local evidence/provider owner | Typed local consumers and a genuine direct projection slice |
-| B02 | planned | Query/answer owner | Source and native composition with compact guarded answers and migrated formats |
-| B03 | planned | CLI/client adoption owner | Typed diagnostics/client journeys and updated actual consumers/guidance |
+| B01 | complete | Local evidence/provider owner | Actual source/API consumers use generated facts and borrowed direct VTable projection; source/API identity tests pass |
+| B02 | complete | Query/answer owner | Typed source/native composition, shared contexts, use-site-qualified proof/client reuse and guarded expansion exercised through public journeys |
+| B03 | complete | CLI/client adoption owner | Typed diagnostics, original settlement, reusable generated caller and actual help/schema/guidance integrated and exercised |
+
+## Verification
+
+**Tested — 2026-11-01, zero failure baseline:**
+
+```text
+scripts/pse test pse-host --lib -E 'test(plan61_) | test(semantic::wire::) | test(code_intelligence_contracts::) | test(semantic::protocol_facts::) | test(semantic::failure_tests::) | test(investigation::composition::) | test(investigation::config::) | test(investigation::stream::) | test(typed_api_projection)'
+```
+
+All 61 selected default-feature tests passed. These include direct source/API projection,
+all eighteen operation mappings, malformed fields, raw path bytes, checked previews,
+unknown predicates under negation, count/existence beyond twenty, saved request/configuration
+precedence, typed failure phases, original cancellation outcomes and fourteen controlled
+production-router/worker RPC scenarios. `scripts/pse test pse-host --test investigations`
+passed all fifteen public source journeys, including human/JSON/NDJSON output, raw source paths,
+stable/stale continuations, bounded rendering and missing finality.
+
+**Tested:** top-level `cargo t -p pse-host --test composed_investigations` passed all four
+actual prepared-helper/API journeys. They exercise native namesakes, refinement, relationships,
+inspection, source-bound proposals, test selection, importability, source equivalence and
+distinct Cargo worlds. The selected live-LSP and managed cancellation/reconnect journeys in
+[61c's verification](61c-local-rpc-and-native-completion.md#verification) also pass. Independent
+session fixtures require that documented top-level route; attempts inside a managed test or
+environment workload correctly refused independent detachment and receive no acceptance credit.
+
+**Interface-checked:** default-feature `scripts/pse-env -- cargo check -p pse-host --all-targets`
+and `scripts/pse check pse-host --features native-hir --all-targets` passed against zero
+errors/warnings. Later helper-version changes were compiled and exercised by actual preparation
+and its focused metadata test. Q01 retains whole-series hygiene and assembled qualification.
+
+**Tested:** full `just codegen` published all ten schema targets without further tracked output
+changes; `target/debug/xtask codegen --only code-intelligence --check` passed the affected
+contract comparison. `just ready` passed skill synchronization and doctor after dependency
+wiring changed. All checks retain a zero failure baseline; no whole-series hygiene claim follows.
+`just turn-end` passed. `target/debug/xtask lifecycle validate` passed after moving the existing
+A/C/D package tables directly under their declared headings so the current dependency/status
+bindings resolve; D package scope and state were preserved.
+
+## Outcome
+
+**Implemented and Tested:** B01–B03 are complete within the selected source/native/API scope.
+Consumed facts no longer depend on category-sensitive generic JSON interpretation. Original
+provider evidence remains separately inspectable. Source/API consumers use generated facts and
+borrowed direct VTable projection; ordinary callers decode native observations without HIR
+execution dependencies. Existing grouped predicates supply set intent without a second DSL or
+orchestrator. Request-local contexts, proofs and authenticated connections are reused while
+retaining original use-site, source, artifact and world guards.
+
+The independent implementation review found and corrected the HIR-only DTO gate, call-selection
+range regression, overly broad proof reuse, path presentation failure, lost composed settlement,
+discarded validation locations, symbol-kind normalization and incomplete terminal validation.
+Actual helper preparation also exposed its unmigrated version-one verifier; the generated-service
+and shared-version correction is exercised. Two mistaken test selectors were corrected without
+weakening the tested behavior. Earlier failing attempts are not passing evidence.
+
+**Limit:** the pinned native analyzer VFS accepts UTF-8 paths; unsupported native raw-path queries
+refuse explicitly. Source-only raw-path access and transported/native presentation bytes remain
+preserved. No measured context/latency reduction, arbitrary trait applicability, remote deployment
+or full-product qualification is claimed. D01–D03 and Q01 remain separate work owners;
+this completed companion is retained while those depend on it.
 
 **Proposed:** targeted model/provider/render/client tests accompany each mechanism. Apply actual
 force-validation requirements to affected Arrow closures. Q01 owns integrated/static checks;

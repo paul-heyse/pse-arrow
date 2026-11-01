@@ -96,6 +96,12 @@ complementary original source and artifact readers.
 
 ## Package state
 
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| D01 | planned | Descriptor investigation owner | Useful offline schema navigation with immutable identity and direct projection |
+| D02 | planned | Payload inspection owner | Passive schema-bound explanations with preservation and malformed-input limits |
+| D03 | planned | Contract/origin investigation owner | Classified changes and qualified generated-Rust/source associations |
+
 ### Investigation findings — 2026-10-31
 
 The qualification corpus is authored under `crates/pse-host/tests/fixtures/plan61`;
@@ -126,12 +132,6 @@ The generator's shared runtime pool strips SourceCodeInfo; the separately genera
 descriptor retains it. They derive from the same import corpus but are different byte artifacts.
 Use the full immutable descriptor for source-aware investigation, retain its original identity,
 and treat the stripped runtime pool as a derived projection rather than the source authority.
-
-| Package | Status | Owner | Completion |
-| --- | --- | --- | --- |
-| D01 | planned | Descriptor investigation owner | Useful offline schema navigation with immutable identity and direct projection |
-| D02 | planned | Payload inspection owner | Passive schema-bound explanations with preservation and malformed-input limits |
-| D03 | planned | Contract/origin investigation owner | Classified changes and qualified generated-Rust/source associations |
 
 **Proposed:** targeted fixtures challenge transformations with known authored meanings rather
 than reproducing generator output as the only oracle. Independent tools share some underlying
