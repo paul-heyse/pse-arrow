@@ -70,6 +70,11 @@ can nominate an interpretation when originals are missing, but cannot establish 
 Use protoscope/prototext for a concrete wire question, not as a mandatory second processing path.
 No runtime validator, lazy view or new forensic subsystem is required absent its own need.
 
+Qualify text-format loss explicitly: the selected Buffa 0.9.2 generated reader skips unknown
+named fields. Before exposing strict ingress or a lossless text conversion, select a supported
+strict reader/generator improvement or report the interpretation as partial and retain the
+original text. Do not equate a successful parse with preservation of every authored field.
+
 <a id="d03"></a>
 ### D03 — Contract differences and qualified generated-Rust associations
 
@@ -90,6 +95,37 @@ Delete duplicate change/coordinate reconstruction where current consumers have m
 complementary original source and artifact readers.
 
 ## Package state
+
+### Investigation findings — 2026-10-31
+
+The qualification corpus is authored under `crates/pse-host/tests/fixtures/plan61`;
+xtask's explicit `codegen --only plan61` owns its generated test output. It is not the
+production D01–D03 interface. Test-only host consumers investigate complete descriptors,
+direct projection and payload interpretation without launching an analyzer or schema service.
+
+**Tested:** Buf 1.75.0 built the complete corpus and offline `grpcurl -protoset … describe
+plan61.qualification.v1.Investigation` identified its unary Inspect and bidirectional Run
+methods. grpcurl reports `dev build <no version set>` locally; the installed-tool document's
+version alone is not provenance for that executable. Independent wire inspection with
+`protoscope -descriptor-set … -message-type plan61.qualification.v1.Payload -print-field-names`
+identified an explicitly encoded count zero and unknown field 127 without inventing a name
+for the latter.
+
+**Tested:** a temporary source copy renaming field 6 from `label` to `renamed_label` passed
+`buf breaking --config <WIRE configuration>` (exit 0), while WIRE_JSON and FILE returned
+exit 100 with field-name/json_name change diagnostics. Each configuration retained the original
+locked imports. Intentional breaks are classification evidence, not a compatibility veto.
+
+**Interface-checked:** the actual Buf descriptor span for a field preceded by `/* π */`
+starts at Unicode column 10, while the corresponding UTF-8 byte column is 11. D03 must
+convert descriptor coordinates against the original source and retain its guard; treating
+columns as byte offsets would offer an incorrect source-linked action. Descriptor identity
+and generated names still do not establish native HIR/rustdoc/Cargo-world identity.
+
+The generator's shared runtime pool strips SourceCodeInfo; the separately generated full Buf
+descriptor retains it. They derive from the same import corpus but are different byte artifacts.
+Use the full immutable descriptor for source-aware investigation, retain its original identity,
+and treat the stripped runtime pool as a derived projection rather than the source authority.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |

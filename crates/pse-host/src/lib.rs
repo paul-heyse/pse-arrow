@@ -201,3 +201,12 @@ pse_diagnostics::impl_diagnostic! {
 pub mod telemetry;
 /// Explicit persistent local telemetry service operator.
 pub mod telemetry_service;
+
+#[cfg(test)]
+mod plan61_rpc_qualification;
+
+#[cfg(test)]
+mod plan61_qualification;
+
+#[cfg(test)]
+mod plan61_descriptor_qualification;

@@ -85,6 +85,28 @@ native composition against this working contract.
 
 ## Package state
 
+### Bounded transport investigation — 2026-10-31
+
+The test-only generated service uses released ConnectRPC 0.9.1 through a custom Hyper
+HTTP/2 UDS accept loop. `Http2Connection::connect_with_connector` performs kernel PID
+verification before negotiation; the generated caller consumes a shared connection.
+Server Unix credentials populate request extensions. Incoming unary view validation uses
+the validator macro, while Start stream items require explicit validation before CPU admission.
+
+Session-retained workers own actual `CpuTask` handles until settlement. Input half-close
+permits completion, repeated Cancel is idempotent, and repeated Start is invalid. Output drop,
+deadline and reset request cancellation without transferring CPU completion to the transport.
+Bounded output must not prevent shutdown from draining work. Terminal may be delivered into
+an available slot after settlement; session stop need not wait forever for a full output queue.
+An unobserved terminal remains unobserved to the client.
+
+The fixture uses controlled real Rayon work and an injected expected kernel PID. It does not
+qualify the actual managed invocation-custody lookup, automatic reconnect within one client,
+full HIR/native provider behavior or production caller migration. C01 must integrate the original
+`authenticate_payload_peer` verifier on every connector/reconnect before handshake; C02 must
+exercise all actual helper callers and delete the old framing at cutover. No compatibility
+listener or public RPC service was introduced by this investigation.
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
 | C01 | planned | Helper transport/session owner | Authenticated UDS hosting and retained work ownership under transport loss |

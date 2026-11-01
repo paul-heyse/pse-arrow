@@ -118,6 +118,15 @@ zip.workspace = true
 base64.workspace = true
 
 [dev-dependencies]
+buffa.workspace = true
+buffa-descriptor.workspace = true
+buffa-types.workspace = true
+connectrpc = { workspace = true, features = ["client"] }
+protovalidate-buffa.workspace = true
+hyper.workspace = true
+hyper-util = { workspace = true, features = ["server-auto", "service"] }
+http.workspace = true
+tower-service.workspace = true
 assert_cmd.workspace = true
 proptest.workspace = true
 insta.workspace = true

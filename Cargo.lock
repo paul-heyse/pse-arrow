@@ -1049,6 +1049,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "buffa"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a92f2f5df67a9d5ccfc65237bfc954c56328aee40a04a9b92381ecba370be246"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "foldhash 0.1.5",
+ "hashbrown 0.15.5",
+ "once_cell",
+ "rustversion",
+ "serde",
+ "serde_json",
+ "smoothutf8",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "buffa-descriptor"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b7dd79a6898e70dac8adae959c8ad2cae51ed96397935c91c996280cedcb55e"
+dependencies = [
+ "buffa",
+ "rustversion",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "buffa-types"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b15b05c8418f1e200e406e5b19df97400dffa833e2450e4392c506896cbc97ac"
+dependencies = [
+ "buffa",
+ "buffa-descriptor",
+ "bytes",
+ "jiff",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1443,6 +1488,37 @@ name = "compression-core"
 version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e8ccc4ea9f6acc32d102c0f6d471d11d913ad15f20c04de743374861fa1d414"
+
+[[package]]
+name = "connectrpc"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "457cfa540c62e1b0b05db676cc9a9129162ad94d3a3eec6f2d19706c53acae7d"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "buffa",
+ "bytes",
+ "flate2",
+ "futures",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "percent-encoding",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "sync_wrapper",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+ "wasm-bindgen-futures",
+ "zstd 0.13.3",
+]
 
 [[package]]
 name = "console"
@@ -4843,6 +4919,7 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.1.5",
+ "serde",
 ]
 
 [[package]]
@@ -7830,6 +7907,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "protovalidate-buffa"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7574c6a70657e90420a28f03e8988e6aac2cbf33df39481769aea203e900e579"
+dependencies = [
+ "base64 0.22.1",
+ "buffa",
+ "buffa-descriptor",
+ "chrono",
+ "connectrpc",
+ "fluent-uri",
+ "http",
+ "ipnet",
+ "percent-encoding",
+ "protovalidate-buffa-macros",
+ "protovalidate-buffa-protos",
+ "regex",
+ "ulid 3.0.0",
+ "uuid",
+]
+
+[[package]]
+name = "protovalidate-buffa-macros"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85cc555115381b5ddf59f03bfeeb2d10f9da8c0613c0d760e630733c65956d2a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.5",
+]
+
+[[package]]
+name = "protovalidate-buffa-protos"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e9bdb876427e3d73c82fb87ec22fbd13c95b1dc7c70c6f31feb624c130636e5"
+dependencies = [
+ "buffa",
+ "buffa-descriptor",
+ "buffa-types",
+]
+
+[[package]]
 name = "pse-admission"
 version = "0.0.1"
 dependencies = [
@@ -8102,11 +8223,15 @@ dependencies = [
  "ast-grep-config",
  "ast-grep-core",
  "base64 0.22.1",
+ "buffa",
+ "buffa-descriptor",
+ "buffa-types",
  "bytes",
  "cargo_metadata",
  "clap",
  "clap-cargo",
  "command-fds",
+ "connectrpc",
  "figment",
  "flate2",
  "futures-executor",
@@ -8116,6 +8241,9 @@ dependencies = [
  "grep-matcher",
  "grep-regex",
  "grep-searcher",
+ "http",
+ "hyper",
+ "hyper-util",
  "ignore",
  "indicatif",
  "insta",
@@ -8129,6 +8257,7 @@ dependencies = [
  "percent-encoding",
  "petgraph",
  "proptest",
+ "protovalidate-buffa",
  "pse-buildinfo",
  "pse-diagnostics",
  "public-api",
@@ -8159,6 +8288,7 @@ dependencies = [
  "tokio-rayon",
  "tokio-util",
  "toml 1.1.6+spec-1.1.0",
+ "tower-service",
  "tree-sitter",
  "tree-sitter-bash",
  "tree-sitter-rust",
@@ -10973,6 +11103,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "smoothutf8"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b4ec95892483d6d94284caccfddb9b77111a4dcac33ed25d624248def0fa5f1"
+dependencies = [
+ "simdutf8",
+]
+
+[[package]]
 name = "snap"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11384,7 +11523,7 @@ dependencies = [
  "surrealdb-protocol",
  "surrealdb-types-derive",
  "tracing",
- "ulid",
+ "ulid 1.2.1",
  "uuid",
 ]
 
@@ -12298,6 +12437,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "470dbf6591da1b39d43c14523b2b469c86879a53e8b758c8e090a470fe7b1fbe"
 dependencies = [
  "rand 0.9.5",
+ "web-time 1.1.0",
+]
+
+[[package]]
+name = "ulid"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "947dde63b6d514cc5e044edad4e0ca7261afd1099d16c83d942cb2b2f348689c"
+dependencies = [
+ "rand 0.10.3",
  "web-time 1.1.0",
 ]
 

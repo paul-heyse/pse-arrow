@@ -181,7 +181,16 @@ deviations. Plan61 authoring does not itself amend other plans or perform those 
 
 ## Current checkpoint
 
-New planning documents only. No candidate generator/RPC build or assembled compatibility test
-has been run under this series. Next executable work is A00/A01, followed by A02 and the small
-B01/D01 reflection consumer that establishes the selection's value. Existing review/source
-observations retain their original scope; new behavior and benefit remain Proposed.
+A00/A01's bounded investigation is complete: exact generated owned/eager-view/VTable/validation
+and local RPC composition passed 22 targeted host tests, with generator comparison and xtask
+compile checks. [61a's investigation outcome](61a-contracts-generation-and-validation.md#investigation-outcome--2026-10-31)
+owns commands, evidence limits and the retained stack decision. [61c](61c-local-rpc-and-native-completion.md#bounded-transport-investigation--2026-10-31)
+and [61d](61d-schema-payload-and-contract-investigation.md#investigation-findings--2026-10-31)
+retain transport/custody and descriptor/payload qualifications.
+
+Next is A02's governing decision/review readiness and production generation, including CEL
+preflight and safer generator lowering where required, followed by the small B01/D01 production
+reflection consumer. Malformed-CEL error classification and arithmetic panics are concrete
+qualification limits, not supported validation behavior. Full production consumers, original
+managed-custody/reconnect integration, hard cutover and Q01 assembled qualification remain open.
+No measured benefit or whole-product qualification follows from this test-only foundation.

@@ -1,0 +1,24 @@
+version: v2
+plugins:
+  - local: protoc-gen-buffa
+    out: .
+    opt:
+      - reflection=true
+      - reflect_mode=vtable
+      - shared_descriptor_pool=true
+      - text=true
+      - json=true
+  - local: protoc-gen-buffa-packaging
+    out: .
+    strategy: all
+    opt:
+      - shared_descriptor_pool=true
+  - local: protoc-gen-connect-rust
+    out: services
+    opt:
+      - extern_path=.=crate::plan61_qualification::pb
+  - local: protoc-gen-protovalidate-buffa
+    out: validation
+    strategy: all
+    opt:
+      - proto_module=crate::plan61_qualification::pb

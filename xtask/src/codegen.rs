@@ -8,6 +8,7 @@ mod physical;
 
 mod grpc_wire;
 mod ownership;
+mod plan61;
 mod private_store;
 
 #[cfg(feature = "native-abi")]
@@ -31,6 +32,15 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only == Some(Target::Plan61) {
+        let tree = plan61::generate(root)?;
+        validate_tree(&tree)?;
+        return if check {
+            check_tree(root, &tree)
+        } else {
+            write_tree(root, &tree)
+        };
+    }
     if only.is_none()
         && !(cfg!(feature = "physical-admission")
             && cfg!(feature = "product-schemas")
@@ -45,7 +55,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Docs) => vec![Language::Markdown],
         Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return native_abi(root, check),
-        Some(Target::Schemas | Target::Physical) => Vec::new(),
+        Some(Target::Schemas | Target::Physical | Target::Plan61) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
     if check {
@@ -83,6 +93,10 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         write_tree(root, tree)?;
     }
     if only.is_none() {
+        let tree = plan61::generate(root)?;
+        validate_tree(&tree)?;
+        write_tree(root, &tree)?;
+        trees.push(("plan61-qualification".into(), tree));
         native_abi(root, check)?;
         let tree = ownership::generate(root, &trees)?;
         validate_tree(&tree)?;
@@ -246,6 +260,13 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
     }
     if only.is_none() {
         if failures.is_empty() {
+            if let Some(tree) = check_result(
+                &mut failures,
+                "plan61 qualification",
+                plan61::generate(root),
+            ) {
+                trees.push(("plan61-qualification".into(), tree));
+            }
             if let Some(tree) = check_result(
                 &mut failures,
                 "generated ownership map generation",
