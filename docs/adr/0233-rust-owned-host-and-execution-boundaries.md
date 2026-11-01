@@ -410,3 +410,29 @@ per-event lifecycle/byte-address verification, not missing-evidence refusal or i
 RT04 defers the specialized commit transaction; generic briefing and packet hooks leave required
 scope. Ordinary Git is not claimed to provide the deferred shared-index guarantee. These changes
 are Proposed; implementation and scoped acceptance remain with Plan59 owners.
+
+### Plan62 native preparation and compiler observations — 2026-11-01
+
+**Proposed; operator-confirmed RC01/RC02 and typed D03 target.** Extend explicit native snapshot
+preparation through the existing build_macros selection. Correctness-admitted build outputs,
+proc-macro executable/dylib identities and supported environment/source premises qualify readiness.
+Restricted preparation remains useful. Macro queries can execute external code lazily; immutable
+source does not establish hermetic execution. Query cancellation retains actual CPU ownership and
+may await macro return; whole-session stop retains original managed escalation and descendant drain.
+Neither a cancellation request nor terminal presentation proves native settlement.
+
+Add an optional, separately prepared compiler-analysis binary inside the existing host package.
+Compiler-private linkage stays outside ordinary host/HIR construction. The existing compiler
+investigation owner supplies admitted units, exact toolchain/runtime dependencies, explicit
+acquisition, original artifacts and foreground signal/child settlement. A stage-local wrapper
+selects the actual root compiler invocation, delegates unrelated units, preserves supported wrapper
+composition and continues normal compilation after copying early observations. Completed facts
+publish only after successful original compilation and capture/settlement; failed outputs remain
+partial evidence. No read installs components, builds a tool or starts acquisition.
+
+Project owned phase-qualified captures, coroutine state and selected typed MIR cleanup/unwind facts.
+No MIR-text parser, new compiler service, workspace crate or general loan database is selected.
+Original artifacts retain independent inspection value. Predicate evaluation status remains distinct
+from Boolean refinement truth: NotProven/Invalid/Unsupported do not become false. Grammar and
+semantic edits remain guarded previews. Plan62 owns implementation and assembled acceptance;
+the prior probes establish only their named interfaces. Formal ADR status is unchanged.

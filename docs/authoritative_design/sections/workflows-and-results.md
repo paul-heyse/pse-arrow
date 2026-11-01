@@ -1693,6 +1693,18 @@ scientific permission. No NumPy product adapter is currently selected.
 
 ### 21.7 First-party host and future foreign adapters
 
+> Decision: ADR-0233 (proposed Plan62 extension; operator-confirmed preparation/compiler target).
+
+The selected Plan62 target extends explicit native preparation to build-generated inputs and
+proc macros with qualified readiness and retained session/CPU ownership. Individual cancellation
+does not guarantee interruption of external macro I/O; original managed whole-session stop owns
+escalation and descendant settlement. A separately prepared optional compiler-analysis binary
+within the host isolates compiler-private linkage, consumes actual admitted root arguments,
+copies owned phase-qualified capture/suspension/cleanup observations and continues normal
+compilation. Publication requires successful original compilation and completed capture/settlement.
+Original artifacts remain separately inspectable. This paragraph records the target, not delivered
+Plan62 functionality or formal ADR acceptance; its coordinator owns implementation/qualification.
+
 > Decision: [ADR-0235](../../adr/0235-code-intelligence-contract-foundation.md) (proposed;
 > operator-authorized Plan61 foundation and B/C/D realization; the scoped prospective review covers A02).
 
