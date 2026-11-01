@@ -13,12 +13,12 @@ adrs: []
 
 ## Purpose and current baseline
 
-**Proposed:** deliver bounded engineering evidence for responsibility paths, library fit,
+**Implemented:** bounded engineering evidence for responsibility paths, library fit,
 change/context comparison, lifetimes, contract association and revealing validation.
 The operator authorized integrating the [improvement review](../plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md)
 and [functional review](../functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md)
-on 2026-11-01, retaining explicit triggers for conditional investigation. Plan60 implementation
-has not started; document publication does not execute this target.
+on 2026-11-01, retaining explicit triggers for conditional investigation. A–F functional
+delivery is complete; Q01 owns scope-end qualification and durable publication below.
 
 Starting implementation baseline: `42bede27a`, following code completion `244e86e9f` and
 Plan62's [Outcome](62-code-intelligence-capability-expansion.md#outcome). Production source is
@@ -42,8 +42,8 @@ owns delivered role/witness evidence, one-snapshot multi-seed traversal independ
 scope, focused views and grammar/query assistance. The subsequent native relationship/lifetime
 and acquired API extensions are recorded in [60b's Outcome](60b-native-relationships-and-lifetime-evidence.md#outcome)
 and [60c's Outcome](60c-library-api-and-compatibility-evidence.md#outcome).
-Remaining work includes selected-context deltas, further evidence associations, validation
-relevance and agent-interaction/workflow consumers.
+The subsequent D–F Outcomes record selected-context deltas, canonical associations, validation
+relevance and agent-interaction/workflow consumers. Q01 retains final qualification.
 SearchResult.source_relationship records written source context, not the full native edge
 contract. The remaining packages extend and compose these producers; they do not rebuild
 Plan62 preparation, contextual inference, runnable discovery, compiler acquisition or exact
@@ -266,7 +266,7 @@ mistake made/corrected and deliberate deviations in the final Outcome.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| Q01 | planned | Plan60 coordinator | Assembled acceptance, scope-end checks, opportunity dispositions and durable publication |
+| Q01 | in progress | Plan60 coordinator | Functional/assembled acceptance is recorded below; scope-end checks and final publication are running |
 
 ## Current checkpoint
 
@@ -281,11 +281,13 @@ consumed rather than rescheduled. Remaining companions retain their own package 
 E03/Q01 engineering journeys and final qualification remain separate. B04 and deeper compiler,
 indexing and remote alternatives retain their observable triggers.
 
-Remaining-scope implementation is active from `cea33a310`, with target contracts published at
+Remaining-scope implementation began from `cea33a310`, with target contracts published at
 `2412905bc` before source changes. Comparison, association/relevance, agent correction and the
 shared optional inquiry guidance are integrated. Targeted native-host units, public source and
 handoff/correction consumers, and canonical document-owner fixtures pass. Integration repairs
 preserve primary source guards, unknown comparison prefixes, bounded profile indexes and
-original validation disclosure. These checks do not close assembled qualification. The real
-two-owner native comparison, assembled native/API/lifetime journeys and Q01 scope-end checks
-remain next, alongside the independent quantity-registry inquiry already exercised publicly.
+original validation disclosure. The real two-owner native comparison, assembled native/API/
+lifetime journeys, independent quantity-registry inquiry and original-failure/context consumers
+have now passed their selected assertions. The final retained-context repair composes original
+workflow and artifact owners without weakening either. Scope-end static qualification and
+durable publication remain with Q01; no performance benefit is claimed.

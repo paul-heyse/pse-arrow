@@ -1,6 +1,8 @@
 ---
 title: "Plan60f: Agent interaction and contract diagnostics"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Plan60 qualification and proposed ADR-0235 consume the retained interaction, wire-disclosure and correction evidence."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
@@ -131,12 +133,51 @@ newer main claims, so keep the qualified strict protoc route. No version bump is
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| F01 | in progress | Parser/catalog and reference adapters | Concise discovery and opaque addresses exercised by actual callers |
-| F02 | in progress | Request/configuration and envelope adapters | Effective input and actionable typed correction with original diagnostics |
-| F03 | in progress | Schema/payload and RPC inspection | Structured violations with explicit redaction/truncation/defect limits |
+| F01 | complete | Parser/catalog and reference adapters | Concise discovery, full expansion and opaque addresses exercised by actual callers |
+| F02 | complete | Request/configuration and envelope adapters | Typed preflight, literal field choices and effective provenance preserve original diagnostics |
+| F03 | complete | Schema/payload and RPC inspection | Original structured violations with origin-qualified disclosure, truncation and defect limits |
 
 **Proposed verification:** targeted parser/envelope/reference/schema checks and actual public
 interactions accompany changes; regenerate authored contract changes. E03 consumes F01–F03
 for discovery-to-answer and correction journeys. Q01 owns scope-end qualification. New guidance
 uses working parser/schema syntax. No numerical speed/token/memory target or new Tested product
 claim follows from document publication.
+
+## Outcome
+
+**Implemented:** `commands` is concise parser-owned discovery; `help` retains full selected
+argument/schema detail. Every serialized result reference includes its native opaque address;
+identity encoding is unchanged and decoding rejects structured/address disagreement. Literal
+top-level `--fields` choices are preflighted before providers where the selected response
+schema defines them. Dots and slashes do not navigate nested data; actual punctuation-bearing
+top-level keys remain valid. Opaque JSON retains runtime projection checks. Existing Figment
+composition supplies effective provenance without inventing overwritten-value history.
+
+Shared correction preserves typed diagnostics, numbered/indexed field paths, rule/schema
+identity and original disclosed RPC detail. Native producers encode upstream once and count
+the emitted canonical details. Authored Failure disclosure distinguishes known original totals,
+redaction, whole-record truncation, compile/evaluation defects and unknown peer coverage.
+Removed raw diagnostic expansion cannot restore redacted selectors/messages. Unary package
+context now uses the same borrowed validator once with its actual message identity; no
+parallel validator or decoder was introduced. Authored/generated protocol7 fences the new
+wire meaning.
+
+**Tested, local Linux:** [the coordinator Outcome](60-engineering-code-intelligence.md#outcome)
+owns exact commands and final qualification. Parser/reference/envelope/schema/native-RPC tests
+cover pre-provider refusal, literal fields, multibyte labels, related diagnostics, nested/repeated
+correction, redaction/truncation and validator compile/evaluation defects. Actual HTTP2
+required-input and defect controls passed. Ordinary Node `JSON.parse` copied a real opaque
+source address containing a timestamp beyond JavaScript's safe integer range; ordinary
+inspection accepted that unchanged address. Structured address disagreement and stale
+source/native context remain refused. Public output tests exercised JSON/human/NDJSON,
+non-UTF-8 paths, non-TTY progress, partial failure and cancellation. Parser help/schema
+snapshots were reviewed and asserted in normal mode after updating stale delivered-contract
+expectations; update mode alone receives no acceptance credit.
+
+A mistake corrected was treating opaque JSON projection as a schema-known finite object,
+which regressed existing runtime behavior. Explicit scalar/array rejection and typed finite
+unions now coexist with opaque runtime checks. Another correction removed a macro-generated
+unary path that bypassed validation. Deliberate choices retain the existing diagnostic and
+progress owners, native reference identity and disclosure policy; external schema acquisition,
+dynamic validation, JSON contracts and interoperability tooling remain trigger-bound. No
+performance/token/memory benefit is claimed.

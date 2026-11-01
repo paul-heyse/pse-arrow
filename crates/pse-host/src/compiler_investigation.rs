@@ -3,6 +3,7 @@
 //! Original compiler evidence and explicitly selected native artifact investigations.
 pub mod artifact;
 pub(crate) mod facts;
+mod unit_context;
 use crate::{
     HostError,
     artifacts::{self, Content, DescriptorIdentity},
@@ -30,6 +31,7 @@ use std::{
     num::{NonZeroU64, NonZeroUsize},
     path::{Component, Path, PathBuf},
 };
+pub use unit_context::{UnitContextObservation, UnitContextOrigin, unit_context};
 
 const BACKEND: &str = "cargo_metadata/0.23.1;compiler-evidence-view/v2";
 
@@ -50,6 +52,9 @@ struct ReportSource {
     action: crate::test_workflow::execute::Action,
     outcome: serde_json::Value,
     admission: Vec<Resolution>,
+    selection: Option<serde_json::Value>,
+    #[serde(default)]
+    required_capture_complete: bool,
     phases: Vec<PhaseSource>,
     observations: Vec<GroupSource>,
 }
@@ -160,7 +165,12 @@ fn report(
     selector: &str,
     session: Option<&str>,
 ) -> Result<(CliInvocationId, String, PathBuf, ReportSource), HostError> {
-    let (id, bytes, parent) = crate::test_inventory::captured_report(store, selector, session)?;
+    let crate::test_inventory::CapturedReport {
+        id,
+        report: bytes,
+        parent,
+        ..
+    } = crate::test_inventory::captured_report(store, selector, session)?;
     let sha = digest(&bytes);
     let report: ReportSource = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
     if report.version != 1 || report.invocation != id {

@@ -1,6 +1,8 @@
 ---
 title: "Plan60d: Change and document evidence"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Plan60 qualification and proposed ADR-0235 consume the retained comparison/association evidence and conditional investigation decisions."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
@@ -195,10 +197,10 @@ meanings remain separate under AP-04/DP-04/DP-09.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| D01 | in progress | Source/API comparison owner | Qualified original differences and guarded before/after inspection |
-| D02 | in progress | Investigation/document bridge owner | Read-only associations preserving native authority, basis and status |
-| D03 | in progress | Native context comparison owner | Public selected-world comparison with cfg and ambiguous mapping acceptance |
-| D04 | in progress | Cargo/unit context comparison owner | Aligned original package/unit deltas, qualified correspondence and independently useful passive inspection |
+| D01 | complete | Source/API comparison owner | Qualified original differences and guarded before/after inspection; Outcome below |
+| D02 | complete | Investigation/document bridge owner | Canonical read-only associations preserving native authority, basis and status; Outcome below |
+| D03 | complete | Native context comparison owner | Actual separately owned worlds expose cfg-only target changes and missing-world unknowns |
+| D04 | complete | Cargo/unit context comparison owner | Passive original package/unit deltas, ordered admission groups and qualified correspondence; Outcome below |
 
 ## Verification and handoff
 
@@ -211,3 +213,49 @@ authorized by this plan. Targeted comparison/association tests and their actual 
 consumers accompany D01–D04 implementation. E03 assembles the change/evidence-path journeys;
 Q01 owns the later scope-end checks. Source correspondence and output projections are
 Interface-checked leads from the reviews, not newly Tested behavior from this authoring.
+
+## Outcome
+
+**Implemented:** `inspect comparison` shares flag/JSON validation for source, acquired API,
+retained context and selected semantic views. Source header/body hashes, correspondence
+candidates and missing/ambiguous observations remain separate. API inspection delegates to
+the original guarded artifact owner. Native comparison uses independently owned checkout
+sessions and normalized source target candidates, never cross-database native IDs. A witnessed
+target difference can be reported despite incomplete macro coverage; an unobserved prefix
+cannot establish equality.
+
+Context addresses bind selected raw metadata and original admitted-unit evidence with separate
+digests. Compiler acquisitions retain their strict artifact reader; ordinary check/test/list/
+rustdoc reports use the canonical authenticated report reader. The digest domain and original
+outcome stay explicit. Ordered admission groups, unit indexes and ambiguous alignments survive
+projection. Independently supplied metadata does not establish common acquisition with units.
+Optional native profiles preserve original indexes; unavailable requested enrichment makes the
+answer partial without suppressing valid retained evidence. No read performs new admission,
+metadata acquisition, preparation or compilation.
+
+Associations use the canonical document metadata/policy/section/scope interpreter, source
+citations and optional HIR documentation links. Historical missing policy does not fall back to
+current policy. Mentions, rejected alternatives and heuristic candidates confer no ownership.
+Source `doc` literals and comments retain their original mapping; computed attributes remain
+unsupported. Existing source/status/origin owners remain authoritative.
+
+**Tested, local Linux:** the coordinator's [Outcome](60-engineering-code-intelligence.md#outcome)
+records exact selected commands and final assembled/static results. Targeted comparison and
+document fixtures passed, as did public historical source/API journeys and two actual separately
+prepared native worlds with identical source but changed Cargo features. Comparison
+`01a198ba-c7f2-7517-8736-4b668363b0d7` observed the changed resolved target; stopping one world
+preserved unknown rather than a single-world negative. Both owned sessions were stopped.
+Retained native/default test invocations exposed 674/1152 original unit records under a
+2000-record allowance (`01a198f2-fa12-74b0-a8aa-6116a28b444b`). Duplicate candidates legitimately
+kept the comparison partial. The missing-world control
+`01a198f2-fe7e-73ef-a8ab-73d4cbd2b78a` retained units/metadata while reporting unavailable
+enrichment. Public `context_comparisons` passed 2/2, including tampered original reports,
+forged digests, group preservation, projected addresses and bounded omissions.
+
+A mistake corrected was routing ordinary workflow contexts through the artifact-purpose
+reader. The repair composes existing authenticated readers rather than widening the strict
+artifact gate. Projected Context expansion also moved to the existing page emitter so a
+guarded rebuildable answer does not require legacy response retention. Deliberate choices
+keep candidate correspondence, common-acquisition uncertainty and unknown macro coverage;
+modeled graphs, universal indexing and automatic historical-world preparation remain dormant.
+These are functional evidence claims, not measured performance or compatibility guarantees.

@@ -388,8 +388,13 @@ pub(in crate::cli) fn inspect_context(
     output.validate_for::<ContextExpansion>("inspect context")?;
     let reference = ResultReference::new(locator.clone());
     reference.validate()?;
-    let report = super::super::runtime()?.block_on(context::inspect_reference(root, &reference))?;
+    let report = super::super::runtime()?.block_on(context::inspect_reference(
+        root,
+        &reference,
+        output.presentation.budget.unwrap_or_else(allowance),
+    ))?;
     let partial = report.partial();
+    let detail = report.detail(output.presentation.budget);
     let mut response = Envelope::response(
         "inspect context",
         "original independently verified metadata and admitted compiler-unit evidence",
@@ -398,7 +403,8 @@ pub(in crate::cli) fn inspect_context(
     if partial {
         response.observation.completeness = Completeness::Partial;
     }
-    output.emit(response).map_err(HostError::from)
+    response.observation.reference = Some(reference.encode()?);
+    output.emit_page(response, detail).map_err(HostError::from)
 }
 fn cancel_owned<T, F, Fut>(operation: F) -> Result<T, HostError>
 where

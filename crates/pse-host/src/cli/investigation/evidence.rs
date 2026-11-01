@@ -103,7 +103,7 @@ pub(super) enum Action {
         #[arg(long, default_value = "4096")]
         length: NonZeroU64,
     },
-    /// Inspect the original compiler-generation context, outcome and checked file index.
+    /// Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata.
     CompilerArtifacts {
         invocation: String,
         /// Explicit retained metadata to address alongside original admitted units.
@@ -470,7 +470,20 @@ pub(super) fn inspect(
                     &invocation,
                     &root.join(metadata),
                 )?;
-                return Ok(output.emit(Envelope::response("inspect compiler-artifacts metadata","explicit retained metadata and original compiler context; association remains qualified",report))?);
+                let address = report.reference.encode()?;
+                let mut response = Envelope::response(
+                    "inspect compiler-artifacts metadata",
+                    "explicit retained metadata and original admitted context; association remains qualified",
+                    report,
+                );
+                response.observation.reference = Some(address);
+                return Ok(output.emit_page(
+                    response,
+                    crate::envelope::DetailView {
+                        budget: output.presentation.budget,
+                        ..Default::default()
+                    },
+                )?);
             }
             let state =
                 crate::paths::CheckoutState::resolve(&root, &std::env::vars_os().collect())?;

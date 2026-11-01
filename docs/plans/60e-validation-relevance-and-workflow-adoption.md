@@ -1,6 +1,8 @@
 ---
 title: "Plan60e: Validation relevance and workflow adoption"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Plan60 qualification and proposed ADR-0235 consume the retained workflow and validation-relevance acceptance."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
@@ -168,9 +170,9 @@ resolution evidence. This journey consumes D04's working comparison slice, not a
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| E01 | in progress | CLI/process guidance owner | Tested optional examples using delivered interfaces across the requested process categories |
-| E02 | in progress | Test-relevance inspection owner | Original test/setup/assertion/outcome evidence with honest selection and assurance limits |
-| E03 | in progress | Engineering workflow integration owner | New capabilities exercised through actual bounded agent journeys and updated focused guidance |
+| E01 | complete | CLI/process guidance owner | Shared optional inquiries use delivered public interfaces across the requested process categories |
+| E02 | complete | Test-relevance inspection owner | Frozen original test/failure identities, guarded current source/assertions/setup and qualified native fan-out |
+| E03 | complete | Engineering workflow integration owner | All eight public journeys, unfamiliar quantity subsystem and original failure/context controls exercised; Outcome below |
 
 ## Verification and handoff
 
@@ -179,3 +181,46 @@ command examples exercising their consumers. Respect force-validation for actual
 closures and the repository environment routes for workloads. No unrelated scientific campaign
 is needed to publish guidance. Q01 owns the final integrated/static campaign and durable contract
 publication; these proposed journeys supply no new Tested or Measured claim until run.
+
+## Outcome
+
+**Implemented:** source and frozen-result relevance compose original test/report identities,
+observable assertions, setup/helper/comparator definitions and current selection actions.
+Full test identity and original report/inventory hashes are independent of population cursors.
+Known assertion arguments retain position and expected-value derivation; custom, shadowed or
+malformed forms remain opaque. A referenced operation does not establish an assertion about
+its invariant, and shared production/comparator calculations do not establish independent
+assurance. Guarded current-source correspondence never becomes historical source proof.
+
+One optional [engineering inquiry reference](../../.codex/skills/pse-cli/references/engineering-inquiries.md)
+supports the distinct audit, solution-review, functional-extension, library-leverage and
+planning/execution lenses. Existing process skills link it once and retain inquiry depth,
+judgment and publication. Source-only routes work without analyzer preparation; unavailable
+native/API evidence remains an explicit reason to stop or expand a selected question.
+
+**Tested, local Linux:** [the coordinator Outcome](60-engineering-code-intelligence.md#outcome)
+owns commands and assembled/static evidence. Public journeys covered discovery-to-answer,
+responsibility tracing, library-fit/API inquiry, change-footprint planning, lifetime reasoning,
+canonical contract association, original failure-to-validation and actionable correction.
+An unfamiliar quantity-registry inquiry exercised discovery, copied guarded expansion and
+relevance without native preparation. Native/API/lifetime cases retain namesakes, callbacks,
+interior mutation, missing definitions, cfg/macro uncertainty and actual cancellation settlement.
+JSON/human/NDJSON consumers and literal field correction were exercised.
+
+The explicitly ignored `original_relevance_failure_fixture` was deliberately executed once
+with `--ignored only`, producing original failure `01a1989e-9794-7439-b23b-2f2276ded4a9`.
+Inspection followed its exact test row through original phase/report, current source,
+assertion/setup/comparator definitions and a current selection action. Report SHA and history
+count remained unchanged: inspection did not list or rerun tests. This expected failure is a
+control, not a passing qualification test. The ordinary `investigation_evidence` population
+passed 10/10 and excludes that control by its explicit ignored policy. D04's real retained
+workflow feature/context comparison and requested-missing-world journey also passed their
+qualified assertions; duplicate unit correspondence remained partial.
+
+A mistake corrected was returning an unguarded primary Source reference from relevance and
+associations. Both now publish the guard obtained by the source reader. A second fixture
+mistake treated a correct partial document interpretation as unconditional success; assertions
+now check the actual basis and coverage. Deliberate choices retain optional examples rather
+than mandatory agent procedures, source-only utility and a strict separation between relevance,
+test selection, coverage and oracle judgment. No usage-frequency or numerical benefit claim
+is made. Q01 owns the final qualification and durable publication.

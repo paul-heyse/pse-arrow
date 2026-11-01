@@ -3,7 +3,7 @@ source: crates/pse-host/src/cli.rs
 expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 ---
 -h
-Inspect the original compiler-generation context, outcome and checked file index
+Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata
 
 Usage: pse inspect compiler-artifacts [OPTIONS] <INVOCATION>
 
@@ -18,7 +18,7 @@ Options:
       --budget <BUDGET>      Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help                 Print help (see more with '--help')
 --help
-Inspect the original compiler-generation context, outcome and checked file index
+Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata
 
 Usage: pse inspect compiler-artifacts [OPTIONS] <INVOCATION>
 

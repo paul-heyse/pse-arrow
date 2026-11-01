@@ -5106,7 +5106,7 @@ Commands:
   diagnostic          Read original compiler failures or one addressed original record
   artifact            Read exact artifact ranges with native validators; this does not decode a protocol
   compiler-artifact   Read an original native compiler artifact after its existing whole-file verification
-  compiler-artifacts  Inspect the original compiler-generation context, outcome and checked file index
+  compiler-artifacts  Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata
   compiler-source     Read compiler-verified original source bytes from an acquired facts artifact
   compiler-facts      Explain original typed capture, suspension and cleanup observations without rerunning rustc
   tests               Read an already captured original test population or its original failures
@@ -6579,7 +6579,7 @@ Options:
 ## `pse inspect compiler-artifacts`
 
 ~~~~text
-Inspect the original compiler-generation context, outcome and checked file index
+Inspect compiler artifacts, or original admitted check/test/compiler contexts with --metadata
 
 Usage: pse inspect compiler-artifacts [OPTIONS] <INVOCATION>
 

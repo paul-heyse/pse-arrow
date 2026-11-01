@@ -233,7 +233,7 @@ pub fn failures(
     limit: NonZeroUsize,
     byte_budget: NonZeroUsize,
 ) -> Result<Envelope<FailurePage>, HostError> {
-    let (id, report, _) = captured_report(store, selector, session)?;
+    let CapturedReport { id, report, .. } = captured_report(store, selector, session)?;
     let sha = digest(&report);
     let mut rows = failure_rows(&report)?;
     address_failures(&mut rows, &id, &sha);
@@ -364,7 +364,7 @@ pub fn frozen(
     else {
         return Err(invalid("expected a frozen test/failure row"));
     };
-    let (id, report, _) = captured_report(store, invocation, None)?;
+    let CapturedReport { id, report, .. } = captured_report(store, invocation, None)?;
     if digest(&report) != *report_sha256 {
         return Err(invalid("frozen report digest changed"));
     }
@@ -460,7 +460,9 @@ pub(crate) fn captured(
     selector: &str,
     session: Option<&str>,
 ) -> Result<CapturedEvidence, HostError> {
-    let (id, report, parent) = captured_report(store, selector, session)?;
+    let CapturedReport {
+        id, report, parent, ..
+    } = captured_report(store, selector, session)?;
     #[derive(Deserialize)]
     struct Address {
         invocation: CliInvocationId,
@@ -491,11 +493,18 @@ pub(crate) fn captured(
     })
 }
 
+/// One canonical read keeps the authenticated terminal beside its exact report bytes.
+pub(crate) struct CapturedReport {
+    pub id: CliInvocationId,
+    pub report: Vec<u8>,
+    pub parent: std::path::PathBuf,
+    pub original: Envelope<ManagedSummary>,
+}
 pub(crate) fn captured_report(
     store: &InvocationStore,
     selector: &str,
     session: Option<&str>,
-) -> Result<(CliInvocationId, Vec<u8>, std::path::PathBuf), HostError> {
+) -> Result<CapturedReport, HostError> {
     let id = store
         .resolve(selector, session)?
         .ok_or_else(|| invalid("original invocation is absent"))?;
@@ -505,6 +514,7 @@ pub(crate) fn captured_report(
     let workflow = result
         .payload
         .workflow
+        .as_ref()
         .ok_or_else(|| invalid("selected operation is not a captured test workflow"))?;
     let action = crate::test_workflow::execute::Action::from_command(&result.command)
         .ok_or_else(|| invalid("original workflow command is unsupported"))?;
@@ -521,7 +531,12 @@ pub(crate) fn captured_report(
     {
         return Err(invalid("original report bytes changed"));
     }
-    Ok((id, report, parent))
+    Ok(CapturedReport {
+        id,
+        report,
+        parent,
+        original: result,
+    })
 }
 
 /// Read the selected protected original inventory without preparing or verifying executable

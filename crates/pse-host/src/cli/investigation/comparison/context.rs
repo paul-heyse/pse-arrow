@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Original metadata and admitted units are independently verified, then explicitly associated.
 use super::*;
-use crate::{compiler_investigation::artifact, correctness::CompilerUnit};
+use crate::{
+    compiler_investigation::{self as compiler, artifact},
+    correctness::CompilerUnit,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -16,7 +19,7 @@ pub(in crate::cli) struct MetadataPremises {
 }
 #[derive(Debug, Serialize, JsonSchema)]
 pub(in crate::cli) struct ContextInspection {
-    pub original: Envelope<artifact::Observation>,
+    pub original: Envelope<compiler::UnitContextObservation>,
     pub reference: ResultReference,
     pub metadata: MetadataPremises,
 }
@@ -39,29 +42,22 @@ fn metadata(
     let premises=MetadataPremises {path:path.clone().into(),sha256:sha256.clone(),original:ResultReference::new(Locator::Source{path:path.clone().into(),source:query::SourceKind::Working,range:None,guard:Some(query::SourceGuard{root:path.parent().map(|p|p.to_path_buf().into()),sha256:Some(sha256),length:Some(bytes.len() as u64),..Default::default()})}),workspace_root:metadata.workspace_root.as_std_path().to_owned(),association:"user_selected_independent_metadata; common acquisition not established".into(),limitations:vec!["Raw JSON bytes remain inspectable through the exact original reference; typed defaults and unsupported artifact-dependency fields do not replace those bytes.".into(),"This compiler context does not bind a Cargo metadata digest. A verified metadata file and authenticated original units do not establish that they came from the same acquisition.".into()]};
     Ok((metadata, premises))
 }
-fn context_digest(original: &Envelope<artifact::Observation>) -> Result<String, HostError> {
-    original
-        .providers
-        .iter()
-        .find(|p| p.provider == "original-managed-compiler-outcome/v1")
-        .and_then(|p| p.analysis_generation.clone())
-        .ok_or_else(|| {
-            invalid("original compiler owner did not retain an authenticated context digest")
-        })
-}
 pub(in crate::cli) fn context_inspection(
     root: &Path,
     invocation: &str,
     path: &Path,
 ) -> Result<ContextInspection, HostError> {
     let state = crate::paths::CheckoutState::resolve(root, &std::env::vars_os().collect())?;
-    let original = artifact::observe(root, &state, invocation)?;
+    let original = compiler::unit_context(root, &state, invocation)?;
+    if !original.payload.admission_available {
+        return Err(query::Error::Unavailable("the original operation never recorded admitted compiler contexts; original report inspection remains available".into()).into());
+    }
     let (_, metadata) = metadata(path, None)?;
     let reference = ResultReference::new(Locator::Context {
         metadata: metadata.path.clone(),
         metadata_sha256: metadata.sha256.clone(),
         compiler_invocation: original.payload.original_invocation.as_str().into(),
-        compiler_context_sha256: context_digest(&original)?,
+        compiler_context_sha256: original.payload.context_sha256.clone(),
     });
     reference.validate()?;
     Ok(ContextInspection {
@@ -103,7 +99,7 @@ pub(in crate::cli) struct Side {
     compiler_invocation: String,
     compiler_context_sha256: String,
     original_outcome: crate::envelope::CommandOutcome,
-    arguments: Vec<std::ffi::OsString>,
+    admission_groups: Vec<AdmissionGroup>,
     #[serde(skip)]
     #[schemars(skip)]
     units: Vec<CompilerUnit>,
@@ -126,7 +122,17 @@ pub(in crate::cli) struct Side {
 #[derive(Debug, Serialize, JsonSchema)]
 struct IndexedUnit {
     index: usize,
+    group: usize,
+    group_unit: usize,
     unit: CompilerUnit,
+}
+#[derive(Debug, Serialize, JsonSchema)]
+struct AdmissionGroup {
+    group: usize,
+    arguments: Vec<std::ffi::OsString>,
+    packages: Vec<String>,
+    unit_start: usize,
+    unit_end: usize,
 }
 #[derive(Debug, Serialize, JsonSchema)]
 struct IndexedPackage {
@@ -142,6 +148,7 @@ struct IndexedNativeProfile {
 struct OriginalContext {
     invocation: String,
     context_sha256: String,
+    origin: compiler::UnitContextOrigin,
     full_context: Option<artifact::ArtifactFile>,
     total_units: usize,
     root_units: usize,
@@ -164,6 +171,15 @@ pub(in crate::cli) struct Comparison {
     limitations: Vec<String>,
 }
 impl Side {
+    pub(super) fn detail(&self, budget: Option<usize>) -> crate::envelope::DetailView {
+        let omitted_records = self.omitted_units + self.omitted_packages;
+        crate::envelope::DetailView {
+            budget,
+            omitted_records,
+            truncated: omitted_records > 0,
+            ..Default::default()
+        }
+    }
     pub(super) fn partial(&self) -> bool {
         self.omitted_packages > 0
             || self.omitted_units > 0
@@ -353,15 +369,34 @@ async fn read(
         ));
     };
     let state = crate::paths::CheckoutState::resolve(root, &std::env::vars_os().collect())?;
-    let original = artifact::observe(root, &state, compiler_invocation)?;
-    if context_digest(&original)? != *compiler_context_sha256 {
+    let original = compiler::unit_context(root, &state, compiler_invocation)?;
+    if original.payload.context_sha256 != *compiler_context_sha256 {
         return Err(query::Error::Stale(
             "original compiler context no longer matches the selected address".into(),
         )
         .into());
     }
+    if !original.payload.admission_available {
+        return Err(query::Error::Unavailable("the selected original workflow did not record admitted compiler contexts; no current planning was substituted".into()).into());
+    }
     let (metadata, premises) = metadata(&path.to_path_buf(), Some(metadata_sha256))?;
-    let units = original.payload.context.admitted.units.clone();
+    let mut units = Vec::new();
+    let mut positions = Vec::new();
+    let mut admission_groups = Vec::new();
+    for (group, admitted) in original.payload.admission.iter().enumerate() {
+        let unit_start = units.len();
+        for (group_unit, unit) in admitted.units.iter().enumerate() {
+            positions.push((group, group_unit));
+            units.push(unit.clone());
+        }
+        admission_groups.push(AdmissionGroup {
+            group,
+            arguments: admitted.arguments.clone(),
+            packages: admitted.packages.clone(),
+            unit_start,
+            unit_end: units.len(),
+        });
+    }
     let source_premise_issues = source_issues(&metadata, &units);
     let packages = packages(&metadata, &units);
     let omitted_packages = packages.len().saturating_sub(limit);
@@ -378,7 +413,12 @@ async fn read(
         .take(limit)
         .cloned()
         .enumerate()
-        .map(|(index, unit)| IndexedUnit { index, unit })
+        .map(|(index, unit)| IndexedUnit {
+            index,
+            group: positions[index].0,
+            group_unit: positions[index].1,
+            unit,
+        })
         .collect();
     let visible_units = &units[..units.len().min(limit)];
     let native_profiles = Observation::from_result(if let Some(world) = world {
@@ -389,11 +429,11 @@ async fn read(
     });
     let (native_profiles, native_joins, omitted_native_profiles) =
         profile_projection(visible_units, native_profiles);
-    let selected = artifact::selected_context(&original.payload);
     let original_context = OriginalContext {
         invocation: compiler_invocation.clone(),
         context_sha256: compiler_context_sha256.clone(),
-        full_context: selected.full_context,
+        origin: original.payload.origin,
+        full_context: original.payload.full_context,
         total_units: units.len(),
         root_units: units.iter().filter(|unit| unit.root).count(),
     };
@@ -403,7 +443,7 @@ async fn read(
         compiler_invocation: compiler_invocation.clone(),
         compiler_context_sha256: compiler_context_sha256.clone(),
         original_outcome: original.payload.original_outcome,
-        arguments: original.payload.context.admitted.arguments.clone(),
+        admission_groups,
         units,
         packages,
         unit_records,
@@ -421,12 +461,13 @@ async fn read(
 pub(super) async fn inspect_reference(
     root: &Path,
     reference: &ResultReference,
+    limit: usize,
 ) -> Result<Side, HostError> {
     read(
         root,
         reference,
         None,
-        allowance(),
+        limit,
         &tokio_util::sync::CancellationToken::new(),
     )
     .await
