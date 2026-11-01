@@ -1,5 +1,15 @@
 # Functional opportunity reviews
 
+The [engineering-workflow code-intelligence review](engineering-workflow-code-intelligence-2026-10-31.md)
+assesses improvements supporting audits, design and functional reviews, library leverage and
+plan authoring/execution/improvement on the delivered Plan59 foundation. Eleven opportunities
+cover typed responsibility relationships, bounded evidence slices, lifetime observations,
+change/context comparison, API and documentation navigation, cross-document associations,
+focused skill guidance, progressive answers and validation relevance. End-to-end library
+research and exact-source checks preserve native call/index/type limits; persistent indexing,
+compiler-private extraction and remote transport remain conditional. The review changes no
+production, skills or existing plan scope and makes no measured performance claim.
+
 The [Rust-centered search and investigation review](rust-centered-search-and-investigation-cli-2026-10-31.md)
 develops fourteen opportunities for whole-checkout discovery, text/structural/semantic queries,
 compact progressive results, API/history investigation and source-bound proposals through a
