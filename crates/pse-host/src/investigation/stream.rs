@@ -49,7 +49,7 @@ impl<W: Write> StreamWriter<W> {
         {
             self.failed = true;
             self.token.cancel();
-            return Err(Error::Io(error));
+            return Err(Error::Delivery(error));
         }
         self.began = true;
         self.terminal = matches!(event, Event::Terminal(_));
@@ -113,7 +113,7 @@ mod tests {
                 invocation_id: "id".into(),
                 request: Box::default()
             }),
-            Err(Error::Io(_))
+            Err(Error::Delivery(_))
         ));
         assert!(token.is_cancelled());
         assert!(!stream.completed());

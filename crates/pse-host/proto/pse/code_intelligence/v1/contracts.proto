@@ -118,15 +118,42 @@ message Location {
   ContextGuard guard = 4;
 }
 message OriginalEvidence { bytes data = 1; string media_type = 2; string provider = 3; }
-message SourceFact { string name = 1; string kind = 2; Location location = 3; }
+message SourceFact { string name = 1; string kind = 2; Location location = 3; NativeSourceIdentity source_identity = 4; }
+// Artifact-local IDs are meaningful only with the exact acquisition context and digest.
+message ApiFact {
+  string name = 1;
+  string kind = 2;
+  uint32 item_id = 3;
+  bytes artifact = 4;
+  string artifact_sha256 = 5;
+  string context_key = 6;
+  string package_id = 7;
+  optional string qualification_unknown = 8;
+  ApiDefinition definition = 9;
+}
+message ApiDefinition {
+  string package_id = 1;
+  string context_key = 2;
+  bytes artifact = 3;
+  string artifact_sha256 = 4;
+  uint32 item_id = 5;
+  string public_path = 6;
+}
 message PredicateFact { Truth truth = 1; repeated Location witnesses = 2; }
 message Failure {
-  enum Phase { UNAVAILABLE = 0; UNSUPPORTED = 1; STALE = 2; CANCELLED = 3; SCHEMA = 4; VALIDATOR = 5; PROVIDER = 6; TRANSPORT = 7; }
+  enum Phase { SCHEMA = 0; CONSTRAINT = 1; CONTEXT = 2; VALIDATOR = 3; PROVIDER = 4; TRANSPORT = 5; SETTLEMENT = 6; }
   Phase phase = 1;
   string code = 2;
   string message = 3;
   optional int32 backend_code = 4;
   OriginalEvidence original = 5;
+  enum State { UNAVAILABLE = 0; UNSUPPORTED = 1; CANCELLED = 2; STALE = 3; FAILED = 4; }
+  State state = 6;
+  NativeCancellationObservation observed_cancellation = 7;
+}
+message NativeCancellationObservation {
+  Terminal.Completion completion = 1;
+  oneof original_outcome { google.protobuf.Empty succeeded = 2; Failure failed = 3; }
 }
 message Observation {
   // Human summary is not parsed to reconstruct the consumed typed fact.
@@ -142,10 +169,216 @@ message Terminal {
   Count count = 3;
   bool demand_satisfied = 4;
   bool universe_examined = 5;
+  enum Completion { UNOBSERVED = 0; CPU_SETTLED = 1; LSP_DETACHED = 2; LSP_RETURNED = 3; }
+  Completion completion = 6;
+  bool cancellation_requested = 7;
+  oneof original_outcome { google.protobuf.Empty succeeded = 8; Failure failed = 9; }
 }
 message Control { oneof action { Request start = 1; google.protobuf.Empty cancel = 2; } }
 message Event { oneof item { Observation observation = 1; Terminal terminal = 2; } }
 service Investigation {
   rpc Inspect(Request) returns (Observation);
   rpc Run(stream Control) returns (stream Event);
+}
+
+// Fixed native operations; no protocol method names or executable argv are accepted.
+message NativeQuery {
+  bytes file = 1 [(buf.validate.field).bytes.min_len = 1];
+  uint64 line = 2 [(buf.validate.field).uint64.gte = 1];
+  uint64 column = 3 [(buf.validate.field).uint64.gte = 1];
+  optional string if_source = 4;
+  optional uint64 if_generation = 5;
+  optional string if_candidate = 6;
+  uint64 limit = 7 [(buf.validate.field).uint64.gte = 1];
+  optional uint64 end_line = 8;
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+    google.protobuf.Empty explain = 10;
+    google.protobuf.Empty refs = 11;
+    google.protobuf.Empty calls = 12;
+    google.protobuf.Empty implementations = 13;
+    google.protobuf.Empty macro = 14;
+    google.protobuf.Empty tests = 15;
+    google.protobuf.Empty candidates = 16;
+    google.protobuf.Empty symbols = 17;
+    google.protobuf.Empty hints = 18;
+    uint64 hint = 19;
+    string ssr = 20;
+    NativeImportTarget importable = 21;
+    string predicate = 22;
+    uint64 candidate = 23;
+    string rename = 24;
+    bytes file_rename = 25;
+    google.protobuf.Empty assists = 26;
+    uint64 assist = 27;
+  }
+}
+message NativeImportTarget { bytes file = 1; uint64 byte_start = 2; uint64 byte_end = 3; string source_sha256 = 4; }
+message NativeWorkspaceQuery {
+  string query = 1;
+  enum Matching { FUZZY_MATCH = 0; EXACT_MATCH = 1; PREFIX_MATCH = 2; }
+  Matching matching = 2;
+  uint64 limit = 3 [(buf.validate.field).uint64.gte = 1];
+  bool include_dependencies = 4;
+  optional uint64 if_generation = 5;
+}
+message NativeRequest {
+  oneof operation { option (buf.validate.oneof).required = true; NativeQuery query = 1; NativeWorkspaceQuery workspace = 2; }
+}
+message NativeConfiguration {
+  enum Backend { LIVE_LSP = 0; NATIVE_SNAPSHOT = 1; }
+  Backend backend = 1;
+  bytes project = 2;
+  repeated string features = 3;
+  bool no_default_features = 4;
+  optional string target = 5;
+  bool build_macros = 6;
+}
+message NativeAnalysisContext {
+  string backend = 1;
+  NativeConfiguration configuration = 2;
+  string position_encoding = 3;
+  OriginalEvidence backend_status = 4;
+  string preparation = 5;
+}
+message NativeSessionStatus {
+  NativeConfiguration configuration = 1;
+  string backend = 2;
+  string position_encoding = 3;
+  uint64 generation = 4;
+  OriginalEvidence server_capabilities = 5;
+  OriginalEvidence backend_status = 6;
+  uint64 active_requests = 7;
+  bool context_current = 8;
+  optional string context_issue = 9;
+  bool automatic_reload_disabled = 10;
+  optional string preparation_issue = 11;
+  string preparation = 12;
+}
+message NativeLibraryProfile {
+  string package_id = 1;
+  bytes manifest = 2;
+  bytes source_root = 3;
+  bytes library_root = 4;
+  repeated string features = 5;
+  optional string target = 6;
+  string role = 7;
+}
+message NativeSourceHash { bytes path = 1; string source_sha256 = 2; }
+message NativePackageContext {
+  string package_id = 1;
+  bytes manifest = 2;
+  bytes source_root = 3;
+  bytes workspace_root = 4;
+  bytes library_root = 5;
+  repeated string features = 6;
+  optional string target = 7;
+  string role = 8;
+  repeated NativeSourceHash source_hashes = 9;
+  repeated NativeLibraryProfile dependencies = 10;
+  repeated string dependency_issues = 11;
+  enum Exclusion { SYSROOT = 0; }
+  repeated Exclusion dependency_exclusions = 12;
+}
+message NativePackageRequest { string package_id = 1 [(buf.validate.field).string.min_len = 1]; }
+message NativePackageContextAnswer { NativeAnalysisContext session = 1; uint64 generation = 2; repeated NativePackageContext packages = 3; }
+message NativePackageReply { oneof result { NativePackageContextAnswer answer = 1; Failure failure = 2; } }
+message NativePosition { uint32 line = 1; uint32 character = 2; }
+message NativeRange { NativePosition start = 1; NativePosition end = 2; }
+message NativeByteLocation { bytes path = 1; uint64 start = 2; uint64 end = 3; }
+message NativeProtocolLocation { string uri = 1; NativeRange range = 2; }
+message NativeLocation {
+  oneof coordinates { option (buf.validate.oneof).required = true; NativeByteLocation bytes = 1; NativeProtocolLocation protocol = 2; }
+}
+message NativeSymbolFact { string name = 1; optional string kind = 2; optional string container = 3; NativeLocation location = 4; optional string source_sha256 = 5; }
+enum NativeRelation { NATIVE_DEFINITION = 0; NATIVE_TYPE_DEFINITION = 1; NATIVE_REFERENCES = 2; NATIVE_CALLS = 3; NATIVE_IMPLEMENTATIONS = 4; }
+message NativeRelationshipFact { NativeRelation relation = 1; Direction direction = 2; NativeLocation location = 3; optional string name = 4; optional bool read = 5; optional bool write = 6; }
+message NativePredicateFact { Truth truth = 1; }
+message NativeImportabilityFact { optional bool visibility = 1; optional bool importable = 2; optional string path = 3; repeated string limitations = 4; }
+enum NativeCandidateKind { NATIVE_HINT = 0; NATIVE_COMPLETION = 1; NATIVE_ASSIST = 2; }
+message NativeLazyCandidate { NativeCandidateKind kind = 1; uint64 index = 2; string fingerprint = 3; optional string label = 4; NativeLocation location = 5; }
+message NativeTestCandidate { optional string label = 1; NativeLocation location = 2; optional string runnable_kind = 3; repeated string cargo_args = 4; repeated string executable_args = 5; OriginalEvidence original = 6; }
+message NativeObservedFacts {
+  repeated NativeSymbolFact symbols = 1;
+  repeated NativeRelationshipFact relationships = 2;
+  NativePredicateFact predicate = 3;
+  NativeImportabilityFact importability = 4;
+  repeated NativeLazyCandidate candidates = 5;
+  repeated NativeTestCandidate tests = 6;
+}
+message NativeOmittedRelationship { NativeRelation relation = 1; uint64 count = 2; }
+message NativeSection { string category = 1; OriginalEvidence evidence = 2; uint64 omitted = 3; repeated NativeCandidateHandle handles = 4; }
+message NativeCandidateHandle { uint64 index = 1; string fingerprint = 2; }
+// Source origin and paths retain exact native bytes, independently of display spelling.
+message NativeSourceIdentity {
+  bytes path = 1;
+  string source_sha256 = 2;
+  enum Origin { WORKING_SOURCE = 0; INDEX_SOURCE = 1; BLOB_SOURCE = 2; }
+  Origin origin = 3;
+  optional bytes git_dir = 4;
+  optional bytes index_path = 5;
+  optional string revision = 6;
+  optional string blob = 7;
+}
+message NativeTypeFact { string display = 1; bool is_reference = 2; bool is_mutable_reference = 3; bool contains_unknown = 4; }
+message NativeTargetFact { string relationship = 1; string name = 2; NativeByteLocation location = 3; string precision = 4; }
+message NativeBoundFact { string parameter = 1; repeated string declared_traits = 2; }
+message NativeTypedFacts {
+  NativeByteLocation expression = 1;
+  NativeTypeFact original = 2;
+  NativeTypeFact adjusted = 3;
+  optional bool original_equals_adjusted = 4;
+  optional bool original_coerces_to_adjusted = 5;
+  NativeTargetFact target = 6;
+  repeated NativeBoundFact bounds = 7;
+}
+message NativeProducerContext { string backend = 1; string configuration = 2; optional string synchronized_generation = 3; }
+message NativeEditCandidate { NativeSourceIdentity source = 1; uint64 start = 2; uint64 end = 3; string replacement = 4; }
+message NativeFileOperation {
+  enum Kind { CREATE = 0; DELETE = 1; RENAME = 2; }
+  Kind kind = 1;
+  bytes path = 2;
+  string text = 3;
+  NativeSourceIdentity source = 4;
+  bytes destination = 5;
+}
+message NativeConflict { uint64 first = 1; uint64 second = 2; }
+message NativePlaceholder { uint64 candidate = 1; string description = 2; }
+message NativePreview {
+  NativeProducerContext producer = 1;
+  repeated NativeSourceIdentity sources = 2;
+  repeated NativeFileOperation file_operations = 3;
+  repeated NativeEditCandidate candidates = 4;
+  repeated uint64 selected = 5;
+  repeated NativeConflict conflicts = 6;
+  repeated string limitations = 7;
+  repeated NativePlaceholder unresolved_placeholders = 8;
+  repeated NativeSourceText originals = 9;
+}
+message NativeSourceText { NativeSourceIdentity source = 1; string text = 2; }
+message NativeAnswer {
+  NativeAnalysisContext session = 1;
+  NativeSourceIdentity source = 2;
+  string source_uri = 3;
+  uint64 source_byte_offset = 4;
+  bool available = 5;
+  uint64 generation = 6;
+  NativePosition position = 7;
+  repeated NativeSection sections = 8;
+  repeated NativeSourceHash location_sources = 9;
+  NativePreview proposal = 10;
+  repeated string limitations = 11;
+  NativeObservedFacts observed = 12;
+  repeated NativeOmittedRelationship omitted_relationships = 13;
+  NativeTypedFacts native_types = 14;
+}
+message NativeWorkspaceAnswer { NativeAnalysisContext session = 1; uint64 generation = 2; NativeSection symbols = 3; repeated string limitations = 4; repeated NativeSymbolFact observed = 5; }
+message NativeControl { oneof action { option (buf.validate.oneof).required = true; NativeRequest start = 1; google.protobuf.Empty cancel = 2; } }
+message NativeEvent { oneof item { option (buf.validate.oneof).required = true; NativeAnswer query = 1; NativeWorkspaceAnswer workspace = 2; Failure failure = 3; Terminal terminal = 4; } }
+service NativeSemantic {
+  rpc Status(google.protobuf.Empty) returns (NativeSessionStatus);
+  rpc PackageContext(NativePackageRequest) returns (NativePackageReply);
+  rpc Capabilities(google.protobuf.Empty) returns (NativeSessionStatus);
+  rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Run(stream NativeControl) returns (stream NativeEvent);
 }

@@ -277,6 +277,7 @@ impl Loader<'_> {
             .or_default()
             .insert(self.graph.diagnostics.len());
         self.graph.diagnostics.push(QueryDiagnostic {
+            phase: DiagnosticPhase::Context,
             code: "search.written_module_context".into(),
             message,
             source: None,

@@ -53,12 +53,59 @@ pub mod __buffa {
         reg.register_json_any(super::__LOCATION_JSON_ANY);
         reg.register_json_any(super::__ORIGINAL_EVIDENCE_JSON_ANY);
         reg.register_json_any(super::__SOURCE_FACT_JSON_ANY);
+        reg.register_json_any(super::__API_FACT_JSON_ANY);
+        reg.register_json_any(super::__API_DEFINITION_JSON_ANY);
         reg.register_json_any(super::__PREDICATE_FACT_JSON_ANY);
         reg.register_json_any(super::__FAILURE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CANCELLATION_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__TERMINAL_JSON_ANY);
         reg.register_json_any(super::__CONTROL_JSON_ANY);
         reg.register_json_any(super::__EVENT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_IMPORT_TARGET_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_WORKSPACE_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CONFIGURATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_ANALYSIS_CONTEXT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SESSION_STATUS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_LIBRARY_PROFILE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SOURCE_HASH_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PACKAGE_CONTEXT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PACKAGE_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PACKAGE_CONTEXT_ANSWER_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PACKAGE_REPLY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_POSITION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_RANGE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_BYTE_LOCATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PROTOCOL_LOCATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_LOCATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SYMBOL_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_RELATIONSHIP_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PREDICATE_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_IMPORTABILITY_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_LAZY_CANDIDATE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_TEST_CANDIDATE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_OBSERVED_FACTS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_OMITTED_RELATIONSHIP_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SECTION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CANDIDATE_HANDLE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SOURCE_IDENTITY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_TYPE_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_TARGET_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_BOUND_FACT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_TYPED_FACTS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PRODUCER_CONTEXT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_EDIT_CANDIDATE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_FILE_OPERATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CONFLICT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PLACEHOLDER_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PREVIEW_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_SOURCE_TEXT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_ANSWER_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_WORKSPACE_ANSWER_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CONTROL_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_EVENT_JSON_ANY);
         reg.register_text_any(super::__CONTEXT_GUARD_TEXT_ANY);
         reg.register_text_any(super::__SOURCE_SELECTOR_TEXT_ANY);
         reg.register_text_any(super::__PREDICATE_TEXT_ANY);
@@ -80,12 +127,59 @@ pub mod __buffa {
         reg.register_text_any(super::__LOCATION_TEXT_ANY);
         reg.register_text_any(super::__ORIGINAL_EVIDENCE_TEXT_ANY);
         reg.register_text_any(super::__SOURCE_FACT_TEXT_ANY);
+        reg.register_text_any(super::__API_FACT_TEXT_ANY);
+        reg.register_text_any(super::__API_DEFINITION_TEXT_ANY);
         reg.register_text_any(super::__PREDICATE_FACT_TEXT_ANY);
         reg.register_text_any(super::__FAILURE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CANCELLATION_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__TERMINAL_TEXT_ANY);
         reg.register_text_any(super::__CONTROL_TEXT_ANY);
         reg.register_text_any(super::__EVENT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_IMPORT_TARGET_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_WORKSPACE_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_REQUEST_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CONFIGURATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_ANALYSIS_CONTEXT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SESSION_STATUS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_LIBRARY_PROFILE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SOURCE_HASH_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PACKAGE_CONTEXT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PACKAGE_REQUEST_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PACKAGE_CONTEXT_ANSWER_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PACKAGE_REPLY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_POSITION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_RANGE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_BYTE_LOCATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PROTOCOL_LOCATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_LOCATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SYMBOL_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_RELATIONSHIP_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PREDICATE_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_IMPORTABILITY_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_LAZY_CANDIDATE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_TEST_CANDIDATE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_OBSERVED_FACTS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_OMITTED_RELATIONSHIP_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SECTION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CANDIDATE_HANDLE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SOURCE_IDENTITY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_TYPE_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_TARGET_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_BOUND_FACT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_TYPED_FACTS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PRODUCER_CONTEXT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_EDIT_CANDIDATE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_FILE_OPERATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CONFLICT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PLACEHOLDER_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PREVIEW_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_SOURCE_TEXT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_ANSWER_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_WORKSPACE_ANSWER_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CONTROL_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_EVENT_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
     /// descriptor pool. In shared-pool mode the bytes and pool live once
@@ -204,6 +298,14 @@ pub use self::__buffa::view::SourceFactView;
 #[doc(inline)]
 pub use self::__buffa::view::SourceFactOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::ApiFactView;
+#[doc(inline)]
+pub use self::__buffa::view::ApiFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ApiDefinitionView;
+#[doc(inline)]
+pub use self::__buffa::view::ApiDefinitionOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::PredicateFactView;
 #[doc(inline)]
 pub use self::__buffa::view::PredicateFactOwnedView;
@@ -211,6 +313,10 @@ pub use self::__buffa::view::PredicateFactOwnedView;
 pub use self::__buffa::view::FailureView;
 #[doc(inline)]
 pub use self::__buffa::view::FailureOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCancellationObservationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCancellationObservationOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::ObservationView;
 #[doc(inline)]
@@ -227,5 +333,181 @@ pub use self::__buffa::view::ControlOwnedView;
 pub use self::__buffa::view::EventView;
 #[doc(inline)]
 pub use self::__buffa::view::EventOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeImportTargetView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeImportTargetOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeWorkspaceQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeWorkspaceQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeConfigurationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeConfigurationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnalysisContextView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnalysisContextOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSessionStatusView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSessionStatusOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLibraryProfileView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLibraryProfileOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSourceHashView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSourceHashOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageContextView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageContextOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageContextAnswerView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageContextAnswerOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageReplyView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePackageReplyOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePositionView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePositionOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRangeView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRangeOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeByteLocationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeByteLocationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeProtocolLocationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeProtocolLocationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLocationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLocationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSymbolFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSymbolFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRelationshipFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeRelationshipFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePredicateFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePredicateFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeImportabilityFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeImportabilityFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLazyCandidateView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLazyCandidateOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTestCandidateView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTestCandidateOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeObservedFactsView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeObservedFactsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOmittedRelationshipView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOmittedRelationshipOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSectionView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSectionOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCandidateHandleView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeCandidateHandleOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSourceIdentityView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSourceIdentityOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTypeFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTypeFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTargetFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTargetFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeBoundFactView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeBoundFactOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTypedFactsView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeTypedFactsOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeProducerContextView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeProducerContextOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeEditCandidateView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeEditCandidateOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeFileOperationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeFileOperationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeConflictView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeConflictOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePlaceholderView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePlaceholderOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePreviewView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePreviewOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSourceTextView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeSourceTextOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnswerView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnswerOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeWorkspaceAnswerView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeWorkspaceAnswerOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeControlView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeControlOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeEventView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeEventOwnedView;
 #[doc(inline)]
 pub use self::__buffa::register_types;

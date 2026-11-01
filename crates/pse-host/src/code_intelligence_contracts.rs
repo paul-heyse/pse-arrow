@@ -19,3 +19,6 @@ pub mod services {
 
 /// Complete source-aware descriptors; the embedded runtime pool is a derived projection.
 pub const DESCRIPTORS: &[u8] = include_bytes!("generated/code-intelligence/descriptor.bin");
+
+mod local;
+pub use local::{DeclarationProjection, api_declaration, project_declaration, source_declaration};

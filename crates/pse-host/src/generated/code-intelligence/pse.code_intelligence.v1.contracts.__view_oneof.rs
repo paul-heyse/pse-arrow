@@ -115,6 +115,23 @@ pub mod count {
         LowerBound(u64),
     }
 }
+pub mod native_cancellation_observation {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum OriginalOutcome<'a> {
+        Succeeded(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Failed(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::FailureView<'a>,
+            >,
+        ),
+    }
+}
 pub mod observation {
     #[allow(unused_imports)]
     use super::*;
@@ -136,6 +153,23 @@ pub mod observation {
             >,
         ),
         Failure(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::FailureView<'a>,
+            >,
+        ),
+    }
+}
+pub mod terminal {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum OriginalOutcome<'a> {
+        Succeeded(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Failed(
             ::buffa::alloc::boxed::Box<
                 super::super::super::super::__buffa::view::FailureView<'a>,
             >,
@@ -167,6 +201,172 @@ pub mod event {
         Observation(
             ::buffa::alloc::boxed::Box<
                 super::super::super::super::__buffa::view::ObservationView<'a>,
+            >,
+        ),
+        Terminal(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::TerminalView<'a>,
+            >,
+        ),
+    }
+}
+pub mod native_query {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum Kind<'a> {
+        Explain(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Refs(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Calls(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Implementations(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Macro(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Tests(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Candidates(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Symbols(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Hints(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Hint(u64),
+        Ssr(&'a str),
+        Importable(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeImportTargetView<'a>,
+            >,
+        ),
+        Predicate(&'a str),
+        Candidate(u64),
+        Rename(&'a str),
+        FileRename(&'a [u8]),
+        Assists(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+        Assist(u64),
+    }
+}
+pub mod native_request {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum Operation<'a> {
+        Query(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeQueryView<'a>,
+            >,
+        ),
+        Workspace(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeWorkspaceQueryView<'a>,
+            >,
+        ),
+    }
+}
+pub mod native_package_reply {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum Result<'a> {
+        Answer(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativePackageContextAnswerView<
+                    'a,
+                >,
+            >,
+        ),
+        Failure(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::FailureView<'a>,
+            >,
+        ),
+    }
+}
+pub mod native_location {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum Coordinates<'a> {
+        Bytes(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeByteLocationView<'a>,
+            >,
+        ),
+        Protocol(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeProtocolLocationView<'a>,
+            >,
+        ),
+    }
+}
+pub mod native_control {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum Action<'a> {
+        Start(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeRequestView<'a>,
+            >,
+        ),
+        Cancel(
+            ::buffa::alloc::boxed::Box<
+                ::buffa_types::google::protobuf::__buffa::view::EmptyView<'a>,
+            >,
+        ),
+    }
+}
+pub mod native_event {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, Debug)]
+    pub enum Item<'a> {
+        Query(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeAnswerView<'a>,
+            >,
+        ),
+        Workspace(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeWorkspaceAnswerView<'a>,
+            >,
+        ),
+        Failure(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::FailureView<'a>,
             >,
         ),
         Terminal(

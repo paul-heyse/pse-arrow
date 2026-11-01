@@ -104,6 +104,14 @@ than assuming every LSP view is implemented there. HIR and compiler evidence ret
 contexts. Portable semantic references bind the original session owner as well as source,
 generation and lazy candidate fingerprint; a restarted generation counter is insufficient.
 
+Semantic answers expose consumed facts under `observed`: symbols, source-linked relationships,
+three-valued predicates, importability and guarded lazy candidates. `native_types` retains
+original/adjusted type observations from the snapshot backend. Original provider documents in
+`sections` remain available for inspection; use the typed fields for decisions and the returned
+`followups` for expansion. The ordinary CLI can read these facts without loading the HIR backend.
+Request-local grouped questions reuse their selected source/provider contexts and established
+proofs while retaining the original use-site and source guards.
+
 | Question | Selected capability |
 |---|---|
 | What entity/type does this expression name? | `inspect entity --view explain` requests hover, definitions and type resolution. Rendered hover remains rendered evidence when a structured field is unsupported. |
@@ -143,6 +151,14 @@ Cargo, toolchain or prepared macro inputs require explicit stop and preparation.
 status/stop remain available even when current host source cannot compile. An unavailable
 semantic answer is a reason to inspect provider context or select another explicit method,
 not to silently label a text match semantic evidence.
+
+An explicit cancellation retains the receive path through the operation's terminal result.
+Failures distinguish schema, constraint, context, validator, provider, transport and settlement
+phases. `observed_cancellation` records actual CPU settlement or live-LSP return/detachment,
+alongside the original work outcome. A missing terminal leaves settlement unobserved to the
+caller. Live-LSP detachment does not prove completion inside rust-analyzer. A helper prepared
+with the replaced protocol must be stopped and explicitly prepared again; original native
+status and stop authority remain available.
 
 ## Locked APIs and dependency context
 

@@ -386,6 +386,7 @@ pub async fn history(
     } else if !status.success() && !(operation.is_cancelled() && summary.stop == StopReason::Limit)
     {
         emit(Event::Diagnostic {
+            phase: DiagnosticPhase::Provider,
             code: "search.git".into(),
             message: format!(
                 "native Git exited {status}: {}",

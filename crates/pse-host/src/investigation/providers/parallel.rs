@@ -30,6 +30,7 @@ pub(super) fn run(
     for path in &request.sources.paths {
         if let Err(error) = std::fs::symlink_metadata(root.join(path)) {
             emit(Event::Diagnostic {
+                phase: DiagnosticPhase::Context,
                 code: "search.input".into(),
                 message: format!("explicit source {path:?}: {error}"),
                 source: None,
@@ -99,6 +100,7 @@ pub(super) fn run(
                 Err(error) => {
                     let published = match emit.lock() {
                         Ok(mut output) => output(Event::Diagnostic {
+                            phase: DiagnosticPhase::Context,
                             code: "search.traversal".into(),
                             message: error.to_string(),
                             source: None,

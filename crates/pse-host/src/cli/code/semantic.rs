@@ -113,8 +113,7 @@ fn error(error: semantic::Error) -> HostError {
 #[derive(serde::Serialize, schemars::JsonSchema)]
 #[serde(transparent)]
 pub(in crate::cli) struct AnswerView {
-    #[schemars(with = "semantic::Answer")]
-    value: Box<serde_json::value::RawValue>,
+    value: semantic::Answer,
 }
 pub(super) fn session(
     action: Session,
@@ -181,8 +180,7 @@ pub(super) fn session(
                             HostError::Ownership(format!("semantic status deadline: {e}"))
                         })?
                         .map_err(error)?;
-                    let status: semantic::SessionStatus = serde_json::from_value(value)
-                        .map_err(|e| HostError::Ownership(e.to_string()))?;
+                    let status = value.into_status().map_err(error)?;
                     if !status.context_current {
                         return Err(HostError::Ownership("captured semantic Cargo/toolchain or preparation inputs changed; stop it explicitly before preparing its replacement".into()));
                     }
@@ -199,7 +197,7 @@ pub(super) fn session(
                 )
             })?;
             let record = SessionRecord {
-                version: 1,
+                version: 2,
                 invocation: output.invocation_id.clone(),
                 configuration,
             };
@@ -288,8 +286,7 @@ pub(super) fn session(
             });
             match prepared {
                 Ok(value) => {
-                    let status: semantic::SessionStatus = serde_json::from_value(value)
-                        .map_err(|e| HostError::Ownership(e.to_string()))?;
+                    let status = value.into_status().map_err(error)?;
                     Ok(output.emit(Envelope::response("code session prepare","original native analyzer session initialized; Cargo model preparation remains visible",status))?)
                 }
                 Err(operation) => match runtime
@@ -346,7 +343,7 @@ pub(super) fn session(
                 }
                 .into();
                 let (analyzer, unavailable) = match state {
-                    Some(Ok(value)) => match serde_json::from_value(value) {
+                    Some(Ok(value)) => match value.into_status() {
                         Ok(value) => (Some(value), None),
                         Err(error) => (
                             None,
@@ -436,13 +433,22 @@ pub(in crate::cli) fn query(
         end_line: subject.end_line,
     });
     let value = super::super::runtime()?.block_on(async {
+        let cancellation = tokio_util::sync::CancellationToken::new();
+        let answer =
+            semantic::client_cancellable(&root, &environment, &record, &request, &cancellation);
+        tokio::pin!(answer);
         tokio::select! {
-            answer = semantic::client(&root,&environment,&record,&request) => answer,
-            signal = tokio::signal::ctrl_c() => { signal?; Err(semantic::Error::Cancelled) },
+            result = &mut answer => result,
+            signal = tokio::signal::ctrl_c() => {
+                signal?;
+                cancellation.cancel();
+                // Keep the receive half through the original settled Terminal.
+                answer.await
+            },
         }
     });
     let value = match value {
-        Ok(value) => value,
+        Ok(value) => value.into_query().map_err(error)?,
         Err(error) => {
             let failure = semantic::Failure::from_error(&error);
             let mut response = Envelope::response(
@@ -471,69 +477,38 @@ pub(in crate::cli) fn query(
             return Ok(output.emit_page(response, envelope::DetailView::default())?);
         }
     };
-    let omitted = value
-        .get("sections")
-        .and_then(serde_json::Value::as_array)
-        .map_or(0, |sections| {
-            sections
-                .iter()
-                .filter_map(|s| s["omitted"].as_u64())
-                .sum::<u64>() as usize
-        });
+    let omitted = value.sections.iter().map(|section| section.omitted).sum();
     let mut response = Envelope::response(
         command,
         "selected analyzer evidence; no compiler acceptance or source writes",
         value,
     );
-    let uri = response.payload["source_uri"]
-        .as_str()
-        .ok_or_else(|| {
-            HostError::Ownership("semantic producer omitted its actual source URI".into())
-        })?
-        .to_string();
-    let offset = response.payload["source_byte_offset"]
-        .as_u64()
-        .and_then(|value| usize::try_from(value).ok())
-        .ok_or_else(|| {
-            HostError::Ownership("semantic producer omitted its source byte offset".into())
-        })?;
+    let uri = response.payload.source_uri.clone();
+    let offset = response.payload.source_byte_offset;
     response.providers.push(envelope::ProviderContext {
-        provider: response.payload["session"]["backend"]
-            .as_str()
-            .unwrap_or("rust-analyzer")
-            .into(),
+        provider: response.payload.session.backend.clone(),
         context: Some(identity),
-        analysis_generation: response.payload["generation"]
-            .as_u64()
-            .map(|value| value.to_string()),
+        analysis_generation: Some(response.payload.generation.to_string()),
         availability: envelope::SubjectState::Available,
         coordinates: vec![
             envelope::SourceCoordinates::Lsp {
                 uri: uri.clone(),
-                position_encoding: response.payload["session"]["position_encoding"]
-                    .as_str()
-                    .unwrap_or("unknown")
-                    .into(),
-                line: response.payload["position"]["line"]
-                    .as_u64()
-                    .and_then(|n| u32::try_from(n).ok())
-                    .unwrap_or(0),
-                character: response.payload["position"]["character"]
-                    .as_u64()
-                    .and_then(|n| u32::try_from(n).ok())
-                    .unwrap_or(0),
+                position_encoding: response.payload.session.position_encoding.clone(),
+                line: response.payload.position.line,
+                character: response.payload.position.character,
             },
             envelope::SourceCoordinates::Utf8Bytes {
                 source: uri,
-                revision: response.payload["source"]["source_sha256"]
-                    .as_str()
-                    .map(str::to_owned),
+                revision: Some(response.payload.source.source_sha256().into()),
                 start: offset,
                 end: offset,
             },
         ],
     });
-    response.subject_state = if response.payload["availability"] == "no_match" {
+    response.subject_state = if matches!(
+        response.payload.availability,
+        semantic::Availability::NoMatch
+    ) {
         envelope::SubjectState::NoMatch
     } else {
         envelope::SubjectState::Available
@@ -559,12 +534,8 @@ pub(in crate::cli) fn query(
             .next
             .extend(test_routes(&root, &response.payload, &record.configuration));
     }
-    let typed = AnswerView {
-        value: serde_json::value::to_raw_value(&response.payload)
-            .map_err(|e| HostError::Ownership(e.to_string()))?,
-    };
     Ok(output.emit_page(
-        response.map_payload(|_| typed),
+        response.map_payload(|value| AnswerView { value }),
         envelope::DetailView {
             budget: output.presentation.budget,
             omitted_records: omitted,
@@ -595,77 +566,60 @@ pub(in crate::cli) fn edit(
 }
 pub(in crate::cli) fn test_routes(
     root: &Path,
-    answer: &serde_json::Value,
+    answer: &semantic::Answer,
     configuration: &Configuration,
 ) -> Vec<envelope::NextAction> {
     let mut next = Vec::new();
-    let Some(sections) = answer["sections"].as_array() else {
-        return next;
-    };
-    for section in sections
-        .iter()
-        .filter(|section| section["category"] == "related_test_candidates")
-    {
-        let Some(candidates) = section["evidence"].as_array() else {
+    for candidate in &answer.observed.tests {
+        if candidate.runnable_kind.as_deref() != Some("cargo") {
+            continue;
+        }
+        let arguments = &candidate.cargo_args;
+        let package = arguments
+            .windows(2)
+            .find(|pair| pair[0] == "-p" || pair[0] == "--package")
+            .map(|pair| pair[1].as_str());
+        let test = candidate.executable_args.first().map(String::as_str);
+        let (Some(package), Some(test)) = (package, test) else {
             continue;
         };
-        for candidate in candidates {
-            let runnable = &candidate["runnable"];
-            if runnable["kind"] != "cargo" {
-                continue;
-            }
-            let Some(arguments) = runnable["args"]["cargoArgs"].as_array() else {
-                continue;
-            };
-            let package = arguments
-                .windows(2)
-                .find(|pair| pair[0] == "-p" || pair[0] == "--package")
-                .and_then(|pair| pair[1].as_str());
-            let test = runnable["args"]["executableArgs"]
-                .as_array()
-                .and_then(|args| args.first())
-                .and_then(serde_json::Value::as_str);
-            let (Some(package), Some(test)) = (package, test) else {
-                continue;
-            };
-            if test.is_empty()
-                || !test
-                    .chars()
-                    .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == ':')
-            {
-                continue;
-            }
-            let mut argv = vec![
-                "pse".into(),
-                "-C".into(),
-                root.to_string_lossy().into(),
-                "tests".into(),
-                "-p".into(),
-                package.into(),
-            ];
-            if arguments.iter().any(|arg| arg == "--lib") {
-                argv.push("--lib".into());
-            } else if let Some(target) = arguments
-                .windows(2)
-                .find(|pair| pair[0] == "--test")
-                .and_then(|pair| pair[1].as_str())
-            {
-                argv.extend(["--test".into(), target.into()]);
-            } else {
-                continue;
-            }
-            if !configuration.features.is_empty() {
-                argv.extend(["--features".into(), configuration.features.join(",")]);
-            }
-            if configuration.no_default_features {
-                argv.push("--no-default-features".into());
-            }
-            if let Some(target) = &configuration.target {
-                argv.extend(["--target".into(), target.clone()]);
-            }
-            argv.extend(["-E".into(), format!("test(={test})")]);
-            next.push(envelope::NextAction::Command{argv,reason:"ask the original test owner to enumerate this semantic candidate; candidate generation is not affected selection or test execution".into()});
+        if test.is_empty()
+            || !test
+                .chars()
+                .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == ':')
+        {
+            continue;
         }
+        let mut argv = vec![
+            "pse".into(),
+            "-C".into(),
+            root.to_string_lossy().into(),
+            "tests".into(),
+            "-p".into(),
+            package.into(),
+        ];
+        if arguments.iter().any(|arg| arg == "--lib") {
+            argv.push("--lib".into());
+        } else if let Some(target) = arguments
+            .windows(2)
+            .find(|pair| pair[0] == "--test")
+            .map(|pair| pair[1].as_str())
+        {
+            argv.extend(["--test".into(), target.into()]);
+        } else {
+            continue;
+        }
+        if !configuration.features.is_empty() {
+            argv.extend(["--features".into(), configuration.features.join(",")]);
+        }
+        if configuration.no_default_features {
+            argv.push("--no-default-features".into());
+        }
+        if let Some(target) = &configuration.target {
+            argv.extend(["--target".into(), target.clone()]);
+        }
+        argv.extend(["-E".into(), format!("test(={test})")]);
+        next.push(envelope::NextAction::Command{argv,reason:"ask the original test owner to enumerate this semantic candidate; candidate generation is not affected selection or test execution".into()});
     }
     next
 }

@@ -44,6 +44,7 @@ fn compact_native_sections_and_workspace_answers_round_trip_without_invented_fac
             },
             generation: 7,
             symbols: section,
+            observed: Vec::new(),
             limitations: vec!["provider-ranked; not an absence proof".into()],
         };
         let emitted = serde_json::to_value(&answer).unwrap();
@@ -105,6 +106,18 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
         session.state.path().as_os_str().to_owned(),
     );
     let record = load(&session.root, &environment).unwrap().unwrap();
+    let connected = Client::connect(&session.root, &environment, &record)
+        .await
+        .unwrap();
+    assert!(
+        connected
+            .request(&Request::Status {}, None)
+            .await
+            .unwrap()
+            .into_status()
+            .unwrap()
+            .context_current
+    );
     let offset = text.find("n=0u32").unwrap();
     let prefix = &text[..offset];
     let query = Query {
@@ -132,8 +145,10 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
     loop {
         let status = client(&session.root, &environment, &record, &Request::Status {})
             .await
+            .unwrap()
+            .into_status()
             .unwrap();
-        if status["active_requests"].as_u64().unwrap() > 0 {
+        if status.active_requests > 0 {
             break;
         }
         assert!(
@@ -178,7 +193,13 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
         .unwrap()
         .unwrap_err();
     assert!(
-        matches!(cancelled,Error::Refusal(ref failure) if matches!(failure.state,FailureState::Cancelled)&&failure.backend_data.as_ref().is_some_and(|data|data["cpu_work_completed"]==true&&data["session_stopped"]==false)),
+        matches!(
+            cancelled,
+            Error::CancelledObserved {
+                completion: Settlement::CpuSettled,
+                ..
+            }
+        ),
         "{cancelled:?}"
     );
     assert!(
@@ -187,10 +208,39 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
     );
     let status = client(&session.root, &environment, &record, &Request::Status {})
         .await
+        .unwrap()
+        .into_status()
         .unwrap();
-    assert_eq!(status["context_current"], true);
-    assert_eq!(status["active_requests"], 0);
+    assert!(status.context_current);
+    assert_eq!(status.active_requests, 0);
     session.stop();
+    // Reuse the connection that authenticated the real managed helper. Once that
+    // original helper stops, a same-UID replacement socket cannot inherit custody.
+    let socket = socket_path(&session.root, &environment, &record.invocation, false).unwrap();
+    let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+    let peer = tokio::spawn(async move {
+        use tokio::io::AsyncReadExt as _;
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut byte = [0];
+        tokio::time::timeout(Duration::from_secs(5), stream.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap()
+    });
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while !peer.is_finished() {
+            assert!(connected.request(&Request::Status {}, None).await.is_err());
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        peer.await.unwrap(),
+        0,
+        "a reconnect must authenticate before HTTP/2 bytes"
+    );
+    std::fs::remove_file(socket).unwrap();
 }
 
 fn checkout() -> PathBuf {
@@ -392,7 +442,7 @@ impl Session {
             ],
             0,
         );
-        answer["payload"]["sections"]
+        answer["payload"]["observed"]["relationships"]
             .as_array()
             .unwrap()
             .iter()
@@ -479,8 +529,7 @@ fn native_journey() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|section| section["category"] == "definition"
-                && !section["evidence"].as_array().unwrap().is_empty()),
+            .any(|fact| fact["relation"] == "definition" && fact["location"].is_object()),
         "{answer}"
     );
     let preview = session.run(
@@ -733,7 +782,7 @@ async fn socket_peer_cannot_supply_its_own_pid_or_receive_input_without_original
         stream.read(&mut byte).unwrap()
     });
     let record = SessionRecord {
-        version: 1,
+        version: 2,
         invocation,
         configuration: Configuration {
             backend: Backend::Lsp,

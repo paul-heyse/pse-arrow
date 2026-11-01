@@ -276,6 +276,49 @@ pub mod count {
         }
     }
 }
+pub mod native_cancellation_observation {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum OriginalOutcome {
+        Succeeded(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Failed(::buffa::alloc::boxed::Box<super::super::super::Failure>),
+    }
+    impl ::buffa::Oneof for OriginalOutcome {}
+    impl From<::buffa_types::google::protobuf::Empty> for OriginalOutcome {
+        fn from(v: ::buffa_types::google::protobuf::Empty) -> Self {
+            Self::Succeeded(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Failure> for OriginalOutcome {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Failed(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Failure> for ::core::option::Option<OriginalOutcome> {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Some(OriginalOutcome::from(v))
+        }
+    }
+    impl ::serde::Serialize for OriginalOutcome {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Succeeded(v) => {
+                    map.serialize_entry("succeeded", &**v)?;
+                }
+                Self::Failed(v) => {
+                    map.serialize_entry("failed", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
 pub mod observation {
     #[allow(unused_imports)]
     use super::*;
@@ -346,6 +389,49 @@ pub mod observation {
                 }
                 Self::Failure(v) => {
                     map.serialize_entry("failure", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod terminal {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum OriginalOutcome {
+        Succeeded(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Failed(::buffa::alloc::boxed::Box<super::super::super::Failure>),
+    }
+    impl ::buffa::Oneof for OriginalOutcome {}
+    impl From<::buffa_types::google::protobuf::Empty> for OriginalOutcome {
+        fn from(v: ::buffa_types::google::protobuf::Empty) -> Self {
+            Self::Succeeded(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Failure> for OriginalOutcome {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Failed(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Failure> for ::core::option::Option<OriginalOutcome> {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Some(OriginalOutcome::from(v))
+        }
+    }
+    impl ::serde::Serialize for OriginalOutcome {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Succeeded(v) => {
+                    map.serialize_entry("succeeded", &**v)?;
+                }
+                Self::Failed(v) => {
+                    map.serialize_entry("failed", &**v)?;
                 }
             }
             map.end()
@@ -434,6 +520,390 @@ pub mod event {
             match self {
                 Self::Observation(v) => {
                     map.serialize_entry("observation", &**v)?;
+                }
+                Self::Terminal(v) => {
+                    map.serialize_entry("terminal", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod native_query {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Kind {
+        Explain(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Refs(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Calls(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Implementations(
+            ::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>,
+        ),
+        Macro(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Tests(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Candidates(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Symbols(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Hints(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Hint(u64),
+        Ssr(::buffa::alloc::string::String),
+        Importable(::buffa::alloc::boxed::Box<super::super::super::NativeImportTarget>),
+        Predicate(::buffa::alloc::string::String),
+        Candidate(u64),
+        Rename(::buffa::alloc::string::String),
+        FileRename(::buffa::alloc::vec::Vec<u8>),
+        Assists(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+        Assist(u64),
+    }
+    impl ::buffa::Oneof for Kind {}
+    impl From<super::super::super::NativeImportTarget> for Kind {
+        fn from(v: super::super::super::NativeImportTarget) -> Self {
+            Self::Importable(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeImportTarget> for ::core::option::Option<Kind> {
+        fn from(v: super::super::super::NativeImportTarget) -> Self {
+            Self::Some(Kind::from(v))
+        }
+    }
+    impl ::serde::Serialize for Kind {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Explain(v) => {
+                    map.serialize_entry("explain", &**v)?;
+                }
+                Self::Refs(v) => {
+                    map.serialize_entry("refs", &**v)?;
+                }
+                Self::Calls(v) => {
+                    map.serialize_entry("calls", &**v)?;
+                }
+                Self::Implementations(v) => {
+                    map.serialize_entry("implementations", &**v)?;
+                }
+                Self::Macro(v) => {
+                    map.serialize_entry("macro", &**v)?;
+                }
+                Self::Tests(v) => {
+                    map.serialize_entry("tests", &**v)?;
+                }
+                Self::Candidates(v) => {
+                    map.serialize_entry("candidates", &**v)?;
+                }
+                Self::Symbols(v) => {
+                    map.serialize_entry("symbols", &**v)?;
+                }
+                Self::Hints(v) => {
+                    map.serialize_entry("hints", &**v)?;
+                }
+                Self::Hint(v) => {
+                    map.serialize_entry("hint", &::buffa::json_helpers::ProtoJson(v))?;
+                }
+                Self::Ssr(v) => {
+                    map.serialize_entry("ssr", v)?;
+                }
+                Self::Importable(v) => {
+                    map.serialize_entry("importable", &**v)?;
+                }
+                Self::Predicate(v) => {
+                    map.serialize_entry("predicate", v)?;
+                }
+                Self::Candidate(v) => {
+                    map.serialize_entry(
+                        "candidate",
+                        &::buffa::json_helpers::ProtoJson(v),
+                    )?;
+                }
+                Self::Rename(v) => {
+                    map.serialize_entry("rename", v)?;
+                }
+                Self::FileRename(v) => {
+                    map.serialize_entry(
+                        "fileRename",
+                        &::buffa::json_helpers::ProtoJson(v),
+                    )?;
+                }
+                Self::Assists(v) => {
+                    map.serialize_entry("assists", &**v)?;
+                }
+                Self::Assist(v) => {
+                    map.serialize_entry("assist", &::buffa::json_helpers::ProtoJson(v))?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod native_request {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Operation {
+        Query(::buffa::alloc::boxed::Box<super::super::super::NativeQuery>),
+        Workspace(::buffa::alloc::boxed::Box<super::super::super::NativeWorkspaceQuery>),
+    }
+    impl ::buffa::Oneof for Operation {}
+    impl From<super::super::super::NativeQuery> for Operation {
+        fn from(v: super::super::super::NativeQuery) -> Self {
+            Self::Query(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeQuery> for ::core::option::Option<Operation> {
+        fn from(v: super::super::super::NativeQuery) -> Self {
+            Self::Some(Operation::from(v))
+        }
+    }
+    impl From<super::super::super::NativeWorkspaceQuery> for Operation {
+        fn from(v: super::super::super::NativeWorkspaceQuery) -> Self {
+            Self::Workspace(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeWorkspaceQuery>
+    for ::core::option::Option<Operation> {
+        fn from(v: super::super::super::NativeWorkspaceQuery) -> Self {
+            Self::Some(Operation::from(v))
+        }
+    }
+    impl ::serde::Serialize for Operation {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Query(v) => {
+                    map.serialize_entry("query", &**v)?;
+                }
+                Self::Workspace(v) => {
+                    map.serialize_entry("workspace", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod native_package_reply {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Result {
+        Answer(
+            ::buffa::alloc::boxed::Box<super::super::super::NativePackageContextAnswer>,
+        ),
+        Failure(::buffa::alloc::boxed::Box<super::super::super::Failure>),
+    }
+    impl ::buffa::Oneof for Result {}
+    impl From<super::super::super::NativePackageContextAnswer> for Result {
+        fn from(v: super::super::super::NativePackageContextAnswer) -> Self {
+            Self::Answer(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativePackageContextAnswer>
+    for ::core::option::Option<Result> {
+        fn from(v: super::super::super::NativePackageContextAnswer) -> Self {
+            Self::Some(Result::from(v))
+        }
+    }
+    impl From<super::super::super::Failure> for Result {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Failure(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Failure> for ::core::option::Option<Result> {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Some(Result::from(v))
+        }
+    }
+    impl ::serde::Serialize for Result {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Answer(v) => {
+                    map.serialize_entry("answer", &**v)?;
+                }
+                Self::Failure(v) => {
+                    map.serialize_entry("failure", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod native_location {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Coordinates {
+        Bytes(::buffa::alloc::boxed::Box<super::super::super::NativeByteLocation>),
+        Protocol(
+            ::buffa::alloc::boxed::Box<super::super::super::NativeProtocolLocation>,
+        ),
+    }
+    impl ::buffa::Oneof for Coordinates {}
+    impl From<super::super::super::NativeByteLocation> for Coordinates {
+        fn from(v: super::super::super::NativeByteLocation) -> Self {
+            Self::Bytes(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeByteLocation>
+    for ::core::option::Option<Coordinates> {
+        fn from(v: super::super::super::NativeByteLocation) -> Self {
+            Self::Some(Coordinates::from(v))
+        }
+    }
+    impl From<super::super::super::NativeProtocolLocation> for Coordinates {
+        fn from(v: super::super::super::NativeProtocolLocation) -> Self {
+            Self::Protocol(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeProtocolLocation>
+    for ::core::option::Option<Coordinates> {
+        fn from(v: super::super::super::NativeProtocolLocation) -> Self {
+            Self::Some(Coordinates::from(v))
+        }
+    }
+    impl ::serde::Serialize for Coordinates {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Bytes(v) => {
+                    map.serialize_entry("bytes", &**v)?;
+                }
+                Self::Protocol(v) => {
+                    map.serialize_entry("protocol", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod native_control {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Action {
+        Start(::buffa::alloc::boxed::Box<super::super::super::NativeRequest>),
+        Cancel(::buffa::alloc::boxed::Box<::buffa_types::google::protobuf::Empty>),
+    }
+    impl ::buffa::Oneof for Action {}
+    impl From<super::super::super::NativeRequest> for Action {
+        fn from(v: super::super::super::NativeRequest) -> Self {
+            Self::Start(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeRequest> for ::core::option::Option<Action> {
+        fn from(v: super::super::super::NativeRequest) -> Self {
+            Self::Some(Action::from(v))
+        }
+    }
+    impl From<::buffa_types::google::protobuf::Empty> for Action {
+        fn from(v: ::buffa_types::google::protobuf::Empty) -> Self {
+            Self::Cancel(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl ::serde::Serialize for Action {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Start(v) => {
+                    map.serialize_entry("start", &**v)?;
+                }
+                Self::Cancel(v) => {
+                    map.serialize_entry("cancel", &**v)?;
+                }
+            }
+            map.end()
+        }
+    }
+}
+pub mod native_event {
+    #[allow(unused_imports)]
+    use super::*;
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Item {
+        Query(::buffa::alloc::boxed::Box<super::super::super::NativeAnswer>),
+        Workspace(
+            ::buffa::alloc::boxed::Box<super::super::super::NativeWorkspaceAnswer>,
+        ),
+        Failure(::buffa::alloc::boxed::Box<super::super::super::Failure>),
+        Terminal(::buffa::alloc::boxed::Box<super::super::super::Terminal>),
+    }
+    impl ::buffa::Oneof for Item {}
+    impl From<super::super::super::NativeAnswer> for Item {
+        fn from(v: super::super::super::NativeAnswer) -> Self {
+            Self::Query(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeAnswer> for ::core::option::Option<Item> {
+        fn from(v: super::super::super::NativeAnswer) -> Self {
+            Self::Some(Item::from(v))
+        }
+    }
+    impl From<super::super::super::NativeWorkspaceAnswer> for Item {
+        fn from(v: super::super::super::NativeWorkspaceAnswer) -> Self {
+            Self::Workspace(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeWorkspaceAnswer>
+    for ::core::option::Option<Item> {
+        fn from(v: super::super::super::NativeWorkspaceAnswer) -> Self {
+            Self::Some(Item::from(v))
+        }
+    }
+    impl From<super::super::super::Failure> for Item {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Failure(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Failure> for ::core::option::Option<Item> {
+        fn from(v: super::super::super::Failure) -> Self {
+            Self::Some(Item::from(v))
+        }
+    }
+    impl From<super::super::super::Terminal> for Item {
+        fn from(v: super::super::super::Terminal) -> Self {
+            Self::Terminal(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::Terminal> for ::core::option::Option<Item> {
+        fn from(v: super::super::super::Terminal) -> Self {
+            Self::Some(Item::from(v))
+        }
+    }
+    impl ::serde::Serialize for Item {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            use ::serde::ser::SerializeMap;
+            let mut map = s.serialize_map(Some(1))?;
+            match self {
+                Self::Query(v) => {
+                    map.serialize_entry("query", &**v)?;
+                }
+                Self::Workspace(v) => {
+                    map.serialize_entry("workspace", &**v)?;
+                }
+                Self::Failure(v) => {
+                    map.serialize_entry("failure", &**v)?;
                 }
                 Self::Terminal(v) => {
                     map.serialize_entry("terminal", &**v)?;

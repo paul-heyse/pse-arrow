@@ -491,6 +491,23 @@ An authenticated borrowed enclosing owner can keep the probe protected until tha
 
 ### Selected Rust semantics and edit previews
 
+Semantic helpers use generated binary gRPC over HTTP/2 on their existing private Unix socket.
+Every initial connection and reconnect authenticates the kernel peer against the original
+managed invocation. The server derives client identity from Unix credentials. A reusable typed
+client shares that connection; it does not prepare another service. Selector version 2 identifies
+this protocol. Older selectors remain readable for original native administration, but queries
+refuse and require explicit stop/repreparation.
+
+Each admitted operation has a session-retained worker. Losing its handler, response stream or
+deadline requests cancellation while the worker retains the actual CPU task through settlement.
+Session stop closes admission and drains work before releasing the provider. Input half-close
+permits completion; explicit Cancel keeps the receive half through Terminal. Terminal separates
+original work outcome, cancellation request and CPU settlement from live-LSP return/detachment.
+Transport loss cannot establish that the caller observed settlement. Typed `observed` facts and
+`native_types` are usable by ordinary callers; `sections` retains original provider evidence.
+Snapshot HIR uses the pinned analyzer's UTF-8 VFS: source-only raw-path access remains available,
+while unsupported native raw-path queries refuse explicitly.
+
 Start a reusable native analyzer explicitly with `scripts/pse code session prepare --project
 PATH`; project defaults to this checkout. Select features/defaults/platform there. Restricted
 preparation disables automatic compiler checking, build scripts and proc macros. Add

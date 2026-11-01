@@ -206,6 +206,7 @@ impl State<'_> {
         self.summary.failures += 1;
         self.summary.complete = false;
         (self.emit)(Event::Diagnostic {
+            phase: DiagnosticPhase::Provider,
             code: "search.provider".into(),
             message,
             source,
@@ -278,6 +279,7 @@ fn process(
             state.summary.unknown += 1;
             state.summary.complete = false;
             return (state.emit)(Event::Diagnostic {
+                phase: DiagnosticPhase::Context,
                 code: "search.unavailable".into(),
                 message,
                 source: None,
@@ -291,6 +293,7 @@ fn process(
     }
     for diagnostic in results.diagnostics {
         (state.emit)(Event::Diagnostic {
+            phase: diagnostic.phase,
             code: diagnostic.code,
             message: diagnostic.message,
             source: diagnostic.source,
@@ -472,6 +475,7 @@ pub fn evaluate(
                     }
                     Err(error @ Error::Unavailable(_)) => {
                         diagnostics.push(QueryDiagnostic {
+                            phase: error.phase(),
                             code: "search.unavailable".into(),
                             message: error.to_string(),
                             source: None,
@@ -669,6 +673,7 @@ fn stable(root: &Path, request: &Request, state: &mut State<'_>) -> Result<Summa
         }
         for diagnostic in results.diagnostics {
             (state.emit)(Event::Diagnostic {
+                phase: diagnostic.phase,
                 code: diagnostic.code,
                 message: diagnostic.message,
                 source: diagnostic.source,

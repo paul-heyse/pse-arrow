@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicitly prepared immutable HIR/IDE snapshots, isolated behind plain owner documents.
 use super::{
-    AnalysisContext, Backend, Configuration, Error, Kind, Query, Request, Result, Section,
-    WorkspaceAnswer, WorkspaceQuery, context::Context,
+    AnalysisContext, Backend, BoundFact, Configuration, Error, Kind, NativeLocation, Query,
+    ReferenceFact, Request, Result, Section, TargetFact, TypeFact, TypedFacts, WorkspaceAnswer,
+    WorkspaceQuery, context::Context,
 };
 use crate::source_command::batch::{CpuTask, spawn_cpu};
 use native_ra_syntax::{
@@ -13,8 +14,6 @@ use native_ra_syntax::{
 use ra_ap_hir::{HirDisplay as _, Semantics};
 use ra_ap_ide_db::base_db::SourceDatabase as _;
 use ra_ap_ide_db::base_db::salsa;
-use schemars::JsonSchema;
-use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -28,19 +27,6 @@ use tokio_util::sync::CancellationToken;
 
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod importability;
-
-/// A genuine native type observation; display is presentation, not serialized type identity.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct TypeFact {
-    /// Native HIR rendering, never parsed back into a type.
-    pub display: String,
-    /// Native reference classification.
-    pub is_reference: bool,
-    /// Native mutable-reference classification.
-    pub is_mutable_reference: bool,
-    /// Native unknown component, preventing an invented proof.
-    pub contains_unknown: bool,
-}
 
 fn preparation_target(configuration: &Configuration) -> Result<String> {
     let explicit_target =
@@ -122,91 +108,12 @@ fn preparation_target(configuration: &Configuration) -> Result<String> {
         .next()
         .ok_or_else(|| Error::Unavailable("native compiler host target is unavailable".into()))
 }
-/// Source/configuration-qualified target, not a spelling-based symbol identifier.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
-pub struct TargetFact {
-    /// Native relationship, keeping a selected declaration distinct from a resolved call.
-    pub relationship: String,
-    /// Native selected declaration name.
-    pub name: String,
-    /// Authored exact location when the native mapping establishes one.
-    pub location: Option<NativeLocation>,
-    /// Mapping limitations remain explicit for macro/generated origins.
-    pub precision: String,
-}
-/// One native original byte range.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
-pub struct NativeLocation {
-    /// Exact source file in the retained native world.
-    pub path: PathBuf,
-    /// Half-open original byte interval.
-    pub start: usize,
-    /// Half-open original byte interval.
-    pub end: usize,
-}
-/// One reference and its library-owned roles; absence of a role is not runtime reachability.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct ReferenceFact {
-    /// Native result group; ambiguous entities are not silently merged.
-    pub entity: usize,
-    /// Native original range.
-    pub location: NativeLocation,
-    /// Native READ category.
-    pub read: bool,
-    /// Native WRITE category.
-    pub write: bool,
-}
-/// A declared generic bound, distinct from arbitrary trait obligation proof.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct BoundFact {
-    /// The actual generic parameter name.
-    pub parameter: String,
-    /// Actual native trait declaration names; identities remain in this snapshot context.
-    pub declared_traits: Vec<String>,
-}
-/// Compact typed facts from one selected native expression and context.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct TypedFacts {
-    /// Actual expression whose type was queried, mapped to original source when unique.
-    pub expression: Option<NativeLocation>,
-    /// Original inferred type where the native provider supplies one.
-    pub original: Option<TypeFact>,
-    /// Adjusted type where the native provider performed an adjustment.
-    pub adjusted: Option<TypeFact>,
-    /// Actual native type equality, never display-string equality.
-    pub original_equals_adjusted: Option<bool>,
-    /// Actual native coercion query for the observed original/adjusted pair.
-    pub original_coerces_to_adjusted: Option<bool>,
-    /// Resolved explicit or implicit method target where supported.
-    pub target: Option<TargetFact>,
-    /// Native declared generic context.
-    pub bounds: Vec<BoundFact>,
-}
-/// A typed native snapshot answer, not rustc acceptance or a current live-world claim.
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct NativeAnswer {
-    /// Actual provider and preparation context.
-    pub session: AnalysisContext,
-    /// Exact selected working source, verified against preparation.
-    pub source: crate::source_read::SourceIdentity,
-    /// Native file URI.
-    pub source_uri: String,
-    /// Exact original byte position.
-    pub source_byte_offset: usize,
-    /// Immutable snapshot generation; original session invocation remains part of identity.
-    pub generation: u64,
-    /// Native facts where requested/supported.
-    pub facts: Option<TypedFacts>,
-    /// Native reference roles in the selected world.
-    pub references: Vec<ReferenceFact>,
-    /// Positive/unknown observations, not scientific success.
-    pub availability: String,
-    /// Opaque-output consumers retain ordinary sections without changing their authority.
-    pub sections: Vec<Section>,
-    /// Captured immutable bytes for every native linked location in this answer.
-    pub location_sources: Vec<super::LocationSource>,
-    /// Interpretation and supported-preparation limits.
-    pub limitations: Vec<String>,
+fn fact_location(location: &NativeLocation) -> super::FactLocation {
+    super::FactLocation::Bytes {
+        path: location.path.clone(),
+        start: location.start,
+        end: location.end,
+    }
 }
 
 struct World {
@@ -462,7 +369,7 @@ impl Engine {
             actual_target: target,
         })
     }
-    pub(super) fn package_context(&self, package_id: &str) -> Result<Value> {
+    pub(super) fn package_context(&self, package_id: &str) -> Result<super::PackageContextAnswer> {
         self.context.check()?;
         if let Some(issue) = &self.package_issue {
             return Err(Error::Unavailable(format!(
@@ -480,12 +387,11 @@ impl Engine {
                 "requested library package is not part of the prepared native crate graph".into(),
             ));
         }
-        serde_json::to_value(super::PackageContextAnswer {
+        Ok(super::PackageContextAnswer {
             session: self.analysis_context(),
             generation: 1,
             packages,
         })
-        .map_err(Error::from)
     }
     fn analysis_context(&self) -> AnalysisContext {
         AnalysisContext {backend:BACKEND.into(),configuration:self.configuration.clone(),position_encoding:"utf-8".into(),backend_status:Some(json!({"quiescent":true,"immutable":true,"actual_target":self.actual_target,"unicode_identifier_version":unicode_ident::UNICODE_VERSION,"unicode_properties_version":unicode_properties::UNICODE_VERSION})),preparation:"explicit immutable Cargo/VFS snapshot; checking/build scripts/proc macros disabled; source/configuration changes require stop and explicit reprepare".into()}
@@ -511,7 +417,7 @@ impl Engine {
         &self,
         query: Query,
         token: CancellationToken,
-    ) -> CpuTask<Result<Value>> {
+    ) -> CpuTask<Result<super::Answer>> {
         let inputs = self
             .world
             .lock()
@@ -554,7 +460,7 @@ impl Engine {
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
-            serde_json::to_value(result).map_err(Error::from)
+            Ok(result)
         });
         match native_cancel {
             Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
@@ -565,7 +471,7 @@ impl Engine {
         &self,
         query: WorkspaceQuery,
         token: CancellationToken,
-    ) -> CpuTask<Result<Value>> {
+    ) -> CpuTask<Result<WorkspaceAnswer>> {
         let inputs = self
             .world
             .lock()
@@ -616,6 +522,7 @@ impl Engine {
                 )?);
             }
             let mut rows = Vec::new();
+            let mut observed = Vec::new();
             let mut seen = BTreeSet::new();
             for target in native {
                 if token.is_cancelled() {
@@ -635,10 +542,25 @@ impl Engine {
                 }
                 let start = utf8_position(&text, usize::from(location.start()))?;
                 let end = utf8_position(&text, usize::from(location.end()))?;
-                rows.push(json!({"name":target.name.as_str(),"kind":target.kind.map(|kind|format!("{kind:?}")),"containerName":target.container_name.map(|name|name.to_string()),"source_sha256":digests.get(path),"location":{"uri":super::engine::uri(path)?,"range":{"start":start,"end":end}}}));
+                let kind = target.kind.map(|kind| format!("{kind:?}"));
+                let container = target.container_name.map(|name| name.to_string());
+                observed.push(super::SymbolFact {
+                    name: target.name.as_str().into(),
+                    kind: kind.as_ref().and_then(|kind| {
+                        super::protocol_facts::symbol_kind(&Value::String(kind.clone()))
+                    }),
+                    container: container.clone(),
+                    location: Some(super::FactLocation::Bytes {
+                        path: path.clone(),
+                        start: usize::from(location.start()),
+                        end: usize::from(location.end()),
+                    }),
+                    source_sha256: digests.get(path).cloned(),
+                });
+                rows.push(json!({"name":target.name.as_str(),"kind":kind,"containerName":container,"source_sha256":digests.get(path),"location":{"uri":super::engine::uri(path)?,"range":{"start":start,"end":end}}}));
             }
             context.check()?;
-            serde_json::to_value(WorkspaceAnswer {session,generation:1,symbols:Section {category:"workspace_symbols".into(),evidence:Value::Array(rows),omitted:0,handles:Vec::new()},limitations:vec!["Immutable native snapshot with explicit source/configuration guards; native fuzzy search is provider-ranked and not an uncapped whole-program proof.".into()]}).map_err(Error::from)
+            Ok(WorkspaceAnswer {session,generation:1,observed,symbols:Section {category:"workspace_symbols".into(),evidence:Value::Array(rows),omitted:0,handles:Vec::new()},limitations:vec!["Immutable native snapshot with explicit source/configuration guards; native fuzzy search is provider-ranked and not an uncapped whole-program proof.".into()]})
         });
         match native_cancel {
             Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
@@ -734,7 +656,7 @@ fn query_world(
     session: AnalysisContext,
     query: Query,
     token: &CancellationToken,
-) -> Result<NativeAnswer> {
+) -> Result<super::Answer> {
     if query
         .if_generation
         .is_some_and(|generation| generation != 1)
@@ -742,9 +664,14 @@ fn query_world(
         return Err(Error::Stale);
     }
     if query.if_candidate.is_some() {
-        return Err(Error::Unavailable("immutable snapshot does not issue native lazy-action fingerprints; select its supported typed operation without an unrelated candidate handle".into()));
+        return Err(Error::InvalidRequest("immutable snapshot does not issue native lazy-action fingerprints; select its supported typed operation without an unrelated candidate handle".into()));
     }
     let file = query.file.canonicalize()?;
+    if file.to_str().is_none() {
+        return Err(Error::unsupported(
+            "the selected pinned native VFS requires UTF-8 source paths; use source-only byte-preserving inspection for this original native path",
+        ));
+    }
     let source = crate::source_read::SourceRequest::Working { path: file.clone() }.acquire()?;
     let digest = source.identity().source_sha256();
     if digests.get(&file).is_none_or(|expected| expected != digest)
@@ -768,109 +695,377 @@ fn query_world(
     let mut facts = None;
     let mut references = Vec::new();
     let mut sections = Vec::new();
+    let mut observed = super::ObservedFacts::default();
+    let mut omitted_relationships = BTreeMap::new();
     let mut linked_paths = BTreeSet::new();
     match query.kind {
-        Kind::Explain=>{
-            let sema=Semantics::new(db);
-            let mut modules=sema.file_to_module_defs(id);
-            let module=modules.next().ok_or_else(||Error::Unavailable("typed snapshot source is inactive in the selected native context".into()))?;
-            if modules.next().is_some(){return Err(Error::Unavailable("typed snapshot facts need a unique native module context; this source belongs to multiple selected crate/module contexts".into()));}
-            let parsed=sema.parse(ra_ap_hir::EditionedFileId::current_edition(db,id));
-            let node=parsed.syntax().token_at_offset(position.offset).right_biased().and_then(|token|token.parent()).ok_or_else(||Error::Unavailable("no native syntax at selected position".into()))?;
-            let expression=node.ancestors().find_map(ast::Expr::cast);
-            let display_target=module.krate(db).to_display_target(db);
-            let types=expression.as_ref().and_then(|expr|sema.type_of_expr(expr));
-            let original=types.as_ref().map(|ty|type_fact(db,&ty.original,display_target));
-            let adjusted=types.as_ref().and_then(|ty|ty.adjusted.as_ref()).map(|ty|type_fact(db,ty,display_target));
-            let known=types.as_ref().is_some_and(|ty|!ty.original.contains_unknown()&&ty.adjusted.as_ref().is_none_or(|adjusted|!adjusted.contains_unknown()));
-            let equal=if known {types.as_ref().and_then(|ty|ty.adjusted.as_ref().map(|adjusted|ty.original==*adjusted))}else{None};
-            let coercion=if known {types.as_ref().and_then(|ty|ty.adjusted.as_ref().map(|adjusted|ty.original.could_coerce_to(db,adjusted)))}else{None};
-            let method=node.ancestors().find_map(ast::MethodCallExpr::cast).and_then(|call|sema.resolve_method_call(&call));
-            let implicit_bin=node.ancestors().find_map(ast::BinExpr::cast).and_then(|expr|sema.resolve_bin_expr(&expr));
-            let declaration=node.ancestors().find_map(ast::Fn::cast).filter(|function|function.name().is_some_and(|name|name.syntax().text_range().contains(position.offset))).and_then(|function|sema.to_def(&function));
-            let relationship=if method.is_some(){"resolved_method"}else if implicit_bin.is_some(){"resolved_operator"}else{"selected_function_declaration"};
-            let function=method.or(implicit_bin).or(declaration);
-            let mut target=function.map(|function|{
-                let mapped=sema.source(function).and_then(|definition|sema.original_range_opt(definition.value.syntax()));
-                TargetFact {relationship:relationship.into(),name:function.name(db).as_str().into(),location:mapped.and_then(|original|location(paths,original.file_id.file_id(db),original.range)),precision:if mapped.is_some(){"native_original_range"}else{"unavailable_or_non_unique_macro_origin"}.into()}
+        Kind::Explain => {
+            let sema = Semantics::new(db);
+            let mut modules = sema.file_to_module_defs(id);
+            let module = modules.next().ok_or_else(|| {
+                Error::Unavailable(
+                    "typed snapshot source is inactive in the selected native context".into(),
+                )
+            })?;
+            if modules.next().is_some() {
+                return Err(Error::Unavailable("typed snapshot facts need a unique native module context; this source belongs to multiple selected crate/module contexts".into()));
+            }
+            let parsed = sema.parse(ra_ap_hir::EditionedFileId::current_edition(db, id));
+            let node = parsed
+                .syntax()
+                .token_at_offset(position.offset)
+                .right_biased()
+                .and_then(|token| token.parent())
+                .ok_or_else(|| {
+                    Error::Unavailable("no native syntax at selected position".into())
+                })?;
+            let expression = node.ancestors().find_map(ast::Expr::cast);
+            let display_target = module.krate(db).to_display_target(db);
+            let types = expression.as_ref().and_then(|expr| sema.type_of_expr(expr));
+            let original = types
+                .as_ref()
+                .map(|ty| type_fact(db, &ty.original, display_target));
+            let adjusted = types
+                .as_ref()
+                .and_then(|ty| ty.adjusted.as_ref())
+                .map(|ty| type_fact(db, ty, display_target));
+            let known = types.as_ref().is_some_and(|ty| {
+                !ty.original.contains_unknown()
+                    && ty
+                        .adjusted
+                        .as_ref()
+                        .is_none_or(|adjusted| !adjusted.contains_unknown())
             });
-            let enclosing=node.ancestors().find_map(ast::Fn::cast).and_then(|function|sema.to_def(&function));
+            let equal = if known {
+                types.as_ref().and_then(|ty| {
+                    ty.adjusted
+                        .as_ref()
+                        .map(|adjusted| ty.original == *adjusted)
+                })
+            } else {
+                None
+            };
+            let coercion = if known {
+                types.as_ref().and_then(|ty| {
+                    ty.adjusted
+                        .as_ref()
+                        .map(|adjusted| ty.original.could_coerce_to(db, adjusted))
+                })
+            } else {
+                None
+            };
+            let method = node
+                .ancestors()
+                .find_map(ast::MethodCallExpr::cast)
+                .and_then(|call| sema.resolve_method_call(&call));
+            let implicit_bin = node
+                .ancestors()
+                .find_map(ast::BinExpr::cast)
+                .and_then(|expr| sema.resolve_bin_expr(&expr));
+            let declaration = node
+                .ancestors()
+                .find_map(ast::Fn::cast)
+                .filter(|function| {
+                    function
+                        .name()
+                        .is_some_and(|name| name.syntax().text_range().contains(position.offset))
+                })
+                .and_then(|function| sema.to_def(&function));
+            let relationship = if method.is_some() {
+                "resolved_method"
+            } else if implicit_bin.is_some() {
+                "resolved_operator"
+            } else {
+                "selected_function_declaration"
+            };
+            let function = method.or(implicit_bin).or(declaration);
+            let mut target = function.map(|function| {
+                let mapped = sema
+                    .source(function)
+                    .and_then(|definition| sema.original_range_opt(definition.value.syntax()));
+                TargetFact {
+                    relationship: relationship.into(),
+                    name: function.name(db).as_str().into(),
+                    location: mapped.and_then(|original| {
+                        location(paths, original.file_id.file_id(db), original.range)
+                    }),
+                    precision: if mapped.is_some() {
+                        "native_original_range"
+                    } else {
+                        "unavailable_or_non_unique_macro_origin"
+                    }
+                    .into(),
+                }
+            });
+            let enclosing = node
+                .ancestors()
+                .find_map(ast::Fn::cast)
+                .and_then(|function| sema.to_def(&function));
             // IDE navigation owns plain paths, imports/reexports, type names and
             // local definitions; do not reproduce that resolver from spelling.
-            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
-            let definitions=native_result(analysis.goto_definition(position,&ra_ap_ide::GotoDefinitionConfig {ra_fixture:fixture}))?.map(|definitions|definitions.info).unwrap_or_default();
-            let total=definitions.len();
-            let definitions=definitions.into_iter().take(query.limit).filter_map(|definition|location(paths,definition.file_id,definition.full_range).map(|location|TargetFact {relationship:"resolved_definition".into(),name:definition.name.to_string(),location:Some(location),precision:"native_original_range".into()})).collect::<Vec<_>>();
-            if target.is_none()&&definitions.len()==1{target=definitions.first().cloned();}
-            linked_paths.extend(definitions.iter().filter_map(|target|target.location.as_ref().map(|location|location.path.clone())));
-            sections.push(Section {category:"definition".into(),omitted:total.saturating_sub(definitions.len()),evidence:serde_json::to_value(&definitions)?,handles:Vec::new()});
-            let mut bounds=Vec::new();
-            if let Some(function)=enclosing {
-                for parameter in ra_ap_hir::GenericDef::Function(function).params(db){
-                    if let ra_ap_hir::GenericParam::TypeParam(parameter)=parameter{
-                        bounds.push(BoundFact {parameter:parameter.name(db).as_str().into(),declared_traits:parameter.trait_bounds(db).into_iter().map(|trait_|trait_.name(db).as_str().to_owned()).collect()});
+            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let mut fixture = ra_ap_ide::RaFixtureConfig::default();
+            fixture.disable_ra_fixture = true;
+            let definitions = native_result(analysis.goto_definition(
+                position,
+                &ra_ap_ide::GotoDefinitionConfig {
+                    ra_fixture: fixture,
+                },
+            ))?
+            .map(|definitions| definitions.info)
+            .unwrap_or_default();
+            let total = definitions.len();
+            let definitions = definitions
+                .into_iter()
+                .take(query.limit)
+                .filter_map(|definition| {
+                    location(paths, definition.file_id, definition.full_range).map(|location| {
+                        TargetFact {
+                            relationship: "resolved_definition".into(),
+                            name: definition.name.to_string(),
+                            location: Some(location),
+                            precision: "native_original_range".into(),
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            if target.is_none() && definitions.len() == 1 {
+                target = definitions.first().cloned();
+            }
+            linked_paths.extend(definitions.iter().filter_map(|target| {
+                target
+                    .location
+                    .as_ref()
+                    .map(|location| location.path.clone())
+            }));
+            omitted_relationships.insert(
+                super::FactRelation::Definition,
+                total.saturating_sub(definitions.len()),
+            );
+            observed
+                .relationships
+                .extend(definitions.iter().filter_map(|target| {
+                    target
+                        .location
+                        .as_ref()
+                        .map(|location| super::RelationshipFact {
+                            relation: super::FactRelation::Definition,
+                            direction: super::FactDirection::Outgoing,
+                            location: fact_location(location),
+                            name: Some(target.name.clone()),
+                            read: None,
+                            write: None,
+                        })
+                }));
+            sections.push(Section {
+                category: "definition".into(),
+                omitted: total.saturating_sub(definitions.len()),
+                evidence: serde_json::to_value(&definitions)?,
+                handles: Vec::new(),
+            });
+            let mut bounds = Vec::new();
+            if let Some(function) = enclosing {
+                for parameter in ra_ap_hir::GenericDef::Function(function).params(db) {
+                    if let ra_ap_hir::GenericParam::TypeParam(parameter) = parameter {
+                        bounds.push(BoundFact {
+                            parameter: parameter.name(db).as_str().into(),
+                            declared_traits: parameter
+                                .trait_bounds(db)
+                                .into_iter()
+                                .map(|trait_| trait_.name(db).as_str().to_owned())
+                                .collect(),
+                        });
                     }
                 }
             }
-            let expression=expression.as_ref().and_then(|expr|sema.original_range_opt(expr.syntax())).and_then(|mapped|location(paths,mapped.file_id.file_id(db),mapped.range));
-            facts=Some(TypedFacts {expression,original,adjusted,original_equals_adjusted:equal,original_coerces_to_adjusted:coercion,target,bounds});
+            let expression = expression
+                .as_ref()
+                .and_then(|expr| sema.original_range_opt(expr.syntax()))
+                .and_then(|mapped| location(paths, mapped.file_id.file_id(db), mapped.range));
+            facts = Some(TypedFacts {
+                expression,
+                original,
+                adjusted,
+                original_equals_adjusted: equal,
+                original_coerces_to_adjusted: coercion,
+                target,
+                bounds,
+            });
         }
-        Kind::Importable {target}=>{
-            let file=target.file.canonicalize()?;
-            let source=crate::source_read::SourceRequest::Working {path:file.clone()}.acquire()?;
-            if digests.get(&file).is_none_or(|hash|hash!=&target.source_sha256)||source.identity().source_sha256()!=target.source_sha256{return Err(Error::Stale);}
-            let anchor=crate::source_read::semantic_anchor(source.text(),target.byte_start..target.byte_end).ok_or_else(||Error::Unavailable("importability target has no unique native declaration name".into()))?;
-            let target_file=*files.get(&file).ok_or_else(||Error::Unavailable("importability target is outside the prepared native VFS".into()))?;
-            let target_position=ra_ap_ide::FilePosition {file_id:target_file,offset:native_ra_syntax::TextSize::from(u32::try_from(anchor).map_err(|_|Error::Unavailable("native importability offset is unsupported".into()))?)};
-            let fact=importability::inspect(db,target_position,position,token)?;
+        Kind::Importable { target } => {
+            let file = target.file.canonicalize()?;
+            let source =
+                crate::source_read::SourceRequest::Working { path: file.clone() }.acquire()?;
+            if digests
+                .get(&file)
+                .is_none_or(|hash| hash != &target.source_sha256)
+                || source.identity().source_sha256() != target.source_sha256
+            {
+                return Err(Error::Stale);
+            }
+            let anchor = crate::source_read::semantic_anchor(
+                source.text(),
+                target.byte_start..target.byte_end,
+            )
+            .ok_or_else(|| {
+                Error::Unavailable(
+                    "importability target has no unique native declaration name".into(),
+                )
+            })?;
+            let target_file = *files.get(&file).ok_or_else(|| {
+                Error::Unavailable("importability target is outside the prepared native VFS".into())
+            })?;
+            let target_position = ra_ap_ide::FilePosition {
+                file_id: target_file,
+                offset: native_ra_syntax::TextSize::from(u32::try_from(anchor).map_err(|_| {
+                    Error::Unavailable("native importability offset is unsupported".into())
+                })?),
+            };
+            let fact = importability::inspect(db, target_position, position, token)?;
             linked_paths.insert(file);
-            sections.push(Section {category:"importability".into(),evidence:serde_json::to_value(fact)?,omitted:0,handles:Vec::new()});
-        },
-        Kind::Refs=>{
-            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let mut fixture=ra_ap_ide::RaFixtureConfig::default();fixture.disable_ra_fixture=true;
-            let config=ra_ap_ide::FindAllRefsConfig {search_scope:None,ra_fixture:fixture,exclude_imports:false,exclude_tests:false};
-            let results=native_result(analysis.find_all_refs(position,&config))?.unwrap_or_default();
-            let mut total=0usize;
-            for(entity,result)in results.into_iter().enumerate(){
-                for(id,usages)in result.references{
-                    for(range,category)in usages{
-                        if token.is_cancelled(){return Err(Error::Cancelled);}
-                        total+=1;
-                        if references.len()>=query.limit{continue;}
-                        if let Some(location)=location(paths,id,range){references.push(ReferenceFact {entity,location,read:category.contains(ra_ap_ide_db::search::ReferenceCategory::READ),write:category.contains(ra_ap_ide_db::search::ReferenceCategory::WRITE)});}
+            observed.importability = Some(super::ImportabilityFact {
+                visibility: fact.visibility,
+                importable: fact.importable,
+                path: fact.path.clone(),
+                limitations: fact.limitations.clone(),
+            });
+            sections.push(Section {
+                category: "importability".into(),
+                evidence: serde_json::to_value(fact)?,
+                omitted: 0,
+                handles: Vec::new(),
+            });
+        }
+        Kind::Refs => {
+            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let mut fixture = ra_ap_ide::RaFixtureConfig::default();
+            fixture.disable_ra_fixture = true;
+            let config = ra_ap_ide::FindAllRefsConfig {
+                search_scope: None,
+                ra_fixture: fixture,
+                exclude_imports: false,
+                exclude_tests: false,
+            };
+            let results =
+                native_result(analysis.find_all_refs(position, &config))?.unwrap_or_default();
+            let mut total = 0usize;
+            for (entity, result) in results.into_iter().enumerate() {
+                for (id, usages) in result.references {
+                    for (range, category) in usages {
+                        if token.is_cancelled() {
+                            return Err(Error::Cancelled);
+                        }
+                        total += 1;
+                        if references.len() >= query.limit {
+                            continue;
+                        }
+                        if let Some(location) = location(paths, id, range) {
+                            references.push(ReferenceFact {
+                                entity,
+                                location,
+                                read: category
+                                    .contains(ra_ap_ide_db::search::ReferenceCategory::READ),
+                                write: category
+                                    .contains(ra_ap_ide_db::search::ReferenceCategory::WRITE),
+                            });
+                        }
                     }
                 }
             }
-            sections.push(Section {category:"native_reference_roles".into(),evidence:serde_json::to_value(&references)?,omitted:total.saturating_sub(references.len()),handles:Vec::new()});
+            omitted_relationships.insert(
+                super::FactRelation::References,
+                total.saturating_sub(references.len()),
+            );
+            observed
+                .relationships
+                .extend(references.iter().map(|reference| super::RelationshipFact {
+                    relation: super::FactRelation::References,
+                    direction: super::FactDirection::Incoming,
+                    location: fact_location(&reference.location),
+                    name: None,
+                    read: Some(reference.read),
+                    write: Some(reference.write),
+                }));
+            sections.push(Section {
+                category: "native_reference_roles".into(),
+                evidence: serde_json::to_value(&references)?,
+                omitted: total.saturating_sub(references.len()),
+                handles: Vec::new(),
+            });
         }
-        Kind::Implementations=>{
-            let analysis=ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
-            let native=native_result(analysis.goto_implementation(&ra_ap_ide::GotoImplementationConfig {filter_adjacent_derive_implementations:false},position))?;
-            let native=native.map(|native|native.info).unwrap_or_default();
-            let total=native.len();
-            let targets=native.into_iter().take(query.limit).filter_map(|target|{
-                location(paths,target.file_id,target.focus_range.unwrap_or(target.full_range)).map(|location|TargetFact {relationship:"implementation".into(),name:target.name.to_string(),location:Some(location),precision:"native_original_range".into()})
-            }).collect::<Vec<_>>();
-            linked_paths.extend(targets.iter().filter_map(|target|target.location.as_ref().map(|location|location.path.clone())));
-            sections.push(Section {category:"native_implementations".into(),omitted:total.saturating_sub(targets.len()),evidence:serde_json::to_value(targets)?,handles:Vec::new()});
+        Kind::Implementations => {
+            let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
+            let native = native_result(analysis.goto_implementation(
+                &ra_ap_ide::GotoImplementationConfig {
+                    filter_adjacent_derive_implementations: false,
+                },
+                position,
+            ))?;
+            let native = native.map(|native| native.info).unwrap_or_default();
+            let total = native.len();
+            let targets = native
+                .into_iter()
+                .take(query.limit)
+                .filter_map(|target| {
+                    location(
+                        paths,
+                        target.file_id,
+                        target.focus_range.unwrap_or(target.full_range),
+                    )
+                    .map(|location| TargetFact {
+                        relationship: "implementation".into(),
+                        name: target.name.to_string(),
+                        location: Some(location),
+                        precision: "native_original_range".into(),
+                    })
+                })
+                .collect::<Vec<_>>();
+            linked_paths.extend(targets.iter().filter_map(|target| {
+                target
+                    .location
+                    .as_ref()
+                    .map(|location| location.path.clone())
+            }));
+            omitted_relationships.insert(
+                super::FactRelation::Implementations,
+                total.saturating_sub(targets.len()),
+            );
+            observed
+                .relationships
+                .extend(targets.iter().filter_map(|target| {
+                    target
+                        .location
+                        .as_ref()
+                        .map(|location| super::RelationshipFact {
+                            relation: super::FactRelation::Implementations,
+                            direction: super::FactDirection::Outgoing,
+                            location: fact_location(location),
+                            name: Some(target.name.clone()),
+                            read: None,
+                            write: None,
+                        })
+                }));
+            sections.push(Section {
+                category: "native_implementations".into(),
+                omitted: total.saturating_sub(targets.len()),
+                evidence: serde_json::to_value(targets)?,
+                handles: Vec::new(),
+            });
         }
-        _=>return Err(Error::Unavailable("selected immutable native snapshot supports typed explain, reference roles and implementations; this operation belongs to a separately selected live-LSP context".into())),
+        _ => {
+            return Err(Error::unsupported(
+                "selected immutable native snapshot supports typed explain, importability, reference roles and implementations; this operation belongs to a separately selected live-LSP context",
+            ));
+        }
     }
     let available = facts.as_ref().is_some_and(|facts| {
         facts.original.is_some() || facts.target.is_some() || !facts.bounds.is_empty()
     }) || !references.is_empty()
-        || sections.iter().any(|section| {
-            if section.category == "importability" {
-                return section.evidence["importable"].is_boolean()
-                    || section.evidence["visibility"].is_boolean();
-            }
-            section
-                .evidence
-                .as_array()
-                .is_some_and(|records| !records.is_empty())
-        });
+        || !observed.relationships.is_empty()
+        || observed
+            .importability
+            .as_ref()
+            .is_some_and(|fact| fact.importable.is_some() || fact.visibility.is_some());
     linked_paths.extend(
         facts
             .as_ref()
@@ -894,7 +1089,7 @@ fn query_world(
                 })
         })
         .collect();
-    Ok(NativeAnswer {session,source:source.identity().clone(),source_uri:super::engine::uri(&file)?,source_byte_offset:offset,generation:1,facts,references,availability:if available{"available"}else{"unknown_or_no_match_in_selected_restricted_context"}.into(),sections,location_sources,limitations:vec![
+    Ok(super::Answer {session,source:source.identity().clone(),source_uri:super::engine::uri(&file)?,source_byte_offset:offset,generation:1,native_types:facts,position:serde_json::from_value(utf8_position(source.text(),offset)?)?,observed,omitted_relationships,proposal:None,availability:if available{super::Availability::Available}else{super::Availability::NoMatch},sections,location_sources,limitations:vec![
         "Immutable explicitly loaded Cargo snapshot; no automatic reloading/checking or proc-macro/build-script execution. Changed inputs require explicit stop/reprepare.".into(),
         "Native type display is presentation only. Equality/coercion fields use actual HIR types and unknown components remain unproven; arbitrary blanket-trait applicability and rustc acceptance are not established.".into(),
         "This is the selected analyzer Cargo context, not an admitted exact rustc compiler-unit identity; typed explain refuses inactive or ambiguous native module contexts.".into(),
@@ -941,14 +1136,14 @@ pub fn entry() -> std::process::ExitCode {
                 .clone()
                 .for_serialize()
                 .into_generator()
-                .into_root_schema_for::<super::Reply>();
+                .into_root_schema_for::<super::Response>();
             let native = settings
                 .for_serialize()
                 .into_generator()
-                .into_root_schema_for::<NativeAnswer>();
+                .into_root_schema_for::<super::Answer>();
             serde_json::to_writer(
                 std::io::stdout().lock(),
-                &json!({"version":1,"tool":"native-analysis","backend":BACKEND,"request_schema":request,"configuration_schema":configuration,"response_schema":response,"native_payload_schema":native,"request_control":{"version":1,"cancel_byte":3,"reply_after_cpu_settlement":true}}),
+                &json!({"version":2,"tool":"native-analysis","backend":BACKEND,"request_schema":request,"configuration_schema":configuration,"response_schema":response,"native_payload_schema":native,"request_control":{"protocol":"grpc","service":"pse.code_intelligence.v1.NativeSemantic","terminal_after_cpu_settlement":true}}),
             )?;
             std::io::stdout().write_all(b"\n")?;
             return Ok(());
@@ -1037,12 +1232,63 @@ mod tests {
         }
     }
     async fn answer(engine: &Engine, query: Query) -> Value {
-        engine
+        serde_json::to_value(
+            engine
+                .start_query(query, CancellationToken::new())
+                .settle()
+                .await
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn actual_native_query_refuses_raw_path_outside_utf8_vfs_without_losing_bytes() {
+        use std::os::unix::ffi::OsStringExt as _;
+        let (root, configuration, file) = fixture();
+        let raw = root
+            .path()
+            .join("src")
+            .join(std::ffi::OsString::from_vec(b"lib-\xff.rs".to_vec()));
+        std::fs::copy(&file, &raw).unwrap();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let source = crate::source_read::SourceRequest::Working { path: raw.clone() }
+            .acquire()
+            .unwrap();
+        let query = query(&raw, "a.same", Kind::Explain);
+        let result = engine
             .start_query(query, CancellationToken::new())
             .settle()
             .await
-            .unwrap()
-            .unwrap()
+            .unwrap();
+        let Err(Error::Refusal(failure)) = result else {
+            panic!("pinned UTF-8 VFS must refuse the actual original raw path")
+        };
+        assert!(matches!(
+            failure.state,
+            super::super::FailureState::Unsupported
+        ));
+        assert!(failure.message.contains("UTF-8 source paths"));
+        let location = NativeLocation {
+            path: raw.clone(),
+            start: 0,
+            end: 5,
+        };
+        let original = serde_json::to_value(&location).unwrap();
+        let restored: NativeLocation = serde_json::from_value(original).unwrap();
+        assert_eq!(restored.path, raw);
+        let identity: crate::source_read::SourceIdentity =
+            serde_json::from_value(serde_json::to_value(source.identity()).unwrap()).unwrap();
+        assert_eq!(identity.path(), raw);
+        let live = super::super::FactLocation::Bytes {
+            path: raw.clone(),
+            start: 0,
+            end: 5,
+        };
+        let live: super::super::FactLocation =
+            serde_json::from_value(serde_json::to_value(live).unwrap()).unwrap();
+        assert!(matches!(live,super::super::FactLocation::Bytes {path,..} if path==raw));
     }
 
     #[tokio::test]
@@ -1103,7 +1349,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(
-            fresh["symbols"]["evidence"]
+            fresh
+                .symbols
+                .evidence
                 .as_array()
                 .unwrap()
                 .iter()
@@ -1167,10 +1415,7 @@ mod tests {
         );
         let original = engine.package_context(&package.package_id).unwrap();
         assert_eq!(
-            original["packages"][0]["dependencies"]
-                .as_array()
-                .unwrap()
-                .len(),
+            original.packages[0].dependencies.len(),
             2,
             "the native session transports the same captured closure without Cargo on read"
         );
@@ -1191,7 +1436,8 @@ mod tests {
         let first = answer(&engine, query(&file, "a.same", Kind::Explain)).await;
         let second = answer(&engine, query(&file, "b.same", Kind::Explain)).await;
         assert_ne!(
-            first["facts"]["target"]["location"], second["facts"]["target"]["location"],
+            first["native_types"]["target"]["location"],
+            second["native_types"]["target"]["location"],
             "same spelling must resolve to distinct implementation declarations"
         );
         assert_eq!(
@@ -1211,29 +1457,33 @@ mod tests {
         let direct = answer(&engine, query(&file, "original()->", Kind::Explain)).await;
         let facade = answer(&engine, query(&file, "facade()", Kind::Explain)).await;
         assert_eq!(
-            direct["facts"]["target"]["location"], facade["facts"]["target"]["location"],
+            direct["native_types"]["target"]["location"],
+            facade["native_types"]["target"]["location"],
             "plain calls through reexports must retain the actual native declaration identity"
         );
-        assert_eq!(facade["facts"]["target"]["name"], "original");
+        assert_eq!(facade["native_types"]["target"]["name"], "original");
         let vector = answer(&engine, query(&file, "values.len", Kind::Explain)).await;
         assert_eq!(
-            vector["facts"]["original"]["contains_unknown"], false,
+            vector["native_types"]["original"]["contains_unknown"], false,
             "installed std/core must participate in the same native world: {vector}"
         );
         assert!(
-            vector["facts"]["original"]["display"]
+            vector["native_types"]["original"]["display"]
                 .as_str()
                 .is_some_and(|value| value.contains("Vec") && value.contains("u32"))
         );
-        assert_eq!(vector["facts"]["target"]["name"], "len");
+        assert_eq!(vector["native_types"]["target"]["name"], "len");
         assert!(
-            vector["facts"]["target"]["location"]["path"]
+            vector["native_types"]["target"]["location"]["path"]
                 .as_str()
                 .is_some_and(|path| path.contains("rust/library"))
         );
         let optional = answer(&engine, query(&file, "optional.is_some", Kind::Explain)).await;
-        assert_eq!(optional["facts"]["original"]["contains_unknown"], false);
-        assert_eq!(optional["facts"]["target"]["name"], "is_some");
+        assert_eq!(
+            optional["native_types"]["original"]["contains_unknown"],
+            false
+        );
+        assert_eq!(optional["native_types"]["target"]["name"], "is_some");
         let outline = crate::source_read::rust(SOURCE, crate::source_read::RustEdition::E2024);
         let target = |name: &str| {
             let declaration = outline
@@ -1310,7 +1560,7 @@ mod tests {
         );
         let generic = answer(&engine, query(&file, "value.same", Kind::Explain)).await;
         assert!(
-            generic["facts"]["bounds"]
+            generic["native_types"]["bounds"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -1323,17 +1573,23 @@ mod tests {
         );
         let adjustment = answer(&engine, query(&file, "&mut a", Kind::Explain)).await;
         assert_eq!(
-            adjustment["facts"]["original"]["is_mutable_reference"],
+            adjustment["native_types"]["original"]["is_mutable_reference"],
             true
         );
         assert_eq!(
-            adjustment["facts"]["adjusted"]["is_mutable_reference"], false,
+            adjustment["native_types"]["adjusted"]["is_mutable_reference"], false,
             "native &mut A to &A adjustment: {adjustment}"
         );
-        assert_eq!(adjustment["facts"]["original_equals_adjusted"], false);
-        assert_eq!(adjustment["facts"]["original_coerces_to_adjusted"], true);
+        assert_eq!(
+            adjustment["native_types"]["original_equals_adjusted"],
+            false
+        );
+        assert_eq!(
+            adjustment["native_types"]["original_coerces_to_adjusted"],
+            true
+        );
         let refs = answer(&engine, query(&file, "n=1", Kind::Refs)).await;
-        let references = refs["references"].as_array().unwrap();
+        let references = refs["observed"]["relationships"].as_array().unwrap();
         assert!(references.iter().any(|reference| reference["read"] == true));
         assert!(
             references
@@ -1367,7 +1623,9 @@ mod tests {
                 .settle()
                 .await
                 .unwrap()
-                .unwrap()["symbols"]["evidence"]
+                .unwrap()
+                .symbols
+                .evidence
                 .as_array()
                 .unwrap()
                 .iter()
@@ -1389,7 +1647,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(
-            libraries["symbols"]["evidence"]
+            libraries
+                .symbols
+                .evidence
                 .as_array()
                 .unwrap()
                 .iter()
@@ -1414,7 +1674,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let qualified = qualified["symbols"]["evidence"].as_array().unwrap();
+        let qualified = qualified.symbols.evidence.as_array().unwrap();
         assert_eq!(
             qualified.len(),
             1,
@@ -1437,7 +1697,10 @@ mod tests {
                 .settle()
                 .await
                 .unwrap(),
-            Err(Error::Unavailable(_))
+            Err(Error::Refusal(super::super::Failure {
+                state: super::super::FailureState::Unsupported,
+                ..
+            }))
         ));
         let mut wrong_generation = query(&file, "a.same", Kind::Explain);
         wrong_generation.if_generation = Some(2);

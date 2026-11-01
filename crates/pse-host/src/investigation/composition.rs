@@ -197,6 +197,7 @@ pub fn run(
             ..Default::default()
         });
         let source_ids = std::sync::Mutex::new(BTreeSet::new());
+        let proofs = std::sync::Mutex::new(BTreeMap::new());
         let native = Native {
             runtime,
             resolution: &resolution,
@@ -204,6 +205,7 @@ pub fn run(
             work: &work,
             api_nomination_scope: false,
             source_ids: &source_ids,
+            proofs: &proofs,
         };
         let mut summary = if request.answer.order == ResultOrder::Stable {
             stable_related(root, request, token, &mut forward, native)?
@@ -251,6 +253,7 @@ struct Native<'a> {
     work: &'a std::sync::Mutex<Summary>,
     api_nomination_scope: bool,
     source_ids: &'a std::sync::Mutex<BTreeSet<String>>,
+    proofs: &'a std::sync::Mutex<BTreeMap<String, (Truth, Option<serde_json::Value>)>>,
 }
 impl Native<'_> {
     fn block_on<F: Future>(&self, future: F) -> F::Output {
@@ -296,8 +299,7 @@ fn resolved_context(
     emit: &mut (dyn FnMut(Event) -> Result<(), Error> + Send),
     native: Native<'_>,
 ) -> Result<(), Error> {
-    let analysis: crate::semantic::AnalysisContext =
-        serde_json::from_value(entity.native["session"].clone())?;
+    let analysis = entity.native.session.clone();
     let source = SourceContext {
         id: String::new(),
         path: analysis.configuration.project.clone().into(),
@@ -360,10 +362,11 @@ fn diagnostic(
 ) -> Result<(), Error> {
     if let Some(failure) = error.native_refusal() {
         emit(Event::NativeFailure {
-            failure: Box::new(failure.clone()),
+            failure: Box::new(failure),
         })?;
     }
     emit(Event::Diagnostic {
+        phase: error.phase(),
         code: if unavailable(error) {
             "search.composition_unavailable"
         } else {
@@ -385,7 +388,7 @@ fn failed(
     if error.disposition() == FailureDisposition::Cancelled {
         if let Some(failure) = error.native_refusal() {
             emit(Event::NativeFailure {
-                failure: Box::new(failure.clone()),
+                failure: Box::new(failure),
             })?;
         }
         summary.complete = false;
@@ -694,10 +697,11 @@ fn retain_unknown(
     summary.complete = false;
     if let Some(failure) = error.native_refusal() {
         emit(Event::NativeFailure {
-            failure: Box::new(failure.clone()),
+            failure: Box::new(failure),
         })?;
     }
     let original = QueryDiagnostic {
+        phase: error.phase(),
         code: "search.refinement_unknown".into(),
         message: error.to_string(),
         source: Some(row.source.clone()),
@@ -710,7 +714,6 @@ fn retain_unknown(
         .unwrap_or_else(|| original.clone());
     let original_native = error
         .native_refusal()
-        .cloned()
         .or_else(|| previous.and_then(|fact| fact.native));
     row.refinement = Some(RefinementFact {
         truth: Truth::Unknown,
@@ -719,6 +722,7 @@ fn retain_unknown(
         evidence,
     });
     emit(Event::Diagnostic {
+        phase: original.phase,
         code: original.code,
         message: original.message,
         source: original.source,
@@ -831,43 +835,79 @@ fn refine(
                     let producer = row.refinement.take();
                     let producer_truth = producer.as_ref().map_or(Truth::True, |fact| fact.truth);
                     let mut evidence = None;
-                    let outcome = match filter {
-                        Refinement::ResolvesTo { .. } | Refinement::UsedAt { .. } => Ok(expected
-                            .as_ref()
-                            .ok()
-                            .and_then(Option::as_ref)
-                            .map_or(Truth::Unknown, |target| {
-                                same_entity(&target.identity, &resolved.identity)
-                            })),
-                        Refinement::ImportableAt { destination } => native
-                            .block_on(rust::importability(
-                                root,
-                                &resolved,
-                                &destination.locator,
-                                token,
-                                native.resolution,
-                            ))
-                            .map(|(truth, facts)| {
-                                evidence = facts["sections"]
-                                    .as_array()
-                                    .and_then(|sections| {
-                                        sections
-                                            .iter()
-                                            .find(|section| section["category"] == "importability")
-                                    })
-                                    .map(|section| section["evidence"].clone());
-                                truth
-                            }),
-                        Refinement::NativePredicate { text } => native
-                            .block_on(rust::semantic_operation_cancellable(
-                                root,
-                                &resolved.locator,
-                                crate::semantic::Kind::Predicate { text: text.clone() },
-                                token,
-                            ))
-                            .map(|answer| predicate_truth(&answer)),
+                    // Reuse only established proofs within this request and exact native world.
+                    // Resolution and source guards still run before looking up the proof.
+                    let proof_key =
+                        serde_json::to_string(&(&resolved.identity, &resolved.locator, filter))?;
+                    let cached = native
+                        .proofs
+                        .lock()
+                        .map_err(|_| {
+                            Error::Unavailable("request-local proof owner panicked".into())
+                        })?
+                        .get(&proof_key)
+                        .cloned();
+                    let outcome = if let Some((truth, original)) = cached {
+                        evidence = original;
+                        Ok(truth)
+                    } else {
+                        match filter {
+                            Refinement::ResolvesTo { .. } | Refinement::UsedAt { .. } => {
+                                Ok(expected
+                                    .as_ref()
+                                    .ok()
+                                    .and_then(Option::as_ref)
+                                    .map_or(Truth::Unknown, |target| {
+                                        same_entity(&target.identity, &resolved.identity)
+                                    }))
+                            }
+                            Refinement::ImportableAt { destination } => native
+                                .block_on(rust::importability(
+                                    root,
+                                    &resolved,
+                                    &destination.locator,
+                                    token,
+                                    native.resolution,
+                                ))
+                                .map(|(truth, facts)| {
+                                    evidence = facts
+                                        .observed
+                                        .importability
+                                        .map(serde_json::to_value)
+                                        .transpose()?;
+                                    Ok(truth)
+                                })
+                                .and_then(std::convert::identity),
+                            Refinement::NativePredicate { text } => native
+                                .block_on(rust::semantic_operation_with_context(
+                                    root,
+                                    &resolved.locator,
+                                    crate::semantic::Kind::Predicate { text: text.clone() },
+                                    token,
+                                    native.resolution,
+                                ))
+                                .map(|answer| {
+                                    let truth = predicate_truth(answer.observed.predicate.as_ref());
+                                    evidence = answer
+                                        .observed
+                                        .predicate
+                                        .map(serde_json::to_value)
+                                        .transpose()?;
+                                    Ok(truth)
+                                })
+                                .and_then(std::convert::identity),
+                        }
+                    };
+                    if let Ok(truth @ (Truth::True | Truth::False)) = &outcome {
+                        native
+                            .proofs
+                            .lock()
+                            .map_err(|_| {
+                                Error::Unavailable("request-local proof owner panicked".into())
+                            })?
+                            .insert(proof_key, (*truth, evidence.clone()));
                     }
-                    .map(|truth| producer_truth.and(truth));
+                    let outcome = outcome.map(|truth| producer_truth.and(truth));
                     row.entity = Some(resolved.identity);
                     if row.candidate_reference.is_none() {
                         row.candidate_reference = row.reference.take();
@@ -950,19 +990,12 @@ fn refine(
     }
     Ok(summary)
 }
-fn predicate_truth(answer: &serde_json::Value) -> Truth {
-    for section in answer["sections"].as_array().into_iter().flatten() {
-        if section["category"] != "predicate_evaluation" {
-            continue;
-        }
-        if let Some(value) = section["evidence"]
-            .as_bool()
-            .or_else(|| section["evidence"]["holds"].as_bool())
-        {
-            return if value { Truth::True } else { Truth::False };
-        }
+fn predicate_truth(fact: Option<&crate::semantic::PredicateFact>) -> Truth {
+    match fact.map(|fact| fact.truth) {
+        Some(crate::semantic::FactTruth::True) => Truth::True,
+        Some(crate::semantic::FactTruth::False) => Truth::False,
+        Some(crate::semantic::FactTruth::Unknown) | None => Truth::Unknown,
     }
-    Truth::Unknown
 }
 
 fn union(
@@ -1279,10 +1312,12 @@ fn entity_membership(
                 }
             }
             Event::Diagnostic {
+                phase,
                 code,
                 message,
                 source,
             } => emit(Event::Diagnostic {
+                phase,
                 code,
                 message,
                 source,
@@ -1437,6 +1472,7 @@ fn related(
             summary.unknown += 1;
             summary.complete = false;
             emit(Event::Diagnostic {
+                phase: diagnostic.phase,
                 code: diagnostic.code,
                 message: diagnostic.message,
                 source: diagnostic
@@ -1669,24 +1705,17 @@ mod tests {
     }
     #[test]
     fn unknown_predicate_evidence_is_not_a_negative_or_hover_inference() {
-        assert_eq!(
-            predicate_truth(
-                &serde_json::json!({"sections":[{"category":"hover","evidence":"true"}]})
-            ),
-            Truth::Unknown
-        );
-        assert_eq!(
-            predicate_truth(
-                &serde_json::json!({"sections":[{"category":"predicate_evaluation","evidence":{"holds":true}}]})
-            ),
-            Truth::True
-        );
-        assert_eq!(
-            predicate_truth(
-                &serde_json::json!({"sections":[{"category":"predicate_evaluation","evidence":{"state":"not_proven"}}]})
-            ),
-            Truth::Unknown
-        );
+        use crate::semantic::{FactTruth, PredicateFact};
+        assert_eq!(predicate_truth(None), Truth::Unknown);
+        for (native, expected) in [
+            (FactTruth::True, Truth::True),
+            (FactTruth::False, Truth::False),
+            (FactTruth::Unknown, Truth::Unknown),
+        ] {
+            let truth = predicate_truth(Some(&PredicateFact { truth: native }));
+            assert_eq!(truth, expected);
+            assert_eq!(truth.negate(), expected.negate());
+        }
     }
     #[test]
     fn unavailable_refinement_retains_candidates_and_count_and_exists_do_not_stop_at_twenty() {
@@ -1795,9 +1824,11 @@ mod tests {
         ] {
             let original = crate::semantic::Failure {
                 state,
+                phase: crate::semantic::FailurePhase::Provider,
                 message: "native owner refusal".into(),
                 backend_code: Some(-32800),
                 backend_data: Some(serde_json::json!({"cpu_settled":true,"original":123})),
+                observed_cancellation: None,
             };
             let error =
                 Error::Semantic(Box::new(crate::semantic::Error::Refusal(original.clone())));
@@ -1826,9 +1857,11 @@ mod tests {
         let error = Error::Semantic(Box::new(crate::semantic::Error::Refusal(
             crate::semantic::Failure {
                 state: crate::semantic::FailureState::Unavailable,
+                phase: crate::semantic::FailurePhase::Context,
                 message: "selected backend could not prove enrichment".into(),
                 backend_code: Some(91),
                 backend_data: Some(serde_json::json!({"original":true})),
+                observed_cancellation: None,
             },
         )));
         let row: SearchResult = serde_json::from_value(
@@ -1857,6 +1890,47 @@ mod tests {
         .unwrap();
         assert_eq!(summary.emitted, 0);
         assert!(records.iter().any(|record|matches!(record,Event::NativeFailure{failure} if failure.backend_code==Some(91)&&failure.backend_data==Some(serde_json::json!({"original":true})))));
+    }
+
+    #[test]
+    fn observed_cancellation_keeps_original_outcome_in_composed_records() {
+        use crate::semantic::{OriginalOutcome, Settlement};
+        for original in [
+            OriginalOutcome::Succeeded,
+            OriginalOutcome::Failed(crate::semantic::Failure::from_error(
+                &crate::semantic::Error::Stale,
+            )),
+        ] {
+            let error = Error::from(crate::semantic::Error::CancelledObserved {
+                completion: Settlement::CpuSettled,
+                original,
+            });
+            assert_eq!(error.phase(), DiagnosticPhase::Settlement);
+            let mut summary = Summary::default();
+            let mut records = Vec::new();
+            failed(
+                &mut summary,
+                &mut |event| {
+                    records.push(event);
+                    Ok(())
+                },
+                error,
+            )
+            .unwrap();
+            assert!(summary.cancellation_requested);
+            let failures = records
+                .into_iter()
+                .filter_map(|record| match record {
+                    Event::NativeFailure { failure } => Some(failure),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(failures.len(), 1);
+            let observed = failures[0].observed_cancellation.as_ref().unwrap();
+            assert!(matches!(observed.completion, Settlement::CpuSettled));
+            let encoded = serde_json::to_value(&failures[0]).unwrap();
+            assert!(encoded["observed_cancellation"]["original"].is_object());
+        }
     }
     #[test]
     fn mixed_source_and_absent_semantic_alternatives_retain_witnesses_and_unknown_in_either_order()

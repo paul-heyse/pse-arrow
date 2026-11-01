@@ -258,6 +258,34 @@ mod tests {
         }
     }
     #[test]
+    fn typed_api_projection_retains_artifact_local_identity_and_absence() {
+        use crate::code_intelligence_contracts::{api_declaration, project_declaration};
+        use buffa_descriptor::reflect::{ReflectCow, Reflectable};
+        let directory = tempfile::tempdir().unwrap();
+        let mut first_doc = document();
+        add_function(&mut first_doc, 1, "same");
+        let first = artifact(&directory.path().join("first.json"), first_doc.clone());
+        let mut second = artifact(&directory.path().join("second.json"), first_doc);
+        second.context.package_id = "different-source-qualified-package".into();
+        let left = api_declaration(&first, 1, "demo::same", "function", None, None).unwrap();
+        let right = api_declaration(&second, 1, "demo::same", "function", None, None).unwrap();
+        assert_eq!(project_declaration(&left).unwrap().name, "demo::same");
+        assert_eq!(left.item_id, right.item_id);
+        assert_ne!(left.context_key, right.context_key);
+        assert_ne!(left.artifact, right.artifact);
+        assert!(matches!(left.reflect(), ReflectCow::Borrowed(_)));
+        assert!(api_declaration(&first, 999, "demo::missing", "function", None, None).is_err());
+        assert!(super::super::retained(&directory.path().join("absent/document.json")).is_err());
+        let page =
+            crate::api::query::inspect(&first, &crate::api::query::Query::default(), 20, None)
+                .unwrap();
+        assert!(
+            page.candidates
+                .iter()
+                .any(|candidate| candidate.public_path == "demo::same")
+        );
+    }
+    #[test]
     fn native_structural_pages_refuse_stale_inputs_and_loss_through_the_backend_decoder() {
         let directory = tempfile::tempdir().unwrap();
         let old = artifact(&directory.path().join("before.json"), document());

@@ -1499,9 +1499,21 @@ pub fn inspect(
                 .declaration
                 .then(|| serde_json::value::to_raw_value(item))
                 .transpose()?;
+            let fact = crate::code_intelligence_contracts::api_declaration(
+                artifact,
+                surface_item.id.0,
+                &address.path,
+                &format!("{:?}", kind(item)).to_ascii_lowercase(),
+                definition.as_ref().map(|(_, _, proof)| proof),
+                qualification_unknown.as_deref(),
+            )?;
+            let projected = crate::code_intelligence_contracts::project_declaration(&fact)
+                .ok_or_else(|| {
+                    super::invalid("API declaration has no supported typed projection")
+                })?;
             Ok::<_, ApiError>(Candidate {
-                public_path: address.path,
-                item_id: surface_item.id.0,
+                public_path: projected.name.into(),
+                item_id: fact.item_id,
                 kind: kind(item),
                 definition: definition.as_ref().map(|(_, _, proof)| proof.clone()),
                 qualification_unknown,

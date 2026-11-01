@@ -4,13 +4,20 @@
 mod context;
 mod edit;
 mod engine;
+mod facts;
+mod protocol_facts;
+pub use facts::*;
 #[cfg(feature = "native-hir")]
 pub mod native;
-mod service;
+pub(crate) mod rpc;
+pub(crate) mod service;
 #[cfg(test)]
 mod tests;
 mod transport;
+mod wire;
+mod workers;
 use crate::source_proposal::ChangeProposal;
+pub use rpc::Client;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use service::{
@@ -194,6 +201,8 @@ pub struct WorkspaceAnswer {
     pub generation: u64,
     /// Native candidates, without inventing typed fields from hover text.
     pub symbols: Section,
+    /// Typed native candidates qualified by this original session and generation.
+    pub observed: Vec<SymbolFact>,
     /// Unknown compiler-unit/exhaustiveness remains explicit.
     pub limitations: Vec<String>,
 }
@@ -343,7 +352,13 @@ pub struct Answer {
     /// Session revision observed before and after the operation.
     pub generation: u64,
     /// Negotiated protocol position, distinct from CLI scalar columns.
-    pub position: serde_json::Value,
+    pub position: ProtocolPosition,
+    /// Consumed native observations; opaque documents never drive caller decisions.
+    pub observed: ObservedFacts,
+    /// Exact known excluded relationship records, grouped by native operation.
+    pub omitted_relationships: std::collections::BTreeMap<FactRelation, usize>,
+    /// Native immutable-world type observations, when this provider supports them.
+    pub native_types: Option<TypedFacts>,
     /// Whole native views, each retaining the provider's scope.
     pub sections: Vec<Section>,
     /// Exact original bytes for native source-linked result locations.
@@ -357,6 +372,8 @@ pub struct Answer {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct LocationSource {
     /// Canonical original path in the selected provider context.
+    #[serde(with = "crate::investigation::native_path_serde")]
+    #[schemars(with = "crate::investigation::NativePath")]
     pub path: PathBuf,
     /// Original byte digest used when the native result was produced.
     pub source_sha256: String,
@@ -392,20 +409,60 @@ pub fn native_byte_position(
 ) -> Result<usize> {
     engine::byte_position(text, position, encoding)
 }
+/// Convert typed native protocol coordinates in the original negotiated encoding.
+pub fn native_byte_protocol_position(
+    text: &str,
+    position: &ProtocolPosition,
+    encoding: &str,
+) -> Result<usize> {
+    engine::byte_protocol_position(text, position, encoding)
+}
 /// Serialized service response; a failed query does not terminate the session.
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "state", rename_all = "snake_case")]
-pub enum Reply {
-    /// Typed backend response serialized once by its owning producer.
-    Answer {
-        /// Opaque complete response, decoded by its selected CLI consumer.
-        value: serde_json::Value,
-    },
-    /// Actual failure, never an empty successful result.
-    Failed {
-        /// Typed availability/revision/cancellation outcome with original backend error facts.
-        failure: Failure,
-    },
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "state", content = "answer", rename_all = "snake_case")]
+pub enum Response {
+    /// Actual prepared analyzer status.
+    Status(SessionStatus),
+    /// Settled selected source query.
+    Query(Answer),
+    /// Actual name-first native discovery.
+    WorkspaceSymbols(WorkspaceAnswer),
+    /// Qualified loaded Cargo/VFS package context.
+    PackageContext(PackageContextAnswer),
+    /// Stop accepted by the session owner; teardown remains session-owned.
+    Stopped,
+}
+impl Response {
+    /// Extract the selected source answer, refusing a different operation result.
+    pub fn into_query(self) -> Result<Answer> {
+        match self {
+            Self::Query(value) => Ok(value),
+            _ => Err(Error::Protocol("expected native query response".into())),
+        }
+    }
+    /// Extract actual analyzer status.
+    pub fn into_status(self) -> Result<SessionStatus> {
+        match self {
+            Self::Status(value) => Ok(value),
+            _ => Err(Error::Protocol("expected native status response".into())),
+        }
+    }
+    /// Extract actual native name candidates.
+    pub fn into_workspace(self) -> Result<WorkspaceAnswer> {
+        match self {
+            Self::WorkspaceSymbols(value) => Ok(value),
+            _ => Err(Error::Protocol("expected native workspace response".into())),
+        }
+    }
+    /// Extract the selected native Cargo package observation.
+    pub fn into_package_context(self) -> Result<PackageContextAnswer> {
+        match self {
+            Self::PackageContext(value) => Ok(value),
+            _ => Err(Error::Protocol(
+                "expected native package-context response".into(),
+            )),
+        }
+    }
 }
 /// Query refusal preserves its semantic state across the private transport.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, thiserror::Error)]
@@ -413,12 +470,16 @@ pub enum Reply {
 pub struct Failure {
     /// Owner-classified refusal, never inferred by parsing hover/debug text.
     pub state: FailureState,
+    /// Meaningful failure boundary, independent of native outcome state.
+    pub phase: FailurePhase,
     /// Original explanatory message, under the normal redaction policy.
     pub message: String,
     /// Original JSON-RPC error code when the native peer supplied one.
     pub backend_code: Option<i32>,
     /// Original backend data, retained as opaque native evidence.
     pub backend_data: Option<serde_json::Value>,
+    /// Typed observed settlement; original provider data never supplies this control fact.
+    pub observed_cancellation: Option<Box<CancellationObservation>>,
 }
 /// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
@@ -435,6 +496,25 @@ pub enum FailureState {
     /// Original protocol, source or native owner failed.
     Failed,
 }
+/// Original failure boundary, separate from native availability/cancellation state.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FailurePhase {
+    /// A schema representation could not be decoded or did not match its contract.
+    Schema,
+    /// The user's request violated a declared constraint or stream-control contract.
+    Constraint,
+    /// Original source/session/provider context is unavailable or stale.
+    Context,
+    /// Validator execution failed rather than rejecting the user's request.
+    Validator,
+    /// Original selected provider failure.
+    Provider,
+    /// Native result delivery or connection failed.
+    Transport,
+    /// Cancellation observation retains actual original work settlement.
+    Settlement,
+}
 impl Failure {
     /// Preserve selected typed error categories at the serialization boundary.
     pub fn from_error(error: &Error) -> Self {
@@ -443,18 +523,67 @@ impl Failure {
         }
         let state = match error {
             Error::Stale => FailureState::Stale,
-            Error::Cancelled => FailureState::Cancelled,
+            Error::Cancelled | Error::CancelledObserved { .. } => FailureState::Cancelled,
             Error::Unavailable(_) => FailureState::Unavailable,
             _ => FailureState::Failed,
         };
+        let phase = match error {
+            Error::InvalidRequest(_) => FailurePhase::Constraint,
+            Error::Validator(_) => FailurePhase::Validator,
+            Error::Transport(_) | Error::CancellationUnobserved { .. } => FailurePhase::Transport,
+            Error::Stale | Error::Unavailable(_) => FailurePhase::Context,
+            Error::Json(_) => FailurePhase::Schema,
+            Error::Schema(_) => FailurePhase::Schema,
+            Error::Cancelled | Error::CancelledObserved { .. } => FailurePhase::Settlement,
+            _ => FailurePhase::Provider,
+        };
         Self {
             state,
+            phase,
             message: crate::envelope::RedactionPolicy::from_environment()
                 .redact(&error.to_string()),
             backend_code: None,
             backend_data: None,
+            observed_cancellation: match error {
+                Error::CancelledObserved {
+                    completion,
+                    original,
+                } => Some(Box::new(CancellationObservation {
+                    completion: *completion,
+                    original: original.clone(),
+                })),
+                _ => None,
+            },
         }
     }
+}
+/// Original native settlement, independent of response delivery.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Settlement {
+    /// Actual CPU work was joined.
+    CpuSettled,
+    /// Live protocol work detached after cancellation; native completion is unknown.
+    LspDetached,
+    /// Original live protocol request returned.
+    LspReturned,
+}
+/// Settled original result retained independently from a cancellation request.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "outcome", content = "failure", rename_all = "snake_case")]
+pub enum OriginalOutcome {
+    /// Original work completed successfully before cancellation settled.
+    Succeeded,
+    /// Original failure, including its typed native category.
+    Failed(Failure),
+}
+/// Cancellation delivery observed with the original native settlement and outcome.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CancellationObservation {
+    /// Actual original native work ownership state.
+    pub completion: Settlement,
+    /// Original result, independent from the cancellation request.
+    pub original: OriginalOutcome,
 }
 /// Semantic operation errors preserve input and native protocol causes.
 #[derive(Debug, thiserror::Error)]
@@ -480,12 +609,32 @@ pub enum Error {
     /// Native LSP failure; no fallback response is fabricated.
     #[error("semantic protocol: {0}")]
     Protocol(String),
+    /// Invalid user request or unsatisfied declared request constraint.
+    #[error("semantic request schema/constraint: {0}")]
+    InvalidRequest(String),
+    /// Original schema/decode mismatch, distinct from user constraint violations.
+    #[error("semantic schema: {0}")]
+    Schema(String),
+    /// Validator fault, distinct from a rejected user request.
+    #[error("semantic request validator: {0}")]
+    Validator(String),
+    /// Original helper connection or stream delivery failure.
+    #[error("semantic RPC transport: {0}")]
+    Transport(String),
     /// An original native refusal retains structured machine meaning across clients.
     #[error(transparent)]
     Refusal(Failure),
     /// Client request cancellation never implies session cancellation.
     #[error("semantic request canceled; inspect session status for original session availability")]
     Cancelled,
+    /// Cancellation was observed with original work and native settlement retained.
+    #[error("semantic request cancellation observed; original work settlement: {completion:?}")]
+    CancelledObserved {
+        /// Actual original work ownership state.
+        completion: Settlement,
+        /// Original work result, independent of the cancellation request.
+        original: OriginalOutcome,
+    },
     /// Cancellation was requested but the original completion reply could not be observed.
     #[error("native request cancellation requested; CPU settlement remains unobserved: {cause}")]
     CancellationUnobserved {
@@ -503,3 +652,62 @@ pse_diagnostics::impl_diagnostic! { Error,
 }
 /// Semantic owner result.
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl Error {
+    /// Unsupported producer operation, distinct from missing explicit preparation.
+    pub(super) fn unsupported(message: impl Into<String>) -> Self {
+        Self::Refusal(Failure {
+            state: FailureState::Unsupported,
+            phase: FailurePhase::Provider,
+            message: message.into(),
+            backend_code: None,
+            backend_data: None,
+            observed_cancellation: None,
+        })
+    }
+}
+
+#[cfg(test)]
+mod failure_tests {
+    use super::*;
+    #[test]
+    fn cancellation_diagnostic_keeps_settlement_and_original_failure_typed() {
+        let original = Failure {
+            state: FailureState::Stale,
+            phase: FailurePhase::Context,
+            message: "original source changed".into(),
+            backend_code: Some(-32801),
+            backend_data: Some(serde_json::json!({"original":"provider"})),
+            observed_cancellation: None,
+        };
+        let failure = Failure::from_error(&Error::CancelledObserved {
+            completion: Settlement::CpuSettled,
+            original: OriginalOutcome::Failed(original),
+        });
+        assert!(matches!(failure.state, FailureState::Cancelled));
+        assert!(matches!(failure.phase, FailurePhase::Settlement));
+        assert!(failure.backend_data.is_none());
+        let observed = failure.observed_cancellation.unwrap();
+        assert!(matches!(observed.completion, Settlement::CpuSettled));
+        let OriginalOutcome::Failed(original) = observed.original else {
+            panic!("original native failure required")
+        };
+        assert_eq!(original.backend_code, Some(-32801));
+        assert_eq!(original.backend_data.unwrap()["original"], "provider");
+    }
+    #[test]
+    fn request_constraint_and_validator_execution_failures_remain_distinct() {
+        assert!(matches!(
+            Failure::from_error(&Error::InvalidRequest("line must be positive".into())).phase,
+            FailurePhase::Constraint
+        ));
+        assert!(matches!(
+            Failure::from_error(&Error::Validator("validator failed".into())).phase,
+            FailurePhase::Validator
+        ));
+        assert!(matches!(
+            Failure::from_error(&Error::Transport("stream reset".into())).phase,
+            FailurePhase::Transport
+        ));
+    }
+}

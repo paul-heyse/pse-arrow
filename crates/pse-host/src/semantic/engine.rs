@@ -45,6 +45,8 @@ pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) ->
         .map_err(|error| match error {
             lspf::ClientError::Cancelled => Error::Cancelled,
             lspf::ClientError::Remote(error) => Error::Refusal(super::Failure {
+                phase: super::FailurePhase::Provider,
+                observed_cancellation: None,
                 state: match error.code {
                     -32800 | -32802 => super::FailureState::Cancelled,
                     -32801 => super::FailureState::Stale,
@@ -476,6 +478,7 @@ impl Engine {
                 preparation: status.preparation,
             },
             generation,
+            observed: super::protocol_facts::symbols(&native, None).into_iter().take(query.limit).collect(),
             symbols: section("workspace_symbols", native, query.limit),
             limitations: vec![
                 "Native workspace-symbol candidates retain provider ranking and configuration; document symbols and rustdoc item IDs are not interchangeable identities.".into(),
@@ -570,7 +573,11 @@ impl Engine {
         let mut proposal = None;
         let limit = query.limit;
         match &query.kind {
-            Kind::Importable {..}=>return Err(Error::Unavailable("the selected live LSP does not expose native visibility/import-path facts; explicitly select a prepared native snapshot".into())),
+            Kind::Importable { .. } => {
+                return Err(Error::unsupported(
+                    "the selected live LSP does not expose native visibility/import-path facts; explicitly select a prepared native snapshot",
+                ));
+            }
             Kind::Explain => {
                 let (hover, definition, type_definition) = tokio::join!(
                     request::<types::HoverRequest>(&self.server, params.clone()),
@@ -642,7 +649,7 @@ impl Engine {
             )),
             Kind::Candidate { index } => {
                 if query.if_source.is_none() || query.if_generation.is_none() {
-                    return Err(Error::Unavailable(
+                    return Err(Error::InvalidRequest(
                         "completion resolution requires --if-source and --if-generation".into(),
                     ));
                 }
@@ -677,7 +684,7 @@ impl Engine {
                 .await?;
                 if let Kind::Hint { index } = query.kind {
                     if query.if_source.is_none() || query.if_generation.is_none() {
-                        return Err(Error::Unavailable(
+                        return Err(Error::InvalidRequest(
                             "lazy hint resolution requires --if-source and --if-generation".into(),
                         ));
                     }
@@ -782,7 +789,7 @@ impl Engine {
                 let actions = request::<NativeActions>(&self.server, params.clone()).await?;
                 if let Kind::Assist { index } = query.kind {
                     if query.if_source.is_none() || query.if_generation.is_none() {
-                        return Err(Error::Unavailable("selected assist requires --if-source and --if-generation from discovery".into()));
+                        return Err(Error::InvalidRequest("selected assist requires --if-source and --if-generation from discovery".into()));
                     }
                     let action = actions
                         .as_array()
@@ -898,7 +905,12 @@ impl Engine {
                 ),
             _ => true,
         });
-        Ok(Some(Answer { session, source: source.identity().clone(),source_uri:uri(&file)?,source_byte_offset:crate::source_read::byte_offset(source.text(),query.line,query.column)?,availability:if available{super::Availability::Available}else{super::Availability::NoMatch}, generation, position, sections, location_sources,proposal,
+        let source_uri = uri(&file)?;
+        let (observed, omitted_relationships) =
+            super::protocol_facts::project(&sections, &source_uri)?;
+        Ok(Some(Answer { session, source: source.identity().clone(),source_uri,source_byte_offset:crate::source_read::byte_offset(source.text(),query.line,query.column)?,availability:if available{super::Availability::Available}else{super::Availability::NoMatch}, generation, position:serde_json::from_value(position)?, observed,omitted_relationships,
+            native_types:None,
+            sections, location_sources,proposal,
             limitations: vec![
                 "Analyzer evidence is not Cargo/Clippy/borrow-check acceptance. Macro/build-script preparation is explicit in session context; missing or failed preparation can make answers incomplete.".into(),
                 "The analyzer selects Cargo cfg/test contexts; LSP cannot select an exact compiler-unit/crate instance. Ambiguous same-file contexts remain backend-selected.".into(),
@@ -1093,7 +1105,7 @@ fn section(category: &str, mut evidence: Value, limit: usize) -> Section {
     }
 }
 fn check_candidate(query: &Query, candidate: &Value) -> Result<()> {
-    let expected=query.if_candidate.as_ref().ok_or_else(||Error::Unavailable("lazy selection requires --if-candidate fingerprint from discovery; an index is not an identity".into()))?;
+    let expected=query.if_candidate.as_ref().ok_or_else(||Error::InvalidRequest("lazy selection requires --if-candidate fingerprint from discovery; an index is not an identity".into()))?;
     if expected != &crate::source_read::source_digest(&serde_json::to_string(candidate)?) {
         return Err(Error::Stale);
     }
@@ -1110,14 +1122,15 @@ pub(super) fn position(text: &str, line: usize, column: usize, encoding: &str) -
     Ok(json!({"line":line-1,"character":character}))
 }
 pub(super) fn byte_position(text: &str, position: &Value, encoding: &str) -> Result<usize> {
-    let line = position["line"]
-        .as_u64()
-        .and_then(|value| usize::try_from(value).ok())
-        .ok_or_else(|| protocol("invalid protocol line"))?;
-    let character = position["character"]
-        .as_u64()
-        .and_then(|value| usize::try_from(value).ok())
-        .ok_or_else(|| protocol("invalid protocol character"))?;
+    byte_protocol_position(text, &serde_json::from_value(position.clone())?, encoding)
+}
+pub(super) fn byte_protocol_position(
+    text: &str,
+    position: &super::ProtocolPosition,
+    encoding: &str,
+) -> Result<usize> {
+    let line = usize::try_from(position.line).map_err(protocol)?;
+    let character = usize::try_from(position.character).map_err(protocol)?;
     let start = crate::source_read::byte_offset(text, line + 1, 1)?;
     let raw = text[start..].split('\n').next().unwrap_or("");
     let line_text = raw.strip_suffix('\r').unwrap_or(raw);

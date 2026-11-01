@@ -125,6 +125,56 @@ pub struct SourceIdentity {
     origin: SourceOrigin,
 }
 impl SourceIdentity {
+    /// Restore a transported owner observation without acquiring or trusting current bytes.
+    pub(crate) fn from_parts(
+        path: PathBuf,
+        source_sha256: String,
+        origin: SourceOrigin,
+    ) -> Result<Self, SourceReadError> {
+        if source_sha256.len() != 64
+            || !source_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+            || path.as_os_str().is_empty()
+        {
+            return Err(SourceReadError::InvalidIdentity);
+        }
+        match &origin {
+            SourceOrigin::Working if !path.is_absolute() => {
+                return Err(SourceReadError::RelativePath(path));
+            }
+            SourceOrigin::Index {
+                git_dir,
+                index_path,
+                blob,
+            } if path
+                .components()
+                .any(|part| !matches!(part, std::path::Component::Normal(_)))
+                || git_dir.as_bytes().is_empty()
+                || index_path.as_bytes().is_empty()
+                || blob.is_empty() =>
+            {
+                return Err(SourceReadError::InvalidIdentity);
+            }
+            SourceOrigin::Blob {
+                git_dir,
+                revision,
+                blob,
+            } if path
+                .components()
+                .any(|part| !matches!(part, std::path::Component::Normal(_)))
+                || git_dir.as_bytes().is_empty()
+                || revision.is_empty()
+                || blob.is_empty() =>
+            {
+                return Err(SourceReadError::InvalidIdentity);
+            }
+            _ => {}
+        }
+        Ok(Self {
+            path: path.into_os_string(),
+            source_sha256,
+            origin,
+        })
+    }
     /// Native operand: absolute for working files, Git-relative for index/tree paths.
     pub fn path(&self) -> &Path {
         Path::new(&self.path)
@@ -170,6 +220,16 @@ pub struct SourceText {
     pub(super) text: String,
 }
 impl SourceText {
+    /// Restore immutable original bytes only when they match their original owner digest.
+    pub(crate) fn from_identity(
+        identity: SourceIdentity,
+        text: String,
+    ) -> Result<Self, SourceReadError> {
+        if source_digest(&text) != identity.source_sha256 {
+            return Err(SourceReadError::StaleSource);
+        }
+        Ok(Self { identity, text })
+    }
     /// Bind explicitly supplied absolute working bytes without filesystem access.
     pub fn new(path: PathBuf, text: String) -> Result<Self, SourceReadError> {
         if !path.is_absolute() {

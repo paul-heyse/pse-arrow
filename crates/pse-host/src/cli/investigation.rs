@@ -660,10 +660,12 @@ fn execute(
             query::Event::Source(source) => report.sources.push(*source),
             query::Event::Result(row) => report.results.push(*row),
             query::Event::Diagnostic {
+                phase,
                 code,
                 message,
                 source,
             } => report.diagnostics.push(query::QueryDiagnostic {
+                phase,
                 code,
                 message,
                 source,
@@ -700,19 +702,20 @@ fn execute(
     let summary = match performed {
         Ok(summary) => summary,
         Err(error) => {
-            if matches!(error, query::Error::Io(_)) && token.is_cancelled() {
+            if matches!(error, query::Error::Delivery(_)) && token.is_cancelled() {
                 return Err(error);
             }
             let disposition = error.disposition();
             if let Some(failure) = error.native_refusal() {
                 emit(query::Event::NativeFailure {
-                    failure: Box::new(failure.clone()),
+                    failure: Box::new(failure),
                 })?;
             }
             let unavailable = disposition == query::FailureDisposition::Unavailable;
             let cancelled =
                 disposition == query::FailureDisposition::Cancelled || token.is_cancelled();
             emit(query::Event::Diagnostic {
+                phase: error.phase(),
                 code: if unavailable {
                     "investigation.unavailable"
                 } else {
@@ -974,10 +977,11 @@ pub(super) fn inspect(
     if matches!(options.view, Some(View::Tests))
         && let Inspection::Semantic(answer) = &response.payload
     {
-        let configuration: crate::semantic::Configuration =
-            serde_json::from_value(answer.native["session"]["configuration"].clone())
-                .map_err(query::Error::from)?;
-        response.next = super::code::semantic::test_routes(&root, &answer.native, &configuration);
+        response.next = super::code::semantic::test_routes(
+            &root,
+            &answer.native,
+            &answer.native.session.configuration,
+        );
     }
     if output.format == OutputFormat::Human
         && output.presentation.fields.is_none()

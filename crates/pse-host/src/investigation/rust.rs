@@ -316,7 +316,7 @@ pub fn evaluate(
                 result.push(row);
             }
             let diagnostics = if native.recovery {
-                vec![QueryDiagnostic {code:"search.syntax_recovery".into(),message:"native parser recovered malformed Rust; positive syntax witnesses remain usable, exhaustive absence and exact semantic/parse completeness are not established".into(),source:None}]
+                vec![QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.syntax_recovery".into(),message:"native parser recovered malformed Rust; positive syntax witnesses remain usable, exhaustive absence and exact semantic/parse completeness are not established".into(),source:None}]
             } else {
                 Vec::new()
             };
@@ -379,6 +379,18 @@ pub fn evaluate(
                 {
                     continue;
                 }
+                let typed = crate::code_intelligence_contracts::source_declaration(
+                    source,
+                    &outline.source_sha256,
+                    &entry,
+                )
+                .map_err(native)?;
+                let projected = crate::code_intelligence_contracts::project_declaration(&typed)
+                    .ok_or_else(|| {
+                        Error::Unavailable(
+                            "source declaration has no supported typed projection".into(),
+                        )
+                    })?;
                 let prefixes = if contexts.is_empty() {
                     vec![Vec::new()]
                 } else {
@@ -397,12 +409,7 @@ pub fn evaluate(
                         .cloned()
                         .collect::<Vec<_>>()
                         .join("::");
-                    if !name_matches(
-                        &qualified,
-                        entry.path.last().map_or("", String::as_str),
-                        &query.name,
-                        query.matching,
-                    ) {
+                    if !name_matches(&qualified, projected.name, &query.name, query.matching) {
                         continue;
                     }
                     if query.module.as_ref().is_some_and(|module| {
@@ -420,7 +427,7 @@ pub fn evaluate(
                         input,
                         source,
                         Some(range(&entry.range)),
-                        entry.kind.clone(),
+                        projected.kind.to_owned(),
                         Some(qualified),
                         entry.signature.clone(),
                     ));
@@ -442,6 +449,7 @@ pub fn evaluate(
                 .parse_issues
                 .into_iter()
                 .map(|issue| QueryDiagnostic {
+                    phase: DiagnosticPhase::Context,
                     code: "search.source_parse".into(),
                     message: format!("{issue:?}"),
                     source: None,
@@ -451,10 +459,10 @@ pub fn evaluate(
                 diagnostics.extend(graph.diagnostics_for(&input.path).cloned());
             }
             if missing {
-                diagnostics.push(QueryDiagnostic {code:"search.module_unavailable".into(),message:"selected source has no established authored crate/module route; qualified absence is unknown".into(),source:None});
+                diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.module_unavailable".into(),message:"selected source has no established authored crate/module route; qualified absence is unknown".into(),source:None});
             }
             if contexts.len() > 1 || contexts.iter().any(|context| context.conditional) {
-                diagnostics.push(QueryDiagnostic {code:"search.written_contexts".into(),message:format!("written module routes retain target/configuration ambiguity: {contexts:?}; no active compiler context is claimed"),source:None});
+                diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.written_contexts".into(),message:format!("written module routes retain target/configuration ambiguity: {contexts:?}; no active compiler context is claimed"),source:None});
             }
             Ok(Evaluation {
                 rows,
@@ -713,7 +721,7 @@ pub async fn global_search(
                 crate::semantic::client_cancellable(root, &env, &record, &native_request, token)
                     .await
                     .map_err(Error::from)?;
-            let answer: crate::semantic::WorkspaceAnswer = serde_json::from_value(value)?;
+            let answer = value.into_workspace().map_err(Error::from)?;
             emit(Event::Source(Box::new(SourceContext {
                 id: "semantic".into(),
                 path: record.configuration.project.clone().into(),
@@ -728,22 +736,14 @@ pub async fn global_search(
                 }),
             })))?;
             let mut summary = Summary::default();
-            for symbol in answer.symbols.evidence.as_array().into_iter().flatten() {
+            for symbol in &answer.observed {
                 if token.is_cancelled() {
                     return Err(Error::Cancelled);
                 }
-                let Some(uri) = symbol
-                    .pointer("/location/uri")
-                    .and_then(serde_json::Value::as_str)
-                else {
+                let Some(location) = &symbol.location else {
                     continue;
                 };
-                let Some(path) = url::Url::parse(uri)
-                    .ok()
-                    .and_then(|uri| uri.to_file_path().ok())
-                else {
-                    continue;
-                };
+                let path = fact_path(location)?;
                 let path = path.canonicalize()?;
                 let accepted = if let Ok(relative) = path.strip_prefix(project) {
                     selected.contains(&path) && selector.accepts(relative, &request.sources)
@@ -754,18 +754,14 @@ pub async fn global_search(
                 if !accepted {
                     continue;
                 }
-                let name = symbol["name"].as_str().unwrap_or("").to_owned();
+                let name = symbol.name.clone();
                 // Native module-path resolution established the qualified prefix;
                 // apply the remaining written-name policy only to the final item.
                 let item_needle = query.name.rsplit("::").next().unwrap_or(&query.name);
                 if !name_matches(&name, &name, item_needle, query.matching) {
                     continue;
                 }
-                let kind = symbol["kind"]
-                    .as_u64()
-                    .map(symbol_kind)
-                    .or_else(|| symbol["kind"].as_str().map(native_symbol_kind))
-                    .unwrap_or("unknown");
+                let kind = symbol.kind.as_deref().unwrap_or("unknown");
                 if !query.kinds.is_empty()
                     && !query
                         .kinds
@@ -809,7 +805,7 @@ pub async fn global_search(
             if answer.symbols.omitted > 0 {
                 summary.stop = StopReason::Limit;
             }
-            emit(Event::Diagnostic {code:"search.semantic_scope".into(),message:"native workspace-symbol response is non-exhaustive/provider-ranked; missing candidates are not established absent, and a returned array does not prove uncapped search".into(),source:Some("semantic".into())})?;
+            emit(Event::Diagnostic {phase: DiagnosticPhase::Provider, code:"search.semantic_scope".into(),message:"native workspace-symbol response is non-exhaustive/provider-ranked; missing candidates are not established absent, and a returned array does not prove uncapped search".into(),source:Some("semantic".into())})?;
             Ok(summary)
         }
         _ => Err(Error::Invalid(
@@ -817,22 +813,13 @@ pub async fn global_search(
         )),
     }
 }
-fn symbol_kind(kind: u64) -> &'static str {
-    match kind {
-        2 => "module",
-        5 => "class",
-        6 => "method",
-        8 => "field",
-        9 => "constructor",
-        10 => "enum",
-        11 => "interface",
-        12 => "function",
-        13 => "variable",
-        14 => "constant",
-        22 => "enum_member",
-        23 => "struct",
-        26 => "type_parameter",
-        _ => "other",
+fn fact_path(location: &crate::semantic::FactLocation) -> Result<std::path::PathBuf, Error> {
+    match location {
+        crate::semantic::FactLocation::Bytes { path, .. } => Ok(path.clone()),
+        crate::semantic::FactLocation::Protocol { uri, .. } => url::Url::parse(uri)
+            .map_err(|error| Error::Invalid(error.to_string()))?
+            .to_file_path()
+            .map_err(|()| Error::Unavailable("native location is not a local file".into())),
     }
 }
 fn native_symbol_kind(kind: &str) -> &str {
@@ -854,22 +841,13 @@ fn semantic_locator(
     project: &Path,
     invocation: &str,
     answer: &crate::semantic::WorkspaceAnswer,
-    symbol: &serde_json::Value,
+    symbol: &crate::semantic::SymbolFact,
 ) -> Result<Option<ResultReference>, Error> {
-    let Some(uri) = symbol
-        .pointer("/location/uri")
-        .and_then(serde_json::Value::as_str)
-    else {
+    let Some(location) = &symbol.location else {
         return Ok(None);
     };
-    let path = url::Url::parse(uri)
-        .map_err(|error| Error::Invalid(error.to_string()))?
-        .to_file_path()
-        .map_err(|()| Error::Invalid("native symbol URI is not a local file".into()))?;
-    let Some(position) = symbol.pointer("/location/range/start") else {
-        return Ok(None);
-    };
-    let Some(original_digest) = symbol["source_sha256"].as_str() else {
+    let path = fact_path(location)?;
+    let Some(original_digest) = symbol.source_sha256.as_deref() else {
         return Ok(None);
     };
     let source = SourceRequest::Working { path: path.clone() }
@@ -880,12 +858,23 @@ fn semantic_locator(
             "native declaration source changed before publishing its locator".into(),
         ));
     }
-    let offset = crate::semantic::native_byte_position(
-        source.text(),
-        position,
-        &answer.session.position_encoding,
-    )
-    .map_err(Error::from)?;
+    let offset = match location {
+        crate::semantic::FactLocation::Bytes { start, end, .. } => {
+            if start > end || source.text().get(*start..*end).is_none() {
+                return Err(Error::Stale(
+                    "native symbol interval is outside its original source".into(),
+                ));
+            }
+            *start
+        }
+        crate::semantic::FactLocation::Protocol { range, .. } => {
+            crate::semantic::native_byte_protocol_position(
+                source.text(),
+                &range.start,
+                &answer.session.position_encoding,
+            )?
+        }
+    };
     let line = source.text()[..offset]
         .bytes()
         .filter(|byte| *byte == b'\n')
@@ -912,7 +901,7 @@ pub async fn semantic_operation(
     root: &Path,
     locator: &Locator,
     kind: crate::semantic::Kind,
-) -> Result<serde_json::Value, Error> {
+) -> Result<crate::semantic::Answer, Error> {
     semantic_operation_cancellable(root, locator, kind, &CancellationToken::new()).await
 }
 /// Use one selected native request, retaining actual snapshot cancellation settlement.
@@ -921,8 +910,18 @@ pub async fn semantic_operation_cancellable(
     locator: &Locator,
     kind: crate::semantic::Kind,
     token: &CancellationToken,
-) -> Result<serde_json::Value, Error> {
-    semantic_query(root, locator, kind, 20, token).await
+) -> Result<crate::semantic::Answer, Error> {
+    semantic_query(root, locator, kind, 20, token, None).await
+}
+/// Reuse the selected authenticated connection for one composed question/world.
+pub async fn semantic_operation_with_context(
+    root: &Path,
+    locator: &Locator,
+    kind: crate::semantic::Kind,
+    token: &CancellationToken,
+    context: &ResolutionContext,
+) -> Result<crate::semantic::Answer, Error> {
+    semantic_query(root, locator, kind, 20, token, Some(context)).await
 }
 async fn semantic_query(
     root: &Path,
@@ -930,7 +929,8 @@ async fn semantic_query(
     kind: crate::semantic::Kind,
     limit: usize,
     token: &CancellationToken,
-) -> Result<serde_json::Value, Error> {
+    context: Option<&ResolutionContext>,
+) -> Result<crate::semantic::Answer, Error> {
     let Locator::Semantic {
         project,
         path,
@@ -981,15 +981,15 @@ async fn semantic_query(
         limit,
         end_line: None,
     };
-    crate::semantic::client_cancellable(
-        root,
-        &env,
-        &record,
-        &crate::semantic::Request::Query(query),
-        token,
-    )
-    .await
-    .map_err(Error::from)
+    let request = crate::semantic::Request::Query(query);
+    let response = if let Some(context) = context {
+        context.request(root, &env, &record, &request, token).await
+    } else {
+        crate::semantic::client_cancellable(root, &env, &record, &request, token)
+            .await
+            .map_err(Error::from)
+    }?;
+    response.into_query().map_err(Error::from)
 }
 /// Original artifact guards and selected native configuration define a batch proof.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -1005,6 +1005,7 @@ struct ApiContextKey {
 pub struct ResolutionContext {
     api: Mutex<BTreeMap<ApiContextKey, Arc<crate::api::bridge::SourceBridge>>>,
     definitions: Mutex<BTreeMap<std::path::PathBuf, Arc<CheckedDefinition>>>,
+    clients: tokio::sync::Mutex<BTreeMap<(String, String), Arc<crate::semantic::Client>>>,
 }
 #[derive(Debug)]
 struct CheckedDefinition {
@@ -1012,6 +1013,39 @@ struct CheckedDefinition {
     routes: crate::api::query::SourceRoutes,
 }
 impl ResolutionContext {
+    async fn request(
+        &self,
+        root: &Path,
+        environment: &crate::environment::Environment,
+        record: &crate::semantic::SessionRecord,
+        request: &crate::semantic::Request,
+        token: &CancellationToken,
+    ) -> Result<crate::semantic::Response, Error> {
+        if token.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        let key = (
+            record.invocation.to_string(),
+            record.configuration.identity()?,
+        );
+        let client = {
+            let mut clients = self.clients.lock().await;
+            if let Some(client) = clients.get(&key) {
+                client.clone()
+            } else {
+                let client = tokio::select! {
+                    client = crate::semantic::Client::connect(root, environment, record) => Arc::new(client?),
+                    _ = token.cancelled() => return Err(Error::Cancelled),
+                };
+                clients.insert(key, client.clone());
+                client
+            }
+        };
+        client
+            .request(request, Some(token))
+            .await
+            .map_err(Error::from)
+    }
     async fn api_source(
         &self,
         root: &Path,
@@ -1073,17 +1107,18 @@ impl ResolutionContext {
             bridge
         } else {
             let artifact = Arc::new(checked_api_surface(root, locator)?);
-            let value = crate::semantic::client_cancellable(
-                root,
-                environment,
-                record,
-                &crate::semantic::Request::PackageContext {
-                    package_id: artifact.context.package_id.clone(),
-                },
-                token,
-            )
-            .await?;
-            let captured: crate::semantic::PackageContextAnswer = serde_json::from_value(value)?;
+            let value = self
+                .request(
+                    root,
+                    environment,
+                    record,
+                    &crate::semantic::Request::PackageContext {
+                        package_id: artifact.context.package_id.clone(),
+                    },
+                    token,
+                )
+                .await?;
+            let captured = value.into_package_context().map_err(Error::from)?;
             if captured.session.configuration != record.configuration {
                 return Err(Error::Stale(
                     "captured native package context belongs to another selected configuration"
@@ -1245,9 +1280,13 @@ pub async fn importability(
     target: &ResolvedEntity,
     destination: &Locator,
     token: &CancellationToken,
-    _context: &ResolutionContext,
-) -> Result<(Truth, serde_json::Value), Error> {
-    let location = serde_json::json!({"path":target.identity.declaration.to_path_buf(),"start":target.identity.byte_start,"end":target.identity.byte_end});
+    context: &ResolutionContext,
+) -> Result<(Truth, crate::semantic::Answer), Error> {
+    let location = crate::semantic::FactLocation::Bytes {
+        path: target.identity.declaration.to_path_buf(),
+        start: target.identity.byte_start,
+        end: target.identity.byte_end,
+    };
     let (declaration, _) = guard_location(root, &target.locator, &target.native, &location)?;
     let Locator::Semantic {
         source_sha256: Some(source_sha256),
@@ -1273,7 +1312,7 @@ pub async fn importability(
         ));
     }
     *generation = Some(target.identity.generation.to_string());
-    let answer = semantic_operation_cancellable(
+    let answer = semantic_operation_with_context(
         root,
         &destination,
         crate::semantic::Kind::Importable {
@@ -1285,15 +1324,15 @@ pub async fn importability(
             },
         },
         token,
+        context,
     )
     .await?;
-    let fact = answer["sections"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .find(|section| section["category"] == "importability")
-        .map(|section| &section["evidence"]);
-    let truth = match fact.and_then(|fact| fact["importable"].as_bool()) {
+    let truth = match answer
+        .observed
+        .importability
+        .as_ref()
+        .and_then(|fact| fact.importable)
+    {
         Some(true) => Truth::True,
         Some(false) => Truth::False,
         None => Truth::Unknown,
@@ -1309,7 +1348,7 @@ pub struct ResolvedEntity {
     /// Guarded native position used to obtain the resolution.
     pub locator: Locator,
     /// Faithfully retained native answer, never a name-based reconstructed proof.
-    pub native: serde_json::Value,
+    pub native: crate::semantic::Answer,
 }
 /// One directed native relationship evaluation, including unavailable/omitted coverage.
 #[derive(Debug)]
@@ -1328,54 +1367,25 @@ pub struct RelationEvaluation {
 pub fn guard_location(
     root: &Path,
     seed: &Locator,
-    answer: &serde_json::Value,
-    location: &serde_json::Value,
+    answer: &crate::semantic::Answer,
+    location: &crate::semantic::FactLocation,
 ) -> Result<(Locator, MatchRange), Error> {
-    let (path, bytes) = if let Some(path) = location.get("path") {
-        let path: std::path::PathBuf = serde_json::from_value(path.clone())?;
-        let start = location["start"]
-            .as_u64()
-            .and_then(|value| usize::try_from(value).ok())
-            .ok_or_else(|| Error::Invalid("native byte location has no supported start".into()))?;
-        let end = location["end"]
-            .as_u64()
-            .and_then(|value| usize::try_from(value).ok())
-            .ok_or_else(|| Error::Invalid("native byte location has no supported end".into()))?;
-        (path, Some((start, end)))
-    } else {
-        let uri = location
-            .get("targetUri")
-            .or_else(|| location.get("uri"))
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| {
-                Error::Unavailable("native result has no original local source location".into())
-            })?;
-        (
-            url::Url::parse(uri)
-                .map_err(|error| Error::Invalid(error.to_string()))?
-                .to_file_path()
-                .map_err(|()| Error::Unavailable("native location is not a local file".into()))?,
-            None,
-        )
+    let bytes = match location {
+        crate::semantic::FactLocation::Bytes { start, end, .. } => Some((*start, *end)),
+        crate::semantic::FactLocation::Protocol { .. } => None,
     };
-    let path = path.canonicalize()?;
-    let original_uri = answer["source_uri"]
-        .as_str()
-        .and_then(|uri| url::Url::parse(uri).ok())
+    let path = fact_path(location)?.canonicalize()?;
+    let original_uri = url::Url::parse(&answer.source_uri)
+        .ok()
         .and_then(|uri| uri.to_file_path().ok());
-    let guards: Vec<crate::semantic::LocationSource> = serde_json::from_value(
-        answer
-            .get("location_sources")
-            .cloned()
-            .unwrap_or_else(|| serde_json::json!([])),
-    )?;
     let digest = if original_uri
         .as_ref()
         .is_some_and(|original| original == &path)
     {
-        answer["source"]["source_sha256"].as_str()
+        Some(answer.source.source_sha256())
     } else {
-        guards
+        answer
+            .location_sources
             .iter()
             .find(|guard| guard.path == path)
             .map(|guard| guard.source_sha256.as_str())
@@ -1394,16 +1404,15 @@ pub fn guard_location(
     let (start, end) = if let Some(bytes) = bytes {
         bytes
     } else {
-        let range = location
-            .get("targetSelectionRange")
-            .or_else(|| location.get("range"))
-            .ok_or_else(|| Error::Unavailable("native target has no addressed range".into()))?;
-        let encoding = answer["session"]["position_encoding"]
-            .as_str()
-            .ok_or_else(|| Error::Unavailable("native answer has no coordinate encoding".into()))?;
+        let crate::semantic::FactLocation::Protocol { range, .. } = location else {
+            return Err(Error::Invalid(
+                "native target lost its coordinate variant".into(),
+            ));
+        };
+        let encoding = &answer.session.position_encoding;
         (
-            crate::semantic::native_byte_position(source.text(), &range["start"], encoding)?,
-            crate::semantic::native_byte_position(source.text(), &range["end"], encoding)?,
+            crate::semantic::native_byte_protocol_position(source.text(), &range.start, encoding)?,
+            crate::semantic::native_byte_protocol_position(source.text(), &range.end, encoding)?,
         )
     };
     if start > end || source.text().get(start..end).is_none() {
@@ -1431,16 +1440,12 @@ pub fn guard_location(
             "native linked location belongs to a replaced session".into(),
         ));
     }
-    let configuration: crate::semantic::Configuration =
-        serde_json::from_value(answer["session"]["configuration"].clone())?;
-    if configuration != record.configuration {
+    if answer.session.configuration != record.configuration {
         return Err(Error::Stale(
             "native linked location has a different selected configuration".into(),
         ));
     }
-    let generation = answer["generation"]
-        .as_u64()
-        .ok_or_else(|| Error::Unavailable("native answer has no generation".into()))?;
+    let generation = answer.generation;
     let anchor = crate::source_read::semantic_anchor(source.text(), start..end).unwrap_or(start);
     let line = source.text()[..anchor]
         .bytes()
@@ -1480,33 +1485,13 @@ pub fn guard_location(
         },
     ))
 }
-fn definition_locations(answer: &serde_json::Value) -> Vec<serde_json::Value> {
-    let locations = answer["sections"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter(|section| section["category"] == "definition")
-        .flat_map(|section| {
-            if let Some(items) = section["evidence"].as_array() {
-                items
-                    .iter()
-                    .map(|item| item.get("location").unwrap_or(item).clone())
-                    .collect()
-            } else if section["evidence"].is_object() {
-                vec![section["evidence"].clone()]
-            } else {
-                Vec::new()
-            }
-        })
-        .collect::<Vec<_>>();
-    if !locations.is_empty() {
-        return locations;
-    }
+fn definition_locations(answer: &crate::semantic::Answer) -> Vec<crate::semantic::FactLocation> {
     answer
-        .pointer("/facts/target/location")
-        .filter(|location| !location.is_null())
-        .cloned()
-        .into_iter()
+        .observed
+        .relationships
+        .iter()
+        .filter(|fact| fact.relation == crate::semantic::FactRelation::Definition)
+        .map(|fact| fact.location.clone())
         .collect()
 }
 /// Resolve only genuine native declaration locations in one selected world, never names.
@@ -1528,19 +1513,18 @@ pub async fn resolve_entity_with_context(
     context: &ResolutionContext,
 ) -> Result<ResolvedEntity, Error> {
     let semantic = source_semantic_with_context(root, locator, token, context).await?;
-    let answer =
-        semantic_operation_cancellable(root, &semantic, crate::semantic::Kind::Explain, token)
-            .await?;
-    if answer["sections"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .any(|section| {
-            section["category"] == "definition"
-                && section["omitted"]
-                    .as_u64()
-                    .is_some_and(|omitted| omitted > 0)
-        })
+    let answer = semantic_operation_with_context(
+        root,
+        &semantic,
+        crate::semantic::Kind::Explain,
+        token,
+        context,
+    )
+    .await?;
+    if answer
+        .omitted_relationships
+        .get(&crate::semantic::FactRelation::Definition)
+        .is_some_and(|omitted| *omitted > 0)
     {
         return Err(Error::Unavailable(
             "native declaration identity is ambiguous beyond the returned target allowance".into(),
@@ -1564,11 +1548,8 @@ pub async fn resolve_entity_with_context(
         .into_iter()
         .next()
         .ok_or_else(|| Error::Unavailable("native declaration target is unavailable".into()))?;
-    let configuration: crate::semantic::Configuration =
-        serde_json::from_value(answer["session"]["configuration"].clone())?;
-    let generation = answer["generation"]
-        .as_u64()
-        .ok_or_else(|| Error::Unavailable("native declaration has no generation".into()))?;
+    let configuration = &answer.session.configuration;
+    let generation = answer.generation;
     let mut locator = semantic;
     let Locator::Semantic {
         generation: guard,
@@ -1643,90 +1624,40 @@ pub async fn relationship_with_context(
                 .into(),
         ));
     }
-    let answer = semantic_query(root, &semantic, kind, limit, token).await?;
-    let configuration: crate::semantic::Configuration =
-        serde_json::from_value(answer["session"]["configuration"].clone())?;
-    let mut locations = Vec::new();
-    if relation == Relationship::Definition {
-        locations.extend(
-            definition_locations(&answer)
-                .into_iter()
-                .map(|location| (location.clone(), location)),
-        );
-    } else if relation == Relationship::References && answer["references"].is_array() {
-        for reference in answer["references"].as_array().into_iter().flatten() {
-            if let Some(location) = reference.get("location") {
-                locations.push((location.clone(), reference.clone()));
-            }
-        }
-    } else {
-        for section in answer["sections"].as_array().into_iter().flatten() {
-            let category = section["category"].as_str().unwrap_or("");
-            match relation {
-                Relationship::References if category == "references_by_file" => {
-                    for file in section["evidence"]["files"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                    {
-                        for reference in file["references"].as_array().into_iter().flatten() {
-                            locations.push((reference.clone(), reference.clone()));
-                        }
-                    }
-                }
-                Relationship::Implementations
-                    if matches!(category, "implementations" | "native_implementations") =>
-                {
-                    for target in section["evidence"].as_array().into_iter().flatten() {
-                        locations.push((
-                            target.get("location").unwrap_or(target).clone(),
-                            target.clone(),
-                        ));
-                    }
-                }
-                Relationship::Calls
-                    if category
-                        == if direction == Direction::Incoming {
-                            "incoming_calls_one_hop"
-                        } else {
-                            "outgoing_calls_one_hop"
-                        } =>
-                {
-                    let key = if direction == Direction::Incoming {
-                        "from"
-                    } else {
-                        "to"
-                    };
-                    for edge in section["evidence"].as_array().into_iter().flatten() {
-                        let target = &edge[key];
-                        locations.push((serde_json::json!({"uri":target["uri"],"range":target["selectionRange"]}),edge.clone()));
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+    let answer = semantic_query(root, &semantic, kind, limit, token, Some(context)).await?;
+    let configuration = &answer.session.configuration;
+    let fact_relation = match relation {
+        Relationship::Definition => crate::semantic::FactRelation::Definition,
+        Relationship::References => crate::semantic::FactRelation::References,
+        Relationship::Calls => crate::semantic::FactRelation::Calls,
+        Relationship::Implementations => crate::semantic::FactRelation::Implementations,
+    };
+    let fact_direction = match direction {
+        Direction::Incoming => crate::semantic::FactDirection::Incoming,
+        Direction::Outgoing => crate::semantic::FactDirection::Outgoing,
+    };
+    let locations = answer
+        .observed
+        .relationships
+        .iter()
+        .filter(|fact| fact.relation == fact_relation && fact.direction == fact_direction);
     let mut rows = Vec::new();
     let mut diagnostics = Vec::new();
     let mut complete = configuration.backend == crate::semantic::Backend::NativeSnapshot
-        && answer["availability"] == "available"
-        && !answer["sections"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .any(|section| {
-                section["omitted"]
-                    .as_u64()
-                    .is_some_and(|omitted| omitted > 0)
-            });
-    let generation = answer["generation"]
-        .as_u64()
-        .ok_or_else(|| Error::Unavailable("native relation has no generation".into()))?;
-    for (location, evidence) in locations {
+        && matches!(
+            answer.availability,
+            crate::semantic::Availability::Available
+        )
+        && !answer
+            .omitted_relationships
+            .get(&fact_relation)
+            .is_some_and(|omitted| *omitted > 0);
+    let generation = answer.generation;
+    for evidence in locations {
         if token.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        match guard_location(root, &semantic, &answer, &location) {
+        match guard_location(root, &semantic, &answer, &evidence.location) {
             Ok((locator, range)) => {
                 let entity = if relation != Relationship::References {
                     let Locator::Semantic {
@@ -1753,7 +1684,7 @@ pub async fn relationship_with_context(
                 rows.push(SearchResult {
                     source: "native_relationship".into(),
                     kind: format!("{relation:?}").to_lowercase(),
-                    name: evidence["name"].as_str().map(str::to_owned),
+                    name: evidence.name.clone(),
                     range: Some(range),
                     context: serde_json::to_string(&evidence)?,
                     bytes: None,
@@ -1767,6 +1698,7 @@ pub async fn relationship_with_context(
             Err(error) => {
                 complete = false;
                 diagnostics.push(QueryDiagnostic {
+                    phase: DiagnosticPhase::Context,
                     code: "search.native_location_unavailable".into(),
                     message: error.to_string(),
                     source: Some("native_relationship".into()),
@@ -1775,16 +1707,13 @@ pub async fn relationship_with_context(
         }
     }
     if !complete {
-        diagnostics.push(QueryDiagnostic {code:"search.native_relationship_scope".into(),message:"native relationship output is bounded/selected-context evidence; omissions, unknown preparation or provider coverage do not establish whole-program absence or runtime reach".into(),source:Some("native_relationship".into())});
+        diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.native_relationship_scope".into(),message:"native relationship output is bounded/selected-context evidence; omissions, unknown preparation or provider coverage do not establish whole-program absence or runtime reach".into(),source:Some("native_relationship".into())});
     }
     let sources = vec![SourceContext {
         id: "native_relationship".into(),
-        path: configuration.project.into(),
+        path: configuration.project.clone().into(),
         origin: Some(SourceKind::Working),
-        provider: answer["session"]["backend"]
-            .as_str()
-            .unwrap_or("native")
-            .into(),
+        provider: answer.session.backend.clone(),
         generation: Some(generation.to_string()),
         searched_encoding: None,
         native: Some(NativeContext {
@@ -1800,7 +1729,7 @@ pub async fn relationship_with_context(
                 }
             },
             generation,
-            analysis: serde_json::from_value(answer["session"].clone())?,
+            analysis: answer.session.clone(),
         }),
     }];
     Ok(RelationEvaluation {
@@ -1816,7 +1745,7 @@ pub struct SemanticInspection {
     /// Original guarded semantic address, not a display-name identity.
     pub locator: Locator,
     /// Actual native answer including source/generation, sections and checked proposal.
-    pub native: serde_json::Value,
+    pub native: crate::semantic::Answer,
     /// Native discovery handles rebound to the consolidated interface.
     pub followups: Vec<SemanticAction>,
 }
@@ -1838,43 +1767,29 @@ pub async fn semantic_view(
 ) -> Result<SemanticInspection, Error> {
     let native = semantic_operation(root, locator, kind).await?;
     let mut followups = Vec::new();
-    for section in native["sections"].as_array().into_iter().flatten() {
-        let view = match section["category"].as_str() {
-            Some("completion_candidates") => "candidate",
-            Some("selected_inlay_annotations") => "hint",
-            Some("assist_candidates") => "assist",
-            _ => continue,
+    for handle in &native.observed.candidates {
+        let view = match handle.kind {
+            crate::semantic::CandidateKind::Completion => "candidate",
+            crate::semantic::CandidateKind::Hint => "hint",
+            crate::semantic::CandidateKind::Assist => "assist",
         };
-        for handle in section["handles"].as_array().into_iter().flatten() {
-            let Some(index) = handle["index"]
-                .as_u64()
-                .and_then(|value| usize::try_from(value).ok())
-            else {
-                continue;
-            };
-            let Some(fingerprint) = handle["fingerprint"].as_str() else {
-                continue;
-            };
-            let mut selected = locator.clone();
-            if let Locator::Semantic {
-                generation,
-                source_sha256,
-                candidate_fingerprint,
-                ..
-            } = &mut selected
-            {
-                *generation = native["generation"].as_u64().map(|value| value.to_string());
-                *source_sha256 = native["source"]["source_sha256"]
-                    .as_str()
-                    .map(str::to_owned);
-                *candidate_fingerprint = Some(fingerprint.into());
-            }
-            followups.push(SemanticAction {
-                view: view.into(),
-                select: index,
-                reference: ResultReference::new(selected),
-            });
+        let mut selected = locator.clone();
+        if let Locator::Semantic {
+            generation,
+            source_sha256,
+            candidate_fingerprint,
+            ..
+        } = &mut selected
+        {
+            *generation = Some(native.generation.to_string());
+            *source_sha256 = Some(native.source.source_sha256().into());
+            *candidate_fingerprint = Some(handle.fingerprint.clone());
         }
+        followups.push(SemanticAction {
+            view: view.into(),
+            select: handle.index,
+            reference: ResultReference::new(selected),
+        });
     }
     Ok(SemanticInspection {
         locator: locator.clone(),
@@ -2141,6 +2056,7 @@ fn api_search(
     for route in &page.unexamined_external_routes {
         summary.unknown += 1;
         emit(Event::Diagnostic {
+            phase: DiagnosticPhase::Provider,
             code: "search.api_unexamined_route".into(),
             message: format!(
                 "external public route {route} may contain matching descendants; this acquired surface does not establish their declarations"
@@ -2155,6 +2071,7 @@ fn api_search(
             .map(|message| RefinementFact {
                 truth: Truth::Unknown,
                 diagnostic: Some(QueryDiagnostic {
+                    phase: DiagnosticPhase::Context,
                     code: "search.api_qualification_unknown".into(),
                     message,
                     source: Some("api".into()),
@@ -2167,6 +2084,7 @@ fn api_search(
             .and_then(|fact| fact.diagnostic.as_ref())
         {
             emit(Event::Diagnostic {
+                phase: diagnostic.phase,
                 code: diagnostic.code.clone(),
                 message: diagnostic.message.clone(),
                 source: diagnostic.source.clone(),

@@ -431,19 +431,19 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
             .unwrap(),
     );
     assert!(
-        symbol_inspection["payload"]["native"]["sections"]
+        symbol_inspection["payload"]["native"]["observed"]["relationships"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|section| section["category"] == "definition"),
+            .any(|fact| fact["relation"] == "definition"),
         "{symbol_inspection}"
     );
     assert_eq!(
-        symbol_inspection["payload"]["native"]["facts"]["target"]["name"], "invoke",
+        symbol_inspection["payload"]["native"]["native_types"]["target"]["name"], "invoke",
         "{symbol_inspection}"
     );
     assert_eq!(
-        symbol_inspection["payload"]["native"]["facts"]["target"]["location"]["path"],
+        symbol_inspection["payload"]["native"]["native_types"]["target"]["location"]["path"],
         fixture.project.path().join("src/lib.rs").to_str().unwrap(),
         "{symbol_inspection}"
     );
@@ -470,7 +470,7 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
             .unwrap(),
     );
     assert!(
-        inspected["payload"]["native"]["facts"]["target"]["location"].is_object(),
+        inspected["payload"]["native"]["observed"]["relationships"][0]["location"].is_object(),
         "{inspected}"
     );
     let selection = value(
@@ -618,14 +618,13 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
             .unwrap(),
     );
     assert!(
-        calls["payload"]["native"]["sections"]
+        calls["payload"]["native"]["observed"]["relationships"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|section| section["category"] == "incoming_calls_one_hop"
-                && section["evidence"].as_array().is_some_and(|edges| edges
-                    .iter()
-                    .any(|edge| edge["from"]["name"] == "invoke"))),
+            .any(|fact| fact["relation"] == "calls"
+                && fact["direction"] == "incoming"
+                && fact["name"] == "invoke"),
         "only actual LSP call hierarchy proves the invoke caller; reference hits alone do not: {calls}"
     );
     fixture.stop();

@@ -1029,8 +1029,29 @@ impl Default for Summary {
     }
 }
 /// Original ordered query diagnostic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticPhase {
+    /// Input could not be decoded as the declared request schema.
+    Schema,
+    /// A decoded request contradicts the selected operation's constraints.
+    Constraint,
+    /// The request validator failed to establish validity.
+    Validator,
+    /// Source, artifact or prepared-world premises are missing or stale.
+    Context,
+    /// Original work settlement could not be observed or has a qualified completion state.
+    Settlement,
+    /// The selected provider could not establish the requested observation.
+    Provider,
+    /// Complete records could not reach the selected consumer.
+    Delivery,
+}
+/// Original ordered query diagnostic.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct QueryDiagnostic {
+    /// The failing boundary, independent of native diagnostic wording.
+    pub phase: DiagnosticPhase,
     /// Native typed category.
     pub code: String,
     /// Original explanation.
@@ -1072,6 +1093,8 @@ pub enum Event {
     Result(Box<SearchResult>),
     /// An original source/provider refusal.
     Diagnostic {
+        /// The failing boundary; original provider causes retain their own codes.
+        phase: DiagnosticPhase,
         /// Typed category.
         code: String,
         /// Original native explanation.
