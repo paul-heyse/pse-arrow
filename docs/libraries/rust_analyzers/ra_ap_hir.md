@@ -990,3 +990,894 @@ The most important architectural advantages are the ability to reuse rust-analyz
 Its central constraints are equally important: semantic answers are snapshot- and configuration-dependent; some operations are approximate, incomplete, or fallible; lower-level implementations are not stable public abstractions; and higher-level workflows such as reference searching, whole-project editing, serialization, and compiler validation remain outside HIR's core responsibility.
 
 For sophisticated Rust language analysis, the library occupies a particularly valuable middle layer: substantially richer and more accurate than source-syntax analysis alone, while more focused and reusable than a full editor or compiler integration.
+
+# `ra_ap_hir` — Advanced Semantic Capabilities Addendum
+
+Target version: `ra_ap_hir` 0.0.358\
+Research date: November 1, 2026\
+Companion reference: `ra_ap_hir.md` (October 29, 2026)
+
+This addendum extends the original reference without repeating its treatment of HIR architecture, ordinary definition resolution, type inference, trait solving, general macro expansion, diagnostics, MIR, or term search.
+
+The additions focus on advanced and less obvious capabilities: semantic references embedded in literals, configuration-dependent source interpretation, derive-aware provenance, generic-declaration metadata, compiler language items, closure capture structure, specialized type operations, and semantic resource lifecycles.
+
+The target remains the published `0.0.358` API. Where upstream development documentation clarifies implementation behavior, it is distinguished from the versioned API contract. Some `docs.rs/latest` subpages remain indexed at older versions; the `0.0.358` API index and versioned pages take precedence.
+
+Primary API index:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/all.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/all.html?utm_source=chatgpt.com)
+
+## 1. Semantic interpretation beyond ordinary Rust AST nodes
+
+### 1.1 References embedded in format strings and inline assembly
+
+Extends original §§3.3, 4.2, and 6.4.
+
+Rust contains semantically meaningful references that do not appear as conventional `ast::PathExpr` or `ast::Path` nodes. Two important cases are captured identifiers inside formatting templates and named operands inside inline-assembly templates.
+
+Consider:
+
+```
+let count = 42;
+println!("count = {count}");
+```
+
+The occurrence of `count` inside the string participates in Rust's name-resolution semantics, but its source representation is part of a string literal rather than an ordinary identifier token in an expression tree.
+
+`SemanticsImpl`, exposed through `Semantics` dereferencing, provides three specialized operations:
+
+| API                                        | Functionality                                                                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `as_format_args_parts`                     | Extracts format-template parts, including ranges and available semantic resolutions |
+| `check_for_format_args_template`           | Identifies the template part at a source token and offset                           |
+| `check_for_format_args_template_with_file` | Equivalent position-oriented analysis with an explicit source-file context          |
+
+`as_format_args_parts` returns ranges associated with optional `Either<PathResolution, InlineAsmOperand>` values. The resolution is not guaranteed for every template part: literal content, malformed placeholders, and unresolved identifiers can lack semantic targets.
+
+The position-based methods distinguish multiple coordinate systems:
+
+- A `TextRange` referring to the relevant portion of the original string literal.
+- A `HirFileRange` identifying the corresponding part in the interpreted or expanded file.
+- The string token associated with the template.
+- An optional semantic resolution.
+
+This is an important departure from ordinary source-reference indexing. A location can belong to a real source token, represent a substring of that token, and still resolve to an entity through macro-aware semantic interpretation.
+
+For `asm!`, `InlineAsmOperand` represents references to inline-assembly operands rather than ordinary Rust definitions. Such operands are local to the assembly template and should not automatically be treated as global symbol references.
+
+Architectural significance. A semantic-reference model limited to AST paths and method calls is incomplete even before considering macro-generated code. These specialized queries allow reference indexing, semantic navigation, and source-aware transformations to reuse rust-analyzer's interpretation of embedded references instead of independently implementing Rust formatting-template and assembly-operand resolution.
+
+The returned source ranges are particularly valuable for distinguishing an embedded reference's occurrence span from its semantic target. Nevertheless, the facility is limited to the supported template constructs; it is not a universal framework for detecting symbol references in arbitrary strings, SQL literals, regular expressions, or custom embedded languages.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html?utm_source=chatgpt.com)
+
+### 1.2 Specialized reference-resolution forms
+
+Several additional semantic operations complement ordinary path and member resolution.
+
+`resolve_bind_pat_to_const` handles a pattern binding that may actually denote a constant, addressing an ambiguity between introducing a variable and referring to an existing value.
+
+`resolve_offset_of_field` resolves a field referenced through offset-calculation syntax. The field is embedded in a special language construct rather than an ordinary field-access expression.
+
+`resolve_lifetime_param` resolves lifetime syntax to a `LifetimeParam`; `resolve_label` separately handles control-flow labels. Although labels and lifetimes use similar apostrophe-prefixed syntax, they belong to different semantic roles.
+
+`resolve_use_type_arg` provides resolution for type arguments in explicit `use<...>` capture bounds, relevant to precise captures of `impl Trait` opaque types.
+
+These operations illustrate an important principle: Rust semantic references are distributed across distinct syntactic categories and language constructs. A unified semantic index can represent their resolved targets consistently, but obtaining those targets requires more than generic name or path resolution.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html?utm_source=chatgpt.com)
+
+### 1.3 Multiple module interpretations and edition-associated files
+
+Extends original §§2.1–2.3 and 3.2.
+
+The original guide notes that a single physical source file can participate in multiple crate instances. The API makes this multiplicity explicit.
+
+`Semantics` distinguishes singular and plural file-to-module operations:
+
+| API                       | Interpretation                                                |
+| ------------------------- | ------------------------------------------------------------- |
+| `file_to_module_def`      | Returns one applicable module, if available                   |
+| `file_to_module_defs`     | Iterates applicable modules associated with a physical file   |
+| `hir_file_to_module_def`  | Returns one module associated with a `HirFileId`              |
+| `hir_file_to_module_defs` | Iterates module interpretations associated with a `HirFileId` |
+| `hir_file_for`            | Finds the HIR file context associated with a syntax node      |
+
+The distinction is not merely whether the caller expects one or many results. `FileId`, `EditionedFileId`, and `HirFileId` encode different aspects of source identity.
+
+A physical file is not necessarily sufficient to determine its edition. Nor does a physical source file identify every expanded-file context in which the source participates.
+
+Additional methods include:
+
+- `parse`, accepting an `EditionedFileId`.
+- `parse_guess_edition`, which parses using an inferred edition.
+- `attach_first_edition` and `attach_first_edition_opt`.
+- `adjust_edition`, transforming file identity into an edition-adjusted context.
+- `first_crate`, selecting a crate context associated with the file, with documented fallback behavior.
+
+The distinction between a chosen context and all applicable contexts is consequential. A query that selects the first crate or first module supplies one interpretation; it does not establish that all other configurations produce equivalent definitions, names, types, or diagnostics.
+
+For example, conditional compilation may change the modules and imports visible from a shared source file. Edition differences can also alter parsing or language interpretation. An index keyed exclusively by physical path would conflate those differences.
+
+This suggests a general semantic representation with separate identities for physical source, configured crate, module, and expansion. That is an architectural inference rather than a persistence model supplied by HIR itself.
+
+These APIs do not automatically enumerate every possible feature combination or target configuration. They expose interpretations already represented by the configured analysis database.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html?utm_source=chatgpt.com)
+
+### 1.4 Anonymous block modules and source-form metadata
+
+Extends original §3.2.
+
+Rust-analyzer's module model includes anonymous block-scoped module contexts as well as named modules.
+
+`Module::nearest_non_block_module` finds the nearest enclosing module that is not an anonymous block module. This operation matters because lexical scoping and conventional module paths do not represent the same hierarchy.
+
+`Module::path_to_root` retains the module ancestry, whereas `path_segments` omits nameless modules, including the crate root and block modules. Consequently, reconstructing the complete semantic containment hierarchy from named path segments alone loses information.
+
+Additional source-form methods include `is_inline`, `is_mod_rs`, `as_source_file_id`, `definition_source_file_id`, `definition_source_range`, and `declaration_source_range`.
+
+Together, these permit distinctions among a module's semantic identity, named path, lexical containment, source-file representation, and declaration site.
+
+For external modules, the source declaration and definition can be different locations. For anonymous modules, the semantic containment relationship may exist without a corresponding named path segment. For macro-generated modules, the definition can also be associated with an expansion file.
+
+These are distinct structural facts rather than alternative renderings of a single module path.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Module.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Module.html?utm_source=chatgpt.com)
+
+## 2. Derive-aware provenance and specialized macro navigation
+
+Extends original §§4.1–4.3.
+
+### 2.1 Derive helper attributes and generated implementations
+
+Rust derive macros can introduce helper-attribute namespaces and generate implementations that have no directly written equivalent declaration.
+
+The relevant HIR operations include:
+
+| API                                              | Additional semantic information                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `derive_helpers_in_scope`                        | Helper-attribute names available through derives associated with an ADT         |
+| `derive_helper`                                  | Resolves a helper attribute to relevant derive macros and macro-call identities |
+| `is_derive_annotated`                            | Identifies whether an ADT has derive annotations                                |
+| `impl_generated_from_derive`                     | Connects a generated implementation to derive provenance                        |
+| `expand_derive_as_pseudo_attr_macro`             | Represents derive processing using an attribute-macro-like expansion            |
+| `speculative_expand_derive_as_pseudo_attr_macro` | Supports hypothetical derive input and token mapping                            |
+
+The important distinction is between syntactic attributes, resolved derive helpers, and definitions produced by expansion.
+
+Consider a struct carrying `#[derive(SomeDerive)]` and an attribute such as `#[some_helper(...)]`. The latter may be declared as a helper attribute by the derive macro rather than existing as an independently resolved procedural attribute macro.
+
+A purely syntactic attribute inventory cannot reliably establish that relationship. HIR can associate the helper with its derive context and resolve the contributing macro definitions.
+
+Likewise, an implementation generated through `derive` has a semantic identity separate from the ADT's original source declaration. `impl_generated_from_derive` makes part of that relationship directly inspectable.
+
+Architectural significance. These capabilities help distinguish user-authored declarations from generated semantic entities and connect generated behavior to its originating derive mechanism. They are especially relevant to code generated by serialization, error-handling, and domain-modeling macros.
+
+The limitations are material:
+
+- Expansion still depends on available procedural-macro implementations and the configured macro environment.
+- A helper attribute being recognized does not establish that macro execution succeeded.
+- Derive provenance does not establish a general inverse mapping from every generated token to a uniquely responsible source token.
+- Speculative expansion is not equivalent to compiling a modified crate.
+
+Thus, derive-aware provenance supplements ordinary expansion source mapping; it does not make generated code perfectly reversible.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html?utm_source=chatgpt.com)
+
+### 2.2 Attribute descent, multiple mappings, and diagnostic ranges
+
+The basic expansion operations described in the original guide have more specialized counterparts.
+
+`descend_node_into_attributes` maps a syntax node through attribute transformations by mapping its first and last tokens. Its result is a `SmallVec`, reflecting that correspondence need not be singular.
+
+`find_nodes_at_offset_with_descend` similarly iterates matching nodes after descending through attribute macro calls.
+
+`descend_into_macros_exact_with_file` preserves `InFile` context for returned tokens, while `descend_into_macros_no_opaque` exposes an additional distinction concerning opaque macro boundaries and derive descent.
+
+`ancestors_with_macros_file` retains file context while walking syntax ancestry across expansion boundaries.
+
+These operations are significant because macro source mapping is a relation, not necessarily a bijection. One source occurrence can correspond to multiple expanded occurrences, and one expanded occurrence may not possess a useful precise source counterpart.
+
+The HIR API also offers `diagnostics_display_range` and `diagnostics_display_range_for_range`. These produce source locations suitable for reporting diagnostics, a different concern from finding the exact origin of a generated token.
+
+Three useful provenance concepts therefore remain distinct:
+
+1. Semantic location: where a definition or expression exists in the interpreted HIR/expansion representation.
+2. Source origin: the original syntax responsible for generated or transformed code, to the extent it can be recovered.
+3. Presentation range: the location most useful for communicating a diagnostic to a reader.
+
+Using one range for all three purposes can produce misleading reports, especially when an expansion duplicates input tokens or creates entities without direct source equivalents.
+
+The underlying HIR operations expose useful mappings, but consumers still need to decide how ambiguous, absent, or many-valued mappings are represented.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html?utm_source=chatgpt.com)
+
+## 3. Generic declarations, trait environments, and structural type operations
+
+### 3.1 Generic parameters as first-class semantic entities
+
+Extends original §§5.2–5.4.
+
+The original guide emphasizes instantiated types, substitutions, and generic-origin compatibility. An additional capability is inspection of generic parameter declarations, independently of a particular instantiation.
+
+`GenericDef` represents declarations that can own generic parameters, including functions, implementations, ADTs, traits, type aliases, constants, and statics.
+
+Its principal parameter-inspection operations include:
+
+- `params`: generic parameters associated with the definition.
+- `type_or_const_params`: type and const parameters, excluding lifetimes.
+- `lifetime_params`: lifetime parameters as separate semantic entities.
+
+The parameter hierarchy includes `GenericParam`, `TypeParam`, `ConstParam`, `LifetimeParam`, and `TypeOrConstParam`.
+
+These types preserve different kinds of information:
+
+| Representation     | Additional information available                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| `GenericParam`     | Parameter identity, parent declaration, name, module, and variance where available        |
+| `TypeParam`        | Type-level representation, default type, explicit trait bounds, implicit-parameter status |
+| `ConstParam`       | Identity and declaration information for const parameters                                 |
+| `LifetimeParam`    | Named lifetime identity and generic-definition ownership                                  |
+| `TypeOrConstParam` | Uniform handling of type and const parameters without conflating their semantics          |
+
+In particular, `TypeParam::is_implicit` distinguishes parameters explicitly declared in a parameter list from implicitly introduced parameters, such as trait `Self` or parameters originating from argument-position `impl Trait`.
+
+The distinction between named declarations and implicit generic parameters matters when reconstructing signatures and interpreting substitutions. A callable may possess semantic generic parameters that do not correspond to a conventional `<T, U>` parameter list in the source.
+
+`GenericParam::variance` provides optional variance information. Variance can distinguish covariant, contravariant, invariant, and bivariant relationships; it affects what relationships between constructed types are permitted when their generic arguments differ.
+
+This is useful for structural type characterization, but the presence of a variance query does not establish that every parameter has a computable or meaningful variance result in every context. The method returns an `Option<Variance>`.
+
+Important limitation of trait-bound introspection. The upstream implementation explicitly notes that `TypeParam::trait_bounds` can omit additional constraints introduced by a nested context. For example, a method may impose further bounds on a type parameter originally declared by its enclosing `impl`.
+
+Consequently, the method should be understood as retrieving a particular set of declared bounds, not the complete effective constraint environment at every use site.
+
+A complete description of a generic use may require combining declaration metadata, the enclosing parameter environment, instantiated substitutions, and solver-backed obligation reasoning.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-lang.github.io\&sz=32)
+
+Rust+2
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.GenericDef.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.GenericDef.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.GenericParam.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.GenericParam.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.TypeParam.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.TypeParam.html?utm_source=chatgpt.com)
+
+### 3.2 Trait environments versus trait declarations and solver results
+
+Extends original §§5.4 and 6.2–6.5.
+
+The `Type` API exposes multiple ways to investigate relationships between types and traits.
+
+These represent different kinds of facts.
+
+| Operation                         | Semantic meaning                                                             |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `env_traits`                      | Trait information associated with the type through its parameter environment |
+| `as_impl_traits`                  | Trait bounds represented by an opaque `impl Trait` type                      |
+| `as_associated_type_parent_trait` | The parent trait associated with an associated-type representation           |
+| `applicable_inherent_traits`      | Traits available through `dyn Trait`-related receiver handling               |
+| `impls_trait`                     | Solver-backed satisfaction of an applicable trait obligation                 |
+| `fingerprint_for_trait_impl`      | Structural type fingerprint useful for implementation-candidate filtering    |
+
+For generic types, the parameter environment is particularly important. A constraint such as `T: Read` can make methods available even when `T` has no known concrete type.
+
+That is different from finding a concrete implementation declaration for some specific `T`.
+
+For opaque types, `as_impl_traits` exposes relationships represented in the opaque type's bounds. These describe declared constraints, not necessarily a complete characterization of the hidden concrete type.
+
+`applicable_inherent_traits` has a narrower meaning than its name might initially suggest. The documented implementation returns traits reachable through a type representable as `dyn Trait`, or an empty iterator otherwise. It is not an exhaustive enumeration of all traits implemented by arbitrary types.
+
+This distinction is especially relevant to method-candidate enumeration, where methods associated with a trait-object receiver can participate in the inherent-method candidate path.
+
+The interaction between these facilities permits a layered interpretation:
+
+1. Declaration metadata establishes the constraints a program states.
+2. Parameter environments establish constraints available within a particular generic context.
+3. Structural candidate discovery identifies potentially relevant implementations.
+4. Solver-backed operations assess selected obligations.
+
+These layers should remain distinguishable in an analysis result. A trait present in an environment, a candidate returned by structural filtering, and an obligation established by the solver are not equivalent evidence.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html?utm_source=chatgpt.com)
+
+### 3.3 Structural implementation fingerprints and predicate polarity
+
+The type system exposes additional structures useful for understanding trait-candidate discovery.
+
+`Type::fingerprint_for_trait_impl` returns an optional `SimplifiedType` representation.
+
+The purpose is to summarize type structure in a form useful for implementation indexing and candidate filtering.
+
+This is less expressive than a full type or trait obligation. Its role is to narrow a search space based on structure, not to prove trait satisfaction.
+
+For example, two instantiated types may share the same structural head while differing in generic arguments or applicable constraints. Matching their structural fingerprints does not establish that a particular generic implementation can apply to both.
+
+The public type inventory also includes `TraitPredicate` and `PredicatePolarity`. These represent structured trait predicates, including positive and negative polarity.
+
+That distinction matters because positive trait bounds, explicit negative implementation information, and the absence of proof are different semantic conditions.
+
+In particular, these propositions must not be conflated:
+
+- An implementation is known to satisfy an obligation.
+- An explicit negative relationship has been represented.
+- The solver cannot prove the obligation.
+- Candidate enumeration found no matching implementation.
+
+The last two are not proof of a negative implementation.
+
+Architectural significance. Structural fingerprints and typed predicates make it possible to retain the distinction between candidate-search metadata and logical constraints. This avoids the need to represent every trait relationship as a string, but still leaves the solver responsible for substantive applicability checks.
+
+`SimplifiedType` and predicate internals are coupled to rust-analyzer's implementation and should not be treated as independently stable interchange formats.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.TraitPredicate.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.TraitPredicate.html?utm_source=chatgpt.com)
+
+### 3.4 Constructing and transforming semantic types
+
+`Type<'db>` is not exclusively an inspection interface. It also supports constructing several kinds of semantic type representations:
+
+- `Type::unknown`
+- `Type::new_unit`
+- `Type::new_slice`
+- `Type::new_tuple`
+
+Additional transformations include `add_reference`, `strip_reference`, `strip_references`, and `remove_raw_ptr`.
+
+These capabilities permit certain type-level operations without first creating Rust source text and reparsing it.
+
+For instance, given an existing semantic type, `new_slice` can construct its slice counterpart. `new_tuple` can combine component types into a tuple representation. Reference operations can add or remove reference structure.
+
+Such operations are useful for evaluating hypothetical type relationships, constructing search targets, or comparing candidate signatures.
+
+There are two important restrictions.
+
+First, the resulting type remains a HIR semantic object. It is not an AST node, a source declaration, or a guarantee that an equivalent spelling can be inserted into an arbitrary module.
+
+Second, type-origin compatibility continues to apply. Constructing a composite type from component types does not remove their generic context or make incompatible parameter environments interchangeable.
+
+`Type::unknown` is also not a universally quantified type variable. It represents uncertainty within HIR's type machinery and should not be interpreted as an arbitrary type satisfying all possible constraints.
+
+The difference between semantic type construction and source generation is therefore substantive. HIR can construct or transform selected type representations, while `HirDisplay::display_source_code` performs the separate task of finding a usable source representation in a destination context.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html?utm_source=chatgpt.com)
+
+## 4. Closure captures, coroutines, and callable semantics
+
+### 4.1 Captured places rather than captured variable names
+
+Extends original §7.3.
+
+The `Closure` API exposes `captured_items`, but the associated `ClosureCapture` representation contains information beyond the identity of a captured variable.
+
+Important methods include:
+
+| Method                      | Information exposed                                   |
+| --------------------------- | ----------------------------------------------------- |
+| `local`                     | Underlying captured local definition                  |
+| `kind`                      | How the capture occurs                                |
+| `has_field_projections`     | Whether the captured place includes field projections |
+| `usages`                    | Information about the source usages of the capture    |
+| `place_to_name`             | A name representation for the captured place          |
+| `display_place`             | Human-readable place representation                   |
+| `display_place_source_code` | Source-oriented rendering of the captured place       |
+
+This distinction reflects Rust's capture precision.
+
+Consider:
+
+```
+struct State {
+    count: usize,
+    label: String,
+}
+
+let state = State {
+    count: 0,
+    label: String::new(),
+};
+
+let read_count = || state.count;
+```
+
+The closure's relationship to `state` is not necessarily adequately described by a single edge meaning captures the entire variable.
+
+Rust's capture analysis can distinguish a projected place such as `state.count` from the complete aggregate `state`. The precise captured place can affect ownership relationships, generated closure state, and the interactions permitted with other fields.
+
+`ClosureCapture::has_field_projections` exposes whether such field-level structure is involved, while the place-rendering methods provide representations suitable for inspection.
+
+`CaptureKind` distinguishes categories including by-value captures, shared-reference captures, unique shared-reference captures, and mutable-reference captures.
+
+Those categories help explain why two closures referring to the same variable can exhibit different callable properties or borrowing behavior.
+
+The information can support a richer account of captured state without independently reconstructing closure capture inference from identifier references.
+
+Limitations. Capture information is based on rust-analyzer's inference implementation. It is not a substitute for rustc's final borrow-checking results, nor does it expose a general-purpose, complete ownership proof.
+
+The upstream implementation has also contained approximations when translating some internal capture categories into public `CaptureKind` values. Thus, the exposed capture kind should not automatically be treated as a lossless representation of all internal ownership distinctions.
+
+That is a source-observed implementation caveat, rather than a guarantee about every future version.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.ClosureCapture.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.ClosureCapture.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.CaptureKind.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.CaptureKind.html?utm_source=chatgpt.com)
+
+### 4.2 Async callable traits and coroutine representation
+
+The original guide explains the ordinary `Fn`, `FnMut`, and `FnOnce` hierarchy, but the `FnTrait` enumeration also includes:
+
+- `AsyncFn`
+- `AsyncFnMut`
+- `AsyncFnOnce`
+
+These are distinct language-item families, not just aliases for ordinary callable traits whose return type happens to implement `Future`.
+
+The distinction becomes important for async closures and callable abstractions where the relationship between a call, the resulting future, and captured state affects the callable contract.
+
+`FnTrait` provides `lang_item` and `get_id`, allowing a callable-trait category to be associated with its compiler-known trait identity in a configured crate.
+
+A separate `Coroutine` representation models coroutine expressions, including async, generator, and async-generator forms.
+
+`Type::as_coroutine` provides the conversion from an applicable HIR type into that representation.
+
+Closures and coroutines are related but not interchangeable:
+
+- A closure is characterized by its callable properties and captured environment.
+- A coroutine represents a suspendable computation, including the state carried across suspension points.
+- An async closure can involve both callable-trait behavior and coroutine-producing semantics.
+
+The lower-level `hir_def` representation makes additional distinctions between coroutine kinds and sources, including blocks, closures, and function-generated coroutine bodies.
+
+These distinctions can improve analysis of async functions and closures without requiring a source-level heuristic such as treating every `async` construct as an ordinary closure returning a future.
+
+However, coroutine HIR does not automatically expose a fully optimized state-machine layout, all suspension-state transitions, or rustc's final generator transformation. Those lower-level questions require separate interpretation of MIR and compiler behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.FnTrait.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.FnTrait.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Coroutine.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Coroutine.html?utm_source=chatgpt.com)
+
+### 4.3 Callable categories and external declarations
+
+The `Callable` abstraction normalizes parameters and return types across several callable forms, but it also preserves classification through `CallableKind`.
+
+This allows a semantic consumer to distinguish ordinary functions, function pointers, closures, constructors, and other callable categories where supported.
+
+That classification is important because equivalent-looking call syntax does not imply equivalent declaration or dispatch semantics.
+
+A tuple-struct constructor, for example, participates in call syntax but is not an ordinary user-written function declaration with a conventional function body.
+
+`Callable::kind`, `params`, `return_type`, `receiver_param`, and `sig` provide complementary views of callable structure.
+
+For external declarations, `ExternBlock`, `ExternAssocItem`, `ExternCrateDecl`, and the conversion trait `AsExternAssocItem` expose distinctions between foreign declarations and ordinary Rust definitions.
+
+These support inspection of FFI-facing declarations, external symbol relationships, and callable declarations without Rust bodies.
+
+Importantly, an external callable's semantic signature does not establish ABI correctness or runtime linkability. Those depend on compiler configuration, target-specific ABI rules, linked libraries, and other information beyond HIR's declaration model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Callable.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Callable.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.ExternBlock.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.ExternBlock.html?utm_source=chatgpt.com)
+
+## 5. Compiler-recognized identities, attributes, and diagnostics
+
+### 5.1 Language items and built-in semantic categories
+
+Extends original §§3.3, 6.4, and 7.4.
+
+Some Rust constructs receive special treatment from the compiler. Their meaning cannot reliably be reconstructed by comparing ordinary source identifiers with familiar names.
+
+`LangItem` represents compiler-known semantic roles, including operator traits, callable traits, allocation and destruction machinery, coercion-related traits, coroutine support, and other language primitives.
+
+Examples from the `0.0.358` enumeration include `Add`, `Drop`, `CoerceUnsized`, `FnTrait`, `AsyncFn`, and `Coroutine`.
+
+`crate_lang_items` exposes a query for language-item definitions associated with a particular crate, while `FnTrait::lang_item` and `get_id` provide a higher-level bridge for callable-trait identities.
+
+The `Trait` API also exposes language-item-related information.
+
+These interfaces explain how certain semantic operations can refer to the appropriate compiler-known definitions rather than relying on textual symbol names.
+
+For example, the implementation of `a + b` is not established merely by finding a trait named `Add` somewhere in scope. The compiler's operator machinery relies on the appropriate language-defined trait identity and dispatch behavior.
+
+Similarly, an identifier written as `Self` can represent a special contextual type rather than an ordinary type declaration named `Self`.
+
+HIR exposes further semantic categories through `PathResolution`, `BuiltinType`, `BuiltinAttr`, `ToolModule`, and `DeriveHelper`.
+
+The distinction among these categories permits a more accurate classification of references:
+
+| Category            | Meaning                                                 |
+| ------------------- | ------------------------------------------------------- |
+| Ordinary definition | User-defined or library-defined Rust item               |
+| Generic parameter   | Type or const parameter associated with a declaration   |
+| Local               | Expression-body-scoped binding                          |
+| Built-in type       | Compiler-known primitive type                           |
+| Tool module         | Namespace associated with registered tooling attributes |
+| Derive helper       | Attribute associated with a derive macro                |
+| Language item       | Definition carrying a compiler-recognized semantic role |
+
+These classifications are not equivalent to declaring that all such constructs possess normal AST declaration nodes.
+
+Architectural significance. Language items and built-in categories allow a semantic analyzer to differentiate ordinary user code from special language mechanisms without maintaining its own name-based catalog of compiler magic.
+
+The set of recognized language items evolves with Rust and rust-analyzer. A particular `LangItem` enumeration member being present in the library does not imply that the corresponding definition is available in every configured crate graph.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.LangItem.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.LangItem.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.PathResolution.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.PathResolution.html?utm_source=chatgpt.com)
+
+### 5.2 Lint attributes and unstable-feature conditions
+
+The existing guide describes interpreted attributes and diagnostics, but there is an additional connection between an item's attributes and the configured compilation environment.
+
+`Semantics::lint_attrs` accepts a `FileId`, `Crate`, and attributed item and returns an iterator of lint attributes paired with lint names.
+
+The result uses structured `LintAttr` values rather than requiring the caller to extract every lint directive from raw attribute tokens.
+
+This provides access to declarations such as lint allowances, warnings, and denials in their source context.
+
+Related mechanisms include `AttrsWithOwner`, `Crate::is_unstable_feature_enabled`, and `Semantics::is_nightly`.
+
+Together, they expose different aspects of the conditions under which declarations and language features are interpreted:
+
+- Declared lint settings.
+- Interpreted item and crate attributes.
+- Whether particular unstable features are enabled.
+- Nightly-related configuration context.
+
+These should not be conflated with a complete effective diagnostic policy.
+
+Lint attributes can be inherited through enclosing scopes or affected by configuration. Not every diagnostic is controlled by a Rust lint level, and rust-analyzer's diagnostic engine does not reproduce all rustc and Clippy behavior.
+
+Therefore, `lint_attrs` is best understood as a structured inspection facility for lint declarations, not a fully resolved answer to whether an arbitrary diagnostic should be suppressed, warned about, or treated as an error at a particular location.
+
+It can nevertheless eliminate substantial bespoke attribute parsing when examining declared lint policy.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.LintAttr.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.LintAttr.html?utm_source=chatgpt.com)
+
+### 5.3 Additional structured diagnostic categories
+
+Extends original §8.1.
+
+Several diagnostic categories warrant explicit awareness because they extend the coverage of structured semantic diagnostics beyond conventional unresolved-name or type-mismatch conditions.
+
+| Diagnostic type                  | Problem family                                                  |
+| -------------------------------- | --------------------------------------------------------------- |
+| `InactiveCode`                   | Code excluded by conditional compilation                        |
+| `UnusedMustUse`                  | Values whose required-use semantics are violated                |
+| `YieldOutsideCoroutine`          | Invalid coroutine control-flow usage                            |
+| `ElidedLifetimesInPath`          | Missing explicit lifetimes where relevant lint conditions apply |
+| `GenericArgsProhibited`          | Generic arguments used in a disallowed context                  |
+| `IncorrectGenericsLen`           | Incorrect generic argument arity                                |
+| `ArrayPatternWithoutFixedLength` | Array-pattern constraints                                       |
+| `ExplicitDropMethodUse`          | Incorrect explicit invocation of special destruction behavior   |
+
+These are represented by typed diagnostic structures rather than merely by strings.
+
+Their existence is useful for programmatic diagnostic classification, but the set should not be interpreted as exhaustive validation of the associated Rust features.
+
+In particular, the presence of `InactiveCode` as a diagnostic type does not imply that HIR has independently analyzed every conditionally excluded branch as if it were active.
+
+Similarly, a structured `UnusedMustUse` diagnostic does not establish completeness relative to rustc's full lint execution.
+
+The diagnostic API represents findings produced by the analysis engine within its configured environment and implemented diagnostic coverage.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+docs.rs
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/diagnostics/index.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/diagnostics/index.html?utm_source=chatgpt.com)
+
+### 5.4 Rendering evaluated constants with MIR-backed Debug behavior
+
+Extends original §8.5.
+
+`EvaluatedConst` provides two distinct rendering operations:
+
+| Method         | Return                         | Role                                                                   |
+| -------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| `render`       | `String`                       | Renders the evaluated constant through HIR's display machinery         |
+| `render_debug` | `Result<String, MirEvalError>` | Attempts debug-style rendering through interpreter-supported semantics |
+
+The difference is deeper than formatting preference.
+
+`render` presents an evaluated representation through HIR's normal rendering machinery.
+
+`render_debug` can invoke machinery associated with MIR interpretation and the applicable `Debug` implementation, subject to the interpreter's supported operations.
+
+As a result, the latter can sometimes provide a representation closer to what a Rust debug-formatting operation would produce.
+
+It is nevertheless fallible. The method explicitly returns `MirEvalError`, reflecting that interpretation or rendering may fail.
+
+This is not a general facility for executing arbitrary runtime Rust code, and it should not be assumed to reproduce every possible user-defined `Debug` implementation.
+
+The useful composition is:
+
+Constant semantic identity → evaluation → interpreted value representation → optional debug-style rendering.
+
+This avoids independently building value decoders for some supported cases while keeping evaluation and presentation separate.
+
+The underlying interpreter's capabilities and target configuration remain consequential.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.EvaluatedConst.html](https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.EvaluatedConst.html?utm_source=chatgpt.com)
+
+## 6. Database attachment, solver caches, and type-system memory
+
+Extends original §§2.2–2.3 and 10.3.
+
+The original guide describes Salsa-driven incremental computation, but an important distinction remains among query memoization, type-system database attachment, thread-local solver caching, and type-storage reclamation.
+
+These facilities are exposed by separate public functions.
+
+### 6.1 Attaching database context
+
+`attach_db` and `attach_db_allow_change` expose database-context attachment mechanisms.
+
+`attach_db` takes a database and a closure, executing the closure with the relevant database context attached.
+
+These functions exist because some rust-analyzer type-system operations depend on database context beyond simply receiving an explicit database parameter at every call site.
+
+They are infrastructure-level interfaces, not project-loading mechanisms.
+
+In particular, attaching a database does not instantiate a fresh Cargo project model, compute a new crate graph, or create a durable semantic snapshot.
+
+Nor should the existence of `attach_db_allow_change` be interpreted as unrestricted permission to mutate a Salsa database concurrently with arbitrary semantic operations.
+
+The exact lifecycle and mutation requirements are implementation-dependent and must be understood from the corresponding version's source before these functions are incorporated into custom database-management infrastructure.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-lang.github.io\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://rust-lang.github.io/rust-analyzer/hir/fn.attach_db.html](https://rust-lang.github.io/rust-analyzer/hir/fn.attach_db.html?utm_source=chatgpt.com)
+
+### 6.2 Thread-local trait-solver caching
+
+`clear_tls_solver_cache` clears a thread-local cache used by trait-solving machinery.
+
+The upstream documentation specifically identifies its relevance before memory-usage estimation because solver caches are per-revision and ordinarily should be excluded from such measurements.
+
+This creates a distinction among:
+
+| State category             | Primary purpose                                                           |
+| -------------------------- | ------------------------------------------------------------------------- |
+| Salsa query memoization    | Reuses derived results across compatible database queries and revisions   |
+| Thread-local solver cache  | Reuses intermediate trait-solving information                             |
+| Type-system storage        | Holds allocated or interned type representations and associated machinery |
+| `Semantics` mapping caches | Accelerates syntax-to-semantic resolution within the façade               |
+
+These categories do not necessarily share the same ownership, lifetime, or clearing mechanism.
+
+Clearing one does not imply that the others have been invalidated.
+
+The ability to clear a solver cache therefore has two implications: solver memory can be considered independently of broader database memory, and performance measurements that include or exclude transient solver state can describe different quantities.
+
+It does not establish a universal cache-clearing policy or guarantee that clearing the cache improves steady-state performance. Cache reclamation may trade memory usage against recomputation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-lang.github.io\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://rust-lang.github.io/rust-analyzer/hir/fn.clear_tls_solver_cache.html](https://rust-lang.github.io/rust-analyzer/hir/fn.clear_tls_solver_cache.html?utm_source=chatgpt.com)
+
+### 6.3 Type-system garbage collection
+
+`collect_ty_garbage` exposes a reclamation mechanism for type-related storage.
+
+Its defining characteristic is that it is an unsafe function:
+
+```
+pub unsafe fn collect_ty_garbage()
+```
+
+The upstream safety documentation states that it must not be invoked while unrecorded type values remain. It also describes a condition involving exclusive mutable database access and ensuring that exclusivity is maintained during reclamation.
+
+This is materially different from ordinary cache eviction.
+
+Type representations can be connected to allocation and interning machinery whose lifecycle extends beyond a single query. Reclaiming that storage without satisfying its safety conditions can invalidate assumptions made by outstanding values or operations.
+
+Therefore, `collect_ty_garbage` cannot be treated as a harmless maintenance operation to invoke whenever memory usage becomes high.
+
+The relevant architectural distinction is between safe incremental invalidation, temporary solver-cache clearing, and unsafe reclamation requiring explicit ownership and lifetime guarantees.
+
+The source documentation specifies the safety contract but does not provide a general high-level lifecycle manager for arbitrary third-party HIR consumers.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-lang.github.io\&sz=32)
+
+Rust
+
+
+
+Source:
+
+[https://rust-lang.github.io/rust-analyzer/hir/fn.collect_ty_garbage.html](https://rust-lang.github.io/rust-analyzer/hir/fn.collect_ty_garbage.html?utm_source=chatgpt.com)
+
+## 7. Combined capabilities and their remaining boundaries
+
+The newly described capabilities strengthen several general operations already identified in the original reference.
+
+| Extended operation                          | Additional native mechanisms                                                                                          | Consequential distinction                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Comprehensive semantic reference analysis   | Format-template resolution, inline-assembly operands, lifetime/label resolution, special pattern and field references | References are not limited to ordinary Rust AST paths                                |
+| Configuration-aware semantic structure      | Plural file-to-module mappings, edition-associated files, block-module ancestry                                       | One physical file may have multiple distinct semantic interpretations                |
+| Generated-code provenance                   | Derive helper resolution, derive-to-implementation mapping, attribute descent                                         | Generated entities need not map uniquely to written source                           |
+| Generic API modeling                        | Parameter declarations, implicit generics, variance, environments, structural predicates                              | Declared constraints, effective environments, and solver proofs remain distinct      |
+| Capture-sensitive callable characterization | Projected captures, capture kinds, async callable traits, coroutine representations                                   | Captured variable identity alone does not describe ownership or suspendable behavior |
+| Compiler-aware symbol classification        | Language items, built-in types, tool modules, helper attributes                                                       | Textual symbol names do not reliably identify compiler-known roles                   |
+| Diagnostic interpretation                   | Lint attributes, unstable-feature configuration, specialized diagnostics, presentation ranges                         | Diagnostic production, lint policy, and user-facing display are separate layers      |
+| Semantic lifecycle management               | Database attachment, thread-local cache clearing, type garbage collection                                             | Incremental memoization and unsafe storage reclamation are different mechanisms      |
+
+### Cross-cutting interpretation
+
+The combined additions reveal three aspects of `ra_ap_hir` that are not fully apparent from ordinary type and definition queries.
+
+Semantic identity is richer than source identity. It encompasses configured crate membership, edition, macro expansion, anonymous scopes, language items, and nonstandard reference syntax.
+
+Semantic relationships have different strengths. A declared bound, a visible trait, a structural fingerprint, a candidate implementation, and a solver result describe different kinds of evidence. Treating them uniformly loses information about certainty and applicability.
+
+The library exposes both high-level semantics and low-level lifecycle concerns. Its façade can substantially reduce the need for custom Rust-language analysis, but some exposed infrastructure functions retain tight coupling to rust-analyzer's internal type system and database model.
+
+These distinctions are particularly relevant when building semantic analyses that must remain accurate across incomplete source, macro-generated code, multiple configurations, and heavily generic Rust programs.
+
+## 8. Additional primary-source reference map
+
+The following sources supplement the original guide's reference map. URLs are plain text and target version `0.0.358` where available.
+
+| Topic                                                          | Direct source                                                                  |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Embedded semantic references, edition handling, derive mapping | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Semantics.html`            |
+| Generic declaration ownership                                  | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.GenericDef.html`             |
+| Generic parameter classification and variance                  | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.GenericParam.html`           |
+| Type parameter bounds and defaults                             | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.TypeParam.html`            |
+| Type construction, trait environments, fingerprints            | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Type.html`                 |
+| Module ancestry and source forms                               | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Module.html`               |
+| Detailed capture representation                                | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.ClosureCapture.html`       |
+| Coroutine abstraction                                          | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.Coroutine.html`            |
+| Callable-trait variants                                        | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.FnTrait.html`                |
+| Compiler-known language items                                  | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/enum.LangItem.html`               |
+| Evaluated constant rendering                                   | `https://docs.rs/ra_ap_hir/0.0.358/ra_ap_hir/struct.EvaluatedConst.html`       |
+| Type-system memory safety                                      | `https://rust-lang.github.io/rust-analyzer/hir/fn.collect_ty_garbage.html`     |
+| Solver-cache lifecycle                                         | `https://rust-lang.github.io/rust-analyzer/hir/fn.clear_tls_solver_cache.html` |
+
+Source qualification: The versioned `0.0.358` API index and the accessible version-specific `Semantics`, `Type`, and `Module` documentation establish the principal API surface discussed above. Some individual Rustdoc subpages were available through search indexes only as older releases; where those pages or mutable upstream source were needed to clarify semantics, the discussion preserves that version sensitivity rather than treating an older implementation as a guaranteed `0.0.358` contract.
+
+This addendum is intended to be read alongside the existing guide, with the overlapping foundational material retained in that document rather than reproduced here.

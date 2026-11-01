@@ -1116,3 +1116,697 @@ The most valuable way to understand `ast-grep-core` is as a language-generic, so
 Its strongest architectural advantage is the combination of expressive structural queries, capture-aware matching, and source-oriented rewrites behind one Rust API.
 
 Its defining limitation is equally important: it understands the structure of source code, but not automatically the full meaning of a program. Systems requiring reliable semantic refactoring, type-aware constraints, or cross-file identity should pair these syntactic capabilities with appropriate semantic analysis rather than expecting structural matching to supply those guarantees.
+
+# Addendum: `ast-grep-core` 0.51.0 — advanced capabilities and implementation semantics
+
+Research date: November 1, 2026 · Supplements the October 30, 2026 capability reference · Target: Rust crate `ast-grep-core` 0.51.0
+
+This addendum covers functionality and consequential implementation details absent or insufficiently developed in the original guide. It concentrates on programmatic pattern construction, low-level matcher execution, capture semantics, replacement strategies, traversal control, incremental editing, and specialized integration interfaces.
+
+Findings are based primarily on the tagged 0.51.0 upstream Rust implementation. Where an API's observed behavior is narrower than its name or documentation suggests, that distinction is made explicitly. Architectural implications are inferred from the implementations, not presented as benchmarked performance guarantees.
+
+## A. Compiled patterns as programmable syntax representations
+
+### A.1 `PatternNode`: direct access to the compiled pattern representation
+
+In addition to compiling source-shaped strings, `ast-grep-core` exposes the internal representation through the public `PatternNode` enum and `Pattern::node` field.
+
+`PatternNode` has three variants:
+
+| Variant    | Representation                | Significance                                            |
+| ---------- | ----------------------------- | ------------------------------------------------------- |
+| `MetaVar`  | `MetaVariable` specification  | Captures, dropped metavariables, and sequence wildcards |
+| `Terminal` | `text`, `is_named`, `kind_id` | Leaf syntax with optional text-sensitive comparison     |
+| `Internal` | `kind_id`, `Vec<PatternNode>` | Recursive syntax structure and ordered child patterns   |
+
+The variants enable inspection and programmatic manipulation of pattern structure without working exclusively through source strings.
+
+The crate also implements `From<Node<'_, D>>` for both `PatternNode` and `Pattern`. This permits an already parsed syntax subtree to be converted into a reusable matcher representation.
+
+Consequently, source-pattern compilation is not the only path:
+
+- `Pattern::try_new()` processes a language-specific pattern string and parses it.
+- `Pattern::contextual()` parses a complete enclosing fragment and selects a subtree.
+- `Pattern::from(node)` converts an existing syntax node directly into a structural pattern.
+- Public `PatternNode` variants permit construction or modification of pattern structure at a lower level.
+
+This makes it possible to derive structural queries from previously inspected source code, reuse syntax trees as pattern inputs, or build query representations programmatically.
+
+Important distinction: conversion from a `Node` is not a semantic AST clone. It recursively constructs matcher nodes, excludes parser-marked missing children, and interprets syntax nodes recognized by `Language::extract_meta_var()` as metavariables. The resulting pattern is therefore governed by ast-grep's matching semantics, not necessarily literal source equivalence.
+
+Direct `PatternNode` manipulation also bypasses some validation and interpretation performed by `PatternBuilder`. For example, contextual patterns maintain a private `root_kind` constraint that ordinary public-field manipulation does not independently reconstruct.
+
+### A.2 Pattern inspection and validation boundaries
+
+`Pattern::dump()` returns a `DumpPattern` tree using a caller-provided kind-ID-to-name function. Its representation contains:
+
+- Whether the node is a metavariable.
+- An optional grammar-kind name.
+- Pattern text.
+- Recursively represented children.
+
+The dump is strictness-aware, not simply a verbatim serialization of the compiled tree. For example, `Signature` suppresses terminal text, AST-oriented strictness levels omit some unnamed terminals, and `Template` suppresses normal grammar-kind distinctions.
+
+This allows inspection of the effective matching representation under the selected strictness policy, a different question from inspecting the original syntax-tree parse.
+
+`PatternError` distinguishes several construction failures:
+
+| Error                 | Meaning                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `Parse`               | The underlying document parser failed to produce a tree       |
+| `NoContent`           | The ordinary pattern did not contain a selectable syntax node |
+| `MultipleNode`        | The source resolved to multiple top-level pattern nodes       |
+| `RootMultiMetaVar`    | A standalone `$$$NAME` or `$$$` was used as the root pattern  |
+| `InvalidKind`         | A contextual selector named an invalid grammar kind           |
+| `NoSelectorInContext` | No node of the requested kind was found in the context        |
+
+A contextual selector chooses the first matching node of the requested kind within its parsed context. It does not establish uniqueness when several such nodes exist.
+
+`Pattern::has_error()` also has a narrower meaning than comprehensive pattern validation: it checks the effective root node's kind against the Tree-sitter error kind. It does not recursively verify that no descendant contains recovered parser errors.
+
+Thus, successful construction, root-kind validity, and complete syntactic validity are separate properties.
+
+### A.3 `fixed_string()` and candidate filtering
+
+`PatternNode::fixed_string()` returns the longest terminal text contained in the pattern. It does not concatenate every fixed fragment into a larger string.
+
+This can supply a cheap textual prefilter for patterns whose selected strictness requires a particular terminal to be present.
+
+However, the prefilter must be consistent with the actual matcher:
+
+- A `Signature` pattern may ignore terminal text.
+- A `Template` pattern relaxes grammar-kind comparisons.
+- A pure metavariable may offer no useful fixed string.
+- The longest terminal alone does not prove that a candidate satisfies the complete pattern.
+
+`Pattern::potential_kinds()` separately provides possible root-kind IDs for candidate filtering. It returns no restriction when the effective pattern cannot be safely constrained by a single kind, including `Template` matching and certain error or metavariable patterns.
+
+These are complementary optimization signals: one is based on literal text, the other on grammar kinds. Neither is a semantic index or a sufficient matching test.
+
+Primary source:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher/pattern.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher/pattern.rs?utm_source=chatgpt.com)
+
+## B. Low-level matcher execution and filtering
+
+### B.1 `MatcherExt`: direct evaluation and subtree discovery
+
+The `ast_grep_core::matcher::MatcherExt` trait supplies two methods to every `Matcher` implementation:
+
+| Method             | Behavior                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `match_node(node)` | Evaluates the supplied node directly, initializing a new capture environment               |
+| `find_node(node)`  | Performs a depth-first search from the supplied node, returning the first successful match |
+
+Both return `Option<NodeMatch<'tree, D>>`.
+
+`match_node()` allocates a fresh `MetaVarEnv`, passes it through `match_node_with_env()`, and returns the matched node together with the completed environment. The node returned by a custom matcher can differ from the input candidate, so matching and match-result identity should not be assumed identical in every implementation.
+
+`find_node()` calls `match_node()` on nodes visited by `dfs()`. It does not independently use `potential_kinds()` to reject impossible kinds before evaluating the matcher.
+
+This distinguishes three superficially similar entry points:
+
+- `MatcherExt::match_node()` — evaluate one candidate.
+- `Node::find()` / `MatcherExt::find_node()` — stop at the first match during DFS.
+- `Node::find_all()` — lazily enumerate matches while applying the available `potential_kinds()` filter.
+
+The third interface can avoid expensive matcher execution on nodes with impossible kinds. The first two are useful for direct tests and first-match discovery, but do not implement that same optimization.
+
+`MatcherExt` is blanket-implemented for all `Matcher` types. Developers implement `Matcher`, not a separate custom extension trait.
+
+### B.2 `KindMatcher` and explicit parser-error matching
+
+`KindMatcher` is more than a string wrapper around `Node::kind()`.
+
+Its constructors and utilities include:
+
+| API                                | Behavior                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `KindMatcher::new(kind, lang)`     | Constructs the matcher from the language's kind ID; does not return a validation error |
+| `KindMatcher::try_new(kind, lang)` | Rejects an invalid kind name                                                           |
+| `KindMatcher::from_id(id)`         | Constructs directly from a grammar-kind ID                                             |
+| `is_invalid()`                     | Tests whether the resolved kind ID represents an unknown kind                          |
+| `KindMatcher::error_matcher()`     | Constructs a matcher for the Tree-sitter `ERROR` kind                                  |
+
+`KindMatcher::error_matcher()` performs an exact kind-ID comparison. It does not automatically match all missing nodes, nor is it a general-purpose predicate for every recovered syntax condition.
+
+A subtle but important distinction exists between `KindMatcher` and structural `Pattern` matching. Internally, pattern comparison treats a goal node with the special `ERROR` kind differently from an ordinary terminal kind. It can function as a wildcard in that matching path. The standalone `KindMatcher` does not inherit this wildcard behavior.
+
+Consequently, an error-bearing compiled pattern should not be treated as interchangeable with an explicit error-node matcher.
+
+### B.3 Raw string matchers versus compiled patterns
+
+The convenience implementation `Matcher for str` compiles a `Pattern` within `match_node_with_env()`:
+
+```
+let pattern = Pattern::new(self, node.lang().clone());
+pattern.match_node_with_env(node, env)
+```
+
+This happens when evaluating each candidate, rather than once per complete search.
+
+The same implementation constructs a pattern again when `get_match_len()` is invoked. It also inherits the default `Matcher::potential_kinds()` implementation, which returns `None`.
+
+For repeated searching, this creates two differences compared with a precompiled `Pattern`:
+
+1. Pattern parsing and compilation can recur for each candidate instead of being amortized across many nodes or documents.
+2. `Node::find_all()` cannot exploit the root-kind filter that a compiled `Pattern` can expose.
+
+The source establishes additional work and lost filtering opportunities, not a particular speedup factor. Actual performance depends on tree size, pattern complexity, grammar, and the number of candidates.
+
+It also creates a reliability distinction: the string matcher calls `Pattern::new()`, which unwraps pattern construction and may panic on an invalid pattern, whereas `Pattern::try_new()` provides an explicit error path.
+
+A compiled `Pattern` is therefore both a reusable query artifact and a way to separate query construction failures from execution.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher/kind.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher/kind.rs?utm_source=chatgpt.com)
+
+## C. Capture environments: equality, constraints, and source recovery
+
+### C.1 Repeated captures use a specialized equality relation
+
+Metavariable consistency is not always equivalent to checking source text or Rust node identity.
+
+For single captures, the implementation uses `does_node_match_exactly()`, whose behavior includes:
+
+- Treating identical node IDs as equal.
+- Comparing text when at least one node has no named children.
+- Otherwise requiring the same grammar-kind ID, the same number of children, and recursive child equality.
+
+This is a structural equality policy with a text-based fallback for leaf-like nodes. It is not compiler-level equality or resolved-symbol identity.
+
+For repeated multi-captures, `MetaVarEnv::match_multi_var()` compares the captured sequences after filtering to named nodes. Anonymous punctuation can therefore be excluded from repeated-sequence consistency checks.
+
+The equality behavior should not be confused with the source bytes recovered for replacement.
+
+### C.2 Captured node sequences versus recovered source spans
+
+`get_multiple_matches(name)` returns a vector of captured nodes.
+
+For `MetaVariable::MultiCapture`, `get_var_bytes()` instead returns the source interval extending from the first captured node's start to the last captured node's end.
+
+That interval can include punctuation, whitespace, comments, and other syntax between the captured nodes. It is not constructed by concatenating each captured node's text.
+
+This is useful for source-preserving rewrites: a captured argument sequence can retain its original separators and layout even when the capture environment exposes individual nodes for structured inspection.
+
+It also introduces a consequential distinction for extraction pipelines. The captured node sequence and the source interval are different representations of the same syntactic region; one cannot always be reconstructed from the other without revisiting the source.
+
+For multi-captures matching no nodes, the environment can return an empty vector, while byte extraction returns `None`.
+
+### C.3 Constraint evaluation and binding propagation
+
+`MetaVarEnv::match_constraints()` accepts a map of capture names to matcher conditions.
+
+The 0.51.0 implementation iterates over single-node captured variables. It does not independently iterate over all multi-node captures or transformed values.
+
+The method uses a copy-on-write environment. Successful constraint matchers can establish additional bindings, which are committed to the environment if the constraint evaluation succeeds. Failed constraint evaluation does not commit its speculative changes.
+
+This creates a useful capability: capture constraints can do more than return a Boolean result. They may enrich the successful match environment with additional syntactic evidence.
+
+But it is not a general constraint engine over arbitrary sequences, derived strings, or cross-file facts.
+
+### C.4 Labels and transformations share capture-related infrastructure
+
+`MetaVarEnv::add_label()` stores labeled nodes using the same underlying map employed by multi-node captures. This means labels and multi-capture names are not completely independent namespaces in the implementation.
+
+In particular, labeled nodes can appear through multi-capture-oriented access and variable enumeration. Consumers that distinguish ordinary captures from diagnostic labels need to preserve that distinction themselves rather than assuming storage separation.
+
+`insert_transformation()` stores a caller-supplied transformed value, adjusting its indentation relative to the referenced captured source where applicable. It does not provide a general-purpose text-transformation language.
+
+This is the low-level mechanism that permits replacement generation to consume derived values. The higher-level library configuration layer remains responsible for supplying its richer declarative transformation operations.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/meta_var.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/meta_var.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/match_tree/mod.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/match_tree/mod.rs?utm_source=chatgpt.com)
+
+## D. Replacement strategies and their distinct semantics
+
+### D.1 `Replacer<D>` is a multi-representation abstraction
+
+The `Replacer<D>` trait provides more replacement strategies than string templates alone.
+
+Its required method is `generate_replacement()`, which produces the source representation to insert for a particular `NodeMatch`. The default `get_replaced_range()` method independently determines the source interval to replace.
+
+Version 0.51.0 implements `Replacer<D>` for several types:
+
+| Replacer             | How replacement content is generated                                                          | Important distinction                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `str`                | Parses the string as a replacement template for each generation                               | Convenient, but template preparation is repeated                                      |
+| `TemplateFix`        | Uses a previously prepared textual template with metavariable and transformation substitution | Supports indentation-aware captured-fragment insertion                                |
+| `Node<'_, D>`        | Copies the node's original source interval                                                    | No metavariable substitution in the replacement node                                  |
+| `Root<D>`            | Walks a parsed replacement document and substitutes recognized metavariable nodes             | Syntax-structured discovery of placeholders, but output remains source bytes          |
+| Custom `Replacer<D>` | Supplied by the embedding application                                                         | Can generate arbitrary replacement content and customize the effective replaced range |
+
+The `Replacer` implementation for `&T` also allows the same prepared replacer to be borrowed and reused.
+
+This is an important abstraction boundary: matching determines which source structures qualify, whereas replacement generation determines what to insert. The two can be implemented independently and combined through the generic API.
+
+### D.2 Parsed-document replacement with `Root<D>`
+
+The `Root<D>` implementation provides a form of structural template expansion that is not developed in the existing guide.
+
+A replacement can itself be parsed as a document. The implementation then walks that replacement tree and examines named-leaf nodes for recognizable metavariables.
+
+For each recognized metavariable with an available binding, it substitutes the captured source representation. Other portions of the replacement document retain their original text.
+
+This supports replacements with repeated metavariables, nested code structures, and sequence captures without manually assembling every fragment in the caller.
+
+However, parsed replacement does not mean mutable-AST regeneration. The implementation still produces source content by collecting text edits against the replacement document and merging them into an output buffer.
+
+Several boundaries follow:
+
+- Placeholder recognition depends on the replacement grammar and on which syntax nodes are classified as named leaves.
+- Replacement parsing helps locate syntactic placeholders but does not establish that the final substituted output is valid code.
+- Unlike `TemplateFix`, the structural replacer does not perform the same indentation-normalization process.
+- It should not be assumed to protect string-literal contents from substitution. The upstream tests explicitly demonstrate replacement of a metavariable-like fragment within a quoted JavaScript string when the grammar exposes it appropriately.
+
+The most useful distinction is therefore syntax-aware placeholder discovery versus textual placeholder scanning, not an absolute guarantee that syntactic contexts such as strings are left unchanged.
+
+A `Node` replacer represents a third model: it transfers the original source representation of a selected syntax node without interpreting metavariables in that node.
+
+Together, these implementations allow replacement content to originate from a textual template, parsed template, captured source subtree, or custom generator while using the same edit-generation interface.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer/structural.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer/structural.rs?utm_source=chatgpt.com)
+
+### D.3 `TemplateFix` inspection and validation limitations
+
+`TemplateFix` exposes two additional inspection methods:
+
+- `used_vars()` returns a set of metavariable names referenced by the template.
+- `exact_node_var()` returns a single non-transformed metavariable name when its internal parsed variable sequence contains exactly one such reference.
+
+These methods make replacement templates more inspectable. In combination with `Pattern::defined_vars()`, they can support rule validation before a transformation is executed.
+
+But the validation guarantees are limited.
+
+`TemplateFix::try_new()` is effectively infallible in 0.51.0. Its implementation always returns `Ok(create_template(...))`, and `TemplateFixError` is an empty enum. A successful result does not mean that all referenced variables are available in the eventual match environment.
+
+When a recognized replacement variable has no available binding, the template generator can omit its substitution instead of reporting an error. For transformation pipelines, a well-formed template is therefore not the same as a fully resolvable template.
+
+`used_vars()` supports preflight checks, but set membership alone is insufficient to establish correctness. A replacement may refer to single captures, multi-captures, or transformation outputs that require different forms of stored data.
+
+`exact_node_var()` has another noteworthy limitation. Despite its name, the 0.51.0 implementation checks the number and kind of parsed metavariable references, not whether surrounding literal fragments are empty.
+
+The upstream tests explicitly confirm:
+
+| Template                   | `exact_node_var()` |
+| -------------------------- | ------------------ |
+| `$A`                       | `Some("A")`        |
+| `$$$A`                     | `Some("A")`        |
+| `prefix $A`                | `Some("A")`        |
+| `$A$B`                     | `None`             |
+| `$A` marked as transformed | `None`             |
+
+Thus, the result is useful as an indicator that one node-backed variable appears, but it is not proof that the complete replacement consists solely of that node's source text.
+
+`TemplateFix::with_transform()` provides the connection to already computed transformation values. It identifies names that should be read from `MetaVarEnv` as transformed values; it does not independently perform substring, regex, case conversion, or recursive rewriting operations. Those higher-level operations belong to the configuration ecosystem.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://ast-grep.github.io\&sz=32)
+
+ast-grep+1
+
+
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer/template.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer/template.rs?utm_source=chatgpt.com)
+
+[https://ast-grep.github.io/guide/rewrite/transform](https://ast-grep.github.io/guide/rewrite/transform?utm_source=chatgpt.com)
+
+### D.4 Match extent and edit extent are not identical
+
+`NodeMatch::replace_by()` constructs an edit using the complete range of the matched node.
+
+By contrast, matcher-driven replacement through `Node::replace()`, `Root::replace()`, or `Node::replace_all()` uses `NodeMatch::make_edit()`, which delegates range selection to `Replacer::get_replaced_range()`.
+
+The default implementation takes the matched node's starting byte and, when available, uses the matcher's `get_match_len()` to determine the length of the replaced interval.
+
+`Pattern::get_match_len()` computes an effective end position from the pattern-matching process. This can differ from the complete span of the matched syntax node, particularly where trailing anonymous syntax is not part of the effective match.
+
+This distinction matters in code containing semicolons, commas, other delimiters, or trailing syntax trivia.
+
+A structural match identifies a syntax node. An edit must also decide whether the entire node or only the syntax actually consumed by the matcher is replaced.
+
+`Replacer<D>` allows those decisions to be coupled without hardcoding one replacement-range policy into every matcher or editing operation.
+
+The following operations are therefore not universally equivalent, even when supplied the same replacement content:
+
+| Operation                         | Edit extent                                                      |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `NodeMatch::replace_by(replacer)` | Entire matched node range                                        |
+| Matcher-driven `Node::replace()`  | Replacer-selected range, using the matcher where applicable      |
+| `Root::replace()`                 | Same matcher-driven range selection, then applies the first edit |
+| `Node::replace_all()`             | Matcher-driven range for each selected non-overlapping match     |
+
+A custom `Replacer` can also override `get_replaced_range()` to define its own extent policy.
+
+For source-preserving codemods, this makes edit-range selection a first-class part of correctness, not just a mechanical consequence of choosing a matched node.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher/node_match.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/matcher/node_match.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/replacer.rs?utm_source=chatgpt.com)
+
+## E. Advanced traversal: selection, ordering, and pruning
+
+### E.1 Configurable `Visitor`
+
+`tree_sitter::traversal::Visitor` exposes three largely independent traversal controls:
+
+| Control            | Options                                                               | Effect                                                                |
+| ------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `algorithm::<A>()` | `PreOrder`, `PostOrder`, and associated level-order traversal support | Changes the order in which candidate nodes are visited                |
+| `named_only(bool)` | `true` / `false`                                                      | Determines whether unnamed grammar nodes are considered as candidates |
+| `reentrant(bool)`  | `true` / `false`                                                      | Determines whether traversal can continue into nested matches         |
+
+The default visitor uses preorder traversal, permits reentrant matching, and does not restrict candidates to named nodes.
+
+`named_only(true)` is useful when only grammatical constructs represented by named nodes are relevant. But it can exclude operators, keywords, and punctuation that are meaningful for certain concrete-syntax analyses.
+
+Reentrancy controls a different dimension: it determines how the traversal proceeds after a match.
+
+For example, a non-reentrant preorder visitor can select an enclosing matching expression and skip matches nested beneath it. This is the mechanism used by the built-in multi-replacement workflow to avoid generating overlapping nested edits.
+
+Traversal order matters because first-match and non-reentrant selection are order-dependent. Preorder favors enclosing constructs; postorder exposes descendants before their ancestors.
+
+Level-order traversal uses a `VecDeque`-backed frontier. Its breadth-oriented visitation can be useful for some structural analyses, but memory use depends on the width of the tree, unlike depth-first traversal.
+
+### E.2 `Prune`: caller-directed subtree skipping
+
+A more specialized interface is `tree_sitter::traversal::Prune<L>`.
+
+Unlike an ordinary iterator that decides how to advance internally, `Prune` lets the caller decide whether the current syntax node's children should be visited.
+
+Its interface includes:
+
+| Method                     | Behavior                                                            |
+| -------------------------- | ------------------------------------------------------------------- |
+| `Prune::new(node)`         | Start traversal at a Tree-sitter-backed node                        |
+| `current_node()`           | Inspect the currently selected node                                 |
+| `descend()`                | Enter the first child; otherwise advance past the completed subtree |
+| `skip_subtree()`           | Advance without entering the current node's children                |
+| `current_subtree()`        | Capture an opaque marker for the current subtree                    |
+| `has_left_subtree(marker)` | Determine whether traversal has moved beyond that marked subtree    |
+
+The distinction from visitor reentrancy is significant.
+
+A non-reentrant `Visitor` prunes based on the outcome of its matcher. `Prune` allows the embedding application to skip children based on an independent decision made while inspecting the current node.
+
+The decision can depend on syntax kind, source-range constraints, information previously extracted from an enclosing construct, or external data available to the caller.
+
+This supports heterogeneous analysis pipelines in which some subtrees receive detailed inspection while others are intentionally skipped.
+
+`PruneSubtree` markers additionally permit tracking when traversal has exited a previously marked enclosing subtree without repeatedly walking parent chains. These are traversal-local markers, not durable syntax identities or source-edit-stable references.
+
+The API is specialized to Tree-sitter-backed `StrDoc<L>` nodes; it is not a generic traversal implementation for arbitrary `Doc` backends.
+
+### E.3 Performance implications
+
+The library supplies several levels of traversal control with different work profiles.
+
+| Mechanism                                              | Work potentially avoided                         |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `Matcher::potential_kinds()` inside `Node::find_all()` | Expensive matching against impossible node kinds |
+| `Visitor::named_only(true)`                            | Matching unnamed grammar nodes                   |
+| `Visitor::reentrant(false)`                            | Visiting descendants beneath selected matches    |
+| `Prune::skip_subtree()`                                | Visiting entire caller-rejected subtrees         |
+| First-match search                                     | Continuing traversal after the first success     |
+
+Only `Prune` in this group allows arbitrary caller-directed rejection of a complete subtree before entering its children.
+
+The cost tradeoff is that the application owns the traversal decisions and must ensure its pruning policy does not discard syntactic evidence needed later.
+
+Primary source:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/tree_sitter/traversal.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/tree_sitter/traversal.rs?utm_source=chatgpt.com)
+
+Traversal API clarification: In 0.51.0, the built-in `Algorithm` implementations usable through `Visitor::algorithm::<A>()` are `PreOrder` and `PostOrder`. The `Level` breadth-first traversal is available as a separate iterator, not as a predefined `Visitor` algorithm.
+
+## F. Incremental editing: source mutation, reparsing, and cost boundaries
+
+### F.1 `ContentExt` and `perform_edit()`
+
+The Tree-sitter adapter exposes an additional layer beneath the normal `Root::edit()` operation:
+
+- `ContentExt::accept_edit()` updates a source representation and produces a Tree-sitter `InputEdit`.
+- `tree_sitter::perform_edit()` invokes `accept_edit()` and applies the resulting `InputEdit` to an existing Tree-sitter tree.
+- `StrDoc::do_edit()` uses this mechanism and then reparses with the edited previous tree.
+
+The important distinction is that `perform_edit()` edits the source and informs the existing tree of the change; it does not itself complete the incremental reparse.
+
+This separation provides a lower-level integration boundary for applications that manage their own document and parser lifecycle.
+
+For the standard `String` source representation, the procedure is effectively:
+
+```
+Edit<String>
+    |
+    v
+Compute old byte boundaries and points
+    |
+    v
+Modify the source byte vector
+    |
+    v
+Compute new endpoint
+    |
+    v
+Apply InputEdit to old Tree-sitter tree
+    |
+    v
+Reparse using the edited old tree
+    |
+    v
+Updated syntax tree
+```
+
+The final reparse is performed by the `StrDoc` editing implementation, rather than by `perform_edit()` itself.
+
+### F.2 Coordinate calculation is additional work
+
+The standard source adapter computes Tree-sitter points by scanning source bytes from the beginning of the document to the relevant offset.
+
+For an edit, this includes the old start and end positions and the new end position after source mutation.
+
+Although incremental parsing can reuse unaffected portions of the previous syntax tree, this coordinate calculation is not itself incremental.
+
+Consequently, edit cost includes at least three distinguishable operations:
+
+1. Source modification and associated allocation or data movement.
+2. Computation of edit-coordinate information.
+3. Incremental parsing using the edited previous tree.
+
+For repeated localized modifications, especially in large files, the coordinate and source-modification costs can matter independently of how efficiently Tree-sitter reuses parse structure.
+
+This does not establish a quantitative bottleneck without measurement. It does establish that incremental parsing alone does not guarantee the entire edit operation has cost proportional only to the changed subtree.
+
+### F.3 Mutation is not transactional
+
+The 0.51.0 implementation modifies the source and edits the existing Tree-sitter tree before attempting the incremental reparse.
+
+If that reparse returns an error, `Root::edit()` propagates the failure, but the preceding source modification is not automatically rolled back.
+
+This should be distinguished from ordinary syntax errors. Tree-sitter typically produces recovered syntax trees containing `ERROR` or missing nodes for invalid source. A parse failure returning no tree is a different condition.
+
+The relevant internal `TSParseError::TreeUnavailable` path covers cases in which Tree-sitter cannot return a tree, including parser cancellation or timeout-related failures.
+
+The implementation therefore does not provide an atomic edit transaction with a guaranteed unchanged previous document on failure.
+
+For systems that require transactional edit semantics, snapshotting, staged edits, and rollback are separate responsibilities.
+
+The standard `String` adapter also uses direct mutable access to its UTF-8 byte vector. Externally constructed edits must preserve valid UTF-8 boundaries and inserted content. The `Edit` struct's integer fields alone do not enforce those constraints.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/tree_sitter/mod.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/tree_sitter/mod.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/node.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/node.rs?utm_source=chatgpt.com)
+
+## G. Grammar availability and low-level Tree-sitter interoperability
+
+### G.1 `ast-grep-language` parser feature gating
+
+The companion `ast-grep-language` crate has an important compile-time distinction between a language being represented in its public API and its parser being available in a particular build.
+
+Its default `builtin-parser` feature enables its packaged Tree-sitter grammar dependencies.
+
+It also provides a narrower `napi-lang` feature configuration containing selected grammars used for integration with the Node.js ecosystem.
+
+The parser dispatch implementation uses conditional compilation. When a grammar dependency is disabled, the corresponding parser function contains an `unimplemented!()` fallback.
+
+This means a minimal-feature build can retain language types and `SupportLang` variants without having the underlying Tree-sitter parser available. Calling an unavailable parser path can panic.
+
+The relevant distinction is:
+
+| Layer                            | What availability establishes                          |
+| -------------------------------- | ------------------------------------------------------ |
+| Language enum/type               | The language is represented in the Rust type system    |
+| Compiled grammar dependency      | The Tree-sitter parser is available to that build      |
+| `LanguageExt::get_ts_language()` | The actual grammar implementation can be obtained      |
+| Successful parsing               | A syntax tree can be produced for the requested source |
+
+A language enum variant should not be treated as an unconditional runtime guarantee that a corresponding parser is installed or compiled.
+
+This is primarily a companion-crate integration issue, not a limitation of the generic `Matcher` abstraction. It becomes relevant when reducing binary size, embedding selected grammars, or building specialized distribution targets.
+
+### G.2 `Root::adopt()` and underlying Tree-sitter nodes
+
+`Root<D>::adopt()` wraps an underlying `D::Node` as an ast-grep `Node` associated with an existing document root.
+
+This complements `Node::get_inner_node()`, which exposes the underlying syntax-node representation.
+
+Together they permit integration between low-level Tree-sitter operations and ast-grep's higher-level node and matcher interfaces.
+
+However, `adopt()` assumes the supplied node belongs to the root's syntax tree. The 0.51.0 implementation checks lineage using `debug_assert!`, so that check is not an unconditional runtime validation in optimized builds.
+
+The method should therefore be understood as an interoperability adapter for nodes with established ownership and lineage, not a mechanism for moving arbitrary syntax nodes between independent trees.
+
+That distinction is particularly important when working with multiple parsed documents, language injections, or reparsed source trees.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/language/Cargo.toml](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/language/Cargo.toml?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/language/src/parsers.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/language/src/parsers.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/node.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/node.rs?utm_source=chatgpt.com)
+
+## H. Specialized diagnostic and ownership interfaces
+
+### H.1 `display_context()` for contextual source inspection
+
+The Tree-sitter-backed `Node` implementation provides a documentation-hidden `display_context(before, after)` method.
+
+It returns a `DisplayContext` containing:
+
+| Field        | Meaning                                                      |
+| ------------ | ------------------------------------------------------------ |
+| `matched`    | Source text belonging to the matched node                    |
+| `leading`    | Source text preceding the match within the requested context |
+| `trailing`   | Source text following the match within the requested context |
+| `start_line` | Zero-based starting line of the returned context             |
+
+The `before` and `after` arguments specify how many surrounding lines should be included.
+
+This is useful when a syntax match must be presented with local textual evidence: for example, diagnostic previews, code-search results, or source-context displays.
+
+The method operates on the original source rather than regenerating the node's syntax. It also avoids requiring the caller to implement line-boundary extraction separately.
+
+Its scope is deliberately limited. It does not produce a full diagnostic object, severity, highlighting style, code frame, or editor protocol representation.
+
+Because the method is marked `#[doc(hidden)]`, it should also be distinguished from the crate's more prominent documented interfaces.
+
+### H.2 `PinnedNodeData`: retaining node-bearing data beyond ordinary borrows
+
+The `pinned` module provides a specialized ownership mechanism for cases where normal Rust node lifetimes become difficult to represent.
+
+The motivating problem is that `Node<'r, D>` contains a reference to its owning `Root<D>`. Under conventional borrowing, a node cannot outlive the root reference from which it was obtained.
+
+This is normally desirable, but complicates interfaces that need to retain both the root and node-bearing data together, including some FFI and cross-thread integration patterns.
+
+The module exposes:
+
+| Interface                  | Purpose                                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `PinnedNodeData<D, T>`     | Stores a root together with node-bearing data                                                      |
+| `PinnedNodeData::new()`    | Constructs the retained structure using a closure that receives a lifetime-extended root reference |
+| `get_data()`               | Reassociates retained nodes with the stored root and returns the data                              |
+| `into_raw()`               | Transfers ownership of the root and retained data separately                                       |
+| `unsafe trait NodeData<D>` | Describes how node references within the retained data are accessed and updated                    |
+
+The implementation supplies `NodeData` support for individual nodes, `NodeMatch`, and vectors of `NodeMatch`.
+
+This provides machinery that is particularly useful for building language bindings or retaining structured match results across ownership boundaries.
+
+But its safety model is materially different from ordinary Rust borrowing:
+
+- The constructor internally performs an unsafe lifetime extension.
+- Its validity relies on the underlying syntax tree remaining alive while retained node references are used.
+- The module is documentation-hidden.
+- The source contains unresolved TODOs concerning its unsafe invariants and safety documentation.
+- `into_raw()` transfers additional lifetime-management obligations to the caller.
+
+These are consequential qualifications. The module is a specialized integration facility, not a general-purpose durable node store or an automatically safe way to preserve syntax-node references after document edits.
+
+For conventional analysis, retaining source ranges and stable extracted data avoids the specialized lifetime requirements entirely. For FFI applications, the module offers relevant internal machinery, but its safety contract deserves close examination before treating it as a stable extension surface.
+
+Primary sources:\
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/tree_sitter/mod.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/tree_sitter/mod.rs?utm_source=chatgpt.com)
+
+[https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/pinned.rs](https://github.com/ast-grep/ast-grep/blob/0.51.0/crates/core/src/pinned.rs?utm_source=chatgpt.com)
+
+## I. Cross-capability implications
+
+The additional APIs expose several important architectural possibilities that are less apparent when the crate is understood only as a source-pattern matcher.
+
+### I.1 Reusable structural query representations
+
+`PatternNode`, `Pattern::from(Node)`, `Pattern::dump()`, and the matcher trait together make pattern compilation and execution separable operations.
+
+They enable reuse of compiled queries, inspection of their effective syntax representations, and construction of patterns from existing parsed source structures.
+
+The principal qualification is that programmatically constructed patterns still inherit ast-grep's grammar-specific and strictness-specific matching rules. Constructing a pattern directly does not automatically validate it or attach compiler semantics.
+
+### I.2 Rule validation before source modification
+
+The combination of `Pattern::defined_vars()`, `TemplateFix::used_vars()`, explicit `PatternError` variants, and direct `MatcherExt` evaluation makes several categories of validation possible without custom pattern parsers.
+
+These facilities can establish whether a pattern compiled, which captures it declares, and which variables a replacement references.
+
+However, they do not establish the complete correctness of a rewrite. That additionally depends on capture availability, replacement representation, effective edit range, resulting syntax validity, and the intended semantic transformation.
+
+This separation is valuable because it avoids mistaking successful template construction for a complete rewrite-correctness guarantee.
+
+### I.3 Structural replacement without a mutable AST framework
+
+`Replacer<D>` combines text templates, parsed replacement documents, existing syntax nodes, and custom generation behind one interface.
+
+This can eliminate substantial bespoke string-assembly machinery for source-preserving transformations.
+
+At the same time, the implementation does not offer an immutable structural editing model that regenerates source code from arbitrary modified ASTs. Its outputs remain source-oriented edits with the corresponding range and formatting obligations.
+
+### I.4 Selective syntax extraction with explicit traversal control
+
+`Visitor` and `Prune` provide different levels of control over which nodes are examined.
+
+Their combination with compiled `Pattern` matchers, `MetaVarEnv`, grammar-field access, and source ranges allows richer syntax extraction than an unconditional full-tree scan.
+
+A caller can choose traversal order, ignore unnamed nodes, avoid nested matches, or prune subtrees according to independently computed criteria.
+
+These mechanisms reduce repeated traversal and matching work when their selection assumptions are valid, but they do not supply a persistent source index or automatically infer which subtrees are irrelevant to every query.
+
+### I.5 Clear separation of parser reuse, edit generation, and mutation guarantees
+
+The incremental editing interface exposes three distinct concerns:
+
+- Producing a semantically appropriate replacement.
+- Determining and applying a valid byte-range edit.
+- Updating and reparsing the underlying syntax tree.
+
+The core crate supplies machinery for all three, but does not collapse them into an atomic, compiler-validated refactoring operation.
+
+This is an important design distinction: the same primitives can support lightweight structural rewrites, diagnostic previews, or more controlled editing workflows, with different correctness guarantees supplied by the surrounding system.
+
+## Addendum conclusion
+
+The additional capabilities strengthen three aspects of the original reference.
+
+First, matching is more programmable than source-string patterns alone suggest. Public compiled-pattern representations, direct matcher execution, explicit grammar-kind matchers, and caller-controlled traversal provide access to substantial lower-level machinery.
+
+Second, rewriting has multiple native representations and important correctness subtleties. Parsed-document replacers, template inspection, effective edit-range selection, and capture-source recovery can reduce custom codemod machinery, but their semantics are not interchangeable.
+
+Third, lifecycle and integration behavior deserve explicit treatment. Compile-time grammar availability, edit-coordinate calculation, non-transactional mutation, Tree-sitter node adoption, and specialized pinned ownership all affect what the library can guarantee when embedded in a larger system.
+
+With these additions, the original guide and addendum collectively describe both the major capabilities of `ast-grep-core` and the less obvious interfaces that determine how those capabilities compose in advanced Rust applications.
+
+Verification note: API behavior and limitations described here were checked against the 0.51.0 tagged upstream implementation, supplemented by official documentation and Context7. No runtime tests or performance benchmarks were performed as part of this addendum.
+
+Primary release source:\
+[https://github.com/ast-grep/ast-grep/tree/0.51.0](https://github.com/ast-grep/ast-grep/tree/0.51.0?utm_source=chatgpt.com)
+
+Core crate metadata and features:\
+[https://docs.rs/crate/ast-grep-core/0.51.0](https://docs.rs/crate/ast-grep-core/0.51.0?utm_source=chatgpt.com)
+
+Official traversal reference:\
+[https://docs.rs/ast-grep-core/0.51.0/ast_grep_core/tree_sitter/traversal/index.html](https://docs.rs/ast-grep-core/0.51.0/ast_grep_core/tree_sitter/traversal/index.html?utm_source=chatgpt.com)

@@ -1007,3 +1007,611 @@ These are the most useful direct entry points for deeper, version-aware research
 | rust-analyzer architecture        | [https://rust-analyzer.github.io/book/contributing/guide.html](https://rust-analyzer.github.io/book/contributing/guide.html?utm_source=chatgpt.com)                                   |
 
 Bottom line: `ra_ap_ide` is a high-level Rust semantic-services library with substantial reusable capability beyond ordinary language-server functionality. Its combination of incremental analysis, symbol relationships, structured code transformations, test discovery, and SCIP/LSIF-oriented static indexing makes it a potentially valuable foundation for sophisticated Rust source-intelligence systems, provided its tightly coupled versions, compilation-context requirements, and separation from compiler execution are respected.
+
+# Addendum — Advanced Capabilities and API Clarifications for `ra_ap_ide`
+
+Target version: `ra_ap_ide` 0.0.358\
+Research date: November 1, 2026\
+Companion document: ra_ap_ide — Comprehensive Rust Library Overview (October 29, 2026)
+
+This addendum supplements the original guide without repeating its existing capability descriptions. The section references identify where the new material belongs.
+
+Version-specific behavior is grounded in the published 0.0.358 API and, where appropriate, the upstream rust-analyzer source at the `2026-10-12` release tag. The published crate version and exact companion dependencies were confirmed against docs.rs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Scope of additions: extended semantic navigation; contextual control-flow and capture inspection; constructor-sensitive references; advanced assist and rename behavior; source-driven completion policy; richer inlay and hover results; structured layout and predicate inspection; static-index inclusion rules; runnable and snapshot-test metadata; and precise integration/API boundaries.
+
+## 1. Semantic navigation and contextual relationship analysis
+
+Extends original §§3.1–3.2 and 4.4.
+
+### 1.1 Navigation from operators, conversions, and control-flow tokens
+
+`Analysis::goto_definition` is not restricted to ordinary identifier-to-definition resolution. rust-analyzer recognizes selected non-identifier tokens and synthesizes navigation targets based on their semantic meaning.
+
+| Source construct                             | Additional navigation behavior                                                                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overloadable operators                       | Navigate to the applicable implementation of the corresponding operator trait, or to the trait when the implementation cannot be determined |
+| `?` on `Result`                              | Navigate to the relevant nontrivial `From` implementation when error conversion occurs                                                      |
+| `try_into()` and related blanket conversions | Where possible, bypass known standard-library blanket implementations to expose the underlying `TryFrom` or `From` implementation           |
+| Function and control-flow keywords           | Navigate between a construct's entry and its associated exit points                                                                         |
+| `return` and related exit constructs         | Navigate toward the enclosing function or control-flow context                                                                              |
+
+This is a significant extension of the definition-navigation model. An operator token can represent a trait-resolution relationship, while a control-flow token can represent a relationship between source regions rather than a declaration.
+
+For example, the relevant target of `a + b` may be the applicable `Add` implementation, not merely a declaration associated with either operand. Similarly, an error-propagating `?` may expose a conversion implementation that would otherwise remain implicit in the source.
+
+These results are navigation-oriented approximations of selected relationships. They do not constitute a complete control-flow graph, proof of dynamic dispatch, or exhaustive account of all compiler-inserted conversions. Resolution still depends on inferred types, compilation configuration, and the available semantic world.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+`goto_declaration` also retains distinct semantics for out-of-line module declarations, trait-associated declarations, and fields referenced from patterns. The implementation or source body and the declaration are not always interchangeable navigation destinations.
+
+Source:\
+`https://rust-analyzer.github.io/book/features.html`\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/goto_definition.rs`
+
+### 1.2 `highlight_related` as targeted semantic inspection
+
+`Analysis::highlight_related` is more expressive than ordinary document highlighting or repeated-identifier detection.
+
+Its `HighlightRelatedConfig` exposes independently selectable categories:
+
+| Configuration field  | Relationship exposed                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `references`         | Local semantic references, including selected trait-associated-item relationships                    |
+| `exit_points`        | Function and expression exits, including returns and error-propagation points                        |
+| `branch_exit_points` | Exit expressions associated with `if`, `match`, and match-arm contexts                               |
+| `break_points`       | Break and continue relationships associated with loops and applicable blocks                         |
+| `yield_points`       | `async`/`await` relationships identifying suspension points within the relevant asynchronous context |
+| `closure_captures`   | Captured bindings associated with a closure                                                          |
+
+The 0.0.358 implementation also contains specialized highlighting for `unsafe` blocks and their related operations. This path is handled separately from the six configuration switches listed above.
+
+The operation is position-sensitive. For example, focusing on a closure's `move` token or parameter-list delimiter can identify captured local bindings, while selecting `async` or `await` can identify corresponding suspension points. Focusing on `fn`, `return`, `?`, or `->` can expose exit relationships; `if`, `match`, and `=>` provide branch-specific inspection.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+The implementation returns:
+
+```
+Cancellable<Option<Vec<HighlightedRange>>>
+```
+
+Each `HighlightedRange` contains a `TextRange` and a `ReferenceCategory`. The upstream source explicitly notes that `ReferenceCategory` is an imperfect representation for this purpose: not every highlighted relationship is a reference. Some are definitions, exits, or other syntactic/semantic relationships.
+
+That distinction is consequential for consumers constructing code-intelligence models:
+
+- A highlighted closure capture is not necessarily equivalent to a generic reference-search result.
+- A highlighted exit is evidence of a recognized source-level control-flow relationship, not a complete interprocedural edge.
+- A highlighted `await` is a syntactic/semantic suspension-site indication, not a runtime scheduling trace.
+
+`highlight_related` therefore provides reusable, comparatively inexpensive contextual inspection while remaining distinct from HIR traversal, MIR analysis, and full dataflow construction.
+
+Source:\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/highlight_related.rs`
+
+### 1.3 Constructor-sensitive and specialized reference queries
+
+`Analysis::find_all_refs` can interpret the selected definition location as a request for a particular class of references, rather than treating every selection as an unrestricted symbol-use query.
+
+For structs, enums, and variants, rust-analyzer recognizes certain defining tokens and can restrict results to constructor or initialization usages:
+
+| Selection                                                                           | Intended result                                        |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `{` in a record-style definition                                                    | Record construction or initialization sites            |
+| `(` in a tuple-style definition                                                     | Tuple construction sites                               |
+| `;` for a unit struct                                                               | Unit construction sites                                |
+| Type or variant name at its definition, in the supported constructor-search context | Initialization usages rather than every type reference |
+
+The distinction is between using a type and constructing a value of that type. Type annotations, signatures, trait bounds, and other references may be excluded by a constructor-focused query.
+
+The implementation also documents special handling for references associated with control-flow constructs, format-string arguments, and lifetime constraints.
+
+The result of the underlying reference operation can contain multiple semantic search results where the selected location has ambiguous or related definitions. A consumer should therefore preserve the returned definition grouping instead of assuming one position always resolves to one entity.
+
+Constructor-focused references can compose with ordinary type-reference searches to distinguish dependency on an abstraction from creation of its values. This is useful for semantic indexing, source analysis, and assessing the consequences of changes to constructors or variants, without requiring a separate syntax-pattern matcher for each Rust construction form.
+
+The scope remains that of static, configuration-dependent source analysis. Missing macro expansion or compilation contexts can affect completeness.
+
+Source:\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/references.rs`
+
+## 2. Advanced refactoring and code-generation capabilities
+
+Extends original §§5.2–5.3.
+
+### 2.1 Substantive assist families available in 0.0.358
+
+The original guide explains how assists are discovered, resolved, and represented as proposed edits. What warrants additional coverage is the breadth of transformations already implemented by `ra_ap_ide_assists`.
+
+The release-tagged implementation registers handlers across several consequential categories:
+
+| Capability family                   | Representative operations                                                                                                                                 | Significance                                                                                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Function and expression refactoring | `extract_function`, `extract_variable`, `inline_call`, `inline_into_callers`, `inline_local_variable`                                                     | Reconstructs expressions, parameters, bindings, and call sites rather than performing isolated token replacement                   |
+| Module and file restructuring       | `extract_module`, `move_module_to_file`, `move_from_mod_rs`, `move_to_mod_rs`                                                                             | Transforms Rust module organization, potentially involving source edits and filesystem-level changes                               |
+| Trait and implementation generation | `add_missing_impl_members`, `generate_impl`, `generate_trait_impl`, `generate_blanket_trait_impl`, `generate_delegate_methods`, `generate_delegate_trait` | Uses available declarations and semantic context to synthesize related implementations or forwarding methods                       |
+| API and type construction           | `generate_function`, `generate_new`, `generate_getter_or_setter`, `generate_from_impl_for_enum`, `generate_trait_from_impl`                               | Derives declarations and implementation scaffolding from existing source context                                                   |
+| Semantic normalization              | `add_explicit_type`, `add_missing_match_arms`, `add_return_type`, `add_lifetime_to_type`, `normalize_import`, `merge_imports`                             | Makes inferred or implicit structure explicit and transforms source while respecting Rust syntax and selected semantic constraints |
+
+These are registered native handlers in the 0.0.358 release, not hypothetical applications of the assist interface.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Several deserve special attention.
+
+Inlining into callers is categorically different from inlining one expression at the cursor. It can require analyzing references and reconstructing code at multiple invocation sites. Availability and transformation correctness depend on the supported Rust constructs and the implementation's eligibility checks.
+
+Trait and delegation generation can derive source from existing method signatures, associated items, generic parameters, and implementation context. It provides reusable machinery for transformations that would otherwise require custom semantic extraction followed by source generation.
+
+Module restructuring extends beyond local AST replacement. Rust's relationship between `mod` declarations, inline modules, and files introduces an additional filesystem dimension. The resulting `SourceChange` may need coordinated textual and filesystem operations.
+
+Semantic normalization can expose inferred types, lifetime parameters, match alternatives, and return types as explicit source. These transformations are valuable independently of whether an application has a traditional editor interface.
+
+The important qualification is that an assist handler implements a particular supported transformation, not a general-purpose refactoring theorem. A successful assist resolution does not guarantee equivalence for arbitrary surrounding code, compilation configurations, or macro-generated uses.
+
+The source implementation remains the authority for the specific handler's applicability, rather than its name alone.
+
+Primary sources:
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide-assists/src/lib.rs`
+
+`https://rust-analyzer.github.io/book/assists.html`
+
+### 2.2 Special rename operations that transform Rust syntax
+
+Ordinary semantic rename preserves the syntactic role of an entity while changing its name. rust-analyzer implements two particularly important exceptions.
+
+Anonymous lifetime introduction. Renaming `'_` to a named lifetime can cause rust-analyzer to introduce the corresponding lifetime parameter into the relevant generic parameter list. The operation modifies the surrounding declaration structure in addition to replacing the selected lifetime token.
+
+Receiver transformation. Renaming `self` to an ordinary parameter name can rewrite method-style call sites into associated-function-style calls. The reverse operation—renaming a parameter to `self`—is supported under narrower conditions: it must be the first parameter in an `impl`, and its type must match the relevant `Self` type.
+
+This creates a useful distinction between three classes of source transformation:
+
+| Class                                | Example                               | Required reasoning                              |
+| ------------------------------------ | ------------------------------------- | ----------------------------------------------- |
+| Symbol-preserving spelling change    | Rename a local binding                | Resolve references and scopes                   |
+| Declaration-structure transformation | Introduce a named lifetime            | Update generic declarations and lifetime uses   |
+| Invocation-form transformation       | Convert a parameter to or from `self` | Rewrite declarations and compatible call syntax |
+
+Both special cases are implemented through the ordinary rename service, subject to its semantic eligibility checks. The caller still receives a proposed `SourceChange`, rather than a guarantee that files have been modified or that the transformed program compiles.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Primary source:
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/rename.rs`
+
+## 3. Source-controlled completion and richer presentation results
+
+Extends original §§4.1–4.3.
+
+### 3.1 Rust-analyzer-specific source attributes
+
+Completion configuration is not exclusively controlled by the client. The analyzed source can contain rust-analyzer-specific attributes influencing how items and methods are proposed.
+
+Three mechanisms are particularly relevant.
+
+| Attribute                                                 | Behavior                                                                                                                                                                           |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#[rust_analyzer::completions(ignore_flyimport)]`         | Excludes the annotated entity from auto-import completion, while permitting completion when it is already in scope                                                                 |
+| `#[rust_analyzer::completions(ignore_flyimport_methods)]` | For traits, suppresses auto-import completion of associated methods without necessarily suppressing completion of the trait itself                                                 |
+| `#[rust_analyzer::completions(ignore_methods)]`           | Suppresses ordinary method completion for the annotated trait, with exceptions when the trait is explicitly involved through `dyn Trait`, `impl Trait`, or applicable trait bounds |
+
+These controls are not equivalent to making an item invisible in Rust. They influence completion candidate generation. In particular, the last mode is not a universal prohibition on proposing every use of a trait method.
+
+Malformed attributes are ignored without warnings in the documented implementation. The upstream documentation also warns that these source-level preferences are not generally overridden by client settings.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Two additional attributes affect generated source edits.
+
+Preferred underscore imports
+
+```
+#[rust_analyzer::prefer_underscore_import]
+trait ExtensionTrait {
+    // ...
+}
+```
+
+For an annotated trait, auto-import completion can prefer importing it `as _`. This is useful for extension-trait behavior where the methods should become available without introducing a conventional trait-name binding. The import quick fix can also prefer this form while retaining a normal-import alternative.
+
+Preferred macro delimiters
+
+```
+#[rust_analyzer::macro_style(brackets)]
+macro_rules! example {
+    // ...
+}
+```
+
+The supported style values are `braces`, `brackets`, and `parentheses`. This mechanism applies to function-like macros; for procedural macros, the attribute is placed on the macro's implementing function.
+
+It influences how completion inserts a macro invocation, not how the macro expands or what delimiters Rust itself permits.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer+1
+
+
+
+Together, these attributes provide source-defined completion metadata. They let library authors influence selected consumer-facing IDE behaviors without changing ordinary Rust symbol visibility, trait resolution, or macro semantics.
+
+Their acceptance by the Rust compiler is a separate tool-attribute concern. The presence of support in rust-analyzer should not be taken as a general Rust-language guarantee.
+
+Primary sources:
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/hir/src/lib.rs`
+
+`https://rust-analyzer.github.io/book/features.html`
+
+### 3.2 Format-aware completion and source synthesis
+
+The completion engine also recognizes certain format-like string contexts and postfix transformations.
+
+The upstream documentation describes extracting expressions embedded in format-like string templates into ordinary formatting arguments. For example, a supported transformation can convert a string conceptually resembling:
+
+```
+"Result {result} is {2 + 2}"
+```
+
+into a formatting template with explicit argument expressions.
+
+Related postfix completions can construct `format!`, `println!`, `panic!`, and selected logging-macro invocations from the current expression.
+
+This differs from generic postfix rewriting in two respects: formatting context can affect the generated argument structure, and the resulting edit can introduce a complete macro invocation rather than simply replacing an identifier.
+
+The mechanism is bounded by the supported syntax and recognized formatting or macro contexts. It is not an arbitrary string-interpolation compiler or a general template-language engine.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Source:\
+`https://rust-analyzer.github.io/book/features.html`
+
+### 3.3 Inlay hints contain navigable, lazily resolved semantic information
+
+The original guide enumerates the information exposed by inlay hints. Their result model also deserves attention because hint labels are not necessarily plain strings.
+
+In 0.0.358, an `InlayHintLabel` contains a collection of `InlayHintLabelPart` values. Each part can carry:
+
+- `text`: the displayed fragment;
+- `linked_location`: an optional, potentially lazy `FileRange` corresponding to a semantic navigation target;
+- `tooltip`: an optional, potentially lazy `InlayTooltip`.
+
+The linked location can be used to resolve additional semantic information or navigate toward a definition. Thus, a displayed type hint can also act as an entry point into the semantic navigation model.
+
+Lazy resolution is explicitly represented by `LazyProperty<T>`, whose states are `Computed(T)` and `Lazy`.
+
+`InlayFieldsToResolve` distinguishes independently deferrable result fields:
+
+| Field                    | Deferred material                                 |
+| ------------------------ | ------------------------------------------------- |
+| `resolve_text_edits`     | Edits associated with a hint                      |
+| `resolve_hint_tooltip`   | Tooltip for the hint                              |
+| `resolve_label_tooltip`  | Tooltip for individual label components           |
+| `resolve_label_location` | Source location associated with a label component |
+| `resolve_label_command`  | Associated label action or command information    |
+
+The configuration can be derived from client capabilities, but the underlying distinction is useful to any direct library consumer: expensive details need not be materialized when generating the initial list of hints.
+
+`inlay_hints_resolve` identifies the relevant hint using a range and hash in the current analysis context. Reusing a previously generated identity after changes to the analysis world can produce an obsolete or mismatched resolution request.
+
+This provides a more sophisticated model than attaching inferred-type strings to source offsets. It allows explanatory hints and navigable semantic relationships to share a common representation, while preserving control over when additional work is performed.
+
+Source:\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/inlay_hints.rs`
+
+### 3.4 Hover configuration and typed actions
+
+`HoverConfig` exposes more control than a documentation toggle.
+
+Notable options include `links_in_hover`, `memory_layout`, `max_trait_assoc_items_count`, `max_fields_count`, `max_enum_variants_count`, `max_subst_ty_len`, and `show_drop_glue`.
+
+The `memory_layout` configuration is especially distinctive. `MemoryLayoutHoverConfig` independently controls the display of size, offset, alignment, padding, and niche information. Numeric values can be rendered in decimal, hexadecimal, or both.
+
+Hover results also contain typed actions, rather than only markdown links. The 0.0.358 `HoverAction` variants include `Runnable`, `Implementation`, `Reference`, and `GoToType`.
+
+Consequently, hover can serve as an interaction surface joining type presentation, source navigation, runnable discovery, and implementation/reference exploration.
+
+Its primary content remains display-oriented `Markup`; these actions do not make the rendered hover text a substitute for structured type or HIR objects.
+
+Source:\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/hover.rs`
+
+## 4. Structured memory layout and predicate evaluation
+
+Extends original §8.2.
+
+### 4.1 `get_recursive_memory_layout`: hierarchical type-layout inspection
+
+`Analysis::get_recursive_memory_layout` returns an optional `RecursiveMemoryLayout`, rather than the human-readable string returned by several neighboring debugging operations.
+
+The 0.0.358 implementation represents the layout as a vector of `MemoryLayoutNode` records:
+
+| Field                            | Information                                               |
+| -------------------------------- | --------------------------------------------------------- |
+| `item_name`                      | Name of the selected item or field                        |
+| `typename`                       | Displayed type of the item                                |
+| `size`                           | Layout size                                               |
+| `alignment`                      | Required alignment                                        |
+| `offset`                         | Field offset within the relevant parent layout            |
+| `parent_idx`                     | Index of the parent node                                  |
+| `children_start`, `children_len` | Contiguous range describing the node's immediate children |
+
+This is a flattened hierarchical representation. The parent/child indices preserve nesting without requiring recursively allocated tree objects.
+
+The implementation obtains the type associated with an eligible source definition, including supported ADTs, aliases, local bindings, fields, constants, and statics. It then traverses fields and tuple components, collecting layout information through the underlying HIR type/layout mechanisms.
+
+Field entries are ordered by their computed offsets rather than merely by their textual presentation. That makes the structure potentially useful for investigating physical layout relationships, padding, and nested representations.
+
+Two limits are consequential:
+
+1. Missing layout information is not equivalent to a zero-sized field. The implementation can insert placeholder nodes with zero-valued numeric fields when a child layout cannot be determined; the diagnostic text associated with that node indicates unavailable layout data.
+2. This is analysis-dependent layout information. Target configuration, generic substitutions, supported type forms, and the underlying layout implementation determine whether meaningful results are available. It should not be treated as an unconditional guarantee of final compiler ABI layout.
+
+The upstream implementation also comments that its text-rendering facility is currently oriented toward tests rather than being a finished visualization API. The return value provides a typed structure internally, but its API stability and external usability should be evaluated against the exact published version.
+
+The associated hover capability supplies a separate, presentation-oriented view of layout properties. The two mechanisms are complementary rather than equivalent: one exposes a hierarchical result; the other prepares selected explanatory information for rendering.
+
+Primary source:
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/view_memory_layout.rs`
+
+### 4.2 Predicate evaluation exposes explicit proof states
+
+`Analysis::evaluate_predicate(text, position)` accepts predicate text to evaluate in the semantic context associated with a source position.
+
+The implementation expects a single where-clause predicate and delegates supported semantic evaluation to rust-analyzer's underlying machinery.
+
+The result is structured:
+
+```
+pub struct PredicateEvaluationResult {
+    pub status: PredicateEvaluationStatus,
+    pub message: String,
+}
+```
+
+The available statuses are:
+
+| Status        | Meaning                                                                     |
+| ------------- | --------------------------------------------------------------------------- |
+| `Holds`       | The supported predicate evaluation has established that the predicate holds |
+| `NotProven`   | The analysis did not establish the predicate                                |
+| `Invalid`     | The supplied predicate was not valid for the expected input form            |
+| `Unsupported` | The operation or predicate form is outside supported evaluation             |
+
+`NotProven` must not be interpreted as proof that a predicate is false. It describes a proof limitation or inability to establish the requested relationship.
+
+This result is distinct from `get_failed_obligations`, which exposes diagnostic-oriented textual information about obligations encountered in semantic analysis.
+
+That distinction matters when consuming the results programmatically. The predicate result has an explicit status suitable for branching or classification; failed-obligation text is primarily an explanatory inspection product.
+
+Neither interface provides a general replacement for rustc's trait solving, full compiler diagnostics, or a proof system with a documented completeness guarantee.
+
+Primary sources:
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/predicate_eval.rs`
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/hir/src/lib.rs`
+
+## 5. Static indexing, structural metadata, and execution-target discovery
+
+Extends original §§6.1, 6.3, and 7.1.
+
+### 5.1 Vendored-library inclusion in `StaticIndex`
+
+`StaticIndex::compute` accepts `VendoredLibrariesConfig`, which controls an important part of the static index's source coverage.
+
+Its variants are:
+
+```
+pub enum VendoredLibrariesConfig<'a> {
+    Included { workspace_root: &'a VfsPath },
+    Excluded,
+}
+```
+
+The distinction is not simply whether semantic analysis can resolve dependency definitions. The index-building implementation filters which module source files are included in its output.
+
+In 0.0.358, non-library source roots are eligible. For library source roots, the inclusion option permits files whose virtual paths fall under the supplied workspace root.
+
+Accordingly:
+
+- `Excluded` omits files classified as library-source modules from the indexed file set.
+- `Included { workspace_root }` allows qualifying vendored library files beneath that root.
+- Inclusion does not imply automatically indexing every external dependency or source file available to the analysis database.
+
+This matters because a static index may resolve semantic relationships to definitions that are not themselves represented as indexed source files.
+
+Coverage of the indexed source set and availability of cross-file semantic resolution are separate properties.
+
+The choice affects index size, processing work, source provenance, and how complete an exported navigation corpus appears to a consumer. The original guide's discussion of monikers and definition/reference links should therefore be interpreted relative to the configured indexing scope.
+
+Source:\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/static_index.rs`
+
+### 5.2 Runnables distinguish more than ordinary tests
+
+The `RunnableKind` model in 0.0.358 distinguishes:
+
+| Variant   | Represented target     |
+| --------- | ---------------------- |
+| `TestMod` | A test-module grouping |
+| `Test`    | An individual test     |
+| `Bench`   | A benchmark            |
+| `DocTest` | A documentation test   |
+| `Bin`     | An executable binary   |
+
+The associated `Runnable` also preserves source navigation, conditional-compilation information through `CfgExpr`, and `UpdateTest` metadata.
+
+These distinctions allow a consumer to represent executable targets without inferring their type solely from attributes or function names.
+
+`related_tests` is also more specific than discovering nearby tests. Its implementation uses semantic reference relationships to locate tests that use a selected definition, including certain enclosing test-module relationships. Its coverage is still limited by available semantic references, recognized test forms, and the configured search scope.
+
+### 5.3 Snapshot-test update metadata
+
+A less obvious feature is `UpdateTest`, which records whether the recognized runnable is associated with supported snapshot-testing conventions.
+
+It contains three boolean fields: `expect_test`, `insta`, and `snapbox`.
+
+The `UpdateTest::env()` method provides the environment variables corresponding to enabled update modes:
+
+| Snapshot-test family | Environment setting   |
+| -------------------- | --------------------- |
+| `expect-test`        | `UPDATE_EXPECT=1`     |
+| `insta`              | `INSTA_UPDATE=always` |
+| `snapbox`            | `SNAPSHOTS=overwrite` |
+
+This delegates knowledge of selected snapshot-testing update conventions to the analysis layer.
+
+The result is execution metadata, not test execution. `ra_ap_ide` identifies the applicable environment settings; it does not launch Cargo, update snapshot files, or verify test outcomes by itself.
+
+Recognition is based on the implementation's supported test forms and macro patterns. It should not be interpreted as universal discovery of every custom snapshot-testing framework.
+
+This capability illustrates an additional integration boundary: the IDE analysis layer can provide structured execution intent while an external test runner retains responsibility for process execution, environment management, and result capture.
+
+Source:\
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/runnables.rs`
+
+### 5.4 File structure and folding expose richer metadata
+
+`Analysis::file_structure` returns `StructureNode` records with more information than a symbol label and source range.
+
+The 0.0.358 representation includes:
+
+- `parent`: an index identifying hierarchical containment;
+- `navigation_range`: a focused source-navigation range;
+- `node_range`: the range of the containing structure;
+- `kind`: a `StructureNodeKind` covering symbols, external blocks, and regions;
+- `detail`: optional descriptive information;
+- `deprecated`: deprecation metadata.
+
+`FileStructureConfig::exclude_locals` determines whether local structures are omitted.
+
+This is useful when the desired structure is a source-oriented hierarchy with symbol metadata, rather than a fully resolved semantic dependency graph.
+
+Folding is similarly richer than a collection of anonymous ranges. `Fold` records contain `range`, `kind`, and optional `collapsed_text`. The supported `FoldKind` categories include comments, imports, regions, blocks, argument lists, arrays, where clauses, return types, match arms, functions, grouped declarations, statements, and tail expressions.
+
+Folding also recognizes explicit source region markers and certain runs of consecutive declarations.
+
+The resulting hierarchy and fold metadata can reduce the need for independent AST walks when the required output is a navigable document structure. They do not replace semantic definition identity or reference analysis.
+
+Primary sources:
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/file_structure.rs`
+
+`https://github.com/rust-lang/rust-analyzer/blob/2026-10-12/crates/ide/src/folding_ranges.rs`
+
+## 6. Integration details and exact API corrections
+
+Clarifies original §§2.1, 2.5, 5.6, 8.2, and 9.1.
+
+### 6.1 High-level analysis and direct HIR access are composable
+
+The published crate re-exports `Semantics` from the HIR layer and `RootDatabase` from the shared IDE database infrastructure. `AnalysisHost` also provides `raw_database()` and `raw_database_mut()`.
+
+These facilities expose a boundary between the high-level `Analysis` query interface and lower-level semantic/database facilities.
+
+The distinction matters when an operation requires information not preserved by the IDE-oriented result types, such as structured inferred types, specialized HIR relationships, or detailed resolution state.
+
+A consumer can potentially combine:
+
+- `Analysis` for high-level, position-oriented services;
+- `Semantics` for specialized analysis of syntax nodes and HIR entities;
+- `RootDatabase` for the underlying query context.
+
+However, these are not interchangeable state handles. The surrounding analysis world, database ownership, cancellation behavior, and query lifetimes must remain consistent.
+
+Direct database access also entails greater coupling to rust-analyzer's internal implementation than using the high-level API alone.
+
+The published re-exports make this composition possible without implying that all HIR operations are surfaced as stable `Analysis` methods.
+
+Source:\
+`https://docs.rs/ra_ap_ide/latest/src/ra_ap_ide/lib.rs.html`
+
+### 6.2 Exact API and terminology corrections for the original guide
+
+The following corrections should be applied to the relevant original sections.
+
+| Original location          | Correction or clarification                                                                                                                                                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| §2.5, host facilities      | `parallel_prime_caches` and `status` are methods on `Analysis`, not `AnalysisHost`. The guide should distinguish them from mutable host cache-management methods.                                                                                      |
+| §2.1, single-file analysis | The 0.0.358 constructor is `Analysis::from_single_file(text, proc_macro_cwd)`, returning `(Analysis, FileId)`. The procedural-macro working-directory argument is not optional in this signature.                                                      |
+| §2.3, file classification  | `Analysis::is_library_file` provides file-level library-source classification in addition to source-root queries. This is relevant to searches and indexing that treat library files differently from local sources.                                   |
+| §5.6, on-typing operations | `Analysis::SUPPORTED_TRIGGER_CHARS` exposes the recognized trigger-character set for on-typing services. Consumers should not infer a fixed set of characters from examples.                                                                           |
+| §6.3, file structure       | The `FileStructureConfig` field controlling local-item inclusion is `exclude_locals`.                                                                                                                                                                  |
+| §8.2, inspection outputs   | `get_recursive_memory_layout` and `evaluate_predicate` expose typed results; `get_failed_obligations` and several `view_*` methods expose textual inspection results. They should not be characterized as equivalent machine-readable representations. |
+
+These details follow the published 0.0.358 interface, not an assumed correspondence with upstream development documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary sources:
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.Analysis.html`
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.AnalysisHost.html`
+
+### 6.3 Release-specific evidence and stability boundaries
+
+All implementation-specific behavior detailed above was checked against the `2026-10-12` upstream release tag corresponding to the target publication.
+
+Three distinctions remain important when interpreting the addendum:
+
+Public API versus implementation behavior. A public method establishes an entry point; the source implementation determines which constructs are recognized and how results are formed. An implementation feature should not automatically be treated as a stable, independent contract.
+
+Published release versus development documentation. The rust-analyzer book provides valuable behavioral descriptions, but its content tracks upstream development. Exact signatures, registered handlers, and configuration types should be taken from the pinned release when compatibility matters.
+
+Structured output versus complete semantic representation. A typed result such as `PredicateEvaluationResult`, `RecursiveMemoryLayout`, or `InlayHintLabelPart` is more suitable for programmatic inspection than textual debugging output, but it still reflects the scope, precision, and lifecycle of its particular analysis operation. It is not necessarily an exhaustive or permanently stable representation of Rust semantics.
+
+These qualifications are especially consequential because `ra_ap_ide` belongs to a tightly versioned family of rapidly evolving rust-analyzer crates.
+
+## 7. Additional capability synthesis
+
+The additions reveal three capabilities that are easy to underestimate when `ra_ap_ide` is understood only as an editor-services facade.
+
+Contextual semantic inspection is broader than symbol lookup. Operators, conversion implementations, construction sites, closure captures, suspension points, and source-level exits can be exposed through native high-level services. These relationships support more informative source analysis without requiring an independently implemented resolver or a full compiler IR traversal for every question.
+
+Native refactoring spans multiple semantic and structural levels. The assist and rename engines can generate declarations, transform calls, reorganize modules, and introduce explicit generic/lifetime structure. This is substantially more capable than applying AST substitutions or renaming identifiers, although each transformation remains limited to the cases implemented and validated by its handler.
+
+Presentation interfaces can carry reusable semantic structure. Inlay-hint label links, typed hover actions, predicate statuses, hierarchical layout nodes, runnable metadata, and indexed symbol relationships demonstrate that IDE-facing results can expose valuable structured information. Their usefulness depends on selecting the appropriate representation and preserving the distinctions between display data, semantic identity, and compiler-authoritative facts.
+
+The resulting architectural perspective is that `ra_ap_ide` offers several levels of reusable intelligence: selected semantic relationships, contextual source synthesis, navigable presentation metadata, and static index construction. These can complement lower-level HIR access without requiring every consumer to reconstruct the entire rust-analyzer service stack.
+
+This addendum is limited to the missing and underdeveloped capabilities identified in the review. It leaves the original document's treatment of analysis lifecycle, general reference search, diagnostics, SSR, source edits, and core static-index architecture intact.

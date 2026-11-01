@@ -935,3 +935,685 @@ The important limit is equally clear: `ra_ap_syntax` provides an unusually capab
 | Full rust-analyzer architecture                   | [https://rust-analyzer.github.io/book/contributing/architecture.html](https://rust-analyzer.github.io/book/contributing/architecture.html?utm_source=chatgpt.com)                                                     |
 
 The versioned crate documentation is the appropriate reference for checking published API compatibility. The upstream source and architecture pages are particularly useful for understanding mechanisms, but `master` can contain changes newer than the published release.
+
+# Addendum — `ra_ap_syntax` 0.0.360
+
+Advanced source-text inspection, literal coordinate mapping, attribute interpretation, AST normalization, structural editing, and adjacent search-and-replace capabilities
+
+Target: `ra_ap_syntax` 0.0.360\
+Research date: November 1, 2026\
+Companion document: ra_ap_syntax — Comprehensive Rust Library Overview, October 30, 2026
+
+This addendum extends the original guide without repeating its treatment of parsing, CST/AST architecture, ordinary traversal, incremental reparsing, or semantic-analysis boundaries. It concentrates on additional native functionality that can eliminate custom source processing, structural normalization, and transformation logic.
+
+Version-sensitive behavior was checked against rust-analyzer's October 26, 2026 release source, commit `0c4d746`. The released crate is `0.0.360`; some indexed docs.rs pages still display earlier releases, so version-specific implementation details below are grounded in the tagged source rather than inferred from `latest` documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Versioned upstream source:
+
+[https://github.com/rust-lang/rust-analyzer/tree/2026-10-26/crates/syntax](https://github.com/rust-lang/rust-analyzer/tree/2026-10-26/crates/syntax?utm_source=chatgpt.com)
+
+## 1. Source-text inspection without obligatory string materialization
+
+Extends original §§2.1–2.2 and 4.1.
+
+### 1.1 `SyntaxText`: a logical text view over syntax-tree content
+
+`SyntaxNode::text()` returns `SyntaxText`, a Rowan type reexported by `ra_ap_syntax`. Unlike an owned `String`, it represents the concatenated text of a syntax subtree without requiring the caller to first construct a contiguous copy.
+
+Its operations include:
+
+| API                                    | Capability                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| `len()`, `is_empty()`                  | Inspect logical text extent                                              |
+| `slice(range)`                         | Obtain a subrange as another `SyntaxText` view                           |
+| `char_at(offset)`                      | Inspect a character at a byte offset                                     |
+| `find_char(c)`, `contains_char(c)`     | Search for individual characters                                         |
+| `for_each_chunk(f)`                    | Process text chunks without concatenating them                           |
+| `try_for_each_chunk(f)`                | Fallible chunk traversal with early termination                          |
+| `try_fold_chunks(init, f)`             | Accumulate a result through fallible chunk processing                    |
+| `Display`, `PartialEq` implementations | Format or compare text without explicitly building an owned string first |
+
+The chunk-processing methods are particularly valuable when consuming many syntax nodes. They allow an analysis to hash, classify, compare, or stream subtree text directly from its constituent content.
+
+For example, a structural index can accumulate a digest or perform substring-oriented filtering while avoiding a new full-length `String` for every inspected subtree. That can matter when analyzing a hierarchy containing overlapping ranges, such as a function, its body, its statements, and their expressions.
+
+Important distinctions:
+
+- `SyntaxText` is not a single borrowed `&str`. An operation needing contiguous string storage may still require materialization.
+- Chunk boundaries are representation details, not semantic or guaranteed Rust-token boundaries.
+- `TextSize` and `TextRange` use UTF-8 byte offsets. `char_at` does not turn the API into a Unicode-scalar-indexed coordinate system.
+- Avoiding concatenation removes one possible source of allocation and copying; it does not guarantee a faster algorithm for every access pattern.
+- The view remains tied to syntax-tree storage and inherits the relevant tree-handle ownership and concurrency constraints.
+
+Architectural significance: source inspection and source extraction are separate operations. `SyntaxText` allows the former without always paying for the latter, making it possible to preserve a source-native representation through more of an analysis pipeline.
+
+Primary references:
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/struct.SyntaxText.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/struct.SyntaxText.html?utm_source=chatgpt.com)
+
+[https://docs.rs/rowan/0.15.19/rowan/struct.SyntaxText.html](https://docs.rs/rowan/0.15.19/rowan/struct.SyntaxText.html?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/lib.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/lib.rs?utm_source=chatgpt.com)
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+## 2. String-literal interpretation and coordinate fidelity
+
+Extends original §5.3.
+
+### 2.1 `ast::IsString`: shared behavior across string-like tokens
+
+The `ast::IsString` trait provides a common interface for `ast::String`, `ast::ByteString`, `ast::CString`, and the heterogeneous `ast::AnyString` wrapper.
+
+It separates three operations that are easily conflated:
+
+1. Identifying the source representation and quote boundaries.
+2. Interpreting escape sequences or literal values.
+3. Mapping positions between the literal's contents and its location in the source file.
+
+The relevant methods are:
+
+| Mechanism                                             | Purpose                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------- |
+| `raw_prefix()`, `is_raw()`                            | Recognize the raw-string prefix and form                                  |
+| `quote_offsets()`                                     | Identify opening/closing quote ranges and content range                   |
+| `open_quote_text_range()`, `close_quote_text_range()` | Locate delimiter ranges                                                   |
+| `text_range_between_quotes()`                         | Obtain the source range occupied by the contents                          |
+| `text_without_quotes()`                               | Borrow the original content spelling without quote delimiters             |
+| `unescape()`                                          | Process escapes through a callback                                        |
+| `escaped_char_ranges()`                               | Report source ranges corresponding to decoded characters or escape errors |
+| `map_range_up()`, `map_offset_down()`                 | Translate offsets between quote-free source text and file coordinates     |
+
+The quote-boundary operations are especially useful for raw strings, where the literal's prefix, hash delimiters, and closing delimiter must be distinguished from the content.
+
+A code-analysis system can therefore retain the original string spelling, obtain a decoded interpretation where appropriate, and attach diagnostics to the exact escape sequence responsible for a problem.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 2.2 Two different coordinate transformations
+
+The distinction between `escaped_char_ranges()` and the `map_*` methods is consequential.
+
+Quote-relative and file-relative coordinates. `map_range_up()` accepts a range relative to the beginning of the literal contents and translates it to a source-file range by adding the contents' starting offset. `map_offset_down()` subtracts that starting offset.
+
+These methods do not perform escape-aware remapping between decoded string indices and source indices.
+
+Escaped characters and source spans. `escaped_char_ranges()` visits characters obtained from the original literal text, reporting the corresponding token-relative source span and an `Ok(char)` or escape error. A multibyte or multi-character escape can consequently be associated with the full source span from which it originated.
+
+This provides the information needed to construct a decoded-to-source correspondence. If absolute source coordinates are required, the callback's token-relative range must be combined with the syntax token's starting offset.
+
+For example, in the literal `"a\nb"`, where `\n` is written as two source characters, the logical newline occupies one decoded character but corresponds to two source bytes. Merely subtracting the opening quote offset does not account for this difference.
+
+There are further important qualifications:
+
+- `map_range_up()` checks whether the input range fits the quote-free contents; callers should not assume it can repair arbitrary decoded offsets.
+- Raw strings do not interpret ordinary escape sequences, and the library handles their contents differently from escaped strings.
+- The callback supplies source-range information and escape outcomes, not a general-purpose persistent bidirectional offset-map object.
+- `CString`'s implementation of the trait's character-oriented unescaping is intended for highlighting and can report placeholder characters. It should not be used as a faithful decoder of C-string values.
+
+The last distinction is explicit in the tagged implementation.
+
+### 2.3 Value extraction and allocation behavior
+
+The concrete token wrappers also provide value-oriented methods:
+
+- `ast::String::value()` returns `Result<Cow<'_, str>, EscapeError>`.
+- `ast::ByteString::value()` returns `Result<Cow<'_, [u8]>, EscapeError>`.
+- `ast::CString::value()` returns `Result<Cow<'_, [u8]>, EscapeError>`.
+
+These methods avoid allocation where a borrowed representation is sufficient, including raw-string paths, while allocating decoded storage when necessary. The actual return type makes this possibility explicit rather than promising that all decoding is allocation-free.
+
+The important separation is between literal spelling, interpreted value, and source-position provenance. Preserving all three can support source-grounded diagnostics, string-aware transformations, and analysis of embedded languages without reconstructing Rust literal parsing from scratch.
+
+Primary references:
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/trait.IsString.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/trait.IsString.html?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/token_ext.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/token_ext.rs?utm_source=chatgpt.com)
+
+## 3. Structured documentation comments and attribute interpretation
+
+Extends original §5.2.
+
+### 3.1 Documentation comments are AST-level entities
+
+The current syntax grammar represents documentation comments through `ast::DocComment`, rather than requiring callers to identify and associate them only through ordinary comment-token scanning.
+
+`HasAttrs` supplies three complementary views:
+
+| Method             | Returned AST entities       |
+| ------------------ | --------------------------- |
+| `attrs()`          | Ordinary `ast::Attr` nodes  |
+| `doc_comments()`   | `ast::DocComment` nodes     |
+| `attrs_with_doc()` | Mixed `ast::AnyAttr` values |
+
+`AnyAttr` distinguishes `Attr` from `DocComment`, allowing documentation-aware operations to process both in one typed traversal without discarding their original representation.
+
+This distinction makes documentation structurally associated with the language construct that owns it, rather than requiring a separate nearest-comment association algorithm.
+
+`DocComment` also offers direct interpretation helpers:
+
+- `kind()` determines whether the documentation comment is inner or outer.
+- `shape()` distinguishes line and block forms.
+- `text_with_markers()` preserves the original documentation-comment spelling.
+- `text()` removes the comment markers to expose the content.
+- `token()` exposes the underlying comment-token representation.
+
+For block comments, `text()` tolerates a missing closing marker during error recovery. Its result is source-derived comment content, not a fully normalized or rendered Markdown documentation object.
+
+These capabilities can replace custom comment ownership, delimiter stripping, and basic documentation classification logic.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 3.2 Inner attributes, outer attributes, and ownership
+
+`attrs_with_doc_including_inner()` and `attrs_including_inner()` extend the ordinary trait accessors by including applicable inner attributes that may live under a nested syntax node.
+
+This is significant because inner attributes do not always appear as immediate children of the enclosing item's syntax node.
+
+For instance, inner attributes may be found within a module's item list, a function's statement list, an implementation's associated-item list, or other structurally appropriate containers.
+
+The relevant mechanisms are:
+
+- `HasAttrs::inner_attributes_node()` identifies the syntax container where inner attributes may reside.
+- `attrs_with_doc_including_inner()` includes both attribute and documentation-comment representations.
+- `attrs_including_inner()` returns only ordinary attributes.
+
+The versioned implementation obtains outer attributes from the owner and chains applicable inner attributes from the designated container.
+
+Two caveats follow.
+
+First, the combined iterator should not be interpreted as an unconditional global lexical-order view across all possible owner and container arrangements.
+
+Second, `inner_attributes_node()` can refer to the same node as another owner, including `SourceFile`. A recursive analysis of nested attribute owners must avoid counting the same attributes more than once.
+
+### 3.3 Metadata normalization and conditional attributes
+
+`ast::Meta` and `ast::Attr` provide higher-level metadata interpretation beyond the raw syntax-tree shapes.
+
+Relevant helpers include `as_simple_atom()`, `as_simple_call()`, `as_simple_path()`, `simple_name()`, and `path()`.
+
+These permit common attribute forms to be recognized without repeatedly inspecting punctuation, nested path nodes, and token-tree structure. The methods are intentionally limited to shapes that can be recognized by their documented rules; arbitrary attribute contents remain token trees or more complex metadata structures.
+
+The less obvious operation is `skip_cfg_attrs()`.
+
+When given metadata containing `cfg_attr`, this helper recursively exposes its nested metadata entries without evaluating the conditional predicate.
+
+Consider:
+
+```
+#[cfg_attr(feature = "fast", inline(always))]
+fn calculate() {}
+```
+
+The helper can expose the nested `inline(always)` metadata syntactically. It does not establish that the `fast` feature is active or that the attribute should be applied.
+
+This enables configuration-independent inventory of possible attributes but not compilation-accurate determination of effective attributes.
+
+A further limitation is worth preserving: `Meta::parent_attr()` is explicitly marked in upstream source as problematic for general use because one `cfg_attr` may contain multiple metadata entries. It should not be treated as a general one-to-one mapping between normalized metadata and owning attributes.
+
+Architectural significance: the native syntax layer supports a richer model than raw attribute-text extraction: documentation ownership, inner/outer placement, recognizable metadata shapes, and conditional metadata flattening. Configuration evaluation and semantic effects remain separate responsibilities.
+
+Primary references:
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/trait.HasAttrs.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/trait.HasAttrs.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/struct.Attr.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/struct.Attr.html?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/traits.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/traits.rs?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/node_ext.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/node_ext.rs?utm_source=chatgpt.com)
+
+Dependency-version clarification for §1: The October 26 tagged rust-analyzer workspace specifies `rowan = "0.17.0"`. The Rowan 0.15.19 reference above documents an older release; the appropriate companion reference for this addendum is [https://docs.rs/rowan/0.17.0/rowan/struct.SyntaxText.html](https://docs.rs/rowan/0.17.0/rowan/struct.SyntaxText.html?utm_source=chatgpt.com). The described `SyntaxText` functionality is present in 0.17.0.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 4. Higher-level AST normalization and shared syntactic abstractions
+
+Extends original §§4.2–4.4.
+
+### 4.1 Path traversal beyond direct AST children
+
+`ast::Path` is a recursively represented syntactic path. Its generated accessors expose an immediate `segment()` and optional `qualifier()`, but its handwritten extensions provide several higher-level interpretations:
+
+| API                         | Structural interpretation                                             |
+| --------------------------- | --------------------------------------------------------------------- |
+| `segments()`                | Iterates segments from the initial qualifier toward the final segment |
+| `qualifiers()`              | Iterates enclosing qualifiers from the immediate qualifier outward    |
+| `first_segment()`           | Retrieves the leading segment                                         |
+| `first_qualifier()`         | Retrieves the earliest qualifier, if one exists                       |
+| `first_qualifier_or_self()` | Retrieves the earliest qualifier or the path itself                   |
+| `as_single_segment()`       | Accepts paths with no qualifier                                       |
+| `as_single_name_ref()`      | Accepts paths representable as one unqualified name reference         |
+| `parent_path()`             | Obtains an enclosing path node                                        |
+| `top_path()`                | Ascends to the outermost path representation                          |
+
+These methods distinguish traversal of written path structure from resolution of a path to a definition.
+
+For example, a path such as `crate::network::Client` can be decomposed into its syntactic components without rebuilding its structure from `::` tokens. Conversely, the returned segments do not establish whether `Client` denotes a struct, alias, imported item, or unresolved name.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 4.2 `PathSegmentKind` and qualified type anchors
+
+`ast::PathSegment::kind()` provides a more informative classification than inspecting `NameRef` alone.
+
+Its variants distinguish ordinary names from `Self`, `self`, `super`, `crate`, and type-anchored segments.
+
+The `Type` variant accommodates a type reference and optional trait reference, covering the syntactic structure of forms such as `<T as Trait>`.
+
+This is consequential for tools that normalize or classify qualified paths, because a type-anchored segment is not equivalent to a sequence of ordinary identifier segments.
+
+A path analyzer can preserve the distinction between a special keyword, a named segment, and a type-qualified anchor without implementing these cases from token patterns.
+
+The returned `Option<PathSegmentKind>` also respects incomplete syntax. Not every malformed segment can necessarily be classified.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+### 4.3 Shared syntax traits: `RangeItem`, `HasLoopBody`, and `HasModuleItem`
+
+The AST contains smaller abstractions for operations that recur across otherwise different node families.
+
+`RangeItem` is implemented for both `ast::RangeExpr` and `ast::RangePat`. It exposes `start()`, `end()`, `op_kind()`, and `op_token()`, while preserving the different bound types: expressions for `RangeExpr`, patterns for `RangePat`.
+
+This enables a common range-syntax inspection operation without incorrectly treating a range pattern as an expression.
+
+`HasLoopBody` provides `loop_body()` and `label()` for compatible loop constructs. `HasModuleItem` provides `items()` for item-containing nodes.
+
+These complement the existing `HasName`, `HasAttrs`, and generic-parameter traits.
+
+Architectural significance: these abstractions permit structural operations to be expressed over language-level capabilities rather than over large collections of concrete node variants. They can reduce bespoke AST dispatch and normalize syntactically equivalent concerns while preserving distinctions between expressions, patterns, items, and types.
+
+The boundary remains syntactic: a `RangeItem` can expose a written inclusive operator, but does not evaluate bounds or determine the resulting runtime range behavior.
+
+Primary references:
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/struct.Path.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/struct.Path.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/enum.PathSegmentKind.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/enum.PathSegmentKind.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/trait.RangeItem.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/trait.RangeItem.html?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast.rs?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/expr_ext.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/expr_ext.rs?utm_source=chatgpt.com)
+
+## 5. Specialized AST construction and editing facilities
+
+Extends original §§6.1–6.6.
+
+### 5.1 `ast::make::ext`: higher-level construction shortcuts
+
+The original guide describes `ast::make` and mentions its `ext` module without explaining its practical distinction from the ordinary constructors.
+
+The `ext` module provides shortcuts for frequently constructed syntax forms, including:
+
+| Construction family  | Examples                                                               | Purpose                                       |
+| -------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| Paths                | `ident_path`, `path_from_idents`                                       | Construct unqualified and multi-segment paths |
+| Expressions          | `expr_unit`, `expr_todo`, `expr_unreachable`, `expr_underscore`        | Construct common expression forms             |
+| Typed expressions    | `expr_ty_default`, `expr_ty_new`                                       | Construct type-associated call syntax         |
+| Types                | `ty_name`, `ty_bool`, `ty_option`, `ty_result`                         | Construct common syntactic type forms         |
+| Basic values         | `zero_number`, `zero_float`, `empty_str`, `empty_char`, `default_bool` | Produce common literal forms                  |
+| Structural fragments | `empty_block_expr`, `token_tree_from_node`                             | Create common block and token-tree fragments  |
+
+The important distinction is that these functions produce syntax, not resolved semantic entities.
+
+For example, `ty_option` constructs an unqualified `Option<...>` type expression. It does not guarantee that the written `Option` resolves to `std::option::Option` in a particular scope.
+
+Similarly, `expr_ty_default` and `expr_ty_new` construct suitable associated-call syntax; they do not determine whether the relevant type has such an associated function.
+
+Some constructors internally generate source text and parse it back into an AST. The extension module is therefore a convenient syntax-construction layer, not a guarantee that every operation builds trees directly without reparsing.
+
+The constructors can eliminate common source-template fragments while preserving interoperability with `SyntaxFactory` and `SyntaxEditor`. They do not replace semantic validation or project formatting rules.
+
+Primary source:
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/make.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/make.rs?utm_source=chatgpt.com)
+
+### 5.2 `GetOrCreateWhereClause`: structure-aware generic-bound editing
+
+The `syntax_editor` module exposes the `GetOrCreateWhereClause` trait.
+
+Its principal operation is:
+
+`get_or_create_where_clause(&self, editor: &SyntaxEditor, new_preds: impl Iterator<Item = ast::WherePred>)`
+
+The mechanism handles both major syntactic cases:
+
+- When a `where` clause already exists, it constructs a replacement clause containing the existing predicates followed by the supplied predicates.
+- When no clause exists, it calculates an appropriate insertion position for the owner and inserts the new clause.
+
+The tagged implementation supplies owner-specific behavior for functions, implementations, traits, type aliases, structs, and enums.
+
+Insertion positions depend on the construct. Functions, for example, place the clause after the return type when present, otherwise after the parameter list; other owners use suitable positions relative to generic parameter lists, names, or self types.
+
+This is more than a generic `SyntaxEditor::insert()` wrapper. It encodes recurring Rust grammar placement rules and can avoid custom logic for constructing or extending generic constraints.
+
+Limitations: The helper does not promise predicate deduplication, equivalence checking, resolution of trait names, or validity of the resulting bounds. Its guarantee is structural construction and placement, subject to the available AST.
+
+### 5.3 `Removable`: syntax-aware removal of selected constructs
+
+`syntax_editor::Removable` exposes:
+
+`remove(&self, editor: &SyntaxEditor)`
+
+The versioned implementation provides specialized removal behavior for three AST types:
+
+| Supported type  | Additional behavior                                      |
+| --------------- | -------------------------------------------------------- |
+| `TypeBoundList` | Removes an associated preceding colon when one is found  |
+| `Use`           | Handles surrounding whitespace while removing the import |
+| `UseTree`       | Removes separators associated with an import-tree entry  |
+
+This matters because removing a node from a lossless syntax tree is not always equivalent to deleting its text range.
+
+A bound list may leave behind punctuation, and deleting an import from a grouped use tree may leave an invalid separator. The specialized implementations encapsulate some of these structural details.
+
+The trait is deliberately narrow. It is not a generic mechanism guaranteeing well-formed deletion of every AST type. Its available implementations should be distinguished from the unrestricted `SyntaxEditor::delete()` operation.
+
+### 5.4 Collection-oriented editing helpers
+
+The tagged editing implementation also exposes methods such as `ast::AssocItemList::add_items()` and `ast::RecordExprFieldList::add_fields()`.
+
+These provide context-aware insertion into commonly edited Rust collections. Their implementations account for placement, separators, and some surrounding whitespace.
+
+For example, `AssocItemList::add_items()` can insert associated items after existing members while calculating indentation and newline placement.
+
+Its source explicitly qualifies this behavior: the first line of an inserted item is aligned, but indentation of the item's additional lines is not comprehensively rewritten.
+
+These collection-oriented helpers can simplify common AST modifications while remaining narrower than a formatter or a complete structure-preserving rewrite engine.
+
+Primary references for §§5.2–5.4:
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/syntax_editor/trait.GetOrCreateWhereClause.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/syntax_editor/trait.GetOrCreateWhereClause.html?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/syntax_editor/trait.Removable.html](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/syntax_editor/trait.Removable.html?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/syntax_editor/edits.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/syntax_editor/edits.rs?utm_source=chatgpt.com)
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 5.5 `SyntaxEditor::deleted()`: pending-edit inspection
+
+`SyntaxEditor::deleted(element)` provides a way to inspect whether the editor has explicitly recorded deletion of an element.
+
+This can support compound transformations that need to avoid acting on an element already scheduled for removal.
+
+The precise implementation is narrower than the method name might suggest.
+
+In the October 26 source, `deleted()` checks for a recorded `Change::Replace(element, None)` operation. It does not perform a general analysis of every change that might eliminate an element, such as its removal through a larger replacement range.
+
+Consequently, a `false` result should not be interpreted as proof that the element will survive the completed transformation.
+
+This distinction matters when combining several edits against the same tree: the recorded-edit representation and the final transformed syntax tree are not interchangeable views.
+
+### 5.6 `SyntaxEdit::find_element()`: location-based lookup, not durable correspondence
+
+The original guide correctly treats `SyntaxEdit::find_element()` as fallible. Its implementation permits a more precise statement.
+
+In the tagged source, the method records the old node's starting position relative to the old root, together with its syntax kind. It then searches the new root's descendants for a node of the same kind at the corresponding root-relative starting position.
+
+This is a positional lookup heuristic, not a general structural correspondence algorithm.
+
+Its implications include:
+
+- An insertion preceding the node may shift its relative position.
+- A node at the original position may have been replaced by a different node of the same syntax kind.
+- A successful result does not establish semantic identity or unchanged content.
+- Changes to tree structure can invalidate the assumed positional relationship.
+
+This distinguishes `find_element()` from explicit edit annotations and syntax mappings, which are more deliberate mechanisms for tracking selected elements across transformations.
+
+### 5.7 Whitespace insertion remains heuristic
+
+`SyntaxEditor::insert_with_whitespace()` and `insert_all_with_whitespace()` examine the proposed insertion position and syntax elements to determine whether adjacent whitespace should be introduced.
+
+These methods delegate to contextual before/after whitespace helpers. They are not equivalent to rustfmt and do not guarantee a globally consistent formatting style.
+
+The broader editing surface therefore supports three different concerns:
+
+| Concern                                         | Native mechanism                                    |
+| ----------------------------------------------- | --------------------------------------------------- |
+| Construct the required syntax shape             | `ast::make`, `ast::make::ext`, `SyntaxFactory`      |
+| Insert, remove, or replace coordinated elements | `SyntaxEditor`, specialized editing traits          |
+| Preserve or reconstruct selected relationships  | Syntax mappings, annotations, limited result lookup |
+
+Formatting and semantic correctness remain distinct from all three.
+
+Primary source for §§5.5–5.7:
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/syntax_editor.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/syntax_editor.rs?utm_source=chatgpt.com)
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+## 6. Specialized Rust syntax beyond ordinary declarations and expressions
+
+Extends original §§4.2 and 5.5.
+
+The 0.0.360 grammar contains typed representations for constructs that are easy to overlook when examining only conventional Rust functions, expressions, types, and macros.
+
+These include:
+
+| AST family                 | Representative types                                                                | Additional inspectable structure                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Inline assembly            | `AsmExpr`, `AsmOperand`, `AsmPiece`, `AsmRegOperand`, `AsmClobberAbi`, `AsmOptions` | Assembly templates, operands, register specifications, options, and clobber-ABI syntax |
+| Formatting internals       | `FormatArgsExpr`, `FormatArgsArg`                                                   | Format template expression and positional/named argument syntax                        |
+| Built-in operations        | `OffsetOfExpr`, `IncludeBytesExpr`                                                  | Syntactic operands of special compiler-oriented forms                                  |
+| Configuration predicates   | `CfgPredExpr`, `CfgPredPat`, `CfgPredicate`                                         | Predicate structure in expression and pattern positions                                |
+| Specialized language forms | `BecomeExpr`, `YeetExpr`, `DerefPat`, `PatternType`, `NotNull`                      | Additional expression, type, and pattern representations                               |
+
+The important distinction is between representability by the rust-analyzer grammar and validity as ordinary Rust source under a particular compiler configuration.
+
+### 6.1 Built-in forms are not equivalent to arbitrary macro expansion
+
+Several of the specialized expression representations correspond to rust-analyzer's explicit `builtin # ...` grammar forms.
+
+For example, the grammar recognizes dedicated structures for built-in assembly, formatting arguments, offset calculation, inclusion of bytes, and conditional predicates.
+
+`AsmExpr` provides access to template expressions and assembly pieces. `FormatArgsExpr` exposes its template and arguments. `OffsetOfExpr` exposes a type and field path components.
+
+These typed nodes can be useful when inspecting syntax that has already been represented in the relevant special form.
+
+They do not imply that an ordinary source invocation such as `format_args!(...)` is automatically parsed as `FormatArgsExpr`, nor that `ra_ap_syntax` expands user-defined procedural or declarative macros.
+
+The distinction is particularly important for code intelligence across generated and handwritten code. The presence of a specialized node can give a richer structural representation, but completeness still depends on whether the relevant syntax is available and recognized in that form.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 6.2 Specialized syntax does not supply compiler-derived semantics
+
+Typed representations for these constructs support local structural inspection but do not automatically provide their full effects.
+
+Examples include the following boundaries:
+
+- `AsmExpr` does not validate target-specific assembly semantics or register constraints.
+- `OffsetOfExpr` does not itself calculate a type's layout or field offsets.
+- `IncludeBytesExpr` does not make the syntax layer a file-loading or macro-expansion service.
+- `CfgPredExpr` and `CfgPredPat` expose predicates without determining their truth under an actual build configuration.
+- Experimental or compiler-internal syntactic constructs are not necessarily accepted as stable source language features.
+
+Architectural significance: specialized typed nodes can substantially improve structural coverage of complex Rust syntax without a custom recognizer for each built-in form. Their value is greatest when the caller explicitly distinguishes written source, specially represented syntax, and compiler-interpreted program behavior.
+
+Primary references:
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/rust.ungram](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/rust.ungram?utm_source=chatgpt.com)
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/generated/nodes.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/generated/nodes.rs?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/](https://docs.rs/ra_ap_syntax/0.0.360/ra_ap_syntax/ast/?utm_source=chatgpt.com)
+
+## 7. Source-file preambles and additional structural algorithms
+
+Extends original §§3.1 and 4.4.
+
+### 7.1 `SourceFile` preamble tokens
+
+`ast::SourceFile` provides two accessors beyond ordinary item traversal:
+
+- `shebang_token()` retrieves a recognized shebang token.
+- `frontmatter_token()` retrieves a recognized frontmatter token.
+
+Both return `Option<SyntaxToken>`.
+
+These support file-level inspection of source text that is not represented as an ordinary Rust item. They can be useful when preserving a file's original preamble, classifying source structure, or applying edits that must not discard text preceding the first declaration.
+
+Their presence does not imply that the syntax library discovers executable entry points, interprets frontmatter policies, or supplies file-system handling.
+
+Primary reference:
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/generated/nodes.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/ast/generated/nodes.rs?utm_source=chatgpt.com)
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+### 7.2 Additional `algo` utilities and the scope of error checks
+
+The `algo` module contains several utilities beyond the principal offset and range lookups covered in the original guide.
+
+`least_common_ancestor_element()` extends the ordinary node-based lowest-common-ancestor operation to syntax elements, allowing tokens as inputs.
+
+`skip_trivia_token()` and `skip_whitespace_token()` provide token-navigation conveniences with distinct filtering behavior. These complement `previous_non_trivia_token()`, `next_non_trivia_token()`, and related sibling navigation.
+
+`has_errors(node)` also deserves explicit qualification. In the tagged implementation, it checks whether the supplied node has an immediate child whose syntax kind is `ERROR`.
+
+It is not a recursive completeness check for every descendant, and it is not equivalent to obtaining the parse's full error collection through `Parse::errors()`.
+
+This distinction affects diagnostic and validation tools. A convenience predicate on the immediate tree structure should not silently substitute for the richer parse and syntax-validation results already described in the original guide.
+
+Primary reference:
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/algo.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/syntax/src/algo.rs?utm_source=chatgpt.com)
+
+## 8. Adjacent structural search and replace: `ra_ap_ide_ssr`
+
+Extends original §8.
+
+Rust-analyzer contains a separate structural search-and-replace capability implemented in `ide-ssr`, published in the `ra_ap_*` ecosystem as `ra_ap_ide_ssr`.
+
+It should be distinguished from the syntax library's native construction and editing facilities.
+
+### 8.1 Pattern-driven structural rewriting
+
+SSR searches for AST structures that match a user-specified pattern and can generate replacement text from a template.
+
+Its pattern language uses:
+
+`<search_pattern> ==>> <replace_pattern>`
+
+Named `$` placeholders bind portions of matched syntax and can be referenced in the replacement. Patterns can match language constructs including expressions, types, paths, patterns, and items.
+
+The API exposes `SsrRule`, `SsrPattern`, `MatchFinder`, `SsrMatches`, and associated match/error representations.
+
+It also supports constrained placeholders, including literal-kind checks and negation of supported constraints.
+
+This is a materially different abstraction from directly visiting AST nodes and constructing each replacement through `SyntaxEditor`: the matching language and replacement machinery are supplied by the companion subsystem.
+
+### 8.2 Semantic matching and context-dependent path handling
+
+SSR is not merely textual template replacement.
+
+The upstream implementation uses rust-analyzer semantic infrastructure for operations including matching references that resolve to the same item despite different path spellings.
+
+Replacement paths can also be rendered relative to the location where the edit is applied.
+
+Inherent method-call matching has additional handling for unified function-call syntax, autoderef, and autoref in supported cases.
+
+These are examples of capabilities that would be difficult to reproduce faithfully by extending a purely syntactic traversal with text comparisons.
+
+The important boundary is that this functionality requires richer rust-analyzer context. `MatchFinder` is constructed with semantic and database infrastructure, not solely an independently parsed `SourceFile`.
+
+Consequently, SSR is an adjacent solution for structurally expressed refactorings, not evidence that `ra_ap_syntax` itself supports declarative matching or semantic normalization.
+
+### 8.3 IDE and LSP integration
+
+Rust-analyzer exposes structural search and replace through its IDE functionality and an experimental LSP extension.
+
+The documented `experimental/ssr` request accepts a query, a `parseOnly` flag, a source-position context used for resolution, and optional selection ranges. Its result is a workspace edit.
+
+This distinguishes three operations:
+
+- Parsing and validating a structural replacement rule.
+- Finding matches against appropriate source and semantic context.
+- Producing coordinated edits for the matching locations.
+
+`ra_ap_syntax` supplies important underlying syntax representations, but the companion SSR and IDE layers add rule interpretation, semantic context, and workspace-level edit generation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+Primary references:
+
+[https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/ide-ssr/src/lib.rs](https://github.com/rust-lang/rust-analyzer/blob/2026-10-26/crates/ide-ssr/src/lib.rs?utm_source=chatgpt.com)
+
+[https://docs.rs/ra_ap_ide_ssr/latest/ra_ap_ide_ssr/](https://docs.rs/ra_ap_ide_ssr/latest/ra_ap_ide_ssr/?utm_source=chatgpt.com)
+
+[https://rust-analyzer.github.io/book/features.html](https://rust-analyzer.github.io/book/features.html?utm_source=chatgpt.com)
+
+[https://rust-analyzer.github.io/book/contributing/lsp-extensions.html](https://rust-analyzer.github.io/book/contributing/lsp-extensions.html?utm_source=chatgpt.com)
+
+## 9. Additional architectural implications
+
+The capabilities in this addendum expose several useful distinctions within the existing syntax architecture.
+
+| Problem                                                          | Native or adjacent mechanism                       | Consequential boundary                                           |
+| ---------------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
+| Examine source without constructing a contiguous owned string    | `SyntaxText`                                       | May still require materialization for consumers expecting `&str` |
+| Extract interpreted literal values while preserving origin spans | `IsString`, concrete `.value()` methods            | Quote-offset translation is not decoded-escape mapping           |
+| Associate documentation with owning syntax                       | `HasAttrs`, `DocComment`, `AnyAttr`                | Documentation extraction is not Markdown rendering               |
+| Enumerate possible conditional attributes                        | `skip_cfg_attrs()`                                 | Does not evaluate predicates or determine effective attributes   |
+| Normalize path structures                                        | `Path`, `PathSegmentKind`                          | Does not resolve symbols                                         |
+| Apply recurring Rust-specific syntax edits                       | `make::ext`, `GetOrCreateWhereClause`, `Removable` | Does not guarantee semantic correctness or complete formatting   |
+| Track selected syntax elements across edits                      | Annotations and syntax mappings                    | Position-based `find_element()` is not stable identity           |
+| Recognize compiler-oriented special forms                        | Specialized AST nodes                              | Does not imply ordinary macro expansion or compiler validation   |
+| Express refactorings through declarative patterns                | `ra_ap_ide_ssr`                                    | Requires separate semantic and IDE infrastructure                |
+
+The principal architectural benefit is avoiding unnecessary bespoke logic between syntax parsing and full semantic analysis.
+
+`ra_ap_syntax` contains useful intermediate abstractions that are richer than a generic CST but substantially lighter than a complete resolved-program model: typed documentation ownership, source-relative string handling, path-shape interpretation, specialized AST forms, and grammar-aware editing helpers.
+
+These mechanisms can be composed selectively. Their limitations should remain explicit, especially where source offsets, metadata activity, element identity, or semantic validity are concerned.
+
+The addendum completes the identified capability gaps without changing the original guide's broader conclusion: `ra_ap_syntax` is a full-fidelity Rust syntax and transformation substrate, while semantic refactoring, macro expansion, workspace coordination, and compiler-level correctness belong to other layers.
+
+Verification note: The API descriptions and source-level qualifications were checked against the October 26, 2026 rust-analyzer tag. No compilation, runtime tests, or performance measurements were performed for this addendum.

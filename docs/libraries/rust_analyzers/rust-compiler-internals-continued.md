@@ -1236,3 +1236,923 @@ The three crates collectively demonstrate an important separation of concerns in
 The most significant architectural opportunity is not any individual pass or algorithm. It is the ability to compute conservative semantic facts once in a shared MIR model, consume them for multiple compiler purposes, and progressively transform the representation after each class of semantic obligation has been discharged.
 
 That arrangement explains both the sophistication of the available analysis infrastructure and its strict compiler-phase boundaries.
+
+# Addendum — Rust Compiler Internals: Additional MIR Capabilities and Semantic Details
+
+Libraries: `rustc_mir_dataflow`, `rustc_borrowck`, `rustc_mir_transform`\
+Target version: Rust 1.99.1 (stable, released October 15, 2026)\
+Research date: November 1, 2026\
+Companion reference: Rust Compiler Internals: `rustc_mir_dataflow`, `rustc_borrowck`, and `rustc_mir_transform` (October 29, 2026)
+
+## Scope
+
+This addendum extends the original reference with capabilities not previously developed in sufficient detail. It focuses on three areas:
+
+1. Dataflow infrastructure: control-flow-edge selection, initialization-event semantics, solver boundaries, and compiler-native analysis assertions.
+2. Borrow-checking coordination: multi-body region solving, opaque-type inference, implied lifetime bounds, and composition of analysis results.
+3. MIR transformation beyond optimization: compiler-generated functions, coverage instrumentation, ABI enforcement, type normalization, code-generation metadata, supplementary diagnostics, and pass policies.
+
+The discussion is based on tagged Rust 1.99.1 compiler sources. Features exposed only by newer nightly compiler sources are distinguished from the target release. All APIs discussed here remain compiler-internal unless otherwise stated.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://blog.rust-lang.org\&sz=32)
+
+Rust Blog
+
+
+
+## 1. Additional `rustc_mir_dataflow` capabilities
+
+### 1.1 State-dependent control-flow edge selection
+
+The `Analysis<'tcx>` trait exposes a control-flow mechanism that is distinct from its already-documented statement, terminator, and branch-edge transfer effects:
+
+`get_terminator_edges(&self, state, terminator, location) -> TerminatorEdges`
+
+By default, this delegates to `terminator.edges()`. A forward analysis can override it to derive the terminator's successor-edge description from its current abstract state.
+
+The distinction is between selecting the edges on which propagation occurs and refining the abstract state propagated along an edge.
+
+| Mechanism                                                | Responsibility                                          | Consequence                                                                    |
+| -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `get_terminator_edges`                                   | Determine successor-edge structure using abstract state | Can exclude or specialize infeasible control-flow alternatives where supported |
+| `apply_primary_terminator_effect`                        | Update the abstract state for the terminator            | Models its general effect on the current state                                 |
+| `apply_call_return_effect`                               | Apply effects specific to normal call return            | Keeps successful-return initialization separate from unwinding                 |
+| `get_switch_int_data` and `apply_switch_int_edge_effect` | Compute and apply branch-specific facts                 | Refines propagated state for individual `SwitchInt` outcomes                   |
+
+In Rust 1.99.1, `get_terminator_edges` is invoked before `apply_primary_terminator_effect`. The framework documentation notes that this ordering is necessary for `MaybeInitializedPlaces`, while other analyses can accommodate either order.
+
+The method is documented as forward-analysis-only. Its availability does not mean that a consumer can arbitrarily rewrite the CFG or discard successors without preserving analysis soundness.
+
+This provides an important additional degree of freedom for abstract interpretation: where the abstract state proves some control-flow alternatives infeasible, the analysis may reason over a more precise effective graph rather than propagating unchanged information through every syntactic successor.
+
+Source: `Analysis` implementation, Rust 1.99.1:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_dataflow/src/framework/mod.rs`
+
+### 1.2 Fixed-point scheduling and directional initialization limits
+
+The `iterate_to_fixpoint` implementation uses a ranked, dirty-block propagation algorithm rather than a generic unordered worklist.
+
+Forward analysis traverses blocks in reverse postorder (RPO). The solver assigns each reachable block a rank and selects the lowest-ranked dirty block, returning to earlier ranks when a back edge invalidates already-propagated information.
+
+Consequently, loop-free portions of a reachable CFG can be processed in a single pass, while loops are revisited when their incoming abstract states change. Backward analysis reverses the rank ordering, obtaining postorder-like processing without separately maintaining a postorder cache.
+
+The framework also reuses a single temporary domain-state allocation across block processing to avoid unnecessary repeated allocation.
+
+These are concrete scheduling optimizations within the general lattice-based framework; they do not change the requirement that transfer functions be monotone or establish an upper bound on iteration count independently of the chosen domain.
+
+An important boundary concerns `initialize_start_block`. For forward analyses, it permits a non-bottom initial state at `START_BLOCK`. For backward analyses, Rust 1.99.1 does not support changing that initial state away from bottom: the implementation explicitly triggers a compiler bug if the method does so.
+
+An analysis needing nontrivial exit-boundary conditions therefore cannot assume the forward initialization mechanism transfers directly to backward traversal. Its boundary representation must conform to the implementation's actual supported semantics.
+
+Source: `Analysis::iterate_to_fixpoint` and associated comments:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_dataflow/src/framework/mod.rs`
+
+### 1.3 Reusable initialization-event and drop-flag semantics
+
+The `drop_flag_effects` module is a reusable bridge between MIR move/init records and initialization-presence state.
+
+Its central abstraction is:
+
+`DropFlagState::{Present, Absent}`
+
+This represents whether a tracked move path contains a value requiring destruction, rather than whether a runtime flag has necessarily been materialized.
+
+The module exposes `drop_flag_effects_for_function_entry` and `drop_flag_effects_for_location`, along with traversal helpers including `on_all_children_bits`, `on_lookup_result_bits`, and `move_path_children_matching`.
+
+Its event interpretation includes:
+
+- Function entry: arguments and their tracked descendants begin in `Present` state.
+- Moves: moving from a tracked path marks that path and its descendants `Absent`.
+- Drops: dropping an exactly tracked place marks the relevant path and descendants `Absent`, although the operation is not itself represented as a move.
+- Initialization: `InitKind::Deep` marks a path and all descendants `Present`; `InitKind::Shallow` marks only the selected path.
+- Successful-return-only initialization: `InitKind::NonPanicPathOnly` is intentionally omitted from the generic location-level initialization callback. Path-specific effects must be handled by the appropriate analysis machinery.
+
+The distinction between exact and parent-only move-path lookup is consequential. A place resolved only to a tracked parent cannot be treated as if its individual descendants were independently tracked.
+
+The module also contains an internal mechanism for enumerating inactive enum-variant move paths along a conditional edge. This supports branch-sensitive initialization reasoning where the active discriminant determines which variant-specific paths are meaningful.
+
+The resulting abstraction separates three concerns:
+
+`MoveData` identifies events and tracked paths; `drop_flag_effects` interprets their presence-state transitions; consumers determine how those transitions affect analysis facts or runtime-generated drop flags.
+
+This makes the event interpretation reusable without requiring every consumer to reproduce the details of moves, drops, deep initialization, and move-path descendants.
+
+Source: `drop_flag_effects.rs`:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_dataflow/src/drop_flag_effects.rs`
+
+### 1.4 Compiler-native assertions over dataflow results
+
+The `rustc_peek` module provides infrastructure for testing the results of individual dataflow analyses against expectations embedded in compiler test programs.
+
+It supports checking, among others:
+
+- `MaybeInitializedPlaces`
+- `MaybeUninitializedPlaces`
+- `MaybeLiveLocals`
+
+The `sanity_check` entry point reads compiler-internal `rustc_mir` test attributes, constructs the requested analysis, and executes it to a fixed point. It then examines recognized uses of the internal `rustc_peek` intrinsic.
+
+For each applicable intrinsic call, it reconstructs the corresponding MIR place and determines the analysis state at the relevant location using a `ResultsCursor`. A requested bit that is absent produces a compiler diagnostic such as `rustc_peek: bit not set`.
+
+This creates a different form of validation from printing a dataflow graph. Graphviz output makes analysis states inspectable; `rustc_peek` can turn a source-level expectation about an abstract-state property into a repeatable compiletest assertion.
+
+The intrinsic, its attributes, and the expected MIR shapes are compiler-testing internals. They are not stable application-level instrumentation or a general-purpose source-language assertion interface.
+
+Source: `rustc_peek.rs`:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_dataflow/src/rustc_peek.rs`
+
+## 2. Additional `rustc_borrowck` capabilities
+
+### 2.1 Composition of independently solved analyses
+
+The existing guide describes `Borrowck` and `BorrowckDomain` as an integrated analysis. An important implementation distinction is that this integration does not create a single joint fixed-point solve.
+
+Rust 1.99.1 explicitly computes the fixed-point results of three constituent analyses separately:
+
+- `Borrows`
+- `MaybeUninitializedPlaces`
+- `EverInitializedPlaces`
+
+The `Borrowck` type implements `Analysis`, and its `BorrowckDomain` combines the individual states, but this composite analysis is not itself executed with `iterate_to_fixpoint`.
+
+Indeed, its `initialize_start_block`, `apply_call_return_effect`, and `JoinSemiLattice::join` implementations are marked unreachable for that purpose.
+
+Instead, the previously computed results are composed for the subsequent checking traversal, with the composite transfer functions dispatching to the appropriate constituent transfer logic.
+
+This distinction matters because two kinds of integration are possible:
+
+| Integration model          | Behavior                                                                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Joint fixed-point solution | Several properties converge together, potentially requiring a larger combined lattice and iteration process                      |
+| Composed result traversal  | Individual properties converge separately; their states are subsequently consumed together at the locations relevant to checking |
+
+Rust 1.99.1 uses the second model here.
+
+A general architectural consequence is that analyses can share a common MIR framework and be consumed in a unified checking operation without needing to solve all their abstract states simultaneously. This can simplify the relationship between independently meaningful analyses while retaining access to their combined location-specific facts.
+
+Source: `rustc_borrowck/src/dataflow.rs`:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_borrowck/src/dataflow.rs`
+
+### 2.2 Type-checking-root coordination and opaque hidden types
+
+Borrow checking is more than a collection of independent function-body operations. `BorrowCheckRootCtxt` coordinates constraints and results for an entire type-checking root, including its nested bodies.
+
+The root context maintains:
+
+- Collected region-constraint results for individual bodies.
+- Propagated borrow-check results from nested bodies.
+- Resolved hidden types for opaque definitions.
+- Deferred errors involving unconstrained regions in opaque hidden types.
+- Optional compiler-consumer extraction state.
+
+A particularly subtle dependency arises when opaque types and closure lifetime requirements interact.
+
+A parent body's opaque-type defining use may depend on region requirements inferred from a nested closure. Conversely, checking a nested body's use of that opaque type may require knowing the hidden type established by its parent.
+
+This creates a dependency cycle between discovering the opaque type and validating the region relationships that reference it.
+
+The implementation resolves that cycle through staged constraint processing:
+
+1. Collect region constraints across the relevant nested bodies and root.
+2. Compute and propagate closure requirements that can be established before opaque-type resolution.
+3. Resolve opaque hidden types and process deferred opaque-type constraints and errors.
+4. Apply closure requirements again where resolved opaque types change the relevant obligations.
+5. Finalize bodies whose constraints can now be checked.
+
+Bodies that do not depend on opaque-type resolution can be completed earlier, avoiding the cost of deferring every body's analysis.
+
+This is a significant form of cross-body semantic coordination. The borrow checker does not require arbitrary whole-program analysis, but its correctness can depend on reasoning about a type-checking root as a group rather than treating each closure as wholly independent.
+
+The ordinary `mir_borrowck` query also returns a map of definition-site hidden types on success. It should therefore be understood as contributing to opaque-type resolution as well as ownership validation.
+
+Primary sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_borrowck/src/root_cx.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_borrowck/src/lib.rs`
+
+### 2.3 Implied outlives bounds and typing-environment boundaries
+
+The `mir_borrowck_implied_outlives_bounds` query computes lifetime bounds implied by function signatures and relevant surrounding type information.
+
+The important capability is not merely deriving additional `T: 'a`-like relationships. It is deriving them under a typing environment that respects when opaque hidden types may legitimately be revealed.
+
+For type-checking roots, the query uses `TypingEnv::non_body_analysis`, preventing inappropriate revelation of hidden types defined in that scope.
+
+For nested bodies, it uses `TypingEnv::post_typeck_until_borrowck`, where opaque normalization can be appropriate because their well-formedness and defining context are established through the parent.
+
+The implementation normalizes signature inputs and outputs, computes implied bounds, and retains normalized signature information in the query result. The latter is important for connecting region inference variables introduced during normalization to the actual parameter and return types.
+
+For associated functions and constants, relevant well-formedness information from impl headers is also considered.
+
+The query returns a canonicalized response rather than a raw list of unrestricted lifetime assumptions. This preserves its role within the compiler's inference and obligation-solving infrastructure.
+
+The architectural distinction is that a mathematically plausible lifetime relationship is not automatically a valid compiler assumption unless it was derived under an appropriate typing environment and its associated obligations are satisfied.
+
+This also explains why indiscriminately normalizing opaque types before borrow checking can change the meaning of an analysis.
+
+Source: `implied_bounds.rs`:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_borrowck/src/implied_bounds.rs`
+
+### 2.4 Borrow-checker consumer configuration and Polonius execution
+
+The existing `get_bodies_with_borrowck_facts` interface has an additional operational distinction worth retaining.
+
+`ConsumerOptions::PoloniusInputFacts` is documented as the recommended option for extracting extensive information without the potentially significant additional work of executing the legacy Polonius engine.
+
+However, its documentation explicitly states that execution under `-Zpolonius` can override the selected extraction level: in that configuration the consumer receives the results as if `PoloniusOutputFacts` had been requested.
+
+Consequently, the cost and contents of the returned facts are determined by both the `ConsumerOptions` value and the active compiler configuration.
+
+The input and output fields also belong to the legacy Polonius representation. They must not be interpreted as a stable serialization of the newer integrated Polonius Alpha algorithm.
+
+This distinction is especially important for compiler-integrated inspection: a consumer that requests input facts to avoid the legacy solver's cost cannot assume the requested extraction level independently of compiler flags. The borrowing and MIR-stealing constraints discussed in the original document remain applicable.
+
+Source: `consumers.rs`:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_borrowck/src/consumers.rs`
+
+## 3. Additional analysis-to-runtime semantic transformations
+
+### 3.1 Post-analysis normalization and explicit subtype representation
+
+Rust 1.99.1 includes two required transformations that establish type-representation invariants after borrow checking.
+
+`PostAnalysisNormalize` runs under `TypingEnv::post_analysis` and normalizes types, generic arguments, and constant operands according to the post-analysis typing rules.
+
+Its most important responsibilities include revealing opaque hidden types and resolving associated-type representations that could not safely be normalized under an earlier typing mode.
+
+The pass also contains conditional handling for `ProjectionElem::OpaqueCast`, removing no-longer-necessary opaque casts under the applicable trait-solver configuration.
+
+Normalization is fallible: the implementation uses `try_normalize_erasing_regions` and retains an existing representation if normalization fails. This accommodates cases such as impossible generic predicates without treating every failed normalization as a compiler crash.
+
+`Subtyper`, implemented in `add_subtyping_projections`, makes previously implicit assignment subtyping explicit.
+
+Where the rvalue and destination types differ after appropriate region erasure and anonymization, it inserts an intermediate temporary and rewrites the assignment into a form using `Rvalue::Cast(CastKind::Subtype, ...)`.
+
+Conceptually, an assignment
+
+`destination: DestinationTy = expression: SourceTy`
+
+becomes a source-typed temporary followed by an explicit subtype conversion into the destination.
+
+The pass deliberately excludes certain generated dereference temporaries and generic reborrows, whose treatment is governed by other MIR mechanisms.
+
+Both passes have `PassPolicy::Required`. Their positioning is semantically significant:
+
+`PostAnalysisNormalize` → `Subtyper` → `ElaborateDrops`
+
+The first pass establishes appropriate post-analysis type representations. The second makes subtype relationships explicit. Drop elaboration can then operate on the resulting runtime-oriented types and places.
+
+Why this matters: post-borrow-check MIR is not obtained simply by erasing lifetime information. The compiler may need to reveal type representations, normalize associated types, and introduce explicit operations that were unnecessary or inappropriate during semantic analysis.
+
+These transformations are required for correctness even when conventional optimization is disabled.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/post_analysis_normalize.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/add_subtyping_projections.rs`
+
+### 3.2 Detecting impossible generic predicates
+
+`ImpossibleClauses` handles MIR bodies whose declared generic bounds cannot be satisfied.
+
+A compiler may analyze or optimize a generic function without any concrete call to that function. It therefore cannot always assume that a body is instantiated under a satisfiable set of predicates.
+
+For example, with the appropriate unstable feature enabled, an item could declare an inherently contradictory requirement such as `String: Copy`.
+
+The pass uses `has_impossible_clauses` to identify provably contradictory conditions. It includes specialized reasoning about `Sized` requirements on structurally unsized types, even where some surrounding type structure is generic.
+
+Its general predicate processing deliberately excludes cases containing local generic names or certain alias constants, avoiding unsupported normalization or inference assumptions.
+
+If the body is already tainted by errors or the applicable predicates are proved impossible, the pass replaces its executable body with a single `Unreachable` terminator and removes now-irrelevant declarations and debug information.
+
+That eliminates the need for subsequent optimizations to reason about a body whose preconditions cannot hold.
+
+The pass is `optional_non_optimization(true)`, reflecting that it is not a normal cost-driven optimization. Its justification is that replacing provably unreachable execution does not remove defined behavior.
+
+It should not be understood as a complete satisfiability solver for arbitrary generic predicates. Its proof capability is intentionally narrower than the full trait-solving problem.
+
+Source:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/impossible_clauses.rs`
+
+### 3.3 ABI-aware unwinding and termination semantics
+
+Unwinding is a distinct semantic dimension of MIR transformation.
+
+`AbortUnwindingCalls` is a required pass that enforces the interaction among function ABIs, target exception capabilities, panic strategy, and unwind edges.
+
+It inspects operations including calls, drops, assertions, and inline assembly capable of unwinding, using ABI-aware `fn_can_unwind` information.
+
+Its behavior distinguishes several cases:
+
+| Condition                                              | MIR-level treatment                                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Callee or operation cannot unwind                      | Unnecessary unwind successors can become unreachable                                  |
+| Target cannot support the relevant unwinding mechanism | Unwind paths are eliminated or made unreachable as appropriate                        |
+| Callee may unwind but the containing function cannot   | Escaping unwind paths are rewritten to terminate execution                            |
+| Cleanup must execute before termination                | Cleanup edges remain, with subsequent unwind-resume behavior converted to termination |
+
+For example, an `extern "C-unwind"` function may produce a foreign unwind even when the Rust code is compiled with `panic=abort`. The compiler must prevent that unwind from violating the guarantees assumed for Rust-defined functions that cannot unwind.
+
+On a target configuration without supported exception handling, the representation can be simplified further because some unwind operations are structurally impossible.
+
+The pass also handles `UnwindResume` versus `UnwindTerminate`, removing newly unreachable cleanup blocks after rewriting.
+
+These are semantic transformations, not merely attempts to improve generated-code efficiency.
+
+A related but separate facility is `ffi_unwind_calls`.
+
+Its `has_ffi_unwind_calls` query inspects early, built MIR to identify potentially escaping foreign unwinds from eligible foreign-function calls or inline assembly with `MAY_UNWIND`.
+
+The information supports the `ffi_unwind_calls` lint and another query, `required_panic_strategy`, which can impose a crate-level constraint on the final panic runtime.
+
+In particular, a crate compiled with `panic=unwind` that permits foreign unwinds to escape may require a final `panic=unwind` runtime. This prevents an incompatible `panic=abort` compilation unit from making invalid assumptions about whether Rust code can unwind across such boundaries.
+
+Conversely, a `panic=unwind` crate without such FFI unwind behavior need not impose that same final-runtime requirement solely because of its local panic strategy.
+
+This demonstrates an important interaction across compiler stages:
+
+Early MIR analysis identifies potential FFI unwinding → crate-level metadata constrains linking compatibility → later MIR transformation enforces call-site unwind semantics.
+
+The capabilities are not supplied by a generic control-flow simplifier or by LLVM alone. They encode Rust's ABI and panic-model obligations.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/abort_unwinding_calls.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/ffi_unwind_calls.rs`
+
+### 3.4 Why the lowering order is constrained
+
+Several of these transformations must execute in a specific order, independently of optimization profitability.
+
+The Rust 1.99.1 `run_runtime_lowering_passes` sequence establishes important dependencies:
+
+| Stage                                    | Invariant or purpose                                                 |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| `CriticalCallEdges`                      | Prepare relevant call-edge control-flow structure                    |
+| `PostAnalysisNormalize`                  | Normalize types under post-analysis rules                            |
+| `Subtyper`                               | Make remaining subtype relationships explicit                        |
+| `ElaborateDrops`                         | Convert initialization-dependent destruction into runtime operations |
+| `CheckDropRecursion`                     | Diagnose relevant recursive destruction behavior                     |
+| `AbortUnwindingCalls`                    | Enforce ABI-specific unwind and termination behavior                 |
+| `AddMovesForPackedDrops`                 | Handle moves needed for destruction of packed fields                 |
+| `EraseDerefTemps` / `ElaborateBoxDerefs` | Remove or lower remaining specialized place representations          |
+| `StateTransform`                         | Lower coroutine control flow into state-machine form                 |
+
+The actual sequence also contains other diagnostic passes.
+
+This ordering is not a freely rearrangeable list of independently correct optimizations. Normalization must precede some destruction processing; packed-drop lowering depends on earlier elaboration; coroutine conversion assumes particular runtime-MIR invariants.
+
+An internal MIR extension must respect both the phase invariant of its input and the invariants expected by subsequent passes. A transformation that is locally well-typed can still be invalid at its chosen position in the pipeline.
+
+Source: `run_runtime_lowering_passes`:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/lib.rs`
+
+## 4. Compiler-generated MIR shims
+
+### 4.1 MIR synthesis as a compiler service
+
+The `shim` module extends `rustc_mir_transform` beyond modifying existing user-defined bodies.
+
+It constructs MIR implementations for operations whose executable behavior is determined by Rust language semantics, type information, or calling conventions but does not correspond to an ordinary function body written in source.
+
+The principal query integration is `mir_shims`, with the `ShimKind` representation defined in `rustc_middle`.
+
+Relevant shim families include:
+
+| Shim family                           | Generated behavior                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| `VTable`                              | Adapt a virtual-method call to an appropriate concrete call and receiver representation |
+| `FnPtr`                               | Adapt callable-trait invocation to an underlying function-pointer call                  |
+| `Reify`                               | Produce a callable representation of a function item                                    |
+| `ClosureOnce`                         | Adapt closure calling semantics, including consumption through `FnOnce`                 |
+| `ConstructCoroutineInClosure`         | Construct a coroutine from coroutine-closure captures                                   |
+| `DropGlue`                            | Generate type-directed destruction                                                      |
+| `ThreadLocal`                         | Generate an appropriate thread-local access shim                                        |
+| `Clone`                               | Generate clone-related glue where required by compiler semantics                        |
+| `FnPtrAddr`                           | Handle function-pointer address conversion machinery                                    |
+| `FutureDropPoll`                      | Construct asynchronous destruction polling glue                                         |
+| `AsyncDropGlue` / `AsyncDropGlueCtor` | Construct asynchronous destruction bodies and constructors                              |
+
+These operations vary substantially in shape.
+
+A calling-convention shim may primarily adapt argument layout, receiver form, or invocation method. A drop shim may generate recursive destruction control flow. An asynchronous drop shim may itself require coroutine state-machine transformation.
+
+A synthesized MIR body therefore has meaningful semantics and may require optimization, unwinding preparation, call-edge rewriting, and validation just as an ordinary body does.
+
+### 4.2 Shim-specific transformation pipelines
+
+The compiler does not route every synthesized body through exactly the same pipeline as source-authored functions.
+
+The general shim-construction path uses selected passes including dereference handling, mentioned-item collection, packed-drop preparation, CFG simplification, forced inlining, unwind enforcement, and call-edge normalization.
+
+Coroutine drop shims and asynchronous destruction shims have specialized paths. In particular, asynchronous drop glue construction can generate a body that is subsequently passed through `StateTransform` to create coroutine-style execution.
+
+There are also validation differences: some generated shims are valid only under a post-analysis typing environment. Applying ordinary built-MIR validation indiscriminately can reject an otherwise appropriate generated body involving opaque types.
+
+The key architectural insight is that MIR generation and MIR transformation are composable compiler services, but not all generated bodies pass through identical semantic stages.
+
+This also explains why compiler consumers must distinguish source-defined MIR, synthetic MIR, shim MIR, and post-lowering MIR rather than assuming every body has the same origin or analysis history.
+
+### 4.3 Async destruction availability
+
+The presence of `FutureDropPoll`, `AsyncDropGlue`, and `AsyncDropGlueCtor` in Rust 1.99.1 establishes that the compiler contains implementation infrastructure for asynchronous destruction.
+
+It does not establish that the user-facing `AsyncDrop` language feature is stable. The feature remains documented in the Rust Unstable Book, under `async_drop`, and its availability is subject to experimental feature gating.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Rust Unstable Book
+
+
+
+Similarly, an external compiler consumer cannot assume every internal `ShimKind` variant is independently constructible through a public, stable API.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/shim.rs`
+
+`https://doc.rust-lang.org/nightly/unstable-book/language-features/async-drop.html`
+
+## 5. MIR-based source coverage instrumentation
+
+### 5.1 Instrumentation architecture
+
+`rustc_mir_transform::coverage` implements source-based coverage instrumentation through the MIR pipeline.
+
+The central pass is `InstrumentCoverage`, enabled through the appropriate coverage compilation configuration, such as `-C instrument-coverage`.
+
+Its output combines executable instrumentation with metadata sufficient to relate runtime counter values to source-code regions and branches.
+
+The implementation divides this operation into several stages:
+
+1. Build a coverage-oriented control-flow representation through `CoverageGraph`.
+2. Extract source information and mappings relating the MIR graph to source spans.
+3. Calculate node-flow information and an ordering used to assign counters.
+4. Insert `StatementKind::Coverage` statements containing virtual counter identifiers.
+5. Store `FunctionCoverageInfo` in the MIR body for later consumption.
+6. Resolve physical counters and expressions after later MIR transformations have affected the body.
+7. Emit coverage intrinsics and source-mapping metadata during code generation.
+
+The separation between virtual and physical counters is particularly significant.
+
+A virtual counter represents a logical point in the coverage graph. A physical counter is actual instrumentation that increments when executable code is reached. Some logical counts can instead be represented as expressions over other counters.
+
+Consequently, the number of source-level coverage regions does not directly determine the number of runtime counters. The compiler can use graph relationships and counter expressions to reduce instrumentation overhead.
+
+The related `coverage_ids_info` query examines the final instance MIR to establish which instrumented basic coverage blocks remain after optimization.
+
+It then determines which surviving blocks need physical counters and which can use expressions. Coverage information for blocks removed by optimization can be handled without pretending those blocks remain executable.
+
+This is an important interaction between early semantic instrumentation and later optimization.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rustc-dev-guide.rust-lang.org\&sz=32)
+
+Rust Compiler Development Guide
+
+
+
+### 5.2 Source mapping, eligibility, and boundaries
+
+Coverage instrumentation is inserted after MIR constant promotion as part of preparation for analysis MIR. The pass excludes promoted MIR bodies and certain ineligible functions.
+
+Eligibility includes constraints such as:
+
+- The definition must be function-like; constants are not directly instrumented for runtime coverage.
+- Naked functions are excluded.
+- Explicit `#[coverage(off)]` attributes can disable instrumentation.
+- Coverage attributes can be inherited from enclosing definitions.
+- Automatically derived implementations are normally treated as coverage-disabled unless applicable explicit attributes override that behavior.
+
+The source mapping is informed by HIR information as well as MIR control flow. That matters because MIR operations can be transformed, lowered, combined, or eliminated while source coverage still needs to refer to meaningful source-code locations.
+
+The source-level coverage system also depends on components outside `rustc_mir_transform`:
+
+`rustc_mir_transform` constructs virtual instrumentation and mapping metadata; the code-generation backend emits the corresponding instrumentation and coverage map; LLVM's profiling runtime records execution counts; LLVM coverage tools decode and report them.
+
+Thus, `InstrumentCoverage` is not itself a test runner, coverage database, or report renderer.
+
+The official compiler development guide identifies `tests/mir-opt/coverage`, `tests/coverage`, and `tests/coverage-run-rustdoc` as distinct layers of validation, covering MIR instrumentation, emitted coverage maps, and end-to-end runtime reporting.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rustc-dev-guide.rust-lang.org\&sz=32)
+
+Rust Compiler Development Guide
+
+
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/coverage/mod.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/coverage/query.rs`
+
+`https://rustc-dev-guide.rust-lang.org/llvm-coverage-instrumentation.html`
+
+## 6. MIR-derived dependencies and code-generation metadata
+
+### 6.1 Mentioned-item collection before optimization
+
+`MentionedItems` is a required MIR analysis that records code-generation-relevant references while the body is still generic.
+
+Its visitor identifies, among other things:
+
+| MIR construct                         | Recorded requirement                   |
+| ------------------------------------- | -------------------------------------- |
+| Ordinary and tail calls               | Referenced function type               |
+| Drop terminators                      | Type potentially requiring drop glue   |
+| Inline-assembly function symbols      | Function reference                     |
+| Unsizing coercions                    | Possible vtable-generation requirement |
+| Closure-to-function-pointer coercions | Referenced closure                     |
+| Function-item reification             | Function reference                     |
+
+These references are collected into MIR's `mentioned_items` information.
+
+The collector deliberately mirrors relevant traversal logic in `rustc_monomorphize::collector`, but avoids performing monomorphization at the moment the references are recorded.
+
+A critical detail is its execution before optional MIR optimization.
+
+In `inner_optimized_mir`, rustc runs `MentionedItems` before `run_optimization_passes`. The source explicitly states that this preserves an item-discovery set that does not depend on optimization level.
+
+That is important because optimizations may remove operations that originally referred to functions, destructors, or vtables. If all reference discovery depended only on the final optimized body, different optimization settings could lead to different generic dependency-discovery behavior.
+
+A mentioned item is not automatically equivalent to a final emitted code-generation unit. The later monomorphization collector must still interpret those references in the context of concrete instantiations and its own reachability and emission rules.
+
+The distinction is therefore among:
+
+Generic references recorded in MIR, concrete instances discovered during monomorphization, and final code-generation artifacts.
+
+These are related but not interchangeable representations.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/mentioned_items.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/lib.rs`
+
+### 6.2 Deduced parameter attributes after optimization
+
+`deduce_param_attrs` performs a different kind of analysis at the opposite end of the MIR optimization pipeline.
+
+It examines `optimized_mir` to derive supplementary information about how function arguments and the return location are used.
+
+The analysis records a compact `UsageSummary` with four categories:
+
+| Usage flag      | Semantic meaning                                                             |
+| --------------- | ---------------------------------------------------------------------------- |
+| `DROP`          | The parameter may be dropped where destruction is required                   |
+| `SHARED_BORROW` | A shared borrow occurs and could permit mutation unless the type is `Freeze` |
+| `MUTATE`        | The parameter is mutated in a relevant way                                   |
+| `CAPTURE`       | The parameter's storage or address may escape through a relevant operation   |
+
+From this information, the compiler can derive two additional backend attributes for eligible indirectly passed parameters:
+
+- `ReadOnly`: the parameter's indirect storage is not written through.
+- `CapturesNone`: the corresponding pointer is not captured for use beyond the call.
+
+The deduction is conservative. A destructor can invalidate both conclusions when a parameter's type requires dropping, and a shared borrow does not automatically establish read-only behavior for a type with interior mutability.
+
+Calls and tail calls also require careful treatment. Moving an indirectly passed argument into another call may permit downstream mutation of the same underlying storage, even though no explicit assignment to the original parameter appears in the caller.
+
+The compiler can serialize these deductions into crate metadata, allowing downstream compilation to benefit from eligible body-derived facts.
+
+The inference is conditional:
+
+- The implementation skips it when optimization is disabled or incremental compilation is active.
+- It excludes bodies without applicable MIR and several unsupported parameter representations.
+- It requires the relevant `Freeze` language-item infrastructure.
+- Its ABI application is limited to eligible Rust ABI instances and indirectly passed arguments or return locations.
+- The implementation relies on the assumption that subsequent code generation does not perform additional MIR transformations invalidating the inspected usage facts.
+
+The currently implemented derived attributes are `readonly` and `captures(none)`-related. The internal documentation mentions additional `noalias`-style inference as a possible future extension, not as a released capability.
+
+The key distinction from `MentionedItems` is intentional:
+
+| Analysis              | Observed MIR                 | Primary requirement                                                                        |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `MentionedItems`      | Before optional optimization | Preserve relevant code-generation dependencies independently of optimization-level changes |
+| `deduced_param_attrs` | After MIR optimization       | Derive parameter guarantees that remain true of the code-generation representation         |
+
+Together, these illustrate why no single MIR stage can be considered universally optimal for extracting all semantic and code-generation facts.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/deduce_param_attrs.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_middle/src/middle/deduced_param_attrs.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_ty_utils/src/abi.rs`
+
+## 7. Coroutine witness analysis and storage layout
+
+### 7.1 Suspension-point liveness as a type-system input
+
+The `coroutine::layout` module exposes an important distinction between generating a coroutine state machine and establishing the semantic properties of values that can remain stored across suspension.
+
+The `mir_coroutine_witnesses` query computes a `CoroutineLayout` containing types and storage relationships for values preserved across suspension points. This information is relevant to trait and region obligations, not merely physical layout optimization.
+
+The underlying `locals_live_across_suspend_points` machinery combines several dataflow analyses:
+
+| Analysis                     | Contribution                                                  |
+| ---------------------------- | ------------------------------------------------------------- |
+| `MaybeLiveLocals`            | Determines which values may be used after suspension          |
+| `MaybeBorrowedLocals`        | Tracks locals whose addresses may have been borrowed          |
+| `MaybeRequiresStorage`       | Determines whether storage must persist at a suspension point |
+| `MaybeStorageLive`           | Bounds persistence according to storage-lifetime information  |
+| `always_storage_live_locals` | Accounts for locals without explicit storage lifetime markers |
+
+The combined result includes `saved_locals`, per-suspension-point live-local sets, source information, storage-liveness information, and `storage_conflicts`.
+
+A key distinction concerns movable and immovable coroutines.
+
+For a movable coroutine, ordinary value-liveness information is sufficient for the relevant saved-local computation because borrows into the coroutine's local storage cannot persist across suspension in the same way.
+
+For an immovable coroutine, the analysis conservatively includes potentially borrowed locals, while still restricting the result according to storage requirements. This preserves necessary state for self-referential relationships that may remain valid only while the coroutine is pinned or otherwise immovable.
+
+Therefore, the set of saved locals cannot be determined by ordinary syntactic last-use analysis alone.
+
+### 7.2 Storage-conflict matrices and field reuse
+
+`LivenessInfo::storage_conflicts` is a `BitMatrix<CoroutineSavedLocal, CoroutineSavedLocal>` describing saved-local pairs whose storage requirements conflict.
+
+A conflict means that the corresponding locals cannot safely occupy overlapping storage in the generated coroutine representation.
+
+Conversely, saved locals whose storage lifetimes do not conflict may be candidates for overlapping storage, subject to the other constraints of coroutine layout.
+
+The compiler combines this information with per-state live-local sets to construct the coroutine's layout.
+
+This is particularly useful because many values are needed only during different portions of a coroutine's execution. Preserving all values as permanently distinct storage would forgo opportunities to reduce state-machine size.
+
+However, the absence of a storage conflict does not alone guarantee that two fields will be assigned the same storage. Layout also depends on type layout, alignment, state representation, and other implementation constraints.
+
+### 7.3 Suspension diagnostics derived from witness information
+
+The same layout and saved-local information supports diagnostics involving values that should not remain live across suspension.
+
+The implementation contains `must_not_suspend` checking that examines relevant saved types and their source locations, including certain composite and trait-object forms.
+
+It uses the information calculated for each suspension point to relate a potentially problematic type to the location where the coroutine suspends.
+
+This illustrates a broader capability combination:
+
+Liveness analysis → saved-local types and storage relationships → trait/region reasoning, suspension diagnostics, and state-machine layout.
+
+The witness calculation therefore serves multiple compiler consumers. It is not merely a preparatory optimization for `StateTransform`.
+
+Availability of specific language attributes and diagnostics remains governed by their Rust feature and lint configuration; the presence of internal checking logic does not imply every associated feature is stable.
+
+Source:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/coroutine/layout.rs`
+
+## 8. Additional MIR diagnostics and runtime checking
+
+### 8.1 Place-sensitive liveness diagnostics
+
+The `rustc_mir_transform::liveness` module implements the `check_liveness` query.
+
+Its primary purpose is to identify unused assignments, unused captures, and related source-facing issues using MIR-level dataflow.
+
+It operates through a `MaybeLivePlaces` analysis, rather than relying exclusively on the general `MaybeLiveLocals` abstraction.
+
+This difference matters because diagnostic reasoning often needs information about individual places, captured fields, assignments, and source-level declarations that a coarse local-liveness bitset would not preserve.
+
+The implementation performs special handling for closure bodies. In particular, a `FnMut` closure can mutate captured state during one invocation and read that state during a later invocation.
+
+To represent this possibility, the analysis constructs a modified MIR body in which returns and unwind-resume points conceptually lead back to the starting block.
+
+This makes repeated invocation visible to the analysis without requiring an unrestricted interprocedural analysis of every caller of the closure.
+
+The checker also uses MIR debug information to recover source-oriented variable information, allowing it to distinguish meaningful assignments and captures when producing diagnostics.
+
+The key distinction is that diagnostic liveness is not necessarily the same analysis as storage liveness, borrow-region liveness, or conventional value liveness.
+
+Different consumers require different abstractions and different assumptions about how execution may continue.
+
+Source:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/liveness.rs`
+
+### 8.2 Edition-sensitive tail-expression destruction order
+
+`lint_tail_expr_drop_order` is a more specialized example of MIR analysis used for source-language compatibility diagnostics.
+
+Rust 2024 changed the lifetime of certain temporaries in tail expressions, allowing them to be dropped before local variables that previously would have been destroyed first.
+
+The `tail_expr_drop_order` lint detects cases where this difference may be observable, particularly when a temporary has a significant user-defined destructor. It is an allow-by-default migration diagnostic rather than a guarantee that a behavior change is harmful.
+
+The implementation uses `MaybeInitializedPlaces`, `MoveData`, move-path lookup, and control-flow traversal to determine whether relevant destructor operations can occur.
+
+This is important because a syntactic `Drop` terminator does not alone prove that a destructor will actually run. A value may have been moved, remain uninitialized, or follow only particular control-flow paths.
+
+The lint therefore combines source-level intent with MIR initialization facts and reachability-sensitive destruction analysis.
+
+It demonstrates a further use of the dataflow framework: identifying potential observable changes in language semantics across editions.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/lint_tail_expr_drop_order.rs`
+
+`https://doc.rust-lang.org/edition-guide/rust-2024/temporary-tail-expr-scope.html`
+
+The Rust Edition Guide also explains why this lint does not offer a universally semantics-preserving automatic rewrite.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Rust Edition Guide
+
+
+
+### 8.3 Optional runtime checks for invalid MIR operations
+
+`rustc_mir_transform` contains passes that insert runtime checks for selected conditions associated with undefined behavior.
+
+These must be distinguished from static diagnostics and MIR structural validation.
+
+Three particularly relevant passes are:
+
+| Pass             | Runtime property checked                                                               | Qualification                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `CheckAlignment` | Whether selected pointer dereferences satisfy the required alignment                   | Uses target-specific alignment information and excludes trivial cases               |
+| `CheckNull`      | Whether selected dereferences or reference constructions involve invalid null pointers | Distinguishes reference construction from other uses, including zero-sized pointees |
+| `CheckEnums`     | Whether selected enum values have valid discriminants or niche representations         | Inserts checks at targeted locations rather than attempting full dynamic validation |
+
+These passes use `PassPolicy::optional_non_optimization(sess.ub_checks())`.
+
+They are conditional on the compiler's UB-check configuration and are not necessarily present in every compilation.
+
+Alignment checks. `CheckAlignment` can insert pointer-address calculations and assertions for misaligned dereferences. It accounts for the required alignment of a projected field rather than merely checking the alignment of an enclosing pointer type.
+
+Null-pointer checks. `CheckNull` distinguishes situations where constructing a reference to null is invalid even for a zero-sized pointee from other pointer operations where the pointee's size affects whether a dereference must be checked.
+
+Enum validity checks. `CheckEnums` inserts checks for selected enum constructions and discriminant manipulations, accounting for direct discriminant encodings, niche-based encodings, and uninhabited variants.
+
+The enum checker intentionally does not instrument every operation that could conceivably involve an invalid value. Its source explains that fully general checking comparable to Miri would generate excessive MIR.
+
+These facilities provide selected runtime defenses and diagnostics. They do not replace the language's static safety rules, a complete memory-safety interpreter, or the compiler's structural MIR validator.
+
+Their placement before optimization is also significant: checks can be inserted before subsequent transformations remove evidence of problematic operations.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/check_alignment.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/check_null.rs`
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/check_enums.rs`
+
+## 9. MIR pass policy, isolation, and independent validation
+
+### 9.1 Required passes versus optional operations
+
+The `pass_manager` module defines a policy mechanism that is more expressive than a simple minimum optimization level.
+
+`PassPolicy` distinguishes:
+
+| Policy                             | Execution semantics                                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `Required`                         | Mandatory for the applicable MIR semantics or representation invariants; cannot be disabled through ordinary pass controls |
+| `Optional { optimization: true }`  | Optimization whose execution depends on configuration and applicable optimization controls                                 |
+| `Optional { optimization: false }` | Non-optimization operation, such as instrumentation or a runtime check, that may still be independently controlled         |
+
+This distinction is important because the presence of a pass in an optimization-oriented sequence does not establish that it is itself an optimization.
+
+`CheckEnums`, for example, inserts checks; `InstrumentCoverage` inserts instrumentation; `PostAnalysisNormalize` establishes required semantic invariants.
+
+The pass manager also provides `WithMinOptLevel`, which restricts the activation of an otherwise eligible pass according to the configured MIR optimization level.
+
+The `#[optimize(none)]` policy affects optional optimization passes, not every optional non-optimization or required pass.
+
+Internal controls such as `-Zmir-enable-passes` and `-Zmir-opt-level` operate within these policy boundaries. They are unstable compiler controls, not standardized interfaces for downstream pass registration.
+
+### 9.2 MIR pass interfaces and observational separation
+
+`MirPass` exposes a mutable-body transformation interface, while `MirLint` is an inspection interface that receives an immutable MIR body.
+
+The `Lint<T>` adapter enables a `MirLint` to participate in the pass pipeline.
+
+This distinction permits some diagnostic behavior to be integrated into the same orchestration and profiling machinery as transformations without granting those diagnostics authority to mutate the body.
+
+The pass manager also coordinates naming, profiler labels, MIR dumping, validation, and phase transitions.
+
+These mechanisms are compiler-internal. Their existence does not create an independently loadable MIR plugin architecture.
+
+In particular, the traits and associated pass-policy machinery are largely crate-private, and arbitrary downstream registration requires substantially more integration than implementing a trait in an external Cargo crate.
+
+Source:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_transform/src/pass_manager.rs`
+
+### 9.3 Isolated MIR transformation testing
+
+Rust's `tests/mir-opt` infrastructure supports targeted assertions over individual MIR transformations.
+
+Its test directives include:
+
+| Mechanism                     | Verification capability                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| `//@ test-mir-pass: PassName` | Restricts execution to the selected pass for a focused MIR test                  |
+| `EMIT_MIR ...diff`            | Compares the before/after transformation                                         |
+| `EMIT_MIR ...before.mir`      | Captures pre-pass MIR                                                            |
+| `EMIT_MIR ...after.mir`       | Captures post-pass MIR                                                           |
+| `EMIT_MIR_FOR_EACH_BIT_WIDTH` | Allows architecture-width-specific expected outputs                              |
+| FileCheck directives          | Match properties of emitted runtime MIR, including named basic blocks and locals |
+
+The FileCheck path is distinct from individual pass snapshots: the Rust 1.99.1 test documentation specifies that FileCheck operates on runtime MIR from `--emit=mir`, not on the output of a selected individual pass.
+
+Pass isolation reduces interference from unrelated transformations, including transformations whose behavior may change across compiler revisions.
+
+Other relevant validation mechanisms include `-Zvalidate-mir`, compiler debug assertions, and `tests/ui` coverage of diagnostics. The development guide recommends MIR validation when investigating transformation bugs and experimental MIR optimization configurations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+These facilities complement `rustc_peek` rather than duplicating it:
+
+- `rustc_peek` checks selected abstract dataflow facts.
+- MIR-opt snapshots inspect representation changes.
+- MIR validation checks compiler representation invariants.
+- UI tests verify source-facing diagnostics.
+- Code-generation and coverage tests inspect downstream emitted behavior.
+
+Together, these mechanisms provide several levels of native verification without requiring a separate framework for every analysis or transformation.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/tests/mir-opt/README.md`
+
+`https://rustc-dev-guide.rust-lang.org/mir/debugging.html`
+
+`https://rustc-dev-guide.rust-lang.org/tests/compiletest.html`
+
+## 10. Version and API availability boundaries
+
+### 10.1 Newer nightly dataflow facilities
+
+Newer nightly compiler documentation exposes `rustc_mir_dataflow::impls::precise_liveness`.
+
+That module computes fine-grained allocation-liveness information, including split early/late statement points and storage-sharing opportunities.
+
+It is a meaningful advanced development capability but is not part of the inspected Rust 1.99.1 `impls` module. The relevant nightly documentation describes Rust 1.101.0-nightly rather than the target stable compiler.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+Rust
+
+
+
+The Rust 1.99.1 reference should therefore not incorporate its API or semantics as if they were available in the tagged stable release.
+
+Sources:
+
+`https://github.com/rust-lang/rust/blob/1.99.1/compiler/rustc_mir_dataflow/src/impls/mod.rs`
+
+`https://doc.rust-lang.org/nightly/nightly-rustc/rustc_mir_dataflow/impls/precise_liveness/index.html`
+
+### 10.2 Availability is not equivalent to extensibility
+
+The additional mechanisms in this addendum fall into several distinct categories.
+
+| Category                                              | Examples                                                      | Integration boundary                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Compiler-internal reusable machinery                  | Dataflow edge selection, drop-flag effects                    | Requires compatible rustc internal types and lifecycle                               |
+| Internal compiler queries                             | `mir_coroutine_witnesses`, `deduced_param_attrs`, `mir_shims` | Access depends on the compiler query context and supported consumers                 |
+| Compiler-owned transformations                        | `Subtyper`, `PostAnalysisNormalize`, `AbortUnwindingCalls`    | Generally not independently replaceable through a stable plugin interface            |
+| Public compiler behavior with internal implementation | Source coverage instrumentation, edition migration lints      | User-facing feature may be stable while internal implementation APIs remain unstable |
+| Experimental language/compiler capabilities           | Async destruction, newer nightly dataflow modules             | Require feature-specific version and channel verification                            |
+
+This is particularly important for compiler-integrated analysis tools. The existence of a powerful internal module does not necessarily mean its functionality can be reused through a public API without participating in rustc's query, phase, and type-context machinery.
+
+## 11. Combined architectural implications
+
+The additions reveal several useful patterns that are not obvious when examining individual passes in isolation.
+
+| Combined capability                        | Native composition                                                                                      | Architectural significance                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Opaque-type-aware MIR lowering             | Root-level borrow checking, hidden-type inference, post-analysis normalization, explicit subtype casts  | Retains appropriate abstractions through type checking, then progressively establishes runtime representation               |
+| ABI-correct execution                      | Early FFI unwind discovery, required panic strategy, unwind-edge rewriting                              | Coordinates compile-time analysis, crate metadata, linking requirements, and runtime control flow                           |
+| Source coverage that survives optimization | Early virtual counter insertion, source mapping, post-optimization counter resolution, backend emission | Separates semantic coverage locations from runtime counter placement                                                        |
+| Cross-crate code-generation precision      | Pre-optimization mentioned-item collection and post-optimization parameter-attribute deduction          | Preserves dependency completeness while extracting stronger guarantees from optimized representations                       |
+| Coroutine correctness and compact state    | Borrow/storage liveness, witness calculation, storage-conflict matrices, state transformation           | Reuses semantic analysis for both type-system obligations and executable state-machine layout                               |
+| Compiler-native analysis validation        | Dataflow assertions, isolated MIR pass tests, MIR validation, UI diagnostics, code-generation checks    | Verifies abstract facts, transformation effects, representation invariants, and observable behavior at different boundaries |
+
+The common pattern is purpose-specific extraction and transformation at different stages of a shared MIR lifecycle.
+
+A compiler does not need to preserve every form of information indefinitely, nor should it perform every analysis on the most optimized representation available.
+
+Instead, Rust 1.99.1 uses early MIR to capture properties that later transformations could erase; borrow-checking-time MIR to resolve ownership, regions, and opaque types; post-analysis normalization to establish runtime semantics; and optimized MIR to derive additional code-generation information.
+
+That phase-dependent specialization, supported by reusable dataflow and MIR infrastructure, is the principal additional architectural capability established by this addendum.

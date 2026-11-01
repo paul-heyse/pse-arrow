@@ -1127,3 +1127,898 @@ All URLs below are direct, standalone source addresses.
 | Source repository         | `https://github.com/rust-lang/rust-analyzer`                                         |
 
 Overall assessment: rust-analyzer's distinctive strength is its combination of lossless syntax, crate-aware semantics, a modern shared trait solver, macro-aware source mapping, and demand-driven incremental computation. For sophisticated Rust code intelligence, these capabilities offer substantially more than conventional AST tooling, while its multiple integration boundaries allow consumers to select only as much compiler machinery and lifecycle responsibility as their requirements justify.
+
+# rust-analyzer — Advanced Capabilities and Integration Addendum
+
+Research date: November 1, 2026 | Language-server baseline: 2026-10-26 (`v0.3.3097`) | Reusable native crate baseline: `ra_ap_*` 0.0.358 where verified
+
+Supplement to “rust-analyzer — Comprehensive Rust Library and Code Intelligence Reference,” October 29, 2026.
+
+This addendum extends the original reference with additional native analysis capabilities, semantic relationship extraction, indexing interfaces, extensibility mechanisms, and integration contracts. Existing coverage of the parser, Salsa fundamentals, HIR, type inference, macros, IDE services, and compiler boundaries is not repeated.
+
+The October 26 language-server release is confirmed upstream. The reusable `ra_ap_ide` and `ra_ap_hir` packages are independently published and are verified at 0.0.358. The independently published crates and the weekly language-server binary must not be assumed to expose identical revisions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer.github.io+2
+
+
+
+## 13. Additional capability map
+
+| Capability                               | Additional architectural significance                                                                    | Extends original |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------- |
+| Single-file semantic analysis            | Semantic IDE operations without Cargo or a fully configured workspace                                    | §§3–4            |
+| Extensible Salsa integration             | Incorporate rust-analyzer's database and semantic queries into native analysis infrastructure            | §§3–4            |
+| Implicit operation resolution            | Resolve operator, indexing, `?`, and `.await` relationships not expressed as ordinary named calls        | §§5–6            |
+| Classified and scoped references         | Identify reference roles and bound searches using semantic visibility                                    | §6.1             |
+| Native `StaticIndex`                     | Materialize definitions, references, signatures, documentation, and locations without SCIP serialization | §8.4             |
+| Library-supplied IDE annotations         | Let Rust library authors influence completion and import behavior                                        | §6.2             |
+| External build-system command contracts  | Delegate checking, build metadata production, execution, and formatting                                  | §§4, 7–8         |
+| Syntax-aware editing and lazy resolution | Reuse structural editing and selectively compute expensive IDE results                                   | §§6, 8–9         |
+| Documentation-aware semantics            | Resolve documentation destinations and semantic links in Rust documentation                              | §6.3             |
+| Crate-context and dependency queries     | Inspect how files and crates participate in different semantic configurations                            | §§4, 8           |
+
+The key architectural distinction introduced by these capabilities is between on-demand semantic queries, batch semantic materialization, and managed language-server behavior. These expose overlapping information but have different completeness, update, ownership, and integration characteristics.
+
+## 14. Standalone and extensible analysis environments
+
+### 14.1 `Analysis::from_single_file`: a semantic boundary below full workspace loading
+
+`ra_ap_ide::Analysis::from_single_file` constructs a limited `Analysis` instance from source text:
+
+```
+Analysis::from_single_file(
+    text: String,
+    proc_macro_cwd: Arc<AbsPathBuf>,
+) -> (Analysis, FileId)
+```
+
+Unlike standalone `ra_ap_syntax` parsing, this establishes a minimal semantic database and crate context. Unlike `ra_ap_load-cargo`, it does not discover or load a Cargo project.
+
+The verified implementation constructs a local source root, a virtual `/main.rs` file, and a one-crate graph. It uses the current language edition, explicitly enables `cfg(test)`, and supplies no external dependencies, standard-library support, or target layout.
+
+Consequently, it can expose the IDE analysis façade for isolated Rust source without a complete project model, but cannot deliver ordinary workspace-level semantic fidelity. Operations requiring unavailable dependencies, standard-library definitions, generated files, or a realistic compilation environment can produce incomplete results.
+
+The returned `Analysis` is a snapshot without a corresponding mutable `AnalysisHost`; the documented API does not support incrementally applying subsequent changes to this instance.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+This creates a useful continuum:
+
+| Environment                  | Semantic capability                                                 | Important limitation                                            |
+| ---------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `ra_ap_syntax` alone         | Parsing, syntax traversal, structural edits                         | No crate-aware resolution                                       |
+| `Analysis::from_single_file` | Limited semantic and IDE queries for one synthetic crate            | No external dependencies, standard library, or incremental host |
+| Configured `AnalysisHost`    | Full analysis model for explicitly supplied source and crate inputs | Caller owns model updates                                       |
+| `ra_ap_load-cargo`           | Cargo-derived semantic database                                     | Static loading without automatic live synchronization           |
+| LSP server                   | Managed interactive analysis and lifecycle                          | Protocol coupling and server coordination                       |
+
+The intermediate single-file mode is valuable when parsing alone is insufficient but constructing a full Cargo workspace would be disproportionate.
+
+Source: `https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.Analysis.html`
+
+### 14.2 Loading into an existing Salsa database
+
+The native loader supports three related entry points with materially different responsibilities.
+
+| Interface                | Responsibility                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------- |
+| `load_workspace_at`      | Discover and load a workspace from a filesystem location                                        |
+| `load_workspace`         | Construct a fresh `RootDatabase`, VFS, and optional proc-macro client from a `ProjectWorkspace` |
+| `load_workspace_into_db` | Populate an existing mutable `RootDatabase` rather than constructing one internally             |
+
+The third interface is an explicit extension point. Its upstream implementation describes third-party use cases in which Salsa supports extending foreign databases. This provides a path for combining rust-analyzer's incremental analyses with additional Salsa-based computations in the same database architecture.
+
+An extension can consequently be organized as queries derived from semantic inputs rather than requiring every derived representation to maintain an unrelated invalidation mechanism.
+
+The benefit is conditional:
+
+- Additional queries still need explicit dependency relationships and correct database integration.
+- Correct invalidation depends on how additional inputs and computations are represented.
+- Internal rust-analyzer database types and query interfaces remain unstable.
+- Loading a workspace does not, by itself, implement filesystem synchronization, editor overlays, or live refresh.
+
+The companion `Semantics::new_dyn(&dyn HirDatabase)` is another relevant extensibility detail. It supplies a `Semantics` instance weakly coupled to the concrete database type, complementing the generic `Semantics::new`. This is useful where callers work through a database trait boundary rather than a statically known database implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+Sources:
+
+`https://docs.rs/ra_ap_load-cargo/latest/ra_ap_load_cargo/fn.load_workspace_into_db.html`
+
+`https://docs.rs/ra_ap_hir/latest/ra_ap_hir/struct.Semantics.html`
+
+### 14.3 Controlling procedural macro loading independently
+
+`LoadCargoConfig` exposes several independently significant settings:
+
+| Option                     | Role                                                            |
+| -------------------------- | --------------------------------------------------------------- |
+| `load_out_dirs_from_check` | Control loading of generated build output                       |
+| `with_proc_macro_server`   | Select how, or whether, the procedural-macro server is provided |
+| `prefill_caches`           | Control initial semantic cache preparation                      |
+| `num_worker_threads`       | Configure loading and priming parallelism                       |
+| `proc_macro_processes`     | Configure procedural-macro process concurrency                  |
+
+`ProcMacroServerChoice` provides three strategies:
+
+- `Sysroot`: Discover the server associated with the toolchain.
+- `Explicit(AbsPathBuf)`: Use a specified procedural-macro server executable.
+- `None`: Disable procedural-macro server availability.
+
+This makes procedural-macro execution an independently configurable integration responsibility rather than an unavoidable consequence of using the semantic analysis engine.
+
+Disabling procedural macros can improve execution isolation and reduce setup requirements, at the expense of losing semantics that depend on generated declarations and expansions. It does not eliminate all executable-code risks from workspace discovery or build-system integration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source: `https://docs.rs/ra_ap_load-cargo/latest/ra_ap_load_cargo/`
+
+## 15. Richer semantic relationships and bounded reference analysis
+
+### 15.1 Resolving implicit trait-mediated operations
+
+Rust source can invoke trait behavior without syntactically expressing an ordinary method call.
+
+The `ra_ap_hir::Semantics` API includes specialized resolvers for these cases:
+
+| Method                  | Source construct     | Semantic relationship                 |
+| ----------------------- | -------------------- | ------------------------------------- |
+| `resolve_bin_expr`      | Binary operators     | Associated operator function          |
+| `resolve_prefix_expr`   | Unary operators      | Operator implementation function      |
+| `resolve_index_expr`    | Indexing expressions | Indexing implementation function      |
+| `resolve_try_expr`      | `?` expressions      | Relevant try-operation implementation |
+| `resolve_await_to_poll` | `.await`             | Relevant polling operation            |
+| `resolve_range_expr`    | Range expressions    | Range structure                       |
+| `resolve_range_pat`     | Range patterns       | Range structure                       |
+
+These operations return resolved functions or structures when the frontend can determine a suitable target. They do not imply that every operator produces a meaningful user-defined call edge or that every expression can be resolved.
+
+This capability is distinct from ordinary name resolution. In a program containing:
+
+```
+let result = lhs + rhs;
+let element = container[index];
+let value = fallible_operation()?;
+```
+
+The syntax tree identifies operators and expressions. The semantic frontend can additionally associate supported expressions with trait-mediated functionality and underlying definitions.
+
+Rust-analyzer's enhanced go-to-definition also understands operators, conversions induced by `?`, and several implicit language relationships. This is not limited to navigating explicit identifier tokens.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+The architectural opportunity is richer expression-to-definition relationship extraction without reimplementing trait-based operator resolution. It is especially useful where conventional call hierarchies omit relationships that are implicit in Rust syntax.
+
+It remains important to separate a statically resolved operation from an actual runtime call edge. Generic substitution, dynamic dispatch, compiler transformations, and unresolved obligations can all affect the relationship between a source expression and executed behavior.
+
+Sources:
+
+`https://docs.rs/ra_ap_hir/latest/ra_ap_hir/struct.Semantics.html`
+
+`https://rust-analyzer.github.io/book/features.html`
+
+### 15.2 Reference classification: beyond untyped symbol occurrences
+
+`Analysis::find_all_refs` returns `ReferenceSearchResult` objects, not just an undifferentiated sequence of locations.
+
+The result contains an optional declaration and references grouped by file. Each reference has a source `TextRange` and a `ReferenceCategory`.
+
+`ReferenceCategory` is a flags representation with the documented categories:
+
+| Flag     | Meaning                                          |
+| -------- | ------------------------------------------------ |
+| `READ`   | Read-like reference                              |
+| `WRITE`  | Write-like reference                             |
+| `IMPORT` | Import-related reference                         |
+| `TEST`   | Reference appearing in a recognized test context |
+
+Multiple categories can apply to the same occurrence.
+
+The categories are source-analysis classifications, not a complete semantic-effect system. In particular, a read or write classification does not establish ownership behavior, aliasing, mutation through indirection, or all dataflow consequences of the expression.
+
+This distinction matters when deriving program relationships. A symbol occurrence, an import edge, a read-like use, and a write-like use are not semantically identical.
+
+The reference-search API also distinguishes declaration locations from ordinary references, while constructor-oriented searches can select initialization usages rather than all references to an algebraic data type.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-lang.github.io\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+`https://rust-lang.github.io/rust-analyzer/ide/struct.ReferenceSearchResult.html`
+
+`https://rust-lang.github.io/rust-analyzer/ide_db/search/struct.ReferenceCategory.html`
+
+### 15.3 `SearchScope`: reducing the space of possible references
+
+Reference search is shaped by Rust visibility and lexical scope, not simply by a workspace-wide text scan.
+
+`SearchScope` represents files and, where available, text ranges in which references may occur.
+
+The native interface includes constructors for a single file, file range, a collection of files, and a module with its descendants. Scopes can also be intersected.
+
+Internally, rust-analyzer can derive scopes from declaration visibility:
+
+- A local binding can be constrained to a relatively small syntactic region.
+- A crate-visible item generally requires searching its crate.
+- A publicly reachable item may require searching its crate and dependent crates.
+- An explicit caller-supplied scope can narrow the requested search further.
+
+This is both a correctness-related abstraction and a performance mechanism. The search space is determined partly by semantic reachability instead of treating every source file as equally relevant.
+
+`FindAllRefsConfig` exposes an optional `search_scope`, allowing consumers to constrain a reference operation without implementing an entirely separate search engine.
+
+A narrower scope is only exhaustive relative to that chosen scope and the analyzed configuration. It cannot establish the absence of references in excluded crates, disabled configurations, or unavailable source.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.SearchScope.html`
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.FindAllRefsConfig.html`
+
+### 15.4 Reference search is not general dataflow analysis
+
+These facilities support three increasingly rich representations:
+
+| Representation           | Native capability                                    | Missing semantics                           |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| Symbol occurrences       | Resolved source references                           | Usage role                                  |
+| Classified references    | Reference categories and ranges                      | Complete value and effect propagation       |
+| Expression relationships | Operator, call, field, and trait-mediated resolution | Comprehensive runtime behavior and dataflow |
+
+The difference is consequential. Reference classification can help identify variable uses, but full reaching-definition analysis, points-to analysis, whole-program dataflow, and authoritative borrow checking remain separate problem domains.
+
+The HIR and limited MIR interfaces described in the original guide can provide additional information. Their availability does not turn the combination into a complete compiler-equivalent analysis framework.
+
+## 16. Programmatic semantic index materialization
+
+### 16.1 `StaticIndex::compute`: direct native indexing
+
+The `ra_ap_ide::StaticIndex` API exposes the materialized analysis representation used for read-only code browsers and semantic index generation.
+
+The verified 0.0.358 interface is:
+
+```
+StaticIndex::compute(
+    analysis: &Analysis,
+    vendored_libs_config: VendoredLibrariesConfig<'_>,
+    include_hovers: bool,
+) -> StaticIndex<'_>
+```
+
+The result contains:
+
+- `files: Vec<StaticIndexedFile>`
+- `tokens: TokenStore`
+
+Each `StaticIndexedFile` associates a `FileId` with token ranges and identifiers, plus folding ranges and inlay hints.
+
+The token store contains `TokenStaticData` records with information derived from resolved symbols.
+
+| Field             | Content                                                 |
+| ----------------- | ------------------------------------------------------- |
+| `definition`      | Source location of the definition token                 |
+| `definition_body` | Source range encompassing the definition                |
+| `references`      | Recorded reference locations with definition indicators |
+| `moniker`         | Semantic identity information, when available           |
+| `display_name`    | Symbol display name                                     |
+| `signature`       | Signature representation                                |
+| `kind`            | Symbol classification                                   |
+| `documentation`   | Available documentation                                 |
+| `hover`           | Optional hover information                              |
+
+The `definition_body` range notably differs from the normal LSP enclosing-symbol range. The source documentation describes its handling of trivia and documentation comments, so the two should not be assumed interchangeable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Sources:
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.StaticIndex.html`
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.TokenStaticData.html`
+
+### 16.2 How the index is constructed
+
+The implementation traverses modules reachable from known crates, identifies source files belonging to selected source roots, and indexes those files.
+
+The `VendoredLibrariesConfig` choice influences whether dependency sources located within the configured workspace are included. Library source roots are otherwise excluded from the usual workspace indexing set.
+
+Token-level identities are constructed from rust-analyzer's source classification and semantic resolution. Definitions, source locations, documentation, signatures, and monikers can therefore be associated with syntax tokens.
+
+Importantly, this is a batch materialization over the analyzed program, not a global dictionary of every semantic fact in the internal database.
+
+It does not automatically capture complete type-inference state, every control-flow relationship, or an arbitrary HIR graph.
+
+`include_hovers` controls whether optional hover information is populated during materialization, introducing a useful distinction between a lighter index and a richer, potentially more expensive one.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 16.3 Native materialization versus SCIP/LSIF export
+
+These interfaces serve related but different roles.
+
+| Property                       | `StaticIndex`                                       | SCIP/LSIF                                         |
+| ------------------------------ | --------------------------------------------------- | ------------------------------------------------- |
+| Representation                 | Native Rust data structures                         | External index formats                            |
+| Consumption                    | Direct programmatic access                          | Independent index consumers                       |
+| Definition and occurrence data | Native records                                      | Serialized symbols and occurrences                |
+| Type-system completeness       | Subset of available analysis                        | Subset selected by exporter                       |
+| Update model                   | Recompute or otherwise refresh materialized data    | Regenerate or incrementally manage external index |
+| API stability                  | Internal pre-1.0 crate interface                    | Format governed separately from rust-analyzer CLI |
+| Integration boundary           | Linked to `Analysis` and internal source identities | Independent of live analyzer objects              |
+
+A notable limitation of the current SCIP exporter is that it records symbol occurrences and definitions but does not populate general-purpose SCIP relationship edges for arbitrary semantic relations.
+
+Accordingly, a SCIP occurrence referencing a function is not equivalent to a fully typed call graph. A graph with additional relationship types requires further semantic extraction.
+
+The native index can eliminate some intermediate serialization work, but ties the consumer to rust-analyzer's unstable APIs and data structures. The external format supports independent downstream consumption at the cost of conversion and potentially reduced semantic richness.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 16.4 Lifetime, concurrency, and freshness limits
+
+`StaticIndex<'a>` borrows the `Analysis` used to construct it, and the verified type is neither `Send` nor `Sync`.
+
+It should therefore be understood as a materialized, analysis-bound index, not a universally shareable concurrent database.
+
+A separate owned representation may be appropriate where consumers need independent lifetimes, cross-thread sharing, durable storage, or revision-to-revision comparisons.
+
+Further, `TokenId`, `FileId`, and source ranges should not automatically be treated as stable cross-revision or cross-workspace identities. Durable identity requires additional choices concerning crate identity, definitions, source mappings, and configuration.
+
+Source: `https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.StaticIndex.html`
+
+## 17. Library-author customization of IDE behavior
+
+### 17.1 `rust_analyzer` tool attributes
+
+Rust-analyzer recognizes source-level attributes through which library authors can influence how their APIs appear in IDE completions.
+
+These attributes provide a different configuration boundary from language-server settings: the library being analyzed supplies metadata that affects the editing experience of its consumers.
+
+The Rust Reference recognizes `rust_analyzer` as a supported tool-attribute namespace. These attributes are accepted by rustc but interpreted by rust-analyzer; they do not change the compiled behavior of the annotated item.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer+1
+
+
+
+### 17.2 Completion filtering
+
+The `#[rust_analyzer::completions(...)]` attribute supports three important modes.
+
+| Mode                       | Effect                                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `ignore_flyimport`         | Excludes the annotated item from automatic-import completion, while preserving completion when already in scope                        |
+| `ignore_flyimport_methods` | Allows the trait itself to be suggested for automatic import while excluding automatic-import suggestions originating from its methods |
+| `ignore_methods`           | Suppresses ordinary method completion for a trait, even when the trait is in scope                                                     |
+
+The latter two modes apply specifically to traits.
+
+`ignore_methods` has a consequential exception: methods are still suggested when the receiver has type `dyn Trait`, `impl Trait`, or a type parameter explicitly bounded by that trait. Thus, the annotation suppresses broad discovery of methods without removing completion where the trait is an explicit part of the receiver's type contract.
+
+This behavior corresponds to some functionality also exposed through the user's `completion.autoimport.exclude` and `completion.excludeTraits` settings. The difference is that the source annotation travels with the library rather than requiring each consumer to reproduce its completion preferences.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 17.3 Macro invocation style
+
+Function-like macros can declare their preferred invocation delimiters using:
+
+```
+#[rust_analyzer::macro_style(braces)]
+#[rust_analyzer::macro_style(brackets)]
+#[rust_analyzer::macro_style(parentheses)]
+```
+
+These are alternative annotations, not attributes intended to be combined on a single macro.
+
+For procedural macros, the attribute is placed on the function defining the macro. Rust-analyzer uses the declared style when inserting macro invocations through completion.
+
+The mechanism addresses a specific limitation of syntax-driven completion: Rust permits multiple delimiter styles for function-like macros, but those styles are not necessarily interchangeable conventions for the library's intended API.
+
+This feature influences generated editing text; it does not alter macro expansion or the grammar accepted by rustc.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 17.4 Preferred underscore imports for extension traits
+
+The attribute:
+
+```
+#[rust_analyzer::prefer_underscore_import]
+```
+
+allows a trait to express a preference for imports of the form:
+
+```
+use some_crate::ExtensionTrait as _;
+```
+
+This is especially relevant to extension traits introduced primarily to make methods available rather than to provide a trait name that callers are expected to reference directly.
+
+Rust-analyzer's automatic-import completion follows the preference. Its import quick fix also prefers `as _`, while permitting a normal named import.
+
+The feature can reduce namespace clutter and name conflicts without suppressing the availability of the trait's methods.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 17.5 Boundaries
+
+These attributes are advisory IDE metadata, not executable library semantics.
+
+Upstream documentation identifies two particularly important limitations: malformed annotations can be silently ignored, and users do not currently have a general override for the declared attribute behavior.
+
+Their principal value is supplying reusable library-level editing conventions. They should not be confused with Rust visibility restrictions, lint controls, deprecation attributes, or guarantees about method applicability.
+
+Primary sources:
+
+`https://rust-analyzer.github.io/book/features.html`
+
+`https://doc.rust-lang.org/reference/attributes.html#tool-attributes`
+
+## 18. External build-system and command integration
+
+### 18.1 Separate semantic inputs from external tool execution
+
+Rust-analyzer's non-Cargo support extends beyond `rust-project.json`.
+
+A non-Cargo integration has several independent responsibilities:
+
+| Responsibility                  | Relevant interface                       | Output or effect                                               |
+| ------------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| Describe Rust compilation units | `rust-project.json` / `ProjectWorkspace` | Crate topology, source locations, compilation context          |
+| Produce build metadata          | `cargo.buildScripts.overrideCommand`     | Generated-source and proc-macro build information              |
+| Supply compiler diagnostics     | `check.overrideCommand`                  | Machine-readable compiler/check diagnostics                    |
+| Execute discovered targets      | `runnables.*` command overrides          | Executable commands for tests, benchmarks, and related targets |
+| Format source                   | `rustfmt.overrideCommand`                | Formatted text                                                 |
+| Reconcile diagnostic paths      | `diagnostics.remapPrefix`                | Locations meaningful in the editor                             |
+
+These interfaces do not collapse into one universal build-system adapter. A correct crate graph does not guarantee that external checks, runnable commands, or generated-code artifacts have been configured correctly.
+
+### 18.2 Build-script and procedural-macro command substitution
+
+`rust-analyzer.cargo.buildScripts.overrideCommand` replaces the command used to build procedural macros and execute build scripts for analysis.
+
+The command is supplied as an argument array and must produce compatible JSON output, such as the machine-readable output of a Cargo check invocation.
+
+`cargo.buildScripts.invocationStrategy` controls whether the command is invoked independently per workspace or once for the opened project. The distinction matters when a build system has a single coordinating invocation across several Rust workspaces.
+
+This override delegates the production of build metadata; it does not remove rust-analyzer's responsibility for interpreting that metadata and incorporating it into the semantic model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 18.3 External diagnostics and source-path reconciliation
+
+`rust-analyzer.check.overrideCommand` substitutes the external checking command used for diagnostics on save.
+
+Its output must also be compatible with the expected JSON diagnostic stream.
+
+The integration supports two especially useful substitutions:
+
+| Placeholder    | Meaning                                                                      |
+| -------------- | ---------------------------------------------------------------------------- |
+| `{saved_file}` | Absolute path of the saved source file                                       |
+| `{label}`      | Cargo package identifier or build label supplied through `rust-project.json` |
+
+The label substitution permits checks scoped to a particular build-system target rather than always checking the entire workspace.
+
+`check.invocationStrategy` separately controls whether the substituted command runs per workspace or once across the opened project.
+
+The older `$saved_file` spelling remains recognized, but `{saved_file}` is the documented form.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Diagnostic location fidelity can be addressed with `diagnostics.remapPrefix`, which applies prefix substitutions while interpreting compiler-reported file paths. Its intended mapping is the reverse of paths transformed through rustc's `--remap-path-prefix`.
+
+This can matter when compilation occurs using different path layouts from those seen by the language-server client—for example, through build-system-generated directories or other path-remapping arrangements.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 18.4 Runnables and test execution
+
+Rust-analyzer distinguishes the discovery of runnable targets from executing them.
+
+`runnables.command` replaces the Cargo executable used for runnable commands. More specialized settings include:
+
+- `runnables.test.overrideCommand`
+- `runnables.bench.overrideCommand`
+- `runnables.doctest.overrideCommand`
+
+The specialized commands support argument placeholders such as `${package}`, `${target_arg}`, `${target}`, `${test_name}`, `${exact}`, `${include_ignored}`, and `${executable_args}`.
+
+The last of these represents bundled executable arguments, including configured extra test-binary arguments. Exact placeholder behavior differs among tests, benchmarks, and doctests; for example, `${exact}` and `${include_ignored}` do not have identical meanings across all three.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+At the protocol boundary, `experimental/runnables` returns executable descriptions with `cargo` or `shell` kinds. For ordinary runnables, the client performs execution using the supplied arguments.
+
+The separately documented experimental Test explorer protocol is richer:
+
+| Protocol operation                   | Purpose                                                     |
+| ------------------------------------ | ----------------------------------------------------------- |
+| `experimental/discoverTest`          | Discover tests and resolve test-tree children               |
+| `experimental/discoveredTests`       | Notify clients about changes in discovered tests            |
+| `experimental/runTest`               | Request execution of selected tests                         |
+| `experimental/changeTestState`       | Report enqueued, started, passed, failed, or skipped states |
+| `experimental/appendOutputToRunTest` | Deliver run-session output                                  |
+| `experimental/abortRunTest`          | Request termination of an active session                    |
+| `experimental/endRunTest`            | Signal completion of the test session                       |
+
+The protocol is capable of representing hierarchical, incrementally updated test discovery and per-test execution states.
+
+It should not be mistaken for an independent Rust test execution engine. Actual behavior still depends on external compilation and execution machinery, and availability depends on the negotiated experimental client capability.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 18.5 Formatting substitution
+
+`rust-analyzer.rustfmt.overrideCommand` replaces the formatting executable.
+
+Its contract is intentionally text-oriented: the complete file contents are supplied on standard input, and the formatted result is read from standard output.
+
+The substitute must behave like `rustfmt` operating on source text, not like `cargo fmt` coordinating formatting across an entire project.
+
+Separately, `rustfmt.rangeFormatting.enable` enables an unstable range-formatting facility requiring an appropriate nightly rustfmt. It is not a generally available stable formatting guarantee.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Primary sources:
+
+`https://rust-analyzer.github.io/book/configuration.html`
+
+`https://rust-analyzer.github.io/book/contributing/lsp-extensions.html`
+
+`https://rust-analyzer.github.io/book/non_cargo_based_projects.html`
+
+## 19. Syntax-aware editing and deferred IDE computation
+
+### 19.1 Source editing below the refactoring boundary
+
+`Analysis` exposes smaller syntax-aware operations that are not necessarily full semantic refactorings.
+
+| Interface          | Capability                                                                  |
+| ------------------ | --------------------------------------------------------------------------- |
+| `extend_selection` | Expand a source selection to an enclosing syntactic construct               |
+| `folding_ranges`   | Derive foldable source regions                                              |
+| `matching_brace`   | Locate a matching delimiter using Rust syntax                               |
+| `join_lines`       | Join source lines while adjusting whitespace, commas, or surrounding syntax |
+| `move_item`        | Reposition a supported item relative to neighboring items                   |
+| `on_enter`         | Generate contextual edits when inserting a new line                         |
+| `on_char_typed`    | Generate contextual edits in response to a typed character                  |
+
+The returned values are source ranges, text edits, or source changes rather than arbitrary mutations of an AST.
+
+Some operations are syntactic and local. Others may inspect semantic context to choose a suitable transformation. None should be interpreted as automatically proving that a changed program preserves its original behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+For example, `join_lines` is more than a newline deletion operation: the implementation can simplify braces and commas while producing a coherent Rust expression or statement. `on_enter` can continue a Rust comment and return a snippet-aware edit.
+
+This creates three distinct levels of editing machinery:
+
+| Level                               | Primary responsibility                                          |
+| ----------------------------------- | --------------------------------------------------------------- |
+| AST construction and syntax editing | Build or transform syntactic fragments                          |
+| IDE-oriented smart editing          | Produce source edits for contextual, often localized operations |
+| Semantic refactoring                | Transform resolved program entities and coordinated references  |
+
+The second category can avoid implementing an independent collection of Rust-sensitive editor transformations, even when a full semantic refactoring engine is unnecessary.
+
+### 19.2 Deferred completion edits and inlay-hint resolution
+
+Some IDE operations are deliberately split between discovery and resolution.
+
+The native interface includes:
+
+- `resolve_completion_edits`
+- `inlay_hints_resolve`
+- `resolve_annotation`
+
+These allow initial results to be produced without immediately computing every expensive detail. A consumer can subsequently resolve the specific completion, inlay hint, or annotation that becomes relevant.
+
+`inlay_hints_resolve`, for example, accepts a file, source range, identifying hash, and hashing callback to locate the relevant hint for resolution. This is a more specialized contract than merely regenerating all hints for a document.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+The architectural benefit comes from reducing unnecessary preparation. An editor may display many candidates but use only one; expensive supplementary edits, locations, or navigation data can be computed later.
+
+This trades some additional request coordination for potentially lower initial latency.
+
+### 19.3 LSP capability negotiation changes feature availability
+
+Not every native IDE capability is automatically available to every LSP client.
+
+A consequential example is completion with automatic imports. Official documentation requires the client to support LSP 3.16 or later and advertise the `additionalTextEdits` completion-resolution capability. Without that support, rust-analyzer disables this form of automatic-import completion rather than eagerly performing all potentially expensive work.
+
+Thus, enabling `completion.autoimport.enable` in configuration is not sufficient by itself.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Snippet-based edits have a separate experimental contract.
+
+The `snippetTextEdit` client capability permits rust-analyzer to return snippet-aware text edits, including cursor positions and placeholders, in supported code actions and typing operations.
+
+The documented protocol currently restricts such snippet edits to one document within a multi-document workspace edit; edits to additional documents use ordinary text edits.
+
+This is an interoperability boundary, not a restriction on rust-analyzer's ability to calculate multi-file source changes.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+The broader distinction is between:
+
+Native analysis capability: What rust-analyzer's Rust APIs can calculate.
+
+Protocol capability: Which information can be represented and exchanged.
+
+Client capability: Which protocol features an editor or other consumer has agreed to handle.
+
+These may differ materially even when the underlying semantic database is identical.
+
+Primary sources:
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.Analysis.html`
+
+`https://rust-analyzer.github.io/book/contributing/lsp-extensions.html`
+
+## 20. Documentation, source-context, and semantic annotation facilities
+
+### 20.1 Resolving documentation destinations
+
+`Analysis::external_docs` resolves documentation locations for the symbol at a source position.
+
+Its parameters include the source position and optional build-output directory and sysroot information. It returns a `DocumentationLinks` value representing available documentation destinations.
+
+The language-server extension `experimental/externalDocs` exposes this behavior to clients. With the optional `localDocs` client capability, its response can distinguish local and web documentation URLs.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+This is more precise than assuming a fixed `docs.rs` address can be constructed from every source symbol. Documentation locations can depend on the project, build output, and availability of local rustdoc artifacts.
+
+Rust-analyzer can therefore provide documentation navigation as a resolved code-intelligence operation rather than leaving every consumer to reconstruct documentation paths.
+
+### 20.2 Rust documentation as analyzable source content
+
+Rust-analyzer's source-highlighting engine can inspect code embedded in documentation comments.
+
+The setting `semanticHighlighting.doc.comment.inject.enable` controls additional highlighting for Rust source fragments and intra-documentation links. The feature is enabled by default in the verified configuration.
+
+The semantic-token model includes `documentation`, `injected`, and `intraDocLink` modifiers, allowing consumers to distinguish documentation comments from Rust syntax embedded within them and recognized Rust documentation links.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer+1
+
+
+
+This provides a richer representation than treating all documentation comments as undifferentiated text.
+
+However, injected highlighting should not be equated with full standalone semantic analysis of every embedded Rust example, nor does recognizing a documentation link automatically prove that it will resolve in every rustdoc build configuration.
+
+### 20.3 Richer semantic token modifiers
+
+Rust-analyzer emits modifiers that convey more than a resolved symbol's nominal category.
+
+Examples include:
+
+| Modifier         | Additional interpretation                                           |
+| ---------------- | ------------------------------------------------------------------- |
+| `consuming`      | A local value is consumed in a recognized function-call context     |
+| `reference`      | A local is behind a reference or a method takes `self` by reference |
+| `mutable`        | A mutable local/static or a method taking `&mut self`               |
+| `unsafe`         | An unsafe operation or corresponding syntax                         |
+| `controlFlow`    | A control-flow construct, including `?`                             |
+| `callable`       | A local whose type implements an `Fn*` trait                        |
+| `library`        | An entity originating outside the current crate                     |
+| `defaultLibrary` | An entity belonging to a built-in library crate                     |
+
+`semanticHighlighting.nonStandardTokens` controls whether nonstandard tokens and modifiers are emitted. A consuming client must preserve the difference between Rust-analyzer-specific classification and standard LSP semantic-token categories.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer+1
+
+
+
+These modifiers can serve as inexpensive source annotations for inspection or visualization.
+
+They are nevertheless optimized for semantic highlighting. In particular, the `consuming`, `reference`, and `mutable` modifiers are not replacements for complete ownership, alias, or dataflow analysis.
+
+### 20.4 Crate membership and configuration-context inspection
+
+The high-level `Analysis` API exposes several ways to inspect compilation context without traversing the low-level crate graph directly.
+
+| Operation                     | Information exposed                                        |
+| ----------------------------- | ---------------------------------------------------------- |
+| `crates_for(FileId)`          | Crates to which a file belongs                             |
+| `relevant_crates_for(FileId)` | Crates to which a file might belong                        |
+| `crate_root(Crate)`           | Root source file of a crate                                |
+| `crate_edition(Crate)`        | Rust language edition                                      |
+| `is_proc_macro_crate(Crate)`  | Whether the crate is a procedural-macro crate              |
+| `is_crate_no_std(Crate)`      | Whether `no_std` or `no_core` is specified                 |
+| `is_library_file(FileId)`     | Whether a file belongs to an immutable library source root |
+| `transitive_rev_deps(Crate)`  | Reverse-transitive dependency query                        |
+| `fetch_crates()`              | Collection of crate metadata records                       |
+
+The distinction between `crates_for` and `relevant_crates_for` is important. The former describes established membership; the latter exposes possible crate contexts.
+
+This reflects a central property of Rust semantic analysis: one physical source file can be associated with more than one crate context, and some source locations may be relevant to multiple candidate analyses.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+The LSP dependency-tree request `rust-analyzer/fetchDependencyList` separately provides crate names, versions, and paths for client-side dependency inspection.
+
+These facilities support different levels of abstraction: the native API works with semantic crate identities; the LSP extension provides an editor-oriented dependency inventory.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+Primary sources:
+
+`https://docs.rs/ra_ap_ide/latest/ra_ap_ide/struct.Analysis.html`
+
+`https://rust-analyzer.github.io/book/features.html`
+
+`https://rust-analyzer.github.io/book/contributing/lsp-extensions.html`
+
+## 21. Version, compatibility, and interpretation notes
+
+### 21.1 Align claims with the exact published artifact
+
+Rust-analyzer's weekly language-server release, reusable `ra_ap_*` crates, upstream development documentation, and LSP extensions have related but distinct compatibility boundaries.
+
+For this addendum, native API names and signatures are drawn from the available 0.0.358 crate documentation where specified. They should not automatically be transferred to earlier crate releases or assumed to exist unchanged in every package carrying a similar version.
+
+`/latest/` documentation links are useful discovery points but are mutable. An exact dependency integration should be checked against its installed package version and matching source revision.
+
+The upstream development documentation can also move ahead of the published reusable crate APIs. This is particularly important for unstable internal database and HIR interfaces.
+
+### 21.2 Macro refactoring support is evolving
+
+The October 19, 2026 release introduced support for inlining functions into macro calls.
+
+This refines the original guide's broad caution about macro-aware refactoring: some operations through macro invocations are supported, but macro-generated code remains a challenging area for source provenance and behavior-preserving transformations.
+
+The new capability is not a blanket guarantee that every assist can rewrite through arbitrary macro expansion layers.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer.github.io
+
+
+
+Source: `https://rust-analyzer.github.io/thisweek/2026/10/19/changelog-350.html`
+
+### 21.3 Configuration-file support remains experimental
+
+The official manual describes editor/LSP-provided configuration as the normal mechanism.
+
+It also documents `rust-analyzer.toml` at the project or user-configuration level, but calls the feature work in progress and states that many configuration options remain unsupported there.
+
+Consequently, TOML-based configuration should not be described as fully equivalent to the documented LSP configuration interface.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rust-analyzer.github.io\&sz=32)
+
+rust-analyzer
+
+
+
+### 21.4 Cross-capability interpretation
+
+The additional features clarify several architectural boundaries that are easy to conflate.
+
+| Combined capability                          | What becomes possible                                                               | What remains outside its guarantees                                  |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `Semantics` + implicit-operation resolution  | Identify trait-mediated relationships hidden behind operator syntax                 | Complete runtime call graphs                                         |
+| Classified references + `SearchScope`        | Extract source-use roles and reduce unnecessary reference search                    | Complete dataflow and ownership semantics                            |
+| `StaticIndex` + native HIR queries           | Combine materialized cross-references with richer on-demand semantics               | Automatic persistence, freshness, and stable cross-revision identity |
+| Salsa database extension + semantic queries  | Compose additional derived analyses with rust-analyzer's incremental infrastructure | Automatic correctness of custom query dependencies                   |
+| Non-Cargo project model + command overrides  | Integrate semantic analysis with external build and test infrastructure             | Elimination of build-system output contracts or execution lifecycle  |
+| Library attributes + configurable completion | Express reusable API-specific editing conventions                                   | Compiler-level semantic constraints                                  |
+| Native IDE edits + deferred LSP resolution   | Support context-aware transformations with lower initial computation                | Universal client compatibility or formally verified refactoring      |
+
+The central distinction is that rust-analyzer supplies substantial semantic interpretation and editing machinery, while durable identity, additional relationship models, external execution, and protocol-independent lifecycle management remain responsibilities of whichever integration boundary consumes those capabilities.
+
+These additions complete the identified capability gaps without changing the original guide's core explanation of rust-analyzer as an incremental, configuration-dependent Rust semantic frontend.

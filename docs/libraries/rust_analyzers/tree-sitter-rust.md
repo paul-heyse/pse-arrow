@@ -1036,3 +1036,653 @@ Its most valuable capabilities arise in combination:
 The crucial distinction is between recognizing where and how source constructs appear and establishing what those constructs mean in a compiled Rust program.
 
 For the former, `tree-sitter-rust` offers a substantial, reusable foundation. For the latter, its value is as a syntax-level component within a larger analysis system, not as a substitute for rust-analyzer or the Rust compiler.
+
+# Addendum: Advanced Capabilities and Compatibility Notes for `tree-sitter-rust`
+
+Research date: November 1, 2026\
+Target grammar: `tree-sitter-rust` 0.24.2\
+Companion runtime: `tree-sitter` 0.27.1\
+Companion libraries: Versioned independently
+
+This addendum supplements tree-sitter-rust — Comprehensive Rust Library Capability Reference (October 30, 2026). It addresses functionality, architectural mechanisms, and compatibility limitations not fully developed in that reference. Existing explanations of the core grammar, CST model, parsing lifecycle, bundled queries, and semantic boundaries are not repeated.
+
+The findings distinguish functionality supplied by the Rust grammar package, the Tree-sitter runtime, grammar-development tooling, and independently maintained companion libraries.
+
+## 1. Advanced query execution and query introspection
+
+Supplement to original §§6.1–6.2.
+
+Tree-sitter's query engine supports more than matching declarative syntax patterns. It also provides execution-range semantics, introspection of compiled patterns, suppression of selected matching work, cooperative interruption, and mechanisms for detecting incomplete execution.
+
+These capabilities matter when query results serve as structured inventories or continuously maintained derived data rather than transient highlighting output.
+
+### 1.1 Intersection ranges versus containment ranges
+
+`QueryCursor` provides two distinct families of spatial restrictions:
+
+| API                          | Semantics                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| `set_byte_range`             | Search for matches intersecting a byte interval                                          |
+| `set_point_range`            | Equivalent restriction using row/column coordinates                                      |
+| `set_containing_byte_range`  | Require all nodes in returned matches to be fully contained in a specified byte interval |
+| `set_containing_point_range` | Equivalent containment restriction using points                                          |
+| `set_max_start_depth`        | Restrict the depth at which a query pattern may start                                    |
+
+The distinction between intersection and containment is consequential. An intersection query may return a match spanning substantially more source text than the selected interval. A containment restriction excludes matches extending beyond its boundary.
+
+Both restrictions can be combined. For example, a consumer can find matches intersecting a small edited region while requiring the complete match to lie within a larger enclosing analysis region.
+
+`set_max_start_depth` imposes a different constraint: it limits where patterns begin, not necessarily how deeply those patterns can inspect descendants. A value of zero permits matching from the supplied root without initiating pattern searches at deeper roots.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+These mechanisms help distinguish spatially localized query results from complete queries over a larger syntax subtree. They do not independently determine which previously emitted facts must be invalidated after a source edit.
+
+Source: `https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.QueryCursor.html`
+
+### 1.2 Query match limits and incomplete results
+
+`QueryCursor::set_match_limit` controls the maximum number of simultaneously in-progress matches, rather than the maximum number of successful results returned.
+
+The runtime also exposes:
+
+- `match_limit()` — inspect the configured limit.
+- `did_exceed_match_limit()` — determine whether the most recent execution exceeded it.
+
+In version 0.27.1, the permitted limit is greater than zero and at most 65,536.
+
+This distinction matters for patterns generating many concurrent partial matches, particularly with repetitions and ambiguity. A query may exceed its internal match capacity even when its final result set would not be particularly large.
+
+A successful query compilation, and even a nonempty result set, therefore do not establish exhaustive execution. Consumers requiring complete inventories must account for match-limit exhaustion as a separate result condition.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 1.3 Cooperative interruption during query execution
+
+In `tree-sitter` 0.27.1, `QueryCursorOptions` exposes a `progress_callback` receiving `QueryCursorState` and returning `ControlFlow<()>`.
+
+The corresponding execution interfaces are `QueryCursor::matches_with_options` and `captures_with_options`. A callback can request termination using `ControlFlow::Break(())`, independently of parser-level progress callbacks.
+
+This separates two operations that may have different resource budgets: constructing a syntax tree and executing structural queries over that tree.
+
+The callback is cooperative rather than a hard resource-isolation mechanism. Callers must track whether interruption was requested and treat a terminated query as potentially incomplete. An ordinary end of iteration does not, by itself, prove that a query completed without interruption or other configured limits.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Source: `https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.QueryCursorOptions.html`
+
+### 1.4 Reusable queries, selective disabling, and metadata
+
+The compiled `Query` type exposes several capabilities beyond compilation and matching.
+
+| Capability                | Relevant API                                     | Architectural significance                                                                   |
+| ------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Pattern selection         | `disable_pattern`                                | Excludes selected patterns from subsequent query execution                                   |
+| Capture selection         | `disable_capture`                                | Suppresses capture recording without necessarily eliminating the associated matching pattern |
+| Independent configuration | `deep_clone`                                     | Creates a separately mutable compiled query                                                  |
+| Capture metadata          | `capture_names`, `capture_quantifiers`           | Inspects capture names and occurrence cardinality                                            |
+| Pattern boundaries        | `start_byte_for_pattern`, `end_byte_for_pattern` | Relates a compiled pattern to its original query-source interval                             |
+| Structural properties     | `is_pattern_rooted`, `is_pattern_non_local`      | Describes aspects of pattern shape relevant to execution                                     |
+| Query guarantees          | `is_pattern_guaranteed_at_step`                  | Identifies a definite query step                                                             |
+| Query properties          | `property_settings`, `property_predicates`       | Exposes `#set!`, `#is?`, and `#is-not?` metadata                                             |
+| Custom predicates         | `general_predicates`                             | Makes nonstandard predicates available for interpretation by the consumer                    |
+
+A particularly useful distinction is that compiled queries can be shared across threads and query cursors without cloning. `deep_clone` is relevant when independently mutating a query, such as disabling different patterns in different consumers.
+
+`disable_capture` is not equivalent to `disable_pattern`: the former avoids returning and recording the named capture, whereas the latter prevents an entire pattern from matching.
+
+Rooted versus non-local patterns. A rooted pattern has a single root. Non-local patterns can span multiple roots within repeating syntax sequences and may disable optimizations otherwise available for range-restricted query execution. These properties are especially relevant when interpreting localized query results after incremental parsing.
+
+Properties versus predicates. The query engine evaluates its supported built-in text predicates, but application-specific property assertions and general predicates require consumer-defined interpretation. Exposing such metadata does not mean the engine understands arbitrary application semantics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Source: `https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.Query.html`
+
+### 1.5 Match ordering and streaming
+
+`QueryCursor::matches` iterates complete matches in discovery order, with each match containing its pattern index and associated captures. Captures from distinct matches can interleave in source order.
+
+`QueryCursor::captures` instead provides individual captures in source order. This difference affects consumers that need to reconstruct complete structural relationships rather than process isolated captured nodes.
+
+The Rust `QueryMatches` interface uses the `StreamingIterator` abstraction, rather than the ordinary owning iterator convention. Iteration therefore has borrowing and lifetime implications for result processing.
+
+Query execution also accepts a `TextProvider`, allowing predicate evaluation against source supplied by the caller. This is relevant for chunked or noncontiguous source storage, although the caller remains responsible for correct text retrieval and encoding.
+
+Source: `https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.QueryCursor.html`
+
+## 2. Efficient CST traversal and grammar-state introspection
+
+Supplement to original §§5.1, 5.3–5.4, and 7.2.
+
+### 2.1 `TreeCursor` as a stateful traversal primitive
+
+`TreeCursor` provides a navigation model distinct from repeatedly retrieving child nodes or constructing iterators. It maintains traversal state while moving through a syntax tree.
+
+Relevant capabilities include:
+
+| API family                                                | Functionality                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| `goto_first_child`, `goto_next_sibling`, `goto_parent`    | Conventional hierarchical traversal                               |
+| `goto_last_child`, `goto_previous_sibling`                | Reverse navigation                                                |
+| `goto_first_child_for_byte`, `goto_first_child_for_point` | Jump to the first child containing or following a source location |
+| `goto_descendant`, `descendant_index`                     | Navigate by descendant ordinal                                    |
+| `depth`                                                   | Inspect depth relative to the cursor's starting node              |
+| `field_name`, `field_id`                                  | Retrieve the structural role of the current child                 |
+| `reset`, `reset_to`                                       | Reposition or reuse cursor traversal state                        |
+
+A cursor is bounded by its original root and cannot navigate outside that subtree. Reverse sibling traversal and moving to the last child may require more work than forward navigation because child positions can require recomputation.
+
+For frequent structural traversal, the cursor can avoid repeated discovery of parent–child relationships. Position-directed navigation is also useful when mapping source offsets to enclosing syntax constructs.
+
+The `Node` API provides additional alternatives, including `first_child_for_byte`, `first_named_child_for_byte`, `child_with_descendant`, and direct field-based child iterators. These are complementary to cursor-based traversal rather than an entirely different parsing model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+`https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.TreeCursor.html`
+
+`https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.Node.html`
+
+### 2.2 Grammar symbols, aliases, and node identity
+
+A distinction not developed in the original reference is that a node's publicly presented type can differ from its underlying grammar symbol.
+
+`Node::kind()` and `kind_id()` expose the node's visible type, including any grammar alias. `Node::grammar_name()` and `grammar_id()` expose the underlying grammar symbol without that alias.
+
+This matters when inspecting a grammar that uses `alias(...)` to present generic identifiers as syntactically specialized nodes, such as type or field identifiers. A grammar-aware tool may need to distinguish the node's visible identity from the parser rule that produced it.
+
+The runtime also exposes `Node::id()` as an internal node identity. IDs are unique within a tree, and reused nodes can retain their IDs across incremental parse versions. However, a node not marked as changed is not guaranteed to have been reused. Node IDs should therefore not be treated as durable semantic symbol identifiers or independently sufficient persistent keys.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 2.3 Grammar-state inspection through `Language`
+
+Beyond the `NODE_TYPES` schema, `tree_sitter::Language` exposes information from the compiled parser:
+
+- Node and field symbol counts, names, and numerical IDs.
+- Whether a symbol is named, visible, or a supertype.
+- Supertype membership through `supertypes` and `subtypes_for_supertype`.
+- Parse-state counts and transitions through `parse_state_count` and `next_state`.
+- Lookahead-symbol enumeration through `lookahead_iterator`.
+- Grammar metadata through `name`, `metadata`, and `abi_version`.
+
+These interfaces permit compiled-grammar inspection without separately parsing `grammar.js` or reconstructing the parser tables.
+
+For error-oriented analysis, `Node::parse_state()` exposes the state immediately before a node, while `Node::next_parse_state()` provides subsequent state information. `Language::next_state(state, grammar_symbol_id)` can inspect a state transition.
+
+A `LookaheadIterator` can enumerate symbols valid in a selected state. The upstream documentation specifically identifies missing-node recovery and syntax diagnostics as possible uses.
+
+There are important qualifications. A parse-state candidate does not establish that an insertion is valid after considering following tokens, and the parser's error recovery can evaluate multiple alternatives. Lookahead results therefore cannot be interpreted as Rust compiler completions, type-correct suggestions, or a definitive list of all possible recovery edits.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+`https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.Language.html`
+
+`https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.LookaheadIterator.html`
+
+## 3. Tree ownership, cheap snapshots, and source-coordinate composition
+
+Supplement to original §§7.1 and 7.3.
+
+### 3.1 Copy-on-write-like tree sharing
+
+Tree-sitter allows syntax trees to be copied inexpensively. At the C runtime level, `ts_tree_copy` creates a shallow copy by incrementing an atomic reference count on shared underlying tree structures.
+
+The Rust binding exposes this through `Tree::clone()`.
+
+A cloned tree can be inspected, edited, or used as input for incremental reparsing independently of another clone. This supports distinct syntax snapshots without duplicating the entire parse tree for every consumer.
+
+The distinction is between the cost of obtaining a tree snapshot and the cost of subsequently modifying or reparsing it. Cloning is cheap, but edits and new parsing work can allocate new structure while retaining unaffected subtrees.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+Tree-sitter+1
+
+
+
+This provides useful concurrency opportunities, but three boundaries remain:
+
+- Tree ownership: The upstream C interface requires independently copied tree instances for concurrent operations on the tree objects. Rust's ownership and borrowing model provides corresponding safety constraints.
+- Source ownership: Tree snapshots do not automatically retain an independently versioned copy of the source text used for text extraction.
+- Derived-data ownership: Query results, source indexes, diagnostics, and external semantic records must be associated with the appropriate source/tree version.
+
+Thus the native tree-sharing mechanism can replace expensive deep syntax-tree copies, but not the surrounding source-version and derived-data consistency model.
+
+Source: `https://tree-sitter.github.io/tree-sitter/using-parsers/3-advanced-parsing.html`
+
+### 3.2 Included-range provenance and position offsets
+
+Two additional `Tree` interfaces complement included-range parsing.
+
+`Tree::included_ranges()` returns the source ranges that were included when the tree was constructed. This provides information about the parse's spatial coverage, which may be especially relevant for embedded-language or partial-document parsing.
+
+`Tree::root_node_with_offset(offset_bytes, offset_extent)` returns a root node whose position is shifted forward by the supplied byte and point offsets. It permits the interpretation of a parsed subtree at an offset relative to a larger document.
+
+The mechanisms have different responsibilities: included ranges define which source regions participated in parsing; root offsets adjust presented coordinates.
+
+A uniform root offset does not independently represent arbitrary noncontiguous source mappings. If embedded content has been extracted, transformed, or assembled from multiple source intervals, the consumer still needs a coordinate mapping appropriate to that transformation.
+
+Source: `https://docs.rs/tree-sitter/0.27.1/tree_sitter/struct.Tree.html`
+
+## 4. Typed syntax generation with `type-sitter`
+
+Supplement to original §§5.3 and 9.
+
+`type-sitter` is an independently maintained Rust library that generates strongly typed interfaces for Tree-sitter syntax nodes and queries. It is a concrete implementation of the typed-wrapper possibility identified in the original guide.
+
+Verified companion version: `type-sitter` 0.10.1. The project describes this release as alpha and documents a dependency on Tree-sitter 0.26; direct compatibility with runtime 0.27.1 is not established by that documentation.
+
+### 4.1 Generated node interfaces
+
+`type-sitter` consumes a grammar's `node-types.json` and generates Rust types that wrap ordinary Tree-sitter nodes.
+
+Its abstractions include:
+
+| Capability               | Mechanism and value                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| Concrete node types      | Represents each node kind with a distinct Rust wrapper rather than only generic `Node` values |
+| Typed field access       | Generates accessor methods reflecting the grammar's declared fields and node alternatives     |
+| Supertype enums          | Represents compatible subtype alternatives as Rust enums, permitting exhaustive matching      |
+| Untyped interoperation   | Supports conversion to and from generic node representations                                  |
+| Recovery representations | Includes typed error, missing, and extra-node handling                                        |
+| Comment-aware access     | Can expose extra nodes before and after typed syntax nodes                                    |
+| Custom supertypes        | Allows generated logical groupings beyond those declared in the upstream grammar              |
+
+These mechanisms move some structural correctness checks from string-based runtime operations into generated Rust interfaces. They can reduce hand-maintained node-kind constants, field-name lookups, and repetitive structural conversion code.
+
+The types still describe syntactic possibilities. They do not introduce name resolution, type inference, compiler-validated Rust constructs, or stable identities for semantic references.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 4.2 Generated typed query interfaces
+
+`type-sitter` can also generate Rust types corresponding to Tree-sitter queries.
+
+Rather than retrieving results through stringly typed capture names and manually interpreting node kinds, generated query types provide typed capture accessors and typed node results.
+
+This extends static checking from individual CST navigation into declarative extraction.
+
+The query generator requires access to grammar and query source material, and the documented workflow generally involves a vendored grammar and compiled language artifact. By contrast, node-wrapper generation can consume the published `NODE_TYPES` content directly through a build-script route.
+
+The distinction is important: the presence of `NODE_TYPES` in the Rust grammar crate does not imply that every form of typed query generation can operate solely on the crate's exported constants.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 4.3 Generation methods and tradeoffs
+
+The project supports three generation methods: procedural macros (`type-sitter-proc`), build-script generation (`type-sitter-gen`), and a standalone CLI (`type-sitter-cli`).
+
+Build-script generation can regenerate only when input grammar assets change. Procedural macros simplify integration but can incur more repeated compilation work. CLI generation produces source files that can be inspected and edited, although regeneration becomes an explicit responsibility.
+
+Custom supertypes can be introduced during generation without changing the Tree-sitter grammar itself. This is relevant when an application wants broader typed categories than the grammar's published supertypes provide.
+
+The project documents substantial generated code volume for Rust: more than 30,000 lines of node wrappers and more than 6,000 lines of generated query interfaces in its example. This introduces compilation, code-maintenance, and generated-artifact costs even when it eliminates bespoke traversal logic.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 4.4 Relationship to other syntax layers
+
+`type-sitter` is best understood as a typed facade over Tree-sitter's grammar and runtime representation, not an alternative Rust grammar or a substitute for rust-analyzer.
+
+Its architectural value is strongest where retaining Tree-sitter's common parsing and query infrastructure matters, but string-based node access is undesirable.
+
+Unlike `ra_ap_syntax`, its generated Rust-specific interfaces reflect Tree-sitter's grammar schema rather than rust-analyzer's own Rust-specific syntax model.
+
+An optional `yak-sitter` integration provides additional conveniences, including direct access to node text and file-path context. This belongs to the companion ecosystem, not `tree-sitter-rust` itself.
+
+Version qualification: Because `type-sitter` 0.10.1 documents Tree-sitter 0.26, compatibility with the guide's target runtime 0.27.1 should be evaluated separately. Its alpha designation also means the exposed API is not presented as stable by its maintainers.
+
+Primary source: `https://docs.rs/type-sitter/0.10.1/type_sitter/`
+
+## 5. Additional Rust syntax and grammar distinctions
+
+Supplement to original §§3–5.
+
+The tagged `grammar.js` contains several specialized syntax mechanisms that are useful for structural analysis but deserve more explicit treatment.
+
+### 5.1 Conditional pattern chains
+
+The grammar defines `let_condition`, `_let_chain`, and the exposed `let_chain` alias.
+
+These represent conditional pattern-binding structures, including expressions combining `let` conditions with `&&`. They occur within the grammar's conditional-expression rules and enable syntax-level extraction of bindings embedded in control-flow conditions.
+
+This is distinct from ordinary `let_declaration` syntax. A tool interested in all syntactic binding sites cannot restrict its analysis to `let` statements, function parameters, and match patterns.
+
+The grammar's recognition of a conditional binding does not determine whether the pattern is irrefutable, which names remain in scope, or whether the condition is valid under a particular Rust compiler configuration.
+
+### 5.2 Precise capture bounds
+
+The grammar defines `use_bounds`, recognizing `use<...>` syntax consisting of lifetimes and type identifiers.
+
+These capture bounds appear in bounded-type syntax and are relevant to Rust's precise capture facilities for opaque types.
+
+They are separate from ordinary `trait_bounds`, `where_clause`, and generic parameter declarations. Consequently, structural tools inspecting generic constraints or opaque return-type syntax may need to recognize this node family explicitly.
+
+The parser records syntactic capture-bound information without checking the compiler's capture rules or validating the specified type and lifetime names.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 5.3 Unicode identifiers and literal variants
+
+The published identifier rule recognizes Unicode XID-style identifier characters and optionally permits an `r#` prefix.
+
+This enables the parser to represent raw identifiers and non-ASCII identifiers without treating every identifier as an ASCII token.
+
+The grammar and external scanner also distinguish conventional strings, raw strings, byte-prefixed strings, C-string-prefixed forms, character literals, and escape sequences. Raw strings use scanner state to track their hash delimiters.
+
+These mechanisms are important when identifying literal boundaries and preserving exact source text. They do not imply complete compiler-level validation of Unicode identifier restrictions, escape semantics, literal contents, or edition-specific keyword rules.
+
+### 5.4 Additional macro fragment specifiers
+
+The grammar's `fragment_specifier` rule includes these recognized forms:
+
+`block`, `expr`, `expr_2021`, `ident`, `item`, `lifetime`, `literal`, `meta`, `pat`, `pat_param`, `path`, `stmt`, `tt`, `ty`, `vis`.
+
+In particular, `block`, `literal`, and `meta` should be added to the representative vocabulary in the original §4.1.
+
+The related `token_repetition_pattern` and `token_repetition` rules recognize optional separators and the `*`, `+`, and `?` repetition operators. Their recognition is syntactic; the grammar does not validate or execute Rust macro repetition semantics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 5.5 Additional grammar distinctions
+
+The published grammar declares six supertypes:
+
+`_expression`, `_type`, `_literal`, `_literal_pattern`, `_declaration_statement`, `_pattern`.
+
+The `_literal` and `_literal_pattern` families distinguish literal expressions from literal-compatible pattern syntax, including negative literal patterns. These are useful distinctions for generic syntax queries and generated node classifications.
+
+A separate `shebang` rule recognizes a file-level shebang before the source file's ordinary statements. This is distinct from inner attributes beginning with `#![`.
+
+One noteworthy example of deliberate grammar permissiveness is the `static_item` rule, which accepts an optional `ref` modifier. The grammar source explicitly notes that `static ref` is not ordinary Rust syntax but is common in the `lazy_static` macro ecosystem.
+
+This demonstrates that the grammar sometimes accommodates macro-associated syntax that would not independently be valid as an ordinary Rust item. Structural acceptance should not be interpreted as compiler validation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+Primary source for §§5.1–5.5:
+
+`https://github.com/tree-sitter/tree-sitter-rust/blob/v0.24.2/grammar.js`
+
+## 6. Version-specific parsing limitations
+
+Supplement to original §§3.5, 4.3, and 10.2.
+
+The following issues have more concrete consequences than the general fact that Tree-sitter is not a Rust compiler. They concern specific relationships or source forms that the published grammar may misrepresent.
+
+### 6.1 Outer attributes are represented separately from annotated declarations
+
+In `tree-sitter-rust` 0.24.2, outer attributes are generally represented as sibling nodes of the declarations they annotate, rather than as descendants of those declarations.
+
+For example:
+
+```
+#[cfg(feature = "tracing")]
+pub fn execute() {}
+```
+
+The grammar can represent the attribute as `attribute_item` and the function as `function_item` at the same structural level.
+
+This has a significant consequence: recursively inspecting a `function_item` does not necessarily reveal its `cfg`, `derive`, documentation, lint, or other outer attributes.
+
+An analysis that associates attributes with items must account for surrounding sibling nodes and their ordering, rather than assuming the CST directly expresses that relationship.
+
+The original upstream issue also demonstrates that a trailing outer attribute with no following item can be accepted by the grammar despite being rejected by `rustc`. This is another case in which a syntactically successful parse does not prove source-language validity.
+
+The issue remains open in upstream tracking. Its author reports that the independently maintained `tree-sitter-rust-orchard` fork fixes this behavior, but that fork has a separately evolving grammar and must not be conflated with the target upstream release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Sources:
+
+`https://github.com/tree-sitter/tree-sitter-rust/issues/244`
+
+`https://codeberg.org/grammar-orchard/tree-sitter-rust-orchard`
+
+### 6.2 Rust 2024 `safe` declarations inside `unsafe extern` blocks
+
+Rust supports safety qualifiers on individual foreign items within an `unsafe extern` block, including `safe fn` and `safe static`.
+
+This syntax is documented in the official Rust Edition Guide and is particularly relevant for foreign-function interfaces because individual declarations can express different safety obligations.
+
+The tagged `tree-sitter-rust` 0.24.2 grammar does recognize an optional `unsafe` modifier on `foreign_mod_item`. However, its `function_modifiers` rule contains `async`, `default`, `const`, `unsafe`, and `extern_modifier`, but not `safe`. Its `static_item` rule similarly lacks a `safe` modifier.
+
+An upstream issue reports unsuccessful parsing of these individual-item safety qualifiers. Therefore, the important limitation is not the absence of `unsafe extern` block recognition generally, but incomplete representation of `safe` foreign-item declarations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+3
+
+
+
+This distinction matters for structural extraction of FFI declarations, source validation, and safety-annotation inventories.
+
+The grammar rules and issue report support this compatibility concern. The exact error-recovery tree for version 0.24.2 has not been independently reproduced in this review.
+
+Sources:
+
+`https://github.com/tree-sitter/tree-sitter-rust/issues/250`
+
+`https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-extern.html`
+
+### 6.3 Multibyte Unicode characters in block comments
+
+A September 16, 2026 upstream issue documents a lexical-scanner defect involving certain Unicode characters inside block comments.
+
+The report identifies a narrowing conversion from the lexer's `int32_t` character lookahead to a C `char`. When a Unicode code point's low byte corresponds to a comment delimiter character, the scanner can mistake ordinary text for the beginning of a nested block comment.
+
+The reported example is:
+
+```
+fn main() {
+    /*是个*/
+}
+```
+
+The two characters have low-byte values corresponding to `/` and `*`, respectively. The scanner can therefore misinterpret their sequence as a nested comment opener, producing an erroneous recovery tree.
+
+This is especially consequential because a failure originating inside a comment can affect the syntactic representation of surrounding declarations and blocks.
+
+The upstream report references the scanner source at the tagged 0.24.2 release commit, providing concrete evidence of the implicated code. A maintainer of the separate `tree-sitter-rust-orchard` fork reports that a fix has been incorporated there; this does not establish a fix in upstream 0.24.2.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Sources:
+
+`https://github.com/tree-sitter/tree-sitter-rust/issues/315`
+
+`https://github.com/tree-sitter/tree-sitter-rust/blob/v0.24.2/src/scanner.c`
+
+### 6.4 Implications for syntax-derived facts
+
+These examples reveal three distinct failure modes:
+
+| Failure mode                    | Example                                       | Consequence                                                                              |
+| ------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Missing structural relationship | Outer attribute separate from its declaration | A valid relationship is not directly represented as a parent–child edge                  |
+| Incomplete syntax recognition   | Foreign-item `safe` qualifiers                | Valid Rust may be represented through parser recovery rather than its intended structure |
+| Lexical misclassification       | Unicode block-comment delimiters              | Valid source can produce an incorrect parse tree                                         |
+
+The differences matter because simply filtering out `ERROR` nodes cannot compensate for every form of incomplete grammar behavior. An attribute relationship may be absent even when no syntax error occurs, and deliberately permissive grammar rules can accept forms not valid as standalone Rust.
+
+For source intelligence, these limitations qualify the interpretation of syntactic facts. They do not negate the usefulness of the parser for ordinary structural extraction.
+
+## 7. Alternative grammar distribution and loading
+
+Supplement to original §§2.2 and 8.
+
+### 7.1 Native shared-library builds
+
+The Tree-sitter CLI offers a deployment path separate from Cargo's static compilation of a grammar crate.
+
+`tree-sitter build` compiles a grammar into a dynamically loadable shared library, with platform-specific outputs such as `.so`, `.dylib`, and `.dll`.
+
+Relevant build capabilities include compiler selection through `CC`, additional compiler flags through `CFLAGS`, support for common compiler-cache wrappers, explicit output selection, and debug builds.
+
+The `--reuse-allocator` option allows the grammar's external scanner to reuse the allocator configured in the Tree-sitter core runtime. This can be relevant when applications replace default allocation behavior or need consistent allocation ownership across native components.
+
+On Unix systems, the CLI can use `nm` to check scanner symbols and guard against inappropriate global symbol exports. That particular check is not performed on Windows.
+
+These capabilities belong to the grammar-building toolchain rather than the published `tree-sitter-rust` Rust API. They become relevant when parsers are distributed or loaded independently of an application's ordinary Cargo dependency graph.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://tree-sitter.github.io\&sz=32)
+
+Tree-sitter
+
+
+
+### 7.2 WebAssembly grammar deployment
+
+The CLI's `tree-sitter build --wasm` mode compiles the grammar to a WebAssembly module. The process uses the WASI SDK, with the CLI able to locate or download a suitable SDK when necessary.
+
+The Rust Tree-sitter runtime exposes corresponding WebAssembly functionality through its optional `wasm` feature and `WasmStore`.
+
+A WebAssembly grammar is loaded into a suitable store and then supplied to a parser. WebAssembly language instances must respect runtime engine compatibility; using independently created stores does not remove the requirement for a compatible underlying engine.
+
+The runtime also exposes `Language::is_wasm()` under the relevant feature configuration and `Language::is_parseable()` to inspect whether a language can be assigned to a parser.
+
+This deployment mode changes how the compiled grammar is packaged and executed, rather than changing the grammar into a Rust-native parser or expanding its semantic Rust understanding.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Sources:
+
+`https://tree-sitter.github.io/tree-sitter/cli/build.html`
+
+`https://docs.rs/tree-sitter/0.27.1/tree_sitter/`
+
+### 7.3 Cross-language binding metadata
+
+The tagged upstream `tree-sitter.json` identifies the grammar as `rust`, associates it with the `source.rust` scope and `.rs` file extension, and declares the locations of its highlighting, injection, and tagging queries.
+
+It also declares bindings for C, Go, Node.js, Python, Rust, and Swift.
+
+This metadata is distinct from the Rust crate's five public constants. It supports the grammar's participation in multiple host-language environments and tooling ecosystems without implying that every host exposes an identical API or supports the same parser-loading mechanisms.
+
+In particular, availability of the compiled grammar, the parser runtime, query consumers, and host-specific editor features must be considered separately.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Source:
+
+`https://github.com/tree-sitter/tree-sitter-rust/blob/v0.24.2/tree-sitter.json`
+
+## 8. Additional query assets and editor-specific functionality
+
+Supplement to original §6.6.
+
+The original guide correctly identifies the absence of a bundled `LOCALS_QUERY`. A related distinction is that folding and indentation queries are not exported by the published `tree-sitter-rust` 0.24.2 crate either.
+
+These are common capabilities in editor integrations, but their conventions and implementations depend on the consuming editor or query ecosystem.
+
+For example, Neovim's Tree-sitter tooling distinguishes query files for highlighting, injections, folding, indentation, and local-scope information. These use Tree-sitter query syntax but assign editor-specific meanings to capture names and directives.
+
+A query valid for one editor's indentation or folding conventions is not automatically portable to another editor merely because both consume Tree-sitter trees.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+This creates a useful separation between three kinds of grammar-associated functionality:
+
+- Grammar-native assets: Published node schema and bundled Rust highlighting, injection, and tagging queries.
+- Consumer-defined query assets: Folding, indentation, local scopes, and other editor-specific structural interpretations.
+- Higher-level analyses: Symbol resolution, code actions, refactoring, and semantic operations requiring additional application or compiler machinery.
+
+The distinction helps explain why a grammar may be widely used in editor tooling without exposing every editor feature directly through its Rust package.
+
+Sources:
+
+`https://docs.rs/tree-sitter-rust/0.24.2/src/tree_sitter_rust/lib.rs.html`
+
+`https://github.com/nvim-treesitter/nvim-treesitter/blob/main/CONTRIBUTING.md`
+
+## 9. Architectural implications of the additional capabilities
+
+The extensions documented here reveal several further possibilities and constraints.
+
+Declarative extraction can be more controllable than a simple query-and-collect interface suggests. Pattern introspection, selective disabling, range containment, progress callbacks, and explicit completeness checks provide reusable mechanisms for bounded structural analysis. These reduce some requirements for custom query orchestration, while leaving result-versioning and semantic interpretation to the caller.
+
+Compiled grammar introspection can supplement static node schemas. `Language` exposes parse states, symbol identities, and lookahead information unavailable from ordinary node traversal. These interfaces permit grammar-aware analysis without reimplementing parser-state machinery, although parser-state validity remains different from Rust program validity.
+
+Shared trees and typed wrappers solve different kinds of complexity. Native tree cloning addresses ownership and snapshot costs, while typed wrappers reduce string-based structural access. Neither independently supplies persistent semantic identities, cross-file resolution, or automatic synchronization of derived facts.
+
+Grammar fidelity must be understood at the level of particular constructs. Attribute association, foreign-item qualifiers, lexical scanner behavior, and permissive macro-associated syntax illustrate why syntactic recognition and source-language correctness cannot be treated as interchangeable guarantees.
+
+Deployment and consumer functionality remain independent dimensions. Native and WebAssembly builds determine how a grammar is packaged and loaded. Editor-specific queries determine how syntactic structures are interpreted for presentation or interaction. Neither dimension changes the fundamental semantic boundary of the Rust grammar.
+
+Together, these additions strengthen the original reference's treatment of Tree-sitter as a reusable structural-analysis foundation while making its advanced runtime mechanisms, companion tooling, and important version-specific limitations more explicit.

@@ -954,3 +954,847 @@ The main architectural choice is the required level of semantic fidelity. For do
 | Semantic-version compatibility analysis                 | `https://github.com/obi1kenobi/cargo-semver-checks`            |
 
 Overall assessment: Rustdoc is best understood as Rust's compiler-backed documentation and API-projection subsystem. Its HTML renderer and doctest engine are mature, stable functionality; its JSON backend is an exceptionally useful but still experimental extraction interface. The distinction between the underlying language model, the cleaned documentation model, and the published API surface is essential to using its capabilities correctly.
+
+# rustdoc — Advanced Capabilities and Schema Semantics Addendum
+
+Research date: November 1, 2026\
+Version scope: Rust 1.99.1; `rustdoc-types` 0.61.0; rustdoc JSON format version 61\
+Companion document: rustdoc — Comprehensive Rust Library and Tooling Reference, October 29, 2026
+
+## Scope
+
+This addendum extends the original guide with functionality and semantic distinctions that were missing or insufficiently developed. It concentrates on the deeper behavior of rustdoc's compiler integration, structured API representation, executable documentation, source inspection, and build orchestration.
+
+The most consequential additions are:
+
+- Compiler-analysis boundaries: Rustdoc's deliberate avoidance of ordinary function-body type-checking and the consequences for completeness.
+- Structured API intelligence: Typed attributes, representation metadata, incomplete-item indicators, advanced type and trait properties, stability dimensions, and cross-crate identity.
+- Executable documentation: Doctest-specific compilation, test-harness selection, external execution, compiler customization, and structured test extraction.
+- Documentation infrastructure: Dependency tracking, shared search and implementation metadata, macro inspection, expanded linting, and additional Markdown facilities.
+
+The addendum retains the original distinction between stable rustdoc functionality, nightly-only facilities, and the experimental rustdoc JSON contract. It uses the original document's section numbering as a reference without repeating its existing explanations.
+
+## 1. Compiler-analysis boundaries and semantic completeness
+
+Extends original §§2.1–2.3, 10.2, and 12.5–12.7.
+
+### 1.1 Deliberate avoidance of ordinary function-body type-checking
+
+Rustdoc's use of rustc's name resolution, HIR, and type-query infrastructure does not imply that it performs the same semantic analysis as an ordinary crate compilation.
+
+The Rust compiler development guide explicitly documents that rustdoc does not normally type-check function bodies. Internally, this is accomplished through specialized compiler-query behavior, suppression of certain name-resolution errors, and avoiding ordinary resolution of opaque types.
+
+This has several consequences:
+
+1. Rustdoc can successfully document certain configurations that would fail normal compilation.
+2. Compiler queries dependent on fully type-checked bodies may be unavailable or incomplete.
+3. Rustdoc cannot ordinarily produce `.rlib` artifacts or execute most compiler lints that require body type-checking.
+4. Successful documentation generation cannot establish the correctness of method calls, control flow, or all generic interactions inside function bodies.
+
+This distinction is narrower and more precise than simply saying rustdoc omits function bodies from its JSON representation. Rustdoc intentionally operates under a different compiler-analysis regime.
+
+The tradeoff is architectural: rustdoc can construct useful API documentation from configurations selected for documentation purposes without requiring every function body to pass all the checks performed by an ordinary build.
+
+### 1.2 Source-navigation features can change semantic validation behavior
+
+The nightly `--generate-link-to-definition` option introduces an important exception.
+
+Generating semantic links from references in function bodies to their definitions can require resolving type-dependent expressions, including method calls. This may cause rustdoc to type-check bodies it would otherwise avoid.
+
+Consequently, enabling this feature can introduce name-resolution or type errors in a crate that otherwise generates documentation successfully.
+
+The significant distinction is that a source-navigation enhancement can change the compilation checks performed, rather than merely modifying the HTML output.
+
+The related `--generate-macro-expansion` capability, discussed later, provides a different source-inspection mechanism and should not be assumed to have identical semantic-analysis requirements.
+
+### 1.3 Implications for compiler-derived API representations
+
+Rustdoc's output should be interpreted as the combination of three different properties:
+
+| Property                   | What rustdoc can establish                                                                      | What it does not establish                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Declaration semantics      | Resolved declarations, many type relationships, and compiler-derived implementation information | Complete behavior of function bodies                                     |
+| Documentation reachability | Items represented under the selected documentation configuration                                | Every item available under every ordinary compilation configuration      |
+| Documentation validity     | Documentation parsing, supported link resolution, selected lints, and optionally doctests       | Full correctness of the underlying crate across all build configurations |
+
+For code-intelligence consumers, this means the absence of body-level relationships from rustdoc JSON is an intentional limitation of the projection, not evidence that those relationships do not exist.
+
+Combining rustdoc JSON with rust-analyzer or compiler-level analysis can provide additional information, but the sources may differ in compilation assumptions, configuration selection, and analysis completeness.
+
+Primary sources
+
+- Rustdoc compiler architecture and body-type-checking limitation: `https://rustc-dev-guide.rust-lang.org/rustdoc.html`
+- Nightly source-navigation features and validation caveats: `https://doc.rust-lang.org/rustdoc/unstable-features.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://rustc-dev-guide.rust-lang.org\&sz=32)
+
+Rust Compiler Development Guide+1
+
+## 2. Advanced rustdoc JSON semantics
+
+Extends original §§8.2–8.8, 9.1, and 12.
+
+The experimental rustdoc JSON schema contains more compiler-derived information than item names, signatures, generics, and implementation relationships. Several additional fields are particularly relevant to API intelligence because they preserve distinctions that would otherwise require custom Rust parsing or semantic interpretation.
+
+The field names and shapes discussed below are verified against the tagged `rustdoc-types` 0.61.0 source, not inferred from older schema versions.
+
+Primary schema source: `https://raw.githubusercontent.com/rust-lang/rustdoc-types/v0.61.0/src/lib.rs`
+
+### 2.1 Typed attributes and representation metadata
+
+`Item.attrs` is a `Vec<Attribute>`, rather than merely a collection of unstructured attribute strings.
+
+The schema recognizes several attribute families explicitly:
+
+| Structured attribute       | Information exposed                           | Consequential use                                       |
+| -------------------------- | --------------------------------------------- | ------------------------------------------------------- |
+| `NonExhaustive`            | Presence of `#[non_exhaustive]`               | Detect construction and exhaustive-pattern restrictions |
+| `MustUse { reason }`       | Must-use annotation and optional explanation  | Identify compiler-enforced usage diagnostics            |
+| `MacroExport`              | Exported declarative macro attribute          | Distinguish macro export behavior                       |
+| `ExportName(String)`       | Explicit external symbol name                 | Inspect exported-symbol declarations                    |
+| `NoMangle`                 | Name-mangling suppression                     | Identify symbol-name behavior                           |
+| `LinkSection(String)`      | Explicit binary section placement             | Inspect linker-sensitive declarations                   |
+| `AutomaticallyDerived`     | Compiler or macro-generated derivation marker | Identify generated implementation provenance            |
+| `TargetFeature { enable }` | Function-specific target-feature declarations | Understand instruction-set-specific API requirements    |
+| `Repr(AttributeRepr)`      | Structured type representation attributes     | Inspect FFI and layout-related declarations             |
+| `Other(String)`            | Attributes without a dedicated schema variant | Preserve otherwise unmodeled metadata                   |
+
+`AttributeRepr` further exposes `kind`, `align`, `packed`, and `int`. The `ReprKind` discriminator identifies Rust, C, transparent, and SIMD representation.
+
+This is materially more useful than searching source text for `#[repr(...)]`. A structured API consumer can distinguish explicit representation contracts, integer discriminant types, and alignment or packing annotations without implementing an attribute parser.
+
+However, these fields describe declared representation attributes, not actual compiler-computed sizes, offsets, or alignment for a particular monomorphized type. `#[repr(C)]` also does not by itself establish that every component of a type is safe or appropriate for FFI.
+
+#### Important stability distinction
+
+`Attribute::Other(String)` has an explicit compatibility exception: its contents are not governed by `FORMAT_VERSION` and may change without a format-version increment.
+
+The fallback may contain either a compiler/HIR-derived pretty-printed representation or source-like formatting. It should not be treated as a canonical token sequence or stable attribute grammar.
+
+Similarly, the schema documents that attributes may be normalized or combined during rendering. `Item.attrs` is therefore suitable for inspecting supported semantic properties, but not for exact source reconstruction.
+
+Other attributes have dedicated fields instead of appearing in `attrs`: documentation comments, deprecation, ordinary stability, const stability, and unstable provided defaults.
+
+Source: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.Attribute.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+### 2.2 Explicit indications of omitted API structure
+
+Rustdoc JSON does not merely remove inaccessible or hidden information. In several important cases it records that information has been removed.
+
+| Schema location       | Indicator               | Meaning                                                                      |
+| --------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| `Module`              | `is_stripped`           | Module is not part of the public API, but contains publicly reexported items |
+| `StructKind::Tuple`   | `Vec<Option<Id>>`       | Hidden/private tuple fields retain their positions as `None`                 |
+| `StructKind::Plain`   | `has_stripped_fields`   | One or more named fields were omitted                                        |
+| `Union`               | `has_stripped_fields`   | One or more union fields were omitted                                        |
+| `Enum`                | `has_stripped_variants` | One or more variants were omitted                                            |
+| `VariantKind::Tuple`  | `Vec<Option<Id>>`       | Hidden tuple-variant fields retain positional placeholders                   |
+| `VariantKind::Struct` | `has_stripped_fields`   | One or more named variant fields were omitted                                |
+
+The preservation of tuple-field positions is especially significant. Omitting a hidden field without recording its position would shift the apparent indices of the remaining tuple fields, producing a misleading structural representation.
+
+For named fields and enum variants, the schema generally preserves a completeness indicator rather than the missing members' identities.
+
+This enables a useful distinction among three situations:
+
+- Complete represented structure: All relevant members are present under the selected documentation configuration.
+- Known incomplete structure: The schema explicitly reports omitted members or positional placeholders.
+- Potentially incomplete projection: No indicator proves completeness across alternative build configurations or excluded documentation surfaces.
+
+For structural API comparisons, these states cannot be treated equivalently. A missing field or variant is not necessarily a removed declaration. Similarly, an empty represented field collection is not necessarily evidence that a type has no inaccessible fields.
+
+This is particularly relevant to questions about external construction, exhaustive matching, and whether a representation has changed. `#[non_exhaustive]` is an additional, distinct restriction and must not be inferred solely from stripped-field indicators.
+
+Sources:
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.StructKind.html`
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.VariantKind.html`
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Module.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+### 2.3 Richer callable, trait, and macro properties
+
+Rustdoc JSON can answer several semantic questions without reconstructing the information from a formatted declaration.
+
+Functions. `FunctionHeader` provides `is_const`, `is_unsafe`, `is_async`, and `abi`. The ABI representation also distinguishes relevant unwinding-capable ABI variants.
+
+`FunctionSignature` exposes parameter names/patterns and types, optional return type, and `is_c_variadic`. Parameter names are not guaranteed to be valid identifier strings because source parameters may use patterns.
+
+`Function.has_body` distinguishes a declaration with an implementation from one without a body. This does not mean the JSON stores the implementation's statements or expressions.
+
+Traits. `Trait` exposes `is_auto`, `is_unsafe`, and `is_dyn_compatible`, together with its associated items, bounds, generics, and implementations.
+
+The `is_dyn_compatible` field is particularly valuable because dyn compatibility is a language-semantic property, not merely the presence or absence of a particular syntactic construct. It can be inspected as a compiler-derived property rather than reimplemented through a separate collection of object-safety rules.
+
+Procedural macros. `ProcMacro` distinguishes function-like, attribute, and derive macros through `MacroKind`, and exposes helper attributes for applicable derive macros.
+
+This provides a machine-readable inventory of macro interface forms, but not the procedural macro's expansion behavior or its complete accepted token grammar.
+
+Advanced type-level representations. The schema also models higher-ranked trait bounds, associated-item constraints, associated type projections, function-pointer signatures, and precise capturing arguments used in `impl Trait` bounds such as `use<'a, T>`.
+
+These representations help preserve type-level relationships that would be obscured by stringifying signatures. They remain documentation-oriented structural data, not proof that an arbitrary combination of generic bounds is satisfiable.
+
+Source: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/`
+
+Relevant types: `FunctionHeader`, `FunctionSignature`, `Function`, `Trait`, `ProcMacro`, `GenericBound`, `PreciseCapturingArg`, and `Type`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+4
+
+
+
+### 2.4 Ordinary stability, const stability, and provided-default stability
+
+Schema version 61 distinguishes three forms of compiler stability information that should not be collapsed into a single status.
+
+| Dimension                  | Schema location                                                          | Meaning                                                                               |
+| -------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| Ordinary item stability    | `Item.stability`                                                         | Stability of the declared item through Rust's compiler stability attributes           |
+| Const-context stability    | `Item.const_stability`                                                   | Whether the item is stable for use in const contexts                                  |
+| Provided-default stability | `Function.default_unstable`, associated constant/type `default_unstable` | Whether a trait-provided default implementation or value requires an unstable feature |
+
+The distinction is important because an item may be usable in ordinary execution without being stable in const contexts.
+
+Similarly, a trait member can be stable as an API contract while its supplied default implementation remains unstable. This affects whether consumers can rely on the provided behavior without implementing their own member.
+
+`ProvidedDefaultUnstable` records the feature gate required for such a default.
+
+There are additional subtleties:
+
+- A reexport has its own stability metadata, separate from the imported definition.
+- A declaration's stability may differ from the stability of a path used to access it.
+- Associated items may inherit instability from their containing trait or implementation.
+- Missing metadata does not establish stability.
+
+These compiler stability annotations are primarily relevant to standard-library and compiler-maintained APIs. The associated Rust stability attributes are not generally available to ordinary third-party crates, which commonly lack such metadata.
+
+Consequently, none of these fields should be used as a universal SemVer or project-maturity classification.
+
+Source: `https://raw.githubusercontent.com/rust-lang/rustdoc-types/v0.61.0/src/lib.rs`
+
+See `Item`, `Stability`, `StabilityLevel`, and `ProvidedDefaultUnstable`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+
+
+### 2.5 Reexport records and cross-crate identity reconciliation
+
+`Use` and `ExternalCrate` expose additional identity information relevant to reconstructing public namespaces.
+
+A `Use` record contains:
+
+| Field            | Significance                                                            |
+| ---------------- | ----------------------------------------------------------------------- |
+| `source`         | Full imported path                                                      |
+| `name`           | Name introduced at the import site, including renaming                  |
+| `id: Option<Id>` | Resolved target when represented; can be absent for primitive reexports |
+| `is_glob`        | Whether the import is a wildcard import                                 |
+
+An explicit reexport is an edge between a public exposure and an underlying declaration. It is not necessarily a new declaration identity.
+
+For example, `pub use internal::Engine as PublicEngine` creates a public name that differs from both the imported path and potentially the definition path.
+
+Glob reexports introduce further complexity because they can expose multiple names, with visibility, shadowing, and inlining behavior influencing the documented result.
+
+An API model that uses only `ItemSummary.path` can therefore miss meaningful public names even when it correctly identifies the underlying item.
+
+#### Dependency artifact information
+
+`ExternalCrate` records `name`, `html_root_url`, and `path`.
+
+The `path` field identifies the artifact from which the crate was loaded, commonly an `.rlib` or `.rmeta`. This can help correlate rustdoc references with the build system that invoked rustc and the dependency artifacts it selected.
+
+There are important limits:
+
+- The crate name need not equal the Cargo package name.
+- The local `crate_id` namespace is not a persistent identity across independently generated JSON files.
+- Artifact paths are build-context evidence, not durable global identifiers.
+- A path to a compiled dependency does not uniquely encode its package version, feature configuration, or source identity.
+
+Thus, `ExternalCrate::path` can complement Cargo metadata and other build provenance, but does not replace dependency resolution or cross-build identity reconciliation.
+
+Sources:
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Use.html`
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.ExternalCrate.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+### 2.6 Target-feature metadata and compilation context
+
+`Crate.target` contains a `Target` record with the target triple and a collection of `TargetFeature` records.
+
+A `TargetFeature` provides:
+
+- `name`: target-feature identifier.
+- `implies_features`: features implied by enabling this feature.
+- `unstable_feature_gate`: associated language-feature gate when applicable.
+- `globally_enabled`: whether the feature is enabled for the compilation session.
+
+This supports a more precise distinction between features recognized by a target and features globally enabled in a particular compilation session.
+
+The implication relationships are useful when considering instruction-set prerequisites. For example, one architectural extension may imply a lower-level extension.
+
+However, a target-feature listing is not a complete API availability matrix. It does not enumerate every possible `cfg` combination, every function's effective runtime requirements, or every externally supported CPU configuration.
+
+The JSON target metadata should be interpreted together with item-level `TargetFeature` attributes and the actual build configuration. An item-specific target-feature declaration is not equivalent to globally enabling that feature for the entire crate.
+
+Sources:
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Target.html`
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.TargetFeature.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+### 2.7 Constants, discriminants, and source-location fidelity
+
+Rustdoc JSON preserves several different kinds of value information, but they have different interpretation guarantees.
+
+`Constant` contains `expr`, optional `value`, and `is_literal`.
+
+The `expr` field is a stringified expression, not a guaranteed reproduction of the original source. The optional evaluated `value` is computed only for numeric types. Absence of a value does not establish that an expression is invalid or unevaluable by every compiler mechanism.
+
+`Discriminant` similarly separates the source-oriented expression from its numerical value. Its numeric `value` is serialized as a string to preserve integers across the full relevant signed/unsigned 128-bit ranges without relying on JSON number precision. The expression may preserve source formatting but can also be reduced to a placeholder for sufficiently complex cases.
+
+`Span` uses a filename and one-indexed `(line, column)` coordinates for its beginning and end. The schema describes the end as the position of the final character, rather than a conventional exclusive end offset.
+
+These distinctions matter when connecting structured API records to source files, exact-text analysis, or numeric comparisons.
+
+They also establish a firm boundary: rustdoc JSON can provide structured semantic information without guaranteeing round-trippable source syntax or universal source coordinates.
+
+Sources:
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Constant.html`
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Discriminant.html`
+
+`https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Span.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com+2
+
+### 2.8 Archived schema representations with `rkyv`
+
+The optional `rustdoc-types` feature `rkyv_0_8` derives `Archive`, `Serialize`, and `Deserialize` implementations and exposes archived forms such as `ArchivedId`.
+
+This enables a different data-access model from repeatedly deserializing ordinary JSON into owned Rust structures.
+
+An archived representation can support access to data in its serialized form without eagerly reconstructing every owned value. For repeated analysis of large API graphs, this can reduce deserialization work when only selected records are needed.
+
+The boundary is important: rustdoc's own JSON output is not already an `rkyv` archive. An application must first create or obtain an archive using the corresponding serialization machinery. The potential benefit applies to subsequent use of that representation, not to arbitrary JSON text directly.
+
+The implementation also has specialized support for recursive and mutually recursive schema types, using appropriate archive bounds and validation facilities. These details matter if extending the archived model, rather than simply using the feature.
+
+The separately optional `rustc-hash` feature concerns in-memory hash-map behavior and has different costs and benefits. Neither feature changes the upstream rustdoc JSON contract.
+
+Source: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://raw.githubusercontent.com\&sz=32)
+
+raw\.githubusercontent.com
+
+
+
+## 3. Doctest-specific compilation and execution facilities
+
+Extends original §§5.2–5.4 and 10.5.
+
+### 3.1 `#[cfg(doctest)]`: documentation-test-only declarations
+
+Rustdoc sets `cfg(doctest)` while collecting doctests. This is distinct from `cfg(doc)`, which participates in ordinary documentation generation.
+
+`#[cfg(doctest)]` permits test-bearing declarations that do not belong in the crate's normal documentation or compiled public API. A particularly useful application is testing examples embedded in external Markdown without publishing that Markdown as an item page.
+
+For example:
+
+```
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;
+```
+
+The declaration exists during doctest collection, allowing rustdoc to extract and execute code blocks from the included README. It does not appear in an ordinary crate build.
+
+This separates three concerns: where examples are authored, which examples are tested, and which documentation appears in the published API.
+
+Important limitation: Doctests still link against the crate's externally accessible items. A declaration appearing only under `cfg(doctest)` does not make private crate members accessible to its extracted examples. Ordinary unit tests remain the appropriate mechanism for testing private implementation details.
+
+### 3.2 `test_harness`: multiple test functions within a documentation block
+
+The stable `test_harness` code-block annotation changes how rustdoc compiles a documentation example.
+
+Ordinarily, an eligible code block becomes an executable example, with an implicit `main` function if necessary. Under `test_harness`, contained `#[test]` functions are instead executed through Rust's test harness.
+
+An illustrative documentation block is:
+
+````
+//! ```test_harness
+//! #[test]
+//! fn accepts_valid_input() {
+//!     assert!(true);
+//! }
+//!
+//! #[test]
+//! #[should_panic]
+//! fn rejects_invalid_state() {
+//!     panic!("invalid state");
+//! }
+//! ```
+````
+
+This allows documentation to express several independently named assertions and use normal test attributes inside a single code example.
+
+Its significance is not merely syntactic. It delegates test enumeration and expected-panic handling to Rust's established test harness instead of requiring a custom mechanism to discover test functions embedded in documentation.
+
+`test_harness` should be distinguished from `standalone_crate`, which controls doctest compilation isolation rather than test-function discovery.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/write-documentation/documentation-tests.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book+1
+
+
+
+### 3.3 Compile-time configuration versus execution environment
+
+Rustdoc has several independent controls over documentation-test execution.
+
+| Control                  | Stability | Responsibility                                                                        |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------- |
+| `-C` / `--codegen`       | Stable    | Pass rustc code-generation options, including options relevant to doctest compilation |
+| `--test-args`            | Stable    | Pass arguments to the doctest test runner                                             |
+| `--test-run-directory`   | Stable    | Set the working directory used when executing doctest binaries                        |
+| `--test-runtool`         | Stable    | Execute doctests through a specified external program                                 |
+| `--test-runtool-arg`     | Stable    | Pass arguments to that external execution program                                     |
+| `--test-builder`         | Nightly   | Substitute the compiler-like program used to build doctests                           |
+| `--test-builder-wrapper` | Nightly   | Wrap calls to the doctest builder; multiple wrappers may be nested                    |
+| `--doctest-build-arg`    | Nightly   | Pass additional arguments to the compiler compiling each doctest                      |
+
+The compile directory and run directory are separate concepts.
+
+Compilation-directory context influences diagnostics, source-path interpretation, and `file!()` behavior. Execution-directory context influences runtime filesystem operations such as relative-path reads and writes.
+
+`--test-run-directory` changes the latter without requiring the former to change. This can preserve consistent compilation diagnostics while allowing examples to execute relative to the directories containing their runtime resources.
+
+`--test-runtool` substitutes the execution command, not the compiler. Rustdoc invokes the specified program with any `--test-runtool-arg` values followed by the path to the compiled doctest executable.
+
+This can accommodate execution through an emulator, virtual machine, instrumentation tool, or other wrapper. It does not itself establish that the selected target can execute successfully; that depends on the external tool and its environment.
+
+The experimental `--test-builder` and `--test-builder-wrapper` facilities operate earlier, at the compilation boundary. They can delegate compilation to an alternative compiler-like executable or surround it with wrappers, while `--doctest-build-arg` supplies per-test compiler arguments.
+
+These mechanisms expose a useful separation of concerns:
+
+Doctest extraction → test compilation → executable invocation → test-result interpretation.
+
+Different native facilities modify different stages, avoiding the need to replace the whole rustdoc test pipeline when only one stage requires specialization.
+
+Sources:
+
+`https://doc.rust-lang.org/rustdoc/command-line-arguments.html`
+
+`https://doc.rust-lang.org/rustdoc/unstable-features.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book+1
+
+### 3.4 Structured doctest extraction is distinct from API JSON
+
+The original guide identifies the nightly `--output-format doctest` facility but does not fully characterize its output.
+
+It emits JSON to standard output, representing the documentation tests collected from a crate. The upstream documentation currently illustrates doctest format version 2, which is separate from rustdoc API JSON format version 61.
+
+The representation includes:
+
+| Field                                 | Information preserved                                         |
+| ------------------------------------- | ------------------------------------------------------------- |
+| `format_version`                      | Doctest extraction schema version                             |
+| `doctests`                            | Extracted test records                                        |
+| `file`, `line`, `name`                | Source location and generated test identity                   |
+| `doctest_attributes`                  | Computed execution and compilation attributes                 |
+| `original_code`                       | Code before rustdoc preprocessing                             |
+| `doctest_code.crate_level`            | Generated crate-level attributes and imports                  |
+| `doctest_code.code`                   | Extracted code without crate-level or wrapper content         |
+| `doctest_code.wrapper.before/after`   | Generated source surrounding the example                      |
+| `doctest_code.wrapper.returns_result` | Whether the wrapper accommodates a `Result`-returning example |
+
+Attributes include such properties as `should_panic`, `no_run`, `compile_fail`, `ignore`, `edition`, `test_harness`, and `standalone_crate`.
+
+This allows programmatic inspection of both the authored example and the effective source constructed by rustdoc.
+
+Such a representation can help answer questions about generated wrappers, error locations, implicit imports, and why a particular documentation example behaves differently from the source fragment shown to readers.
+
+There are two significant boundaries:
+
+1. The output is not interchangeable with `rustdoc_types::Crate` or its `format_version`.
+2. Extraction is not equivalent to compilation or successful execution. The representation can omit generated code when fatal syntax problems prevent its construction.
+
+The capability is valuable independently of an execution harness: consumers can analyze extracted tests and compiler transformations without writing their own Rust Markdown/test-attribute parser.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/unstable-features.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book
+
+
+
+## 4. Build orchestration, output control, and multi-crate documentation
+
+Extends original §§7.4–7.5, 10.4, and 10.5.
+
+### 4.1 Selective output generation with `--emit`
+
+Rustdoc's stable `--emit` option separates three output categories:
+
+| Emission kind           | Generated artifacts                                             | Architectural significance                                         |
+| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `html-static-files`     | Shared static assets with content-hashed filenames              | Supports immutable caching of assets associated with the toolchain |
+| `html-non-static-files` | Crate-dependent HTML and related files with deterministic names | Maintains predictable per-crate output paths                       |
+| `dep-info`              | Makefile-style dependency information                           | Exposes source dependencies for external build orchestration       |
+
+By default, rustdoc emits both HTML categories. Dependency information is opt-in.
+
+A representative invocation is:
+
+```
+rustdoc src/lib.rs \
+  --emit=html-static-files,html-non-static-files,dep-info=/path/to/crate.d
+```
+
+The `dep-info` output identifies files loaded while documenting the crate. It can also be sent to standard output with `--emit=dep-info=-`.
+
+This is more than an output-format convenience. It exposes a native dependency-discovery mechanism for build systems that need to determine when documentation generation must run again.
+
+The important limitation: Dependency information records source-file dependencies of the documented invocation; it is not a complete semantic dependency graph or substitute for Cargo's package-resolution metadata.
+
+The distinction between content-hashed static assets and deterministic crate-dependent filenames also supports different caching strategies. Shared assets can be cached according to their content identity, while crate-specific artifacts require invalidation based on the documented inputs and build context.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/command-line-arguments.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book
+
+
+
+### 4.2 Configuration validation and source-path normalization
+
+Two additional stable interfaces are relevant to reproducible documentation generation.
+
+`--check-cfg` accepts the same configuration-expectation syntax as rustc. It can diagnose unexpected configuration names or values, including misspelled feature-dependent conditions.
+
+It complements `--cfg` rather than replacing it: `--cfg` participates in selecting compilation conditions, while `--check-cfg` establishes expectations against which configuration usage can be checked.
+
+`--remap-path-prefix=FROM=TO` performs best-effort source-path rewriting in generated output, diagnostics, debug information, macro expansions, and other affected locations.
+
+This can reduce dependence on absolute build-directory locations when producing documentation in differing build environments.
+
+The remapping is not a guarantee that all machine-specific information disappears from every artifact. Its scope is determined by rustdoc/rustc behavior and the kinds of paths represented.
+
+Rustdoc additionally accepts `@path` response files containing command-line options, one argument per line, allowing tools to avoid unwieldy command lines when orchestrating complex invocations.
+
+Source: `https://doc.rust-lang.org/rustdoc/command-line-arguments.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book+1
+
+
+
+### 4.3 Cross-crate search and trait-implementation metadata
+
+Rustdoc has a shared-output model that is easy to overlook if each crate's documentation is treated as a completely independent static website.
+
+When multiple crates are generated into the same documentation root, rustdoc maintains shared browser-facing information, including:
+
+- `crates<SUFFIX>.js`: the collection of crates represented in that documentation root.
+- `search-index<SUFFIX>.js`: searchable items across those crates.
+- `implementors/.../trait.TraitName.js`: implementation information for particular traits, potentially accumulated from crates other than the crate that defines the trait.
+
+The third category is especially consequential.
+
+A trait may be defined in one crate and implemented for types in another. As additional crates are documented into the same output directory, rustdoc can update the trait's implementor information so those cross-crate relationships become visible.
+
+This is a native form of cross-crate API-relationship aggregation within the documentation renderer.
+
+The output is not simply a collection of isolated HTML pages. It also includes shared search and relationship metadata that rustdoc updates as the documentation collection grows.
+
+However, these JavaScript artifacts are renderer implementation details, not a stable interchange schema. Their contents and organization may change independently of the `rustdoc-types` schema.
+
+For a programmatic API graph, rustdoc JSON remains the more appropriate structured source. The browser-facing artifacts explain how published navigation is assembled, but should not be mistaken for a durable general-purpose knowledge-graph API.
+
+A further boundary concerns docs.rs. The compiler development guide describes docs.rs as building documentation for individual crates, with some shared static resources, rather than assembling each crate's complete dependency documentation into one searchable bundle.
+
+Primary source: `https://rustc-dev-guide.rust-lang.org/rustdoc.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rustc-dev-guide.rust-lang.org\&sz=32)
+
+Rust Compiler Development Guide
+
+
+
+### 4.4 Multi-crate landing-page generation
+
+Two nightly options extend rustdoc's multi-crate publication capabilities:
+
+- `--enable-index-page` generates a default top-level index listing documented crates.
+- `--index-page` uses a supplied Markdown document as a customized top-level landing page and implicitly enables index-page generation.
+
+These options concern the navigation entry point for a documentation collection, not the individual crate's root-module documentation.
+
+They are therefore distinct from crate-level `//!` documentation and ordinary HTML content-injection mechanisms.
+
+For documentation collections combining numerous crates, a shared landing page can provide an organizing layer above the crate namespaces without requiring a separate HTML generator.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/unstable-features.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book
+
+
+
+## 5. Effective API navigation, source inspection, and validation
+
+Extends original §§3.3, 4.2–4.3, 6.1, 7.1, and 10.2.
+
+### 5.1 Dereference-mediated method availability
+
+The visible methods of a Rust type are not restricted to its own inherent implementations and implemented traits.
+
+The compiler's method lookup can also discover methods through `Deref` and `DerefMut` target types.
+
+For example, the generated standard-library documentation for `String` separately displays its inherent methods and a large collection of methods from `Deref<Target = str>`.
+
+Likewise, `Vec<T>` can expose applicable slice functionality through dereferencing.
+
+This creates an important distinction between three related representations:
+
+| Representation                | What it describes                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| Declared method graph         | Methods defined in a type's inherent implementations                            |
+| Trait implementation graph    | Methods provided through implemented traits, including defaults                 |
+| Effective method-call surface | Methods potentially callable after Rust's autoderef and method-resolution rules |
+
+The third representation is not simply the union of the first two.
+
+Actual method availability can depend on dereference chains, trait imports, receiver types, generic bounds, visibility, and Rust's method-resolution precedence.
+
+A method appearing in rustdoc's `Deref`-derived presentation is consequently different from a method defined directly on the original type.
+
+This distinction matters for API discovery: a graph containing only directly attached methods may miss much of a type's useful functionality.
+
+It also establishes a boundary for automated analysis. Rustdoc's rendered method groups provide meaningful relationships, but determining whether a particular method call resolves successfully under arbitrary generic substitutions still requires language-level method resolution.
+
+Sources:
+
+`https://doc.rust-lang.org/std/string/struct.String.html`
+
+`https://doc.rust-lang.org/std/ops/trait.Deref.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+Rust
+
+### 5.2 Type-search semantics extend beyond functions
+
+Rustdoc's type-signature search treats some non-callable items as though they were function-like.
+
+The original guide mentions fields behaving like getter methods. An additional capability is that constants and statics behave like nullary functions returning their declared type.
+
+For example, a search for `-> u32` can match the associated constant `u32::MAX`.
+
+This broadens the search model from executable operations to typed API values.
+
+It means that type-based search can discover:
+
+- Functions producing a requested type.
+- Fields whose type matches the requested output.
+- Constants and statics supplying values of that type.
+
+This functionality is useful when the name of an API value is unknown but its type is known.
+
+Several matching limitations are consequential. Rustdoc's search documentation explicitly states that it ignores supertrait relationships, type aliases, and dereference relationships during type-based matching. It is therefore not a general-purpose compiler type-unification engine.
+
+An effective method visible through `Deref` should not be assumed to be discoverable through type search by substituting the original receiver type.
+
+Type-search matching also handles selected generic wrappers specially, including references, `Box`, `Rc`, `Arc`, `Option`, `Result`, `Future`, `From`, and `Into`.
+
+These matching conveniences improve exploratory discovery but should not be interpreted as proof of type-level substitutability.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/read-documentation/search.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book
+
+
+
+### 5.3 Additional documentation-specific lints
+
+Several rustdoc lints omitted from the original guide express useful validation properties distinct from missing documentation or broken semantic links.
+
+| Lint                                 | Status                         | Purpose                                                 |
+| ------------------------------------ | ------------------------------ | ------------------------------------------------------- |
+| `rustdoc::private_doc_tests`         | Stable; allow by default       | Detect doctests attached to private items               |
+| `rustdoc::missing_crate_level_docs`  | Stable; allow by default       | Detect missing root-level crate documentation           |
+| `rustdoc::unescaped_backticks`       | Stable; allow by default       | Detect likely malformed Markdown inline-code delimiters |
+| `rustdoc::redundant_explicit_links`  | Stable; warn by default        | Detect redundant explicit targets on intra-doc links    |
+| `rustdoc::missing_doc_code_examples` | Nightly only; allow by default | Detect eligible documented items without code examples  |
+
+These lints validate different aspects of documentation quality.
+
+`private_doc_tests` highlights a mismatch between the location of executable examples and the external API that doctests can actually exercise. It does not prohibit private-item documentation; it identifies examples whose placement may be surprising.
+
+`missing_crate_level_docs` targets the navigational entry point of a crate, rather than requiring comments on every public item.
+
+`unescaped_backticks` and `redundant_explicit_links` address Markdown integrity and maintainability, complementing semantic link validation.
+
+The nightly `missing_doc_code_examples` lint is particularly useful to distinguish from documentation coverage.
+
+It looks for examples on eligible items, but intentionally excludes categories such as implementation blocks, enum variants, fields, modules, type aliases, constants, statics, and foreign reexports.
+
+A lint-clean result therefore does not mean every documented item has an example.
+
+Nor does it imply those examples successfully compile or execute. That is established by separate doctest behavior.
+
+The additional lint families collectively provide a more granular validation model than a single documented/undocumented property.
+
+Sources:
+
+`https://doc.rust-lang.org/rustdoc/lints.html`
+
+`https://doc.rust-lang.org/rustdoc/unstable-features.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book+3
+
+### 5.4 Standalone Markdown is also an executable documentation input
+
+The guide describes standalone Markdown rendering but does not fully distinguish its associated testing and presentation controls.
+
+Rustdoc can execute eligible code blocks from Markdown files directly, for example:
+
+```
+rustdoc --test README.md
+```
+
+This is distinct from including a Markdown file as crate documentation via `include_str!`.
+
+In the direct mode, the Markdown file is the input being examined for tests. Under `#[doc = include_str!(...)]`, Markdown becomes documentation attached to a Rust item and participates in that item's documentation context.
+
+Standalone Markdown rendering also has specific stable options:
+
+| Option                      | Behavior                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| `--markdown-css`            | Adds stylesheet references when rendering standalone Markdown; ignored for Rust source inputs |
+| `--markdown-playground-url` | Supplies the playground base URL used for runnable code examples                              |
+| `--markdown-no-toc`         | Suppresses the otherwise generated standalone Markdown table of contents                      |
+
+The distinction between the two Markdown integration routes is useful because it separates documentation content ownership from executable-example extraction.
+
+A file can serve as standalone Markdown documentation, be incorporated into a crate's generated documentation, or be included on a doctest-only carrier using `#[cfg(doctest)]`. Those choices affect presentation and test discovery differently.
+
+Primary sources:
+
+`https://doc.rust-lang.org/rustdoc/command-line-arguments.html`
+
+`https://doc.rust-lang.org/rustdoc/write-documentation/documentation-tests.html`
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book+2
+
+### 5.5 Macro expansion in source browsing
+
+The nightly `--generate-macro-expansion` option adds controls for expanding macros directly in rustdoc's generated HTML source pages.
+
+This is a separate capability from `--generate-link-to-definition`.
+
+The two facilities expose different perspectives:
+
+- Definition links help navigate from a source reference to a related declaration.
+- Macro-expansion toggles expose generated syntax associated with macro invocations.
+
+Macro expansion can materially change the declarations and executable code present after preprocessing. Making expansion visible in the source browser therefore improves understanding of generated implementations and macro-heavy code.
+
+However, a rendered macro expansion is not a complete representation of procedural macro execution, its input validation, or every relevant compiler transformation. It should not be treated as a general source-preserving macro-expansion API.
+
+For automated code transformations or exact expansion provenance, direct compiler or syntax-tooling interfaces may still be necessary.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/unstable-features.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book
+
+
+
+### 5.6 Exception to `#[doc(inline)]` behavior for hidden targets
+
+The original guide summarizes `#[doc(inline)]` as forcing documentation inlining. This is correct for ordinary cases, but an important exception affects `#[doc(hidden)]` targets.
+
+When the underlying target is itself hidden, applying `#[doc(inline)]` to its public reexport can make the reexport visible without exposing the hidden target's normal documentation.
+
+The official rustdoc documentation illustrates a hidden struct reexported with `#[doc(inline)]`. The resulting documentation contains the reexport declaration, but no link to the hidden item's page.
+
+The distinction is:
+
+- Making a reexport visible is not necessarily equivalent to inlining the complete target documentation.
+- A public symbol can remain part of the language-level API even when its definition is suppressed from normal documentation.
+- Documentation reachability and target-item documentation must be interpreted separately.
+
+This exception reinforces the need to represent the exposure path and declaration identity independently.
+
+Primary source: `https://doc.rust-lang.org/rustdoc/write-documentation/re-exports.html`&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The rustdoc book
+
+
+
+## 6. Combined architectural implications
+
+The additional capabilities reveal several useful interactions that are not obvious when considering each feature separately.
+
+Structured API intelligence without reconstructing Rust semantics. Rustdoc JSON combines typed representation attributes, callable signatures, trait properties, associated-item relationships, conditional target information, and explicit omissions. Taken together, these supply a more expressive public-API model than source-pattern matching. They do not provide a complete compiler semantic model, especially for function bodies or arbitrary generic substitutions.
+
+A more faithful model of API completeness. `Module.is_stripped`, `has_stripped_fields`, `has_stripped_variants`, optional tuple-field identifiers, and documentation-hidden reexports make it possible to distinguish known omission from represented absence. Combined with build-context metadata, these indicators reduce misleading conclusions from apparently incomplete API records.
+
+Executable documentation without bespoke orchestration. `cfg(doctest)`, `test_harness`, standalone Markdown testing, custom test runners, alternative builders, and structured doctest extraction provide multiple extension boundaries. They can support specialized execution and analysis while retaining rustdoc's native test extraction and compiler integration.
+
+Documentation generation as a build-system participant. `--emit=dep-info`, configuration validation, path remapping, separable static assets, and shared cross-crate metadata enable documentation generation to participate in broader build and publication infrastructure. Their benefit depends on how build contexts and generated artifacts are managed; they are not substitutes for a complete incremental compilation engine.
+
+Declared versus effectively callable functionality. Direct inherent methods, trait implementations, provided methods, and dereference-derived methods describe different aspects of a type's capabilities. Rustdoc exposes several of these relationships, but fully determining method-call validity remains a compiler-resolution problem.
+
+The central conclusion of this addendum is that rustdoc offers more structured, inspectable, and extensible machinery than a documentation generator alone would suggest, while its information remains deliberately bounded by documentation semantics, selected compilation configuration, and experimental schema compatibility.
+
+The most important additions to the original reference are therefore the explicit representation of incomplete API structure, richer semantic metadata in JSON, additional doctest/compiler integration points, and the distinction between documented relationships and fully resolved Rust behavior.
+
+These mechanisms can substantially reduce bespoke API extraction, documentation analysis, and test-orchestration code, provided their respective completeness and stability boundaries remain explicit.

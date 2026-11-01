@@ -973,3 +973,401 @@ Its particularly valuable capabilities are reference-based identity, structural 
 The main architectural opportunity is to build higher-level, documentation-aware API analysis using existing compiler-derived structure rather than reproducing that structure through custom parsing and name-resolution logic.
 
 The principal tradeoff is that this structure reflects the documented API under a particular build configuration, not the entirety of Rust's source syntax, compiler semantics or possible program behavior. The most reliable consumers preserve that distinction throughout identity management, cross-crate resolution, compatibility analysis and long-term storage.
+
+# rustdoc-types 0.61.0 — Addendum: Advanced Schema Semantics and Information Fidelity
+
+**Research date:** November 1, 2026  
+**Version scope:** rustdoc-types 0.61.0; rustdoc JSON format version 61  
+**Companion document:** *rustdoc-types — Comprehensive Rust Library Reference*  
+**Coverage:** Serialization compatibility, specialized declaration representations, completeness guarantees, generic constraints, and documentation provenance.
+
+This addendum supplements the existing reference with details that materially affect interpretation of rustdoc JSON. It distinguishes data faithfully modeled by the schema from information omitted, normalized, stringified, or intentionally left unstable.
+
+## A. Format version 61: stability serialization changes
+
+*Extends original sections 11.1 and 12.2–12.3.*
+
+### A.1 Breaking change in `Stability` serialization
+
+Version 0.61.0 changes the Serde representation of `Stability.level`, resolving an incompatibility with non-self-describing serialization formats.
+
+In version 0.60.0:
+
+- `Stability.level` used `#[serde(flatten)]`.
+- `StabilityLevel` used `#[serde(tag = "level", rename_all = "snake_case")]`, producing an internally tagged representation.
+- For a stable item, `feature`, the stability discriminant, and `since` appeared as fields of a single JSON object.
+
+In version 0.61.0:
+
+- `Stability.level` is serialized as an ordinary nested field.
+- `StabilityLevel` uses `#[serde(rename_all = "snake_case")]` without internal tagging.
+- The enum is externally tagged, with the `Stable` variant carrying its own `since` field.
+
+For an illustrative stable item:
+
+| Format | Serialized representation |
+|---|---|
+| 60 | `{"feature":"example","level":"stable","since":"1.80.0"}` |
+| 61 | `{"feature":"example","level":{"stable":{"since":"1.80.0"}}}` |
+
+These are schema-derived examples, not extracted rustdoc artifacts. The `Unstable` unit variant may retain the same apparent JSON form—`"level":"unstable"`—in both versions, but consumers cannot infer general compatibility from individual records that happen to have unchanged representations.
+
+**Consequences:** The change affects both `Item.stability` and `Item.const_stability`, since both contain `Stability` values. Format-60 consumers expecting flattened stability fields will not correctly interpret the stable-item representation emitted in format 61. Conversely, format-61 consumers cannot assume that format-60 documents deserialize successfully.
+
+The motivating change is compatibility with non-self-describing Serde formats. The upstream tests include JSON and Postcard serialization round-trips. This is distinct from the crate's optional `rkyv_0_8` feature: Serde wire-format compatibility and rkyv archive representation are separate mechanisms.
+
+A consumer retaining documents across compiler versions therefore needs either format-specific schema handling or an explicit representation conversion before applying common stability-analysis logic.
+
+**Primary sources:**
+
+- Tagged format-60 source: `https://github.com/rust-lang/rustdoc-types/blob/v0.60.0/src/lib.rs`
+- Tagged format-61 source: `https://github.com/rust-lang/rustdoc-types/blob/v0.61.0/src/lib.rs`
+- Release comparison: `https://github.com/rust-lang/rustdoc-types/compare/v0.60.0...v0.61.0`
+- Serialization tests: `https://github.com/rust-lang/rustdoc-types/blob/v0.61.0/src/tests.rs`
+
+## B. Item classification and specialized documentation items
+
+*Extends original sections 2.5 and 3.1.*
+
+### B.1 `ItemKind` has a broader classification domain than `ItemEnum`
+
+Version 0.61.0 defines **24 `ItemKind` variants** but only **21 detailed `ItemEnum` variants**. The difference is not simply additional detail in the former.
+
+Two `ItemKind` variants have no corresponding detailed `ItemEnum` representation:
+
+| `ItemKind` | Meaning | Availability |
+|---|---|---|
+| `Keyword` | Documentation entry for a Rust language keyword | Standard-library documentation |
+| `Attribute` | Documentation entry for a built-in Rust attribute | Standard-library documentation |
+
+Both are documentation-specific classifications and should not be confused with declarations of user-defined Rust items. `ItemKind::Attribute` is also distinct from the `Attribute` enum used inside `Item.attrs`.
+
+Consequently, a summary record can classify an item for which no matching detailed `ItemEnum` payload exists. Classification consumers should not require every summarized item kind to be constructible from a detailed indexed item.
+
+The correspondence also differs for procedural macros. `ItemKind::Macro` can represent either `ItemEnum::Macro` or `ItemEnum::ProcMacro` with `MacroKind::Bang`. By contrast, attribute and derive procedural macros map to `ItemKind::ProcAttribute` and `ItemKind::ProcDerive`.
+
+Thus, `ItemEnum::item_kind()` performs a classification that may merge multiple detailed representations. It is not an invertible conversion.
+
+### B.2 Primitive declarations expose implementation relationships
+
+`ItemEnum::Primitive(Primitive)` is a specialized standard-library declaration, not merely a declaration whose type is represented by `Type::Primitive(String)`.
+
+`Primitive` contains:
+
+- `name: String`, identifying the primitive.
+- `impls: Vec<Id>`, referencing its inherent and trait implementations.
+
+This provides a route to compiler-generated API information for primitives such as numeric types and `bool`. When analyzing `core` documentation, method and trait relationships for a primitive can be obtained from explicit implementation IDs rather than inferred from textual type mentions.
+
+The distinction between a primitive type reference and a primitive documentation declaration is important: `Type::Primitive` is a type-expression component, whereas `Primitive.impls` participates in the item relationship graph.
+
+### B.3 `ExternalCrate` includes the local crate
+
+Despite its name, `ExternalCrate` is documented as metadata for either the crate being processed by rustdoc or one of its dependencies.
+
+The name of the collection `Crate.external_crates` therefore does not establish that every record describes an external dependency.
+
+This matters when deriving package or dependency graphs: the local crate and dependency records need to be distinguished using independently established build context, rather than assuming membership in `external_crates` implies an outgoing dependency.
+
+**Primary sources:**
+
+- `ItemKind`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.ItemKind.html`
+- `ItemEnum`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.ItemEnum.html`
+- `Primitive`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Primitive.html`
+- `ExternalCrate`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.ExternalCrate.html`
+
+## C. Declaration completeness and value representation
+
+*Extends original sections 4.1–4.2 and 8.2.*
+
+### C.1 Stripped-member indicators extend beyond structs and enums
+
+The completeness safeguards described for `StructKind` and `Enum.has_stripped_variants` also apply at additional structural boundaries.
+
+| Representation | Completeness mechanism | Interpretation |
+|---|---|---|
+| `Union` | `has_stripped_fields: bool` | Indicates omitted private or hidden union fields |
+| `VariantKind::Struct` | `has_stripped_fields: bool` | Indicates omitted named fields of a struct-style enum variant |
+| `VariantKind::Tuple` | `Vec<Option<Id>>` | Preserves positions of omitted tuple-variant fields using `None` |
+| `StructKind::Tuple` | `Vec<Option<Id>>` | Preserves positions of omitted tuple-struct fields using `None` |
+
+These structures encode two different forms of partial information: a list with missing members, and a positional sequence containing explicit holes.
+
+That distinction matters for structural comparison. A `None` in a tuple field sequence represents an existing field whose declaration was suppressed; it is not equivalent to an absent element. Similarly, `has_stripped_fields = true` indicates that a named-field inventory is incomplete even if all returned IDs resolve successfully.
+
+In all cases, the flags describe omissions within the documentation projection, not a proof that every declaration from every compilation configuration has been captured.
+
+### C.2 Enum discriminants contain both expressions and evaluated values
+
+`Variant.discriminant: Option<Discriminant>` contains a `Discriminant` only where an explicit discriminant is reported.
+
+`Discriminant` has two distinct fields:
+
+| Field | Representation | Appropriate interpretation |
+|---|---|---|
+| `expr: String` | Source-oriented expression | Useful for display and limited syntactic characterization |
+| `value: String` | Compiler-evaluated numeric value | Suitable for numerical interpretation within the documented compilation context |
+
+The expression representation may preserve original hexadecimal notation, underscores, and integer suffixes, but the upstream documentation explicitly warns that it is unsuitable for machine interpretation. Complex expressions may be replaced by `"{ _ }"`, and the circumstances under which this occurs are unstable.
+
+`value` is a string because Rust enum discriminants can require the integer range from `i128::MIN` through `u128::MAX`, which cannot be represented safely by all JSON numeric consumers.
+
+For comparisons of explicitly assigned discriminant values, `value` is the stronger source of numerical information; `expr` is not a substitute for evaluation. Conversely, the evaluated value does not preserve how the original expression was written.
+
+A missing `Variant.discriminant` must still be distinguished from an explicit discriminant whose evaluated value happens to be zero. The schema does not present all implicit discriminants as explicit `Discriminant` objects.
+
+### C.3 Static mutability and declaration safety are independent
+
+`Static` includes `is_unsafe: bool` in addition to `is_mutable: bool`.
+
+These fields express different properties:
+
+- `is_mutable` identifies declarations using `static mut`.
+- `is_unsafe` indicates an unsafe foreign static declaration in an `extern` block, unless the declaration is explicitly marked `safe`.
+
+A locally defined `static mut` has `is_mutable = true` but `is_unsafe = false`, even though accessing a mutable static can require unsafe code.
+
+Conversely, a foreign static can have `is_unsafe = true` while remaining immutable.
+
+Thus, `Static.is_unsafe` is not a general summary of whether accessing or modifying the static can ever be unsafe. It describes the safety classification of the declaration.
+
+`Static.expr` is also a stringified representation whose correspondence to the original initializer text is not guaranteed.
+
+For FFI inventories, the separate safety and mutability dimensions permit more accurate declaration classification without treating every mutable static as equivalent to an unsafe foreign declaration.
+
+**Primary sources:**
+
+- `Union`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Union.html`
+- `VariantKind`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.VariantKind.html`
+- `Discriminant`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Discriminant.html`
+- `Static`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Static.html`
+
+## D. Information loss in macro and associated-item representations
+
+*Extends original sections 7.3 and 8.3.*
+
+### D.1 Declarative macro text omits matcher patterns
+
+`ItemEnum::Macro(String)` describes a `macro_rules!` declarative macro as a textual representation **with its patterns stripped**.
+
+This is a stronger limitation than merely lacking a macro expansion engine.
+
+The representation does not preserve the complete source definition and cannot reliably reconstruct its invocation matcher patterns, rule-arm structure, or full syntactic contract.
+
+The distinction is consequential for tooling concerned with macro interfaces:
+
+| Analysis goal | What rustdoc JSON can provide |
+|---|---|
+| Identify that a declarative macro is exposed | Supported through declaration metadata |
+| Obtain a textual representation of its documented definition | Supported, but lossy |
+| Recover complete matcher patterns and rule-arm syntax | Not supported by the `Macro(String)` payload |
+| Expand the macro for arbitrary token inputs | Outside rustdoc-types |
+| Establish exact macro-source correspondence | Requires source-oriented analysis |
+
+When exact macro syntax matters, a parser or compiler expansion interface remains necessary. This is not merely an optional enhancement to the rustdoc representation: the missing matcher information is not recoverable from the macro string itself.
+
+### D.2 Associated-constant values are implementation-defined strings
+
+`ItemEnum::AssocConst.value: Option<String>` records the default associated-constant expression within a trait declaration, or the assigned value in an implementation.
+
+The presence of the field is semantically useful, but its string content is explicitly implementation-defined.
+
+It is not guaranteed to match either the original source expression or the evaluated constant.
+
+This should not be conflated with `Constant.value`, which has a separately documented meaning as an optionally evaluated numeric value.
+
+The two representations consequently support different interpretations:
+
+- `Constant.value` may provide an evaluated numeric result.
+- `AssocConst.value` establishes that a default or assigned expression was represented, without promising its exact source or evaluated semantics.
+
+Comparing associated-constant strings alone therefore cannot establish whether two associated-constant definitions are semantically equivalent.
+
+**Primary source:**
+
+- `ItemEnum`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.ItemEnum.html`
+
+## E. Generic constraints and experimental type syntax
+
+*Extends original sections 5.1 and 6.2–6.4.*
+
+### E.1 Associated-item constraints carry their own generic arguments
+
+`AssocItemConstraint` contains three fields:
+
+- `name: String`
+- `args: Option<Box<GenericArgs>>`
+- `binding: AssocItemConstraintKind`
+
+The optional `args` field is significant because it allows an associated-item constraint to carry arguments applied to the associated item itself, including generic associated-type arguments.
+
+These arguments are distinct from the arguments applied to the enclosing trait or type path.
+
+For instance, a structural representation of a generic associated-type equality must be able to distinguish the enclosing trait's parameters from the associated type's own parameters. Flattening both into a single generic argument sequence loses the location at which each substitution or constraint applies.
+
+The resulting representation is recursively compositional: a path can have `GenericArgs::AngleBracketed`, which contains associated-item constraints, whose `args` can themselves contain further generic argument structures.
+
+This permits richer extraction of GAT and associated-item dependencies than a name-plus-binding model, although it still does not perform trait solving or associated-type normalization.
+
+### E.2 Precise captures include type and const parameters
+
+`PreciseCapturingArg` distinguishes:
+
+| Variant | Represents |
+|---|---|
+| `Lifetime(String)` | An explicitly captured lifetime |
+| `Param(String)` | An explicitly captured type or const parameter |
+
+`Param` does not itself distinguish the two parameter categories.
+
+For example, the Rust syntax `use<'a, T, N>`, where `N` is a const generic parameter, contains one lifetime capture and two parameter captures. The latter two are both represented through `PreciseCapturingArg::Param`.
+
+A consumer seeking to classify captured parameters by kind must relate their names to the enclosing generic parameter declarations rather than infer their kind from `PreciseCapturingArg` alone.
+
+The representation describes explicit captures, not the complete set of possible semantic uses of the opaque type's hidden concrete implementation.
+
+The Rust Reference additionally places validity constraints on precise captures, including the ordering of lifetimes relative to type and const parameters and the required inclusion of certain in-scope parameters. These constraints belong to the Rust language rules rather than a validation function provided by rustdoc-types.
+
+### E.3 Return-type notation has a marker representation
+
+`GenericArgs::ReturnTypeNotation` is a unit variant.
+
+It identifies return-type notation such as `T::method(..)`, but has no nested field payload of its own.
+
+Consequently, the variant indicates the generic-argument form; it does not independently encode the method's declaration, complete signature, or semantic return-type constraints.
+
+Related identity and constraint information must be obtained from the surrounding path or associated-item representation and its context.
+
+This is a useful boundary to preserve when converting `GenericArgs` into a richer intermediate representation: the presence of a syntactic marker is not equivalent to possessing a fully elaborated semantic representation of that syntax.
+
+### E.4 Pattern-constrained types expose an intentionally unstable field
+
+`Type::Pat` represents experimental pattern-constrained type syntax, such as `u32 is 1..`.
+
+Its tagged-source representation contains:
+
+- `type_: Box<Type>` — the base type.
+- `__pat_unstable_do_not_use: String` — an intentionally hidden, explicitly unstable field.
+
+The latter is present in the schema source but marked `#[doc(hidden)]`, explaining why ordinary generated API documentation exposes only the base type.
+
+The field should not be interpreted as a supported, stable pattern AST. In particular, applications requiring structured range bounds, pattern alternation, or semantic pattern comparison cannot obtain those capabilities merely by handling `Type::Pat`.
+
+The Rust language feature itself remains experimental in the targeted schema context. Its presence in the interchange model does not establish stabilization of the language syntax or long-term stability of the internal string representation.
+
+**Primary sources:**
+
+- `AssocItemConstraint`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.AssocItemConstraint.html`
+- `GenericArgs`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.GenericArgs.html`
+- `PreciseCapturingArg`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.PreciseCapturingArg.html`
+- `Type`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/enum.Type.html`
+- Rust Reference, precise capturing: `https://doc.rust-lang.org/reference/types/impl-trait.html#precise-capturing`
+
+## F. Under-specified implementation metadata
+
+*Extends original section 7.2.*
+
+### F.1 `Impl.blanket_impl` requires conservative interpretation
+
+`Impl.blanket_impl: Option<Type>` is available in the published schema, but the upstream field documentation still contains the comment `FIXME: document this`.
+
+Its existence can identify information related to blanket implementations, but the exact interpretation and completeness guarantees of that field are not fully documented.
+
+This matters because blanket implementation applicability is determined by more than the presence of a type value. Relevant information also resides in:
+
+- `Impl.trait_`, identifying the implemented trait.
+- `Impl.for_`, identifying the implementation's self type.
+- `Impl.generics`, describing its generic parameters and constraints.
+
+`blanket_impl` should therefore not be treated as a standalone proof that a particular concrete type implements a trait, nor assumed to provide a complete characterization of the implementation's applicability.
+
+For implementation-graph analysis, the field is useful additional metadata whose precise meaning remains less firmly specified than the core trait, self-type, and generics fields.
+
+**Primary source:**
+
+- `Impl`: `https://docs.rs/rustdoc-types/0.61.0/rustdoc_types/struct.Impl.html`
+
+## G. Documentation provenance and producer completeness
+
+*Extends original sections 3.3, 9.4, and 10.2.*
+
+### G.1 Inlined re-exports can combine documentation and attributes
+
+Rustdoc's re-export processing can combine metadata along the chain through which a definition becomes publicly documented.
+
+The official rustdoc re-export documentation describes an important case: when an item is inlined, its documentation and most attributes can be incorporated together with those supplied on intermediate re-exports.
+
+An inlined item's documentation can therefore contain material originating from multiple source declarations, rather than solely from the definition represented by its displayed name.
+
+The rustdoc documentation identifies specific exceptions that are not inherited through ordinary inlining, including:
+
+- `#[doc(alias = "...")]`
+- `#[doc(inline)]`
+- `#[doc(no_inline)]`
+- `#[doc(hidden)]`
+
+Hidden re-exports have additional filtering behavior: their associated documentation and attributes can be ignored when composing the visible inlined representation.
+
+Intra-documentation links are resolved relative to the location where the individual documentation comment was originally defined.
+
+These rules explain why an item's effective documented metadata and its original source declaration metadata need not be identical.
+
+**Interpretation boundary:** These are documented rustdoc processing rules, not an independent promise that every intermediate re-export or source-to-metadata transformation is preserved explicitly in the JSON schema.
+
+A rustdoc JSON consumer can inspect the resulting documentation-oriented representation, but cannot assume it contains a complete provenance chain attributing every line of documentation or each propagated attribute to an exact original declaration.
+
+Where such attribution is required, source-oriented analysis supplies complementary information.
+
+### G.2 Private and hidden items are independently controlled
+
+Rustdoc distinguishes ordinary privacy filtering from `#[doc(hidden)]` filtering.
+
+The documented producer behavior is:
+
+| Producer options | Eligible documented items |
+|---|---|
+| Neither option | Public, non-hidden items |
+| `--document-private-items` only | Public and private non-hidden items |
+| `--document-hidden-items` only | Public items, including hidden items |
+| Both options | Public and private items, including hidden items |
+
+`--document-private-items` is an ordinary rustdoc command-line option. `--document-hidden-items` is documented among rustdoc's unstable command-line features and requires the appropriate nightly unstable-options invocation.
+
+This distinction limits the interpretation of `Crate.includes_private`.
+
+`includes_private = true` records that private items were included in the documentation output. It does not establish that `#[doc(hidden)]` items were included, and it does not describe every aspect of the producer's filtering configuration.
+
+Even when both controls are enabled, the output remains a compilation-context projection. Items excluded through conditional compilation, unavailable target configurations, or other upstream transformations cannot be reconstructed from completeness flags attached to surviving declarations.
+
+The same distinction applies when comparing outputs from different rustdoc invocations: differences in producer options can create structural changes without any modification to the original Rust declarations.
+
+**Primary sources:**
+
+- Re-export processing: `https://doc.rust-lang.org/rustdoc/write-documentation/re-exports.html`
+- Ordinary rustdoc command-line options: `https://doc.rust-lang.org/rustdoc/command-line-arguments.html`
+- Unstable rustdoc features: `https://doc.rust-lang.org/rustdoc/unstable-features.html`
+
+## H. Cross-cutting implications for structured API analysis
+
+These additions reveal several independent dimensions of information fidelity that are easy to conflate.
+
+| Dimension | Strongly represented information | Important boundary |
+|---|---|---|
+| Classification | Detailed item kinds and lightweight summaries | Some summary kinds lack detailed `ItemEnum` variants |
+| Structural completeness | Listed members, positional holes, stripping flags | Omitted members may remain unknown |
+| Value semantics | Some compiler-evaluated numeric values | Other strings are source-like or implementation-defined |
+| Generic structure | Recursive associated-item arguments and capture records | Some parameter kinds require contextual resolution |
+| Safety metadata | Foreign-static declaration safety and mutability | Neither field alone summarizes every unsafe operation |
+| Macro definitions | Existence, kind, selected textual information | Declarative matcher patterns are not preserved |
+| Documentation provenance | Processed documentation and resolved links | Original metadata origins and re-export chains are not completely encoded |
+| Schema compatibility | Versioned typed structures | Wire-format details can change, including nested enum serialization |
+
+Three general architectural distinctions follow.
+
+**First, structural completeness is not binary.** A JSON item may be present while members have been stripped, positional holes preserved, or specialized metadata omitted. A derived schema can retain these distinctions rather than converting every missing field or relationship into a definitive statement of nonexistence.
+
+**Second, textual fields have different semantic contracts.** `Discriminant.value` is an evaluated numeric value serialized as text; `Discriminant.expr` is a source-oriented expression; `AssocConst.value` is implementation-defined; `Type::Pat` contains intentionally unstable textual representation. Treating these as interchangeable strings sacrifices distinctions that the upstream schema deliberately preserves.
+
+**Third, compiler-derived structure and exact source fidelity remain separate capabilities.** Rustdoc can provide compiler-resolved declarations and relationships while omitting macro matchers, transforming re-export metadata, and exposing only partial representations of experimental syntax. Structural API analysis can use the former directly; analyses requiring exact source syntax, attribution, or full language semantics have different information requirements.
+
+Taken together, these additions refine the interpretation of rustdoc JSON without changing the principal architectural role of `rustdoc-types`: a versioned typed representation of a compiler-generated documentation projection, rather than a lossless representation of Rust source or compiler internals.
