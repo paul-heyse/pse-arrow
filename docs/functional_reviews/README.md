@@ -9,6 +9,10 @@ focused skill guidance, progressive answers and validation relevance. End-to-end
 research and exact-source checks preserve native call/index/type limits; persistent indexing,
 compiler-private extraction and remote transport remain conditional. The review changes no
 production, skills or existing plan scope and makes no measured performance claim.
+Its recommendations are scheduled through the new
+[Plan60 series](../plans/60-engineering-code-intelligence.md); that coordinator owns
+dispositions and its companions own implementation state. Plan publication does not implement
+the reviewed capabilities.
 
 The [Rust-centered search and investigation review](rust-centered-search-and-investigation-cli-2026-10-31.md)
 develops fourteen opportunities for whole-checkout discovery, text/structural/semantic queries,

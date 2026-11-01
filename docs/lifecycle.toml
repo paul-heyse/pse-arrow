@@ -5288,3 +5288,298 @@ id_pattern = '^(O[0-9]+)'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
+
+# Plan60: original opportunity dispositions and native package dependencies.
+[[scope_tables]]
+path = "docs/plans/60-engineering-code-intelligence.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/60-engineering-code-intelligence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/60a-evidence-contracts-and-query-composition.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/60b-native-relationships-and-lifetime-evidence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/60c-library-api-and-compatibility-evidence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/60d-change-and-document-evidence.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/60e-validation-relevance-and-workflow-adoption.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-Z][0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60c-library-api-and-compatibility-evidence.md::package-state::C01"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60c-library-api-and-compatibility-evidence.md::package-state::C02"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60d-change-and-document-evidence.md::package-state::D01"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60d-change-and-document-evidence.md::package-state::D02"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A03"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A02"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B02"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B03"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60d-change-and-document-evidence.md::package-state::D03"
+to = "docs/plans/60d-change-and-document-evidence.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60d-change-and-document-evidence.md::package-state::D03"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E02"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60c-library-api-and-compatibility-evidence.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60c-library-api-and-compatibility-evidence.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60d-change-and-document-evidence.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60d-change-and-document-evidence.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::package-state::Q01"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O01"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O01"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O02"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O03"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O04"
+to = "docs/plans/60d-change-and-document-evidence.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O04"
+to = "docs/plans/60d-change-and-document-evidence.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O05"
+to = "docs/plans/60c-library-api-and-compatibility-evidence.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O05"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O06"
+to = "docs/plans/60d-change-and-document-evidence.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O07"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O07"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O07"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O08"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O08"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O09"
+to = "docs/plans/60e-validation-relevance-and-workflow-adoption.md::package-state::E02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O10"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O11"
+to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/60-engineering-code-intelligence.md::opportunity-dispositions::O11"
+to = "docs/plans/60c-library-api-and-compatibility-evidence.md::package-state::C02"
+kind = "depends-on"

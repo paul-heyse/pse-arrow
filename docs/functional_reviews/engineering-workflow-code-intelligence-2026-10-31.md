@@ -3,10 +3,15 @@ title: Code intelligence for engineering investigation and decision making
 status: proposed
 date: 2026-10-31
 doc_role: review
+doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [design, libraries, environment, diagnostics]
 ---
 
 # Code intelligence for engineering investigation and decision making
+
+Scheduled dispositions and implementation dependencies now belong to
+[Plan60](../plans/60-engineering-code-intelligence.md#opportunity-dispositions).
+This planning handoff leaves the review's original judgments and evidence limits intact.
 
 ## Judgment, scope and evidence
 

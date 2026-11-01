@@ -9,6 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
+| [60: Engineering code intelligence](60-engineering-code-intelligence.md) | New proposed extensions on the delivered CLI: [evidence/composition](60a-evidence-contracts-and-query-composition.md), [native relationships/lifetimes](60b-native-relationships-and-lifetime-evidence.md), [API evidence](60c-library-api-and-compatibility-evidence.md), [change/document associations](60d-change-and-document-evidence.md) and [validation/adoption](60e-validation-relevance-and-workflow-adoption.md). The coordinator owns O01–O11 dispositions; companion tables own execution state. |
 | [59: Agent CLI](59-agent-cli.md#current-state-and-next-step) | Delivered Rust-centered search/inspect/propose: [shared queries/results](59k-query-and-result-foundations.md), [repository/content providers](59l-repository-discovery-and-content-search.md) and [composed investigations](59m-composed-rust-investigations.md). [P02](59-agent-cli.md#p02) owns assembled qualification; companion tables own packages. P01/E01's separate worktree-removal decision remains open. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
@@ -16,6 +17,13 @@ resume stopped work or establish implementation, qualification or measured benef
 | [40: Simulation diagnostics](40-simulation-performance-diagnostics.md) | Native simulation diagnostics and its independent campaign status. |
 | [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
 | [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
+
+Plan60's [dependencies and execution route](60-engineering-code-intelligence.md#dependencies-and-execution-route)
+contains the package graph and prerequisite-readiness table. Its initial route is existing-feature
+guidance and shared evidence contracts, then the native relation slice consumed by multi-seed
+questions. Conditional bulk/compiler/index/remote options retain observable triggers and do not
+become compulsory prototypes or adoption gates. Plan60 does not supersede Plan59's independent
+remaining decision or confer new implementation acceptance.
 
 Plan59's [dependency route](59-agent-cli.md#dependencies-and-route) and companion package
 Consumes sections identify readiness; letters are responsibility groups, not serial lanes.
