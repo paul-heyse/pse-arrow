@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit native domain mappings. Only original provider documents use opaque JSON bytes.
+mod graph;
 use super::*;
 use crate::{
     code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb,
     source_read::{SourceIdentity, SourceOrigin, SourceText},
 };
+pub(super) use graph::answer_from_pb as graph_answer_from_pb;
 use std::{
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
@@ -154,6 +156,9 @@ pub(super) fn status_from_pb(mut value: pb::NativeSessionStatus) -> Result<Sessi
 pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
     use pb::native_query::Kind as K;
     let operation = match value {
+        Request::Graph(value) => {
+            pb::native_request::Operation::Graph(Box::new(graph::query_to_pb(value)?))
+        }
         Request::Query(value) => pb::native_request::Operation::Query(Box::new(pb::NativeQuery {
             file: path(&value.file),
             line: number(value.line),
@@ -219,6 +224,9 @@ pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
 pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
     use pb::native_query::Kind as K;
     Ok(match required(value.operation, "request.operation")? {
+        pb::native_request::Operation::Graph(value) => {
+            Request::Graph(graph::query_from_pb(*value)?)
+        }
         pb::native_request::Operation::Query(value) => {
             if value.file.is_empty() || value.line == 0 || value.column == 0 || value.limit == 0 {
                 return Err(malformed("query coordinates/file/limit"));
@@ -1839,6 +1847,9 @@ fn cancellation_from_pb(
 pub(super) fn response_event(value: Response) -> Result<pb::NativeEvent> {
     Ok(pb::NativeEvent {
         item: Some(match value {
+            Response::Graph(value) => {
+                pb::native_event::Item::Graph(Box::new(graph::answer_to_pb(value)?))
+            }
             Response::Query(value) => {
                 pb::native_event::Item::Query(Box::new(answer_to_pb(*value)?))
             }

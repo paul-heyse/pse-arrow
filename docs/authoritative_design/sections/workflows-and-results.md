@@ -1858,7 +1858,7 @@ witnesses. Missing or incompletely examined facts stay unknown, including under 
 
 > Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
 
-**Proposed target (Plan60a).** Related investigations use nonempty guarded seeds and selected
+**Implemented realization (Plan60a).** Related investigations use nonempty guarded seeds and selected
 relations, an independent traversal domain and any/all seed attribution. Output source selection
 does not prune supporting intermediates. One native worker and immutable snapshot serve one
 bounded traversal; request-local adjacency is shared across seeds. Canonical declaration edges
@@ -1867,7 +1867,12 @@ and field positions. Native declaration identities keep their original session, 
 and generation; unsupported or unmapped facts remain explicit. Depth bounds describe the
 question, while incomplete node/edge/provider examination prevents negative conclusions.
 Settled compact graph answers retain guarded expansion and coverage in every presentation.
-Plan60a owns implementation evidence; no new persistent graph or universal identity follows.
+Traversal intersects selection with the active prepared world; inactive files are identified
+as outside that world, while inactive/plural seeds refuse. Explicit source uses retain
+unsupported field classification, block-local population and unresolved facts as incomplete.
+Native `NODE_TYPES` inspection and query-byte error locations remain source-only assistance.
+Plan60a owns targeted local Linux implementation evidence; E03/Q01 retain engineering-process
+and assembled/static qualification. No new persistent graph or universal identity follows.
 
 Bounded search defaults to 20 results in fast arrival order. Stable ordering and source/query-guarded
 continuations are explicit; arrival order has no reproducible continuation promise. Counts state

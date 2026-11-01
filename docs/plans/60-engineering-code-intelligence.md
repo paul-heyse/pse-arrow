@@ -37,8 +37,10 @@ does not implement or qualify Plan60's additional consumer behavior.
 
 Existing constructors, one query validator, proof/client reuse, guarded references, compact
 answers, API contracts, runnables and qualified contexts are available foundations. Remaining
-work includes structural edges rather than rendered context, multi-seed traversal independent
-of output scope, richer matcher inputs, selected-context deltas and useful evidence paths.
+work includes extending the delivered early structural graph, richer matcher inputs,
+selected-context deltas and useful evidence paths. [60a's Outcome](60a-evidence-contracts-and-query-composition.md#outcome)
+owns delivered role/witness evidence, one-snapshot multi-seed traversal independent of output
+scope, focused views and grammar/query assistance; full B01 remains open at its owner.
 SearchResult.source_relationship records written source context, not the full native edge
 contract. The remaining packages extend and compose these producers; they do not rebuild
 Plan62 preparation, contextual inference, runnable discovery, compiler acquisition or exact
@@ -179,7 +181,7 @@ consumer or assembled acceptance, and unavailable contexts retain their original
 
 | Work | Required readiness and reason | Independent progress |
 | --- | --- | --- |
-| A01/B01 early slice and A02 | Agree new endpoint/role/witness and traversal semantics; integrate working constructors, native producer and public consumer together | Do not wait for all relations, lifetime, compiler depth or indexing |
+| A01/B01 early slice and A02 | Delivered together at 60a Outcome; later native/artifact producers extend the working constructors and preserve original endpoint/role/witness meanings | Full B01, lifetime, compiler depth and indexing remain separate |
 | C01 | Existing artifact owner; A01 slice for new shared-edge export | Existing artifact inspection independent |
 | C02 | Delivered matcher/request/contract owners | No A01/B01/C01 prerequisite |
 | B02/B03 | Existing qualified native/compiler identities and consumed facts, with their actual acceptance limits | No whole B01 prerequisite |
@@ -192,7 +194,7 @@ consumer or assembled acceptance, and unavailable contexts retain their original
 | E01/A03 | Working interfaces for each example/view | Guidance and compact views integrate incrementally |
 | E03/Q01 | Working selected A–F public consumers and revealing evidence | One scope-end assembled/static campaign; dormant options excluded |
 
-Start with the A01/B01/A02 responsibility slice while F01/F02 and existing guidance proceed.
+Continue from the delivered A01/B01/A02 responsibility slice while F01/F02 and existing guidance proceed.
 Develop API, passive comparisons and explicit associations independently against their
 existing foundations. Integrate selected lifetime, provenance, validation and structured
 correction consumers as ready. A package boundary is not a permanent worker assignment.

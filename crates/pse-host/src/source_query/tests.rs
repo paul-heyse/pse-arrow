@@ -2,6 +2,61 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 
+#[test]
+fn grammar_inspection_preserves_native_tables_and_exact_type_selection() {
+    for (language, data) in [
+        (GrammarLanguage::Rust, tree_sitter_rust::NODE_TYPES),
+        (GrammarLanguage::Bash, tree_sitter_bash::NODE_TYPES),
+    ] {
+        let native: Vec<serde_json::Value> = serde_json::from_str(data).unwrap();
+        let full = grammar(language, None).unwrap();
+        assert_eq!(full.node_types, native);
+        assert_eq!(full.total_node_types, native.len());
+        let kind = native
+            .iter()
+            .find_map(|node| node.get("type").and_then(serde_json::Value::as_str))
+            .unwrap()
+            .to_owned();
+        let selected = grammar(language, Some(&kind)).unwrap();
+        assert_eq!(
+            selected.node_types,
+            native
+                .into_iter()
+                .filter(|node| node["type"] == kind)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(selected.node_kind.as_deref(), Some(kind.as_str()));
+        assert!(matches!(
+            grammar(language, Some("__not_a_native_node_kind__")),
+            Err(QueryError::Unavailable(_))
+        ));
+    }
+}
+
+#[test]
+fn native_query_errors_retain_query_byte_coordinates_and_kind() {
+    let text = "\n(function_item unknown_field: (identifier) @name)";
+    let language = tree_sitter_rust::LANGUAGE.into();
+    let original = tree_sitter::Query::new(&language, text).unwrap_err();
+    let Err(QueryError::TreeSitter(error)) = CompiledSyntax::tree_sitter(text) else {
+        panic!("native query error must retain its typed producer");
+    };
+    assert_eq!(error.kind, format!("{:?}", original.kind));
+    assert_eq!(
+        (error.row, error.column, error.offset),
+        (original.row, original.column, original.offset)
+    );
+    assert_eq!(error.message, original.message);
+    let record = error.record();
+    assert_eq!(record.parser_context["error_kind"], "Field");
+    assert_eq!(record.parser_context["row"], "1");
+    assert_eq!(record.parser_context["offset"], original.offset.to_string());
+    assert_eq!(
+        record.parser_context["coordinate_encoding"],
+        "zero_based_utf8_bytes"
+    );
+}
+
 fn query(pattern: &str) -> Query {
     Query {
         pattern: pattern.into(),

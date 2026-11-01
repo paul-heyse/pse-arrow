@@ -26,6 +26,128 @@ fn schema(root: &Path, command: &str, response: &serde_json::Value) {
 }
 
 #[test]
+fn passive_grammar_assistance_has_native_data_and_an_advertised_schema() {
+    let root = tempfile::tempdir().unwrap();
+    let response = value(
+        pse(root.path())
+            .args([
+                "search",
+                "syntax",
+                "--grammar",
+                "--node-kind",
+                "function_item",
+            ])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(response["command"], "search syntax grammar");
+    assert_eq!(response["payload"]["grammar"], "tree-sitter-rust/0.24.2");
+    let native: Vec<serde_json::Value> =
+        serde_json::from_str(tree_sitter_rust::NODE_TYPES).unwrap();
+    assert_eq!(
+        response["payload"]["node_types"],
+        serde_json::json!(
+            native
+                .into_iter()
+                .filter(|node| node["type"] == "function_item")
+                .collect::<Vec<_>>()
+        )
+    );
+    schema(root.path(), "search syntax grammar", &response);
+    let bash = value(
+        pse(root.path())
+            .args(["search", "syntax", "--grammar", "bash"])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(bash["payload"]["grammar"], "tree-sitter-bash/0.25.1");
+    assert!(!root.path().join("target").exists());
+    for args in [
+        vec!["search", "syntax", "--grammar", "call($A)"],
+        vec![
+            "search",
+            "syntax",
+            "--grammar",
+            "--tree-sitter",
+            "(identifier) @id",
+        ],
+        vec!["search", "syntax", "--grammar", "--rule", "missing.json"],
+        vec!["search", "syntax", "--node-kind", "function_item"],
+    ] {
+        assert!(
+            !pse(root.path())
+                .args(args)
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+    }
+}
+
+#[test]
+fn actual_tree_sitter_query_failure_retains_native_metadata_in_json_and_ndjson() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(root.path().join("query.rs"), "fn selected() {}\n").unwrap();
+    let text = "\n(function_item unknown_field: (identifier) @name)";
+    let language = tree_sitter_rust::LANGUAGE.into();
+    let original = tree_sitter::Query::new(&language, text).unwrap_err();
+    for format in ["json", "ndjson"] {
+        let output = pse(root.path())
+            .args([
+                "--format",
+                format,
+                "search",
+                "--path",
+                "query.rs",
+                "syntax",
+                "--tree-sitter",
+                text,
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            !output.status.success(),
+            "a native query refusal must fail: {output:?}"
+        );
+        let diagnostic = if format == "json" {
+            let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            schema(root.path(), "search", &report);
+            report["payload"]["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["detail"].is_object())
+                .cloned()
+                .unwrap()
+        } else {
+            let events: Vec<serde_json::Value> = String::from_utf8(output.stdout)
+                .unwrap()
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            assert_eq!(events.last().unwrap()["event"], "terminal");
+            events
+                .into_iter()
+                .find(|event| event["event"] == "diagnostic" && event["detail"].is_object())
+                .unwrap()
+        };
+        let context = &diagnostic["detail"]["parser_context"];
+        assert_eq!(context["error_kind"], format!("{:?}", original.kind));
+        assert_eq!(context["row"], original.row.to_string());
+        assert_eq!(context["column"], original.column.to_string());
+        assert_eq!(context["offset"], original.offset.to_string());
+        assert_eq!(context["coordinate_encoding"], "zero_based_utf8_bytes");
+        assert!(
+            diagnostic["detail"]["message"]
+                .as_str()
+                .unwrap()
+                .contains(&original.message)
+        );
+    }
+}
+
+#[test]
 fn actual_syntax_search_retains_nested_matches_and_named_captures() {
     let root = tempfile::tempdir().unwrap();
     let source = "fn first() { call(inner(β)); }\nfn second() { call(γ); }\nfn broken(\n";

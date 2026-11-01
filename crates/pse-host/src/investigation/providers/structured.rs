@@ -393,6 +393,7 @@ pub async fn history(
                 String::from_utf8_lossy(&stderr)
             ),
             source: None,
+            detail: None,
         })?;
         summary.failures += 1;
         summary.complete = false;

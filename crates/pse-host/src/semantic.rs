@@ -5,6 +5,8 @@ mod context;
 mod edit;
 mod engine;
 mod facts;
+mod graph;
+pub use graph::*;
 mod layout;
 pub use layout::{LayoutAssociation, LayoutAssociationState, associate_layout};
 mod protocol_facts;
@@ -29,7 +31,7 @@ pub use service::{
 use std::path::PathBuf;
 
 /// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 4;
+pub const SESSION_PROTOCOL_VERSION: u32 = 5;
 
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
@@ -102,6 +104,8 @@ pub enum Request {
     Query(Query),
     /// Name-first workspace discovery in the existing explicitly prepared world.
     WorkspaceSymbols(WorkspaceQuery),
+    /// One bounded relationship investigation in one original native snapshot.
+    Graph(GraphQuery),
     /// Read selected package facts from the already loaded native Cargo/VFS world.
     PackageContext {
         /// Exact Cargo source-qualified package identity.
@@ -443,12 +447,21 @@ pub enum Response {
     Query(Box<Answer>),
     /// Actual name-first native discovery.
     WorkspaceSymbols(WorkspaceAnswer),
+    /// Settled bounded native relationship evidence.
+    Graph(GraphAnswer),
     /// Qualified loaded Cargo/VFS package context.
     PackageContext(PackageContextAnswer),
     /// Stop accepted by the session owner; teardown remains session-owned.
     Stopped,
 }
 impl Response {
+    /// Extract a bounded relationship investigation.
+    pub fn into_graph(self) -> Result<GraphAnswer> {
+        match self {
+            Self::Graph(value) => Ok(value),
+            _ => Err(Error::Protocol("expected native graph response".into())),
+        }
+    }
     /// Extract the selected source answer, refusing a different operation result.
     pub fn into_query(self) -> Result<Answer> {
         match self {

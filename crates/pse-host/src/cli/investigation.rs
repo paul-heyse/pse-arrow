@@ -155,6 +155,12 @@ pub(super) enum Mode {
         tree_sitter: Option<String>,
         #[arg(long, conflicts_with_all = ["pattern", "tree_sitter"])]
         rule: Option<PathBuf>,
+        /// Inspect the linked grammar's NODE_TYPES without acquiring sources or an analyzer.
+        #[arg(long, value_enum, num_args = 0..=1, default_missing_value = "rust", conflicts_with_all = ["pattern", "tree_sitter", "rule"])]
+        grammar: Option<crate::source_query::GrammarLanguage>,
+        /// Select an exact native node kind from --grammar.
+        #[arg(long, requires = "grammar")]
+        node_kind: Option<String>,
     },
     /// Find written declarations or explicitly selected semantic workspace symbols.
     Symbol {
@@ -429,7 +435,12 @@ impl Search {
                     pattern,
                     tree_sitter,
                     rule,
+                    grammar,
+                    node_kind,
                 } => {
+                    if grammar.is_some() || node_kind.is_some() {
+                        return Err(query::Error::Invalid("grammar inspection is a passive CLI inquiry, not a source-search predicate".into()));
+                    }
                     let mut value = json!({"kind":"syntax"});
                     if let Some(pattern) = pattern {
                         value["pattern"] = json!(pattern);
@@ -552,6 +563,30 @@ pub(super) fn search(
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    if let Some(Mode::Syntax {
+        grammar: Some(language),
+        node_kind,
+        ..
+    }) = &options.mode
+    {
+        if options.request.is_some() || options.query.is_some() || options.config.is_some() {
+            return Err(query::Error::Invalid(
+                "--grammar cannot be combined with a source request or saved-query configuration"
+                    .into(),
+            )
+            .into());
+        }
+        return output
+            .emit_page(
+                Envelope::response(
+                    "search syntax grammar",
+                    "linked native NODE_TYPES; no source or analyzer acquired",
+                    crate::source_query::grammar(*language, node_kind.as_deref())?,
+                ),
+                crate::envelope::DetailView::default(),
+            )
+            .map_err(HostError::from);
+    }
     let root = selected.map_or_else(std::env::current_dir, std::path::absolute)?;
     let explain = options.explain;
     let mut resolved = options.resolve(&root)?;
@@ -688,11 +723,13 @@ fn execute(
                 code,
                 message,
                 source,
+                detail,
             } => report.diagnostics.push(query::QueryDiagnostic {
                 phase,
                 code,
                 message,
                 source,
+                detail,
             }),
             query::Event::NativeFailure { failure } => report.native_failures.push(*failure),
             query::Event::Terminal(summary) => report.summary = summary,
@@ -751,6 +788,7 @@ fn execute(
                 .into(),
                 message: error.to_string(),
                 source: None,
+                detail: error.query_error_record(),
             })?;
             let mut summary = observed
                 .lock()

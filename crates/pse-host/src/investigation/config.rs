@@ -210,16 +210,26 @@ fn absolute(root: &Path, path: &Path) -> PathBuf {
     }
 }
 fn reset_changed_alternatives(layers: &mut [&mut Value]) {
-    for (value_path, parent_path, field) in [
-        ("/predicate", "", "predicate"),
-        ("/sources/kind", "/sources", "kind"),
-    ] {
+    let mut paths = vec![("/sources/kind".into(), "/sources".into(), "kind".into())];
+    for layer in layers.iter() {
+        if let Some(predicate) = layer.get("predicate") {
+            predicate_tag_paths(predicate, "/predicate", &mut paths);
+        }
+    }
+    paths.sort_by(|left, right| {
+        left.0
+            .len()
+            .cmp(&right.0.len())
+            .then_with(|| left.cmp(right))
+    });
+    paths.dedup();
+    for (value_path, parent_path, field) in paths {
         let selected = layers
             .iter()
             .rev()
             .find_map(|layer| {
                 layer
-                    .pointer(value_path)
+                    .pointer(&value_path)
                     .and_then(|value| value.get("kind"))
                     .and_then(Value::as_str)
             })
@@ -227,20 +237,38 @@ fn reset_changed_alternatives(layers: &mut [&mut Value]) {
         if let Some(selected) = selected {
             for layer in layers.iter_mut() {
                 let differs = layer
-                    .pointer(value_path)
+                    .pointer(&value_path)
                     .and_then(|value| value.get("kind"))
                     .and_then(Value::as_str)
                     .is_some_and(|kind| kind != selected);
                 if differs
                     && let Some(parent) = layer
-                        .pointer_mut(parent_path)
+                        .pointer_mut(&parent_path)
                         .and_then(Value::as_object_mut)
                 {
-                    parent.remove(field);
+                    parent.remove(&field);
                 }
             }
         }
     }
+}
+fn predicate_tag_paths(value: &Value, path: &str, paths: &mut Vec<(String, String, String)>) {
+    if let Some((parent, field)) = path.rsplit_once('/') {
+        paths.push((path.into(), parent.into(), field.into()));
+    }
+    paths.push((
+        format!("{path}/traversal/kind"),
+        format!("{path}/traversal"),
+        "kind".into(),
+    ));
+    paths.push((format!("{path}/filter"), path.into(), "filter".into()));
+    for field in ["candidates", "clause"] {
+        if let Some(child) = value.get(field) {
+            predicate_tag_paths(child, &format!("{path}/{field}"), paths);
+        }
+    }
+    // Clause/seed arrays replace as whole values in Figment; their entries never merge
+    // across layers, so walking array indexes would reset unrelated replacement entries.
 }
 fn file_provider(path: &Path) -> Figment {
     if path
@@ -304,6 +332,15 @@ fn path_value(root: &Path, path: &str) -> Result<Value, Error> {
     ))
 }
 fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Error> {
+    if let Some(paths) = predicate
+        .pointer_mut("/traversal/paths")
+        .and_then(Value::as_array_mut)
+    {
+        for value in paths {
+            let path: NativePath = serde_json::from_value(value.clone())?;
+            *value = serde_json::to_value(NativePath::from(absolute(root, &path.to_path_buf())))?;
+        }
+    }
     if let Some(value) = predicate.get_mut("descriptor") {
         let path: NativePath = serde_json::from_value(value.clone())?;
         *value = serde_json::to_value(NativePath::from(absolute(root, &path.to_path_buf())))?;
@@ -427,6 +464,83 @@ mod tests {
             };
             assert_eq!(query.artifact, Some(nested.join("api/document.json")));
         }
+    }
+    #[test]
+    fn related_seed_arrays_replace_and_traversal_selectors_merge_with_provenance() {
+        use super::super::{Locator, Predicate, ResultReference, SourceKind};
+        let root = tempfile::tempdir().unwrap();
+        let reference = |name: &str| {
+            ResultReference::new(Locator::Source {
+                path: PathBuf::from(name).into(),
+                source: SourceKind::Working,
+                range: None,
+                guard: None,
+            })
+        };
+        let first = reference("first.rs");
+        let second = reference("second.rs");
+        let config = root.path().join("query.json");
+        std::fs::write(
+            &config,
+            serde_json::to_vec(&serde_json::json!({"defaults": {
+                "predicate":{"kind":"related","seeds":[first],"relations":["uses"],
+                    "traversal":{"paths":["src"],"types":["rust"]}}
+            }}))
+            .unwrap(),
+        )
+        .unwrap();
+        let resolved = explain(
+            root.path(),
+            Some(&config),
+            None,
+            None,
+            serde_json::json!({"predicate":{"seeds":[second],"traversal":{"include_hidden":true}}}),
+        )
+        .unwrap();
+        let Predicate::Related {
+            seeds, traversal, ..
+        } = resolved.request.predicate
+        else {
+            panic!("lost relationship");
+        };
+        assert_eq!(seeds.len(), 1);
+        assert_eq!(
+            serde_json::to_value(&seeds[0]).unwrap(),
+            serde_json::to_value(&second).unwrap()
+        );
+        assert_eq!(traversal.paths, vec![root.path().join("src")]);
+        assert_eq!(traversal.types, vec!["rust"]);
+        assert!(traversal.include_hidden);
+        assert!(resolved.origins["predicate.seeds"].contains("explicit CLI values"));
+        assert!(resolved.origins["predicate.traversal.paths"].contains("repository defaults"));
+    }
+    #[test]
+    fn nested_relationship_domain_tag_switch_replaces_the_original_alternative() {
+        use super::super::{Locator, ResultReference, SourceKind};
+        let root = tempfile::tempdir().unwrap();
+        let seed = ResultReference::new(Locator::Source {
+            path: PathBuf::from("src/lib.rs").into(),
+            source: SourceKind::Working,
+            range: None,
+            guard: None,
+        });
+        let config = root.path().join("query.json");
+        std::fs::write(&config, serde_json::to_vec(&serde_json::json!({"defaults": {
+            "predicate":{"kind":"refine","filter":{"kind":"native_predicate","text":"Copy"},
+                "candidates":{"kind":"related","seeds":[seed],"relations":["uses"],
+                    "traversal":{"kind":{"kind":"revision","revision":"obsolete"},"types":["rust"]}}}
+        }})).unwrap()).unwrap();
+        let resolved = resolve(root.path(), Some(&config), None, None,
+            serde_json::json!({"predicate":{"candidates":{"traversal":{"kind":{"kind":"working"}}}}})).unwrap();
+        let value = serde_json::to_value(resolved).unwrap();
+        assert_eq!(
+            value["predicate"]["candidates"]["traversal"]["kind"],
+            serde_json::json!({"kind":"working"})
+        );
+        assert_eq!(
+            value["predicate"]["candidates"]["traversal"]["types"],
+            serde_json::json!(["rust"])
+        );
     }
     #[test]
     fn explicit_overrides_replace_arrays_without_implicit_cli_defaults() {

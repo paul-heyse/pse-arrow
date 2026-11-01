@@ -76,6 +76,7 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_IMPORT_TARGET_JSON_ANY);
         reg.register_json_any(super::__NATIVE_WORKSPACE_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_REQUEST_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CONFIGURATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_ANALYSIS_CONTEXT_JSON_ANY);
@@ -130,6 +131,14 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_SOURCE_TEXT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_ANSWER_JSON_ANY);
         reg.register_json_any(super::__NATIVE_WORKSPACE_ANSWER_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_NODE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_ROLE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_WITNESS_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_EDGE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_DISTANCE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_REACHED_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_TRAVERSAL_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_GRAPH_ANSWER_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CONTROL_JSON_ANY);
         reg.register_json_any(super::__NATIVE_EVENT_JSON_ANY);
         reg.register_text_any(super::__COMPILER_FACTS_TEXT_ANY);
@@ -174,6 +183,7 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_IMPORT_TARGET_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_WORKSPACE_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_REQUEST_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CONFIGURATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_ANALYSIS_CONTEXT_TEXT_ANY);
@@ -228,6 +238,14 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_SOURCE_TEXT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_ANSWER_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_WORKSPACE_ANSWER_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_NODE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_ROLE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_WITNESS_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_EDGE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_DISTANCE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_REACHED_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_TRAVERSAL_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_GRAPH_ANSWER_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CONTROL_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_EVENT_TEXT_ANY);
     }
@@ -431,6 +449,10 @@ pub use self::__buffa::view::NativeImportTargetOwnedView;
 pub use self::__buffa::view::NativeWorkspaceQueryView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeWorkspaceQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphQueryOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeRequestView;
 #[doc(inline)]
@@ -647,6 +669,38 @@ pub use self::__buffa::view::NativeAnswerOwnedView;
 pub use self::__buffa::view::NativeWorkspaceAnswerView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeWorkspaceAnswerOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphNodeView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphNodeOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphRoleView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphRoleOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphWitnessView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphWitnessOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphEdgeView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphEdgeOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphDistanceView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphDistanceOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphReachedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphReachedOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphTraversalView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphTraversalOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphAnswerView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeGraphAnswerOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeControlView;
 #[doc(inline)]

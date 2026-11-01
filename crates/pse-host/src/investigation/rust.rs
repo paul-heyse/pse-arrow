@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native source, analyzer and acquired-API adapters; no parallel semantic world.
+mod graph_adapter;
 use super::{providers::ProviderInput, *};
 use crate::{
     source_proposal::{ChangeProposal, EditCandidate, ProducerContext},
     source_read::{SourceRequest, SourceText},
 };
+pub use graph_adapter::{GraphEvaluation, GraphIntent, graph_with_context};
 use std::{
     collections::BTreeMap,
     path::Path,
@@ -323,7 +325,7 @@ pub fn evaluate(
                 result.push(row);
             }
             let diagnostics = if native.recovery {
-                vec![QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.syntax_recovery".into(),message:"native parser recovered malformed Rust; positive syntax witnesses remain usable, exhaustive absence and exact semantic/parse completeness are not established".into(),source:None}]
+                vec![QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.syntax_recovery".into(),message:"native parser recovered malformed Rust; positive syntax witnesses remain usable, exhaustive absence and exact semantic/parse completeness are not established".into(),source:None,detail:None}]
             } else {
                 Vec::new()
             };
@@ -460,16 +462,17 @@ pub fn evaluate(
                     code: "search.source_parse".into(),
                     message: format!("{issue:?}"),
                     source: None,
+                    detail: None,
                 })
                 .collect::<Vec<_>>();
             if route_required {
                 diagnostics.extend(graph.diagnostics_for(&input.path).cloned());
             }
             if missing {
-                diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.module_unavailable".into(),message:"selected source has no established authored crate/module route; qualified absence is unknown".into(),source:None});
+                diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.module_unavailable".into(),message:"selected source has no established authored crate/module route; qualified absence is unknown".into(),source:None,detail:None});
             }
             if contexts.len() > 1 || contexts.iter().any(|context| context.conditional) {
-                diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.written_contexts".into(),message:format!("written module routes retain target/configuration ambiguity: {contexts:?}; no active compiler context is claimed"),source:None});
+                diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.written_contexts".into(),message:format!("written module routes retain target/configuration ambiguity: {contexts:?}; no active compiler context is claimed"),source:None,detail:None});
             }
             Ok(Evaluation {
                 rows,
@@ -813,7 +816,7 @@ pub async fn global_search(
             if answer.symbols.omitted > 0 {
                 summary.stop = StopReason::Limit;
             }
-            emit(Event::Diagnostic {phase: DiagnosticPhase::Provider, code:"search.semantic_scope".into(),message:"native workspace-symbol response is non-exhaustive/provider-ranked; missing candidates are not established absent, and a returned array does not prove uncapped search".into(),source:Some("semantic".into())})?;
+            emit(Event::Diagnostic {phase: DiagnosticPhase::Provider, code:"search.semantic_scope".into(),message:"native workspace-symbol response is non-exhaustive/provider-ranked; missing candidates are not established absent, and a returned array does not prove uncapped search".into(),source:Some("semantic".into()),detail:None})?;
             Ok(summary)
         }
         _ => Err(Error::Invalid(
@@ -1358,19 +1361,6 @@ pub struct ResolvedEntity {
     /// Faithfully retained native answer, never a name-based reconstructed proof.
     pub native: crate::semantic::Answer,
 }
-/// One directed native relationship evaluation, including unavailable/omitted coverage.
-#[derive(Debug)]
-pub struct RelationEvaluation {
-    /// Original guarded native target/use/caller witnesses.
-    pub rows: Vec<SearchResult>,
-    /// Selected session contexts shared by those witnesses.
-    pub sources: Vec<SourceContext>,
-    /// Exact relevant native examination completed without omitted or unknown facts.
-    pub complete: bool,
-    /// Original coverage/unsupported mapping facts.
-    pub diagnostics: Vec<QueryDiagnostic>,
-}
-
 /// Decode a native location only against the source bytes bound by that native answer.
 pub fn guard_location(
     root: &Path,
@@ -1584,168 +1574,6 @@ pub async fn resolve_entity_with_context(
         },
         locator,
         native: answer,
-    })
-}
-/// Follow the original native directed relation with explicit byte/context guards.
-pub async fn relationship(
-    root: &Path,
-    seed: &Locator,
-    relation: Relationship,
-    direction: Direction,
-    limit: usize,
-    token: &CancellationToken,
-) -> Result<RelationEvaluation, Error> {
-    let context = ResolutionContext::default();
-    let result =
-        relationship_with_context(root, seed, relation, direction, limit, token, &context).await?;
-    context.verify_unchanged()?;
-    Ok(result)
-}
-/// Traverse using the request's one acquired-API/source verification owner.
-pub async fn relationship_with_context(
-    root: &Path,
-    seed: &Locator,
-    relation: Relationship,
-    direction: Direction,
-    limit: usize,
-    token: &CancellationToken,
-    context: &ResolutionContext,
-) -> Result<RelationEvaluation, Error> {
-    use crate::semantic::Kind;
-    let semantic = source_semantic_with_context(root, seed, token, context).await?;
-    if relation == Relationship::References && direction == Direction::Outgoing {
-        return Err(Error::Unavailable("native references enumerate incoming uses of the selected entity; outgoing references are unavailable here, while the separate outgoing definition relation resolves a selected use".into()));
-    }
-    let kind = match relation {
-        Relationship::Definition => Kind::Explain,
-        Relationship::References => Kind::Refs,
-        Relationship::Calls => Kind::Calls,
-        Relationship::Implementations => Kind::Implementations,
-    };
-    if matches!(
-        relation,
-        Relationship::Definition | Relationship::Implementations
-    ) && direction == Direction::Incoming
-    {
-        return Err(Error::Unavailable(
-            "this native relation exposes outgoing targets only; it is not an inverse source graph"
-                .into(),
-        ));
-    }
-    let answer = semantic_query(root, &semantic, kind, limit, token, Some(context)).await?;
-    let configuration = &answer.session.configuration;
-    let fact_relation = match relation {
-        Relationship::Definition => crate::semantic::FactRelation::Definition,
-        Relationship::References => crate::semantic::FactRelation::References,
-        Relationship::Calls => crate::semantic::FactRelation::Calls,
-        Relationship::Implementations => crate::semantic::FactRelation::Implementations,
-    };
-    let fact_direction = match direction {
-        Direction::Incoming => crate::semantic::FactDirection::Incoming,
-        Direction::Outgoing => crate::semantic::FactDirection::Outgoing,
-    };
-    let locations = answer
-        .observed
-        .relationships
-        .iter()
-        .filter(|fact| fact.relation == fact_relation && fact.direction == fact_direction);
-    let mut rows = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut complete = configuration.backend == crate::semantic::Backend::NativeSnapshot
-        && matches!(
-            answer.availability,
-            crate::semantic::Availability::Available
-        )
-        && !answer
-            .omitted_relationships
-            .get(&fact_relation)
-            .is_some_and(|omitted| *omitted > 0);
-    let generation = answer.generation;
-    for evidence in locations {
-        if token.is_cancelled() {
-            return Err(Error::Cancelled);
-        }
-        match guard_location(root, &semantic, &answer, &evidence.location) {
-            Ok((locator, range)) => {
-                let entity = if relation != Relationship::References {
-                    let Locator::Semantic {
-                        path,
-                        session_invocation: Some(session),
-                        ..
-                    } = &locator
-                    else {
-                        return Err(Error::Unavailable(
-                            "native related target has no session identity".into(),
-                        ));
-                    };
-                    Some(EntityIdentity {
-                        session_invocation: session.clone(),
-                        configuration: configuration.identity()?,
-                        generation,
-                        declaration: path.clone(),
-                        byte_start: range.byte_start,
-                        byte_end: range.byte_end,
-                    })
-                } else {
-                    None
-                };
-                rows.push(SearchResult {
-                    source_relationship: None,
-                    source: "native_relationship".into(),
-                    kind: format!("{relation:?}").to_lowercase(),
-                    name: evidence.name.clone(),
-                    range: Some(range),
-                    context: serde_json::to_string(&evidence)?,
-                    bytes: None,
-                    reference: Some(ResultReference::new(locator)),
-                    captures: BTreeMap::new(),
-                    entity,
-                    candidate_reference: None,
-                    refinement: None,
-                });
-            }
-            Err(error) => {
-                complete = false;
-                diagnostics.push(QueryDiagnostic {
-                    phase: DiagnosticPhase::Context,
-                    code: "search.native_location_unavailable".into(),
-                    message: error.to_string(),
-                    source: Some("native_relationship".into()),
-                });
-            }
-        }
-    }
-    if !complete {
-        diagnostics.push(QueryDiagnostic {phase: DiagnosticPhase::Context, code:"search.native_relationship_scope".into(),message:"native relationship output is bounded/selected-context evidence; omissions, unknown preparation or provider coverage do not establish whole-program absence or runtime reach".into(),source:Some("native_relationship".into())});
-    }
-    let sources = vec![SourceContext {
-        id: "native_relationship".into(),
-        path: configuration.project.clone().into(),
-        origin: Some(SourceKind::Working),
-        provider: answer.session.backend.clone(),
-        generation: Some(generation.to_string()),
-        searched_encoding: None,
-        native: Some(NativeContext {
-            session_invocation: match &semantic {
-                Locator::Semantic {
-                    session_invocation: Some(invocation),
-                    ..
-                } => invocation.clone(),
-                _ => {
-                    return Err(Error::Unavailable(
-                        "native relationship lost its original invocation".into(),
-                    ));
-                }
-            },
-            generation,
-            analysis: answer.session.clone(),
-        }),
-    }];
-    Ok(RelationEvaluation {
-        rows,
-        sources,
-        complete,
-        diagnostics,
     })
 }
 /// A faithful native-owner result, retaining the exact selected context locator.
@@ -2076,6 +1904,7 @@ fn api_search(
                 "external public route {route} may contain matching descendants; this acquired surface does not establish their declarations"
             ),
             source: Some("api".into()),
+            detail: None,
         })?;
     }
     let limited = candidates.len() > limit;
@@ -2089,6 +1918,7 @@ fn api_search(
                     code: "search.api_qualification_unknown".into(),
                     message,
                     source: Some("api".into()),
+                    detail: None,
                 }),
                 native: None,
                 evidence: None,
@@ -2102,6 +1932,7 @@ fn api_search(
                 code: diagnostic.code.clone(),
                 message: diagnostic.message.clone(),
                 source: diagnostic.source.clone(),
+                detail: diagnostic.detail.clone(),
             })?;
         }
         if request.answer.kind != AnswerKind::Count {

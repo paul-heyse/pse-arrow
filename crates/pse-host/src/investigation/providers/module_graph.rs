@@ -281,6 +281,7 @@ impl Loader<'_> {
             code: "search.written_module_context".into(),
             message,
             source: None,
+            detail: None,
         });
     }
     fn acquire(&self, path: &Path) -> Result<ProviderInput, Error> {

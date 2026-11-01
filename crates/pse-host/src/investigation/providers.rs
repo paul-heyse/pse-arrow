@@ -203,6 +203,14 @@ impl State<'_> {
         }
     }
     fn failure(&mut self, source: Option<String>, message: String) -> Result<(), Error> {
+        self.failure_detail(source, message, None)
+    }
+    fn failure_detail(
+        &mut self,
+        source: Option<String>,
+        message: String,
+        detail: Option<Box<crate::envelope::ErrorRecord>>,
+    ) -> Result<(), Error> {
         self.summary.failures += 1;
         self.summary.complete = false;
         (self.emit)(Event::Diagnostic {
@@ -210,6 +218,7 @@ impl State<'_> {
             code: "search.provider".into(),
             message,
             source,
+            detail,
         })
     }
     fn finish(&mut self) -> Summary {
@@ -283,9 +292,12 @@ fn process(
                 code: "search.unavailable".into(),
                 message,
                 source: None,
+                detail: None,
             });
         }
-        Err(error) => return state.failure(None, error.to_string()),
+        Err(error) => {
+            return state.failure_detail(None, error.to_string(), error.query_error_record());
+        }
     };
     if !results.complete && !results.limited {
         state.summary.complete = false;
@@ -297,6 +309,7 @@ fn process(
             code: diagnostic.code,
             message: diagnostic.message,
             source: diagnostic.source,
+            detail: diagnostic.detail,
         })?;
     }
     if results.rows.is_empty() {
@@ -479,6 +492,7 @@ pub fn evaluate(
                             code: "search.unavailable".into(),
                             message: error.to_string(),
                             source: None,
+                            detail: error.query_error_record(),
                         });
                         unknown = Some(error);
                         complete = false;
@@ -678,6 +692,7 @@ fn stable(root: &Path, request: &Request, state: &mut State<'_>) -> Result<Summa
                 code: diagnostic.code,
                 message: diagnostic.message,
                 source: diagnostic.source,
+                detail: diagnostic.detail,
             })?;
         }
         if results.rows.is_empty() {

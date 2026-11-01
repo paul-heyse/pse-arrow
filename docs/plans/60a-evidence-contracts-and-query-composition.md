@@ -1,12 +1,14 @@
 ---
 title: "Plan60a: Evidence contracts and query composition"
-status: active
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Active Plan60 native/artifact consumers, engineering journeys and scope-end qualification depend on this contract and its acceptance evidence."
 date: 2026-10-31
 doc_role: plan
 doc_owner: docs/plans/60-engineering-code-intelligence.md
 doc_topics: [current-work, design, diagnostics, libraries]
 review_sources: [docs/functional_reviews/engineering-workflow-code-intelligence-2026-10-31.md, docs/plan_improvement_reviews/plan60-engineering-intelligence-2026-11-01.md, docs/functional_reviews/plan60-agent-engineering-opportunities-2026-11-01.md]
-adrs: []
+adrs: [ADR-0235]
 ---
 
 # Evidence contracts and query composition
@@ -143,9 +145,7 @@ E01. Those triggers remain optional and do not block the base focused views. Mig
 and remove replaced oversized adapters/duplicated extraction where superseded; do not remove
 full original inspection used for other questions.
 
-## Package state
-
-### Execution boundary (2026-11-01)
+## Execution boundary (2026-11-01)
 
 The authorized implementation combines A01–A03 with B01's minimal containment,
 parameter/return/field nominal type-dependency and resolved-use producers. Remaining B01
@@ -174,16 +174,97 @@ streams remain streaming. Grammar assistance reads pinned `NODE_TYPES`, and inpu
 schemas use their respective deserialization/serialization directions. F01–F03 universal
 controls and conditional capability triggers retain their separate ownership.
 
+## Package state
+
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| A01 | planned | Shared investigation contract owner | Consumed typed semantics, constructors, validation and schema/consumer integration |
-| A02 | planned | Query composition owner | Public multi-seed question with preserved scope/frontier and migrated scalar assembly |
-| A03 | planned | Query/inspection presentation owner | Focused expandable answers and useful existing-owner query assistance |
+| A01 | complete | Shared investigation contract owner | Proto-authored native graph, checked projections, contextual identities, role/witness evidence and public schema consumers |
+| A02 | complete | Query composition owner | One-worker multi-seed traversal with independent output selection, attribution/frontier, count/unknown semantics and scalar cutover |
+| A03 | complete | Query/inspection presentation owner | Settled expandable graph views, native grammar data and structured query-error locations in public formats |
 
 ## Verification and handoff
 
-**Proposed:** use targeted host/CLI unit checks for changed contracts/composition and their
-consumer journeys. Run code generation when declarations/generators change. E03 owns actual
-process-use integration and Q01 owns scope-end static/integrated qualification. A source-only
-question must still work without analyzer preparation. No product changes or new qualification
-are claimed by this plan's publication.
+**Tested (2026-11-01, local Linux):** targeted host/native unit tests and real public CLI
+journeys exercise the implemented scope; exact commands and boundaries are in the Outcome.
+E03 retains engineering-process integration and Q01 retains series-wide static/integrated
+qualification. Source-only grammar and syntax questions require no analyzer preparation.
+
+## Outcome
+
+**Implemented:** A01–A03 and the minimal B01 producer slice. The authored proto and generated
+Buffa contracts carry one normalized graph operation; protocol 5 fences earlier helpers while
+administrative stop remains available. Native workers retain their immutable snapshot,
+cancellation hook, actual CPU settlement and original session/configuration/generation.
+Checked role alternatives, source guards and response indexes refuse malformed/unknown facts.
+Declaration identity is distinct from a use occurrence. Definition edges preserve original
+use-to-declaration meaning; incoming references terminate at occurrences rather than inventing
+occurrence-to-occurrence targets.
+
+Containment preserves module/impl/trait/variant/field ownership. Nominal parameter, return and
+enum/struct/union field dependencies preserve parallel outer-role witnesses; async output is
+separate from declared return. Explicit source paths and receiver methods supply resolved uses.
+Unresolved uses, unsupported field-use classification, block-local population and unmapped
+sources remain incomplete. Implicit language operations are a separate meaning and are not
+claimed. The actual traversal domain intersects source selection with the active prepared
+world; excluded inactive files are identified as outside that world, and inactive/plural seed
+contexts still refuse. This does not establish absence across other configurations.
+
+The pure traversal kernel caches adjacency and propagates per-seed minimum distances, including
+later attribution, shared intermediates and positive cycles. Node/edge/provider limits retain
+unknown absence; positive Exists can stop after its seed rule is met. Count units concern
+selected answer nodes, independently of edge examination and row projection. Separate graph
+scopes survive Boolean composition. Scalar Related assembly and frontier-per-RPC traversal
+were removed with migrated callers. Existing full native inspection remains available.
+
+**Tested:** the following commands passed against the zero failure baseline. Tests use the
+native correctness route, including its actual force-validation closure selection; these are
+targeted component/public-consumer checks, not whole-Plan60 qualification.
+
+```bash
+just codegen
+scripts/pse check pse-host --all-targets --features native-hir
+scripts/pse test pse-host --lib --features native-hir -E 'test(bounded_graph_) | test(normalized_graph_wire_) | test(investigation::graph::tests::) | test(investigation::model::tests::) | test(investigation::config::tests::) | test(source_query::tests::) | test(code_intelligence_contracts::tests::)'
+scripts/pse test pse-host:source_queries -E 'test(passive_grammar_assistance) | test(actual_tree_sitter_query_failure)'
+scripts/pse test pse-host:composed_investigations -E 'test(bounded_multi_seed_graph_) | test(actual_native_namesakes_)'
+scripts/pse test pse-host --lib --features native-hir -E 'test(bounded_graph_) | test(normalized_graph_wire_)'
+```
+
+Generation published all 10 configured targets. The unit selection passed 36 tests; the source
+CLI selection passed 2 tests and the native CLI selection passed 2 tests.
+The final affected native/wire rerun passed 4 tests after active-world admission was corrected.
+Public native checks
+independently expect the two policy types to reach `consume` through a hidden `Shared` type at
+distance 2, with parameter positions 0/1 retained. They validate JSON and each NDJSON record
+against advertised schemas, human actions, enum fields, async output, finite limits and stale
+expansion refusal. Native unit checks include deterministic admitted-worker cancellation,
+actual settlement and sibling independence. Grammar checks compare native `NODE_TYPES` and
+query-error coordinates with the pinned producers, without preparing an analyzer.
+`just ready` passed after the environment-shaped fixture refusal; final `just turn-end`
+passed both ADR indexing and formatting. Neither establishes Q01 hygiene or integration.
+
+### Mistakes corrected
+
+The first public native run used detached-session fixtures inside an enclosing managed test
+workload: both selected tests failed setup. The corrected harness establishes an actual
+independent caller scope before opening its gate; production nested-detachment refusal remains
+intact. Subsequent public execution exposed a default filesystem/native-domain mismatch and
+truncated fixture declaration anchors. Active-world admission and original name-token seeds
+corrected those failures. Earlier failed/interrupted checks receive no acceptance credit.
+Independent implementation review also found domain leakage, lost positive-cycle selection,
+unsupported use completeness and declaration/occurrence normalization gaps; focused regressions
+exercise the corrections.
+
+### Deliberate boundaries and handoff
+
+**Implemented:** graph answers are final bounded records after native settlement. Ordinary
+source streams still stream; no mutable graph continuation, persistent index, new service,
+universal identity or dependency was added. Nominal dependencies are a set per outer role;
+nested occurrence paths are not invented. Exact return/parameter/field source witnesses and
+original semantic-node expansion remain available regardless of optional text projection.
+
+**Proposed / not_run:** full B01 associated/visibility/supertrait work, B02–B05, artifact
+extensions, C–F consumers, E03 process journeys and Q01 series-wide hygiene/integration remain
+with their existing owners. B01 is partially delivered, not complete. No performance, adoption,
+scientific or universal compiler-equivalence claim follows. Feature-use frequency is not an
+acceptance gate. The user-owned library-document changes remain untouched. ADR-0235 remains
+proposed; this acceptance does not extend the earlier formal review's scope.

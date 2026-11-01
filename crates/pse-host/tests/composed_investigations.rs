@@ -209,7 +209,10 @@ impl Fixture {
         self.stopped.set(true);
     }
     fn source(&self, needle: &str) -> ResultReference {
-        let path = self.project.path().join("src/lib.rs");
+        self.source_at("src/lib.rs", needle)
+    }
+    fn source_at(&self, relative: &str, needle: &str) -> ResultReference {
+        let path = self.project.path().join(relative);
         let source = std::fs::read_to_string(&path).unwrap();
         let input = providers::acquire(
             &self.root,
@@ -289,6 +292,272 @@ impl Fixture {
         );
         pse_host::api::finish(&acquisition, &snapshot).unwrap()
     }
+}
+
+/// Match the library public-journey route: establish a real independent caller scope,
+/// then release its entry gate. Nested production detachment remains refused.
+async fn independent_cli(entry: &str, gate_name: &str) {
+    use std::time::{Duration, Instant};
+    let scratch = tempfile::tempdir().unwrap();
+    let gate = scratch.path().join("go");
+    let manager = pse_host::HostManager::connect_user(None).await.unwrap();
+    let current = manager.current_unit().await.unwrap();
+    let (slice, _, _) = manager.foreground_placement(&current).await.unwrap();
+    let mut command = tokio::process::Command::new(std::env::current_exe().unwrap());
+    command
+        .args(["--exact", entry, "--nocapture"])
+        .env(gate_name, &gate)
+        .kill_on_drop(true);
+    for key in [
+        "PSE_HOST_ALLOCATION",
+        "PSE_RESOURCE_CLASS",
+        "PSE_MEMORY_MAX",
+        "PSE_SLICE",
+    ] {
+        command.env_remove(key);
+    }
+    let mut child = command.spawn().unwrap();
+    let pid = rustix::process::Pid::from_raw(child.id().unwrap().try_into().unwrap()).unwrap();
+    let pidfd = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()).unwrap();
+    let intent = pse_host::LaunchIntent::fresh_scope().unwrap();
+    let mut unit = manager
+        .start_scope(
+            &intent,
+            pidfd,
+            &slice,
+            &slice,
+            Instant::now() + Duration::from_secs(10),
+            Duration::from_secs(5),
+        )
+        .await
+        .unwrap();
+    std::fs::write(gate, b"original application scope established").unwrap();
+    let status = child.wait().await.unwrap();
+    unit.stop_and_drain(Instant::now() + Duration::from_secs(15))
+        .await
+        .unwrap();
+    assert!(
+        status.success(),
+        "independent original CLI journey failed: {status}"
+    );
+}
+fn entry_gate(name: &str) -> bool {
+    let Some(gate) = std::env::var_os(name) else {
+        return false;
+    };
+    let gate = PathBuf::from(gate);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    while !gate.exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "caller scope was not established"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    true
+}
+#[tokio::test]
+async fn bounded_multi_seed_graph_keeps_hidden_support_parallel_roles_and_guarded_expansion() {
+    independent_cli("t04_multi_seed_graph_entry", "PSE_T04_GRAPH_GATE").await;
+}
+#[test]
+fn t04_multi_seed_graph_entry() {
+    if !entry_gate("PSE_T04_GRAPH_GATE") {
+        return;
+    }
+    let fixture = Fixture::new();
+    std::fs::write(fixture.project.path().join("src/lib.rs"), "pub mod hidden;\npub fn consume(first: hidden::Alias, second: hidden::Shared) -> hidden::InputA { let _ = (first, second); hidden::InputA }\npub async fn future() -> hidden::InputA { hidden::InputA }\n").unwrap();
+    std::fs::write(fixture.project.path().join("src/hidden.rs"), "pub struct InputA;\npub struct InputB;\npub struct Shared { pub a: InputA, pub b: InputB }\npub type Alias = Shared;\npub enum Envelope { First(InputA), Second { value: InputB } }\n").unwrap();
+    fixture.prepare(None);
+    let predicate = Predicate::Related {
+        seeds: vec![
+            fixture.source_at("src/hidden.rs", "pub struct InputA;"),
+            fixture.source_at("src/hidden.rs", "pub struct InputB;"),
+        ],
+        relations: vec![Relationship::FieldType, Relationship::ParameterType],
+        traversal: SourceSelector::default(),
+        seed_match: graph::SeedMatch::All,
+        direction: Direction::Incoming,
+        depth: 2,
+        max_nodes: 32,
+        max_edges: 128,
+    };
+    let mut request = fixture.request(predicate);
+    request.presentation.fields = vec!["name".into()];
+    request.presentation.budget = Some(1);
+    let response = fixture.search(&request);
+    let report = &response["payload"];
+    let schema = value(
+        fixture
+            .command(false)
+            .args(["schema", "search"])
+            .output()
+            .unwrap(),
+    );
+    jsonschema::validator_for(&schema)
+        .unwrap()
+        .validate(&response)
+        .unwrap();
+    assert_eq!(report["summary"]["complete"], true, "{response}");
+    assert_eq!(report["summary"]["matches"], 1, "{response}");
+    assert_eq!(report["results"][0]["name"], "consume", "{response}");
+    let evidence = &report["summary"]["relationships"][0];
+    let nodes = evidence["nodes"].as_array().unwrap();
+    assert!(
+        nodes.iter().any(|node| node["name"] == "Shared"),
+        "hidden support must remain addressable: {response}"
+    );
+    let witnesses = evidence["witnesses"].as_array().unwrap();
+    let parameter_indexes = witnesses
+        .iter()
+        .filter(|witness| witness["role"]["kind"] == "parameter")
+        .map(|witness| witness["role"]["index"].as_u64().unwrap())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        parameter_indexes,
+        [0, 1].into_iter().collect(),
+        "alias and direct parameter positions must remain distinct: {response}"
+    );
+    let consume = nodes.iter().find(|node| node["name"] == "consume").unwrap();
+    let node_id = consume["id"].as_u64().unwrap();
+    let attribution = evidence["graph"]["reached"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node"] == node_id)
+        .unwrap();
+    assert_eq!(
+        attribution["distances"],
+        serde_json::json!([2, 2]),
+        "{response}"
+    );
+    let reference = serde_json::to_string(&consume["reference"]).unwrap();
+    let expanded = value(
+        fixture
+            .command(false)
+            .args(["inspect", "--result", &reference])
+            .output()
+            .unwrap(),
+    );
+    assert!(!expanded["payload"].is_null(), "{expanded}");
+    let query_file = fixture.state.path().join("selected-query.json");
+    let streamed = fixture
+        .command(false)
+        .args(["--format", "ndjson", "search", "--request"])
+        .arg(&query_file)
+        .output()
+        .unwrap();
+    assert!(streamed.status.success(), "{streamed:?}");
+    let records = String::from_utf8(streamed.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(records.first().unwrap()["event"], "begin");
+    assert_eq!(records.last().unwrap()["event"], "terminal");
+    let stream_schema = value(
+        fixture
+            .command(false)
+            .args(["schema", "search stream"])
+            .output()
+            .unwrap(),
+    );
+    let stream_validator = jsonschema::validator_for(&stream_schema).unwrap();
+    for record in &records {
+        stream_validator.validate(record).unwrap();
+    }
+    assert_eq!(
+        records.last().unwrap()["relationships"][0],
+        *evidence,
+        "final graph evidence must survive NDJSON unchanged"
+    );
+    let human = fixture
+        .command(false)
+        .args(["--format", "human", "search", "--request"])
+        .arg(&query_file)
+        .output()
+        .unwrap();
+    assert!(human.status.success(), "{human:?}");
+    let human = String::from_utf8(human.stdout).unwrap();
+    assert!(
+        human.contains("relationships: seeds=")
+            && human.contains("[support]")
+            && human.contains("inspect --result")
+            && human.contains("edge "),
+        "{human}"
+    );
+
+    let mut enum_query = fixture.request(Predicate::Related {
+        seeds: vec![fixture.source_at("src/hidden.rs", "Envelope")],
+        relations: vec![Relationship::FieldType],
+        traversal: SourceSelector::default(),
+        seed_match: graph::SeedMatch::Any,
+        direction: Direction::Outgoing,
+        depth: 1,
+        max_nodes: 16,
+        max_edges: 64,
+    });
+    enum_query.sources.paths = vec![fixture.project.path().join("src/hidden.rs")];
+    let enum_response = fixture.search(&enum_query);
+    let names = enum_response["payload"]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["name"].as_str().unwrap())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        names,
+        ["InputA", "InputB"].into_iter().collect(),
+        "enum variant fields must be enumerated: {enum_response}"
+    );
+
+    let mut returns = fixture.request(Predicate::Related {
+        seeds: vec![fixture.source("future")],
+        relations: vec![Relationship::ReturnType],
+        traversal: SourceSelector::default(),
+        seed_match: graph::SeedMatch::Any,
+        direction: Direction::Outgoing,
+        depth: 1,
+        max_nodes: 16,
+        max_edges: 64,
+    });
+    returns.sources.paths = vec![fixture.project.path().join("src/hidden.rs")];
+    let async_response = fixture.search(&returns);
+    assert!(
+        async_response["payload"]["summary"]["relationships"][0]["witnesses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|witness| witness["role"]["kind"] == "return"
+                && witness["role"]["async_output"] == true),
+        "{async_response}"
+    );
+
+    let mut bounded = request.clone();
+    if let Predicate::Related { max_edges, .. } = &mut bounded.predicate {
+        *max_edges = 1;
+    }
+    let output = fixture.search_output(&bounded);
+    let bounded_response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        bounded_response["payload"]["summary"]["complete"], false,
+        "{bounded_response}"
+    );
+    std::fs::write(
+        fixture.project.path().join("src/lib.rs"),
+        "pub mod hidden;\n",
+    )
+    .unwrap();
+    let stale = fixture
+        .command(false)
+        .args(["inspect", "--result", &reference])
+        .output()
+        .unwrap();
+    assert!(
+        !stale.status.success(),
+        "stale graph expansion must refuse: {stale:?}"
+    );
+    fixture.stop();
 }
 
 #[test]
@@ -405,8 +674,16 @@ fn method_calls() -> Predicate {
     })
 }
 
+#[tokio::test]
+async fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_and_test_selection()
+ {
+    independent_cli("t03_namesakes_graph_entry", "PSE_T03_NAMESAKES_GATE").await;
+}
 #[test]
-fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_and_test_selection() {
+fn t03_namesakes_graph_entry() {
+    if !entry_gate("PSE_T03_NAMESAKES_GATE") {
+        return;
+    }
     let fixture = Fixture::new();
     fixture.prepare(None);
     let discovered = fixture.search(&fixture.request(Predicate::Symbol(SymbolQuery {
@@ -532,11 +809,14 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
         "{conjunction}"
     );
     let implementations = fixture.search(&fixture.request(Predicate::Related {
-        seed: fixture.source("fn run(&self) -> u32;"),
-        relation: Relationship::Implementations,
+        seeds: vec![fixture.source("fn run(&self) -> u32;")],
+        relations: vec![Relationship::Implementations],
+        traversal: SourceSelector::default(),
+        seed_match: graph::SeedMatch::Any,
         direction: Direction::Outgoing,
         depth: 1,
         max_nodes: 16,
+        max_edges: 100,
     }));
     assert_eq!(
         implementations["payload"]["results"]
@@ -547,11 +827,14 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
         "the actual native trait method must expose both implementation declarations: {implementations}"
     );
     let mut related = fixture.request(Predicate::Related {
-        seed: target,
-        relation: Relationship::References,
+        seeds: vec![target],
+        relations: vec![Relationship::References],
+        traversal: SourceSelector::default(),
+        seed_match: graph::SeedMatch::Any,
         direction: Direction::Incoming,
         depth: 2,
         max_nodes: 16,
+        max_edges: 100,
     });
     related.answer.order = ResultOrder::Stable;
     let references = fixture.search(&related);
@@ -566,10 +849,10 @@ fn actual_native_namesakes_refine_by_target_then_inspect_relationship_preview_an
     }
     let mut hidden = related.clone();
     hidden.sources.exclude.push("**/lib.rs".into());
-    let refused = fixture.search_output(&hidden);
+    let hidden = fixture.search(&hidden);
     assert!(
-        !refused.status.success(),
-        "a relationship seed excluded from its selected source universe must refuse: {refused:?}"
+        hidden["payload"]["results"].as_array().unwrap().is_empty(),
+        "output filtering must allow a hidden traversal seed: {hidden}"
     );
     let mut historical = related.clone();
     historical.sources.kind = SourceKind::Index;

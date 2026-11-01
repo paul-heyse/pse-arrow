@@ -3,7 +3,7 @@
 //! Native Rust facts refine selected source candidates without reparsing display text.
 use super::{providers::ProviderInput, *};
 use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet},
     path::Path,
 };
 use tokio_util::sync::CancellationToken;
@@ -208,7 +208,9 @@ pub fn run(
             source_ids: &source_ids,
             proofs: &proofs,
         };
-        let mut summary = if request.answer.order == ResultOrder::Stable {
+        let mut summary = if request.answer.order == ResultOrder::Stable
+            && request.answer.kind != AnswerKind::Exists
+        {
             stable_related(root, request, token, &mut forward, native)?
         } else {
             run_inner(
@@ -353,6 +355,10 @@ fn limits(request: &Request) -> Option<usize> {
 fn visible(request: &Request, summary: &Summary) -> bool {
     !matches!(request.answer.kind, AnswerKind::Count | AnswerKind::Exists)
         && request
+            .answer
+            .limit
+            .is_none_or(|n| summary.emitted < n as u64)
+        && request
             .presentation
             .budget
             .is_none_or(|n| summary.emitted < n as u64)
@@ -376,6 +382,7 @@ fn diagnostic(
         .into(),
         message: error.to_string(),
         source: None,
+        detail: error.query_error_record(),
     })
 }
 fn unavailable(error: &Error) -> bool {
@@ -412,6 +419,10 @@ fn merge_work(summary: &mut Summary, other: &Summary) {
     summary.failures = summary.failures.saturating_add(other.failures);
     summary.unknown = summary.unknown.saturating_add(other.unknown);
     summary.complete &= other.complete;
+    // Each bounded native graph keeps its own ordinal space under composition.
+    summary
+        .relationships
+        .extend(other.relationships.iter().cloned());
 }
 fn run_inner(
     root: &Path,
@@ -426,7 +437,7 @@ fn run_inner(
     }
     match predicate {
         Predicate::Refine {candidates,filter}=>refine(root,request,candidates,filter,token,emit,native),
-        Predicate::Related {seed,relation,direction,depth,max_nodes}=>related(root,request,Traversal {seed,relation:*relation,direction:*direction,depth:*depth,max_nodes:*max_nodes},token,emit,native),
+        Predicate::Related {seeds,relations,traversal,seed_match,direction,depth,max_nodes,max_edges}=>related(root,request,rust::GraphIntent {seeds,relations,direction:*direction,traversal,output:&request.sources,seed_match:*seed_match,depth:*depth,max_nodes:*max_nodes,max_edges:*max_edges,exists:request.answer.kind==AnswerKind::Exists},token,emit,native),
         Predicate::Any {clauses,..} if required(predicate)=>union(root,request,clauses,token,emit,native),
         Predicate::All {within:MatchScope::Entity,clauses}=>entity_conjunction(root,request,clauses,token,emit,native),
         Predicate::All {..}|Predicate::Not {..} if required(predicate)=>Err(Error::Unavailable("cross-provider conjunction/negation needs an explicit entity-bound candidate stage; file/node metadata cannot identify a resolved Rust entity".into())),
@@ -672,12 +683,9 @@ fn stable_related(
     summary.matches = 0;
     summary.emitted = 0;
     let mut counted = BTreeSet::new();
-    let limit = limits(request).unwrap_or(usize::MAX);
-    if keyed.len() > limit {
-        summary.complete = false;
-        summary.stop = StopReason::Limit;
-    }
-    for (_, row) in keyed.into_iter().take(limit) {
+    // The bounded graph has already settled. A row allowance changes presentation,
+    // never its coverage, count, or evidence for a surrounding negative predicate.
+    for (_, row) in keyed {
         accepted(row, request, &mut summary, emit, &mut counted)?;
     }
     Ok(summary)
@@ -713,6 +721,7 @@ fn retain_unknown(
         code: "search.refinement_unknown".into(),
         message: error.to_string(),
         source: Some(row.source.clone()),
+        detail: error.query_error_record(),
     };
     let previous = row.refinement.take();
     let evidence = previous.as_ref().and_then(|fact| fact.evidence.clone());
@@ -734,6 +743,7 @@ fn retain_unknown(
         code: original.code,
         message: original.message,
         source: original.source,
+        detail: original.detail,
     })?;
     if visible(request, summary) {
         emit(Event::Result(row))?;
@@ -1346,11 +1356,13 @@ fn entity_membership(
                 code,
                 message,
                 source,
+                detail,
             } => emit(Event::Diagnostic {
                 phase,
                 code,
                 message,
                 source,
+                detail,
             })?,
             Event::Source(source) => emit(Event::Source(source))?,
             _ => {}
@@ -1393,196 +1405,65 @@ fn entity_membership(
     Ok(truth)
 }
 
-struct Traversal<'a> {
-    seed: &'a ResultReference,
-    relation: Relationship,
-    direction: Direction,
-    depth: usize,
-    max_nodes: usize,
-}
-fn native_position_key(locator: &Locator) -> Result<String, Error> {
-    if let Locator::Semantic {
-        project,
-        path,
-        line,
-        column,
-        session_invocation,
-        ..
-    } = locator
-    {
-        // Generation is fenced once for the traversal below. Source hashes and lazy-action
-        // fingerprints are guards, not additional native locations to admit a second time.
-        serde_json::to_string(&(project, path, line, column, session_invocation))
-            .map_err(Error::from)
-    } else {
-        Err(Error::Invalid(
-            "relationship traversal requires a native guarded source position".into(),
-        ))
-    }
-}
 fn related(
     root: &Path,
     request: &Request,
-    traversal: Traversal<'_>,
+    intent: rust::GraphIntent<'_>,
     token: &CancellationToken,
     emit: &mut (dyn FnMut(Event) -> Result<(), Error> + Send),
     native: Native<'_>,
 ) -> Result<Summary, Error> {
-    let Traversal {
-        seed,
-        relation,
-        direction,
-        depth,
-        max_nodes,
-    } = traversal;
-    if request.sources.kind != SourceKind::Working {
-        return Err(Error::Unavailable("native relationship traversal requires a working source universe; index/revision selection cannot be reinterpreted as current semantics".into()));
-    }
-    let allowed = providers::select(root, &request.sources, token)?
-        .into_iter()
-        .map(|source| root.join(source.path()).canonicalize().map_err(Error::from))
-        .collect::<Result<BTreeSet<_>, Error>>()?;
-    let mut summary = Summary {
-        complete: true,
-        ..Default::default()
-    };
-    let mut counted = BTreeSet::new();
-    let selected = native.block_on(rust::source_semantic_with_context(
+    // The provider owns one worker and one immutable native snapshot for this whole intent.
+    // Rendering and count allowances are applied only after its actual bounded work settles.
+    let result = native.block_on(rust::graph_with_context(
         root,
-        &seed.locator,
+        &intent,
         token,
         native.resolution,
     ))?;
-    let Locator::Semantic { path, .. } = &selected else {
-        return Err(Error::Invalid(
-            "native traversal seed has no selected source position".into(),
-        ));
+    let mut summary = Summary {
+        complete: result.complete,
+        relationships: vec![result.evidence],
+        ..Default::default()
     };
-    if !allowed.contains(&path.to_path_buf().canonicalize()?) {
-        return Err(Error::Invalid("relationship seed is outside the requested source selection; select its source path/package/type explicitly".into()));
+    let mut counted = BTreeSet::new();
+    let mut source_ids = BTreeMap::new();
+    for source in result.sources {
+        let original = source.id.clone();
+        source_ids.insert(original, emit_source(source, emit, native)?);
     }
-    let mut world = if let Locator::Semantic { generation, .. } = &selected {
-        generation.clone()
-    } else {
-        None
-    };
-    let mut queue = VecDeque::from([(selected.clone(), 0usize)]);
-    let mut visited = BTreeSet::new();
-    let mut emitted = BTreeSet::new();
-    visited.insert(native_position_key(&selected)?);
-    while let Some((locator, distance)) = queue.pop_front() {
-        if token.is_cancelled() {
-            return Err(Error::Cancelled);
-        }
-        if distance >= depth {
-            continue;
-        }
-        let result = match native.block_on(rust::relationship_with_context(
-            root,
-            &locator,
-            relation,
-            direction,
-            max_nodes.saturating_add(1),
-            token,
-            native.resolution,
-        )) {
-            Ok(result) => result,
-            Err(error) => {
-                failed(&mut summary, emit, error)?;
-                continue;
-            }
+    for diagnostic in result.diagnostics {
+        summary.unknown += 1;
+        summary.complete = false;
+        emit(Event::Diagnostic {
+            phase: diagnostic.phase,
+            code: diagnostic.code,
+            message: diagnostic.message,
+            source: diagnostic
+                .source
+                .map(|source| source_ids.get(&source).cloned().unwrap_or(source)),
+            detail: diagnostic.detail,
+        })?;
+    }
+    if let Some(evidence) = summary.relationships.first() {
+        summary.stop = match evidence.graph.stop {
+            graph::Stop::Nodes | graph::Stop::Edges | graph::Stop::Demand => StopReason::Limit,
+            graph::Stop::Cancelled => StopReason::Cancelled,
+            graph::Stop::Complete | graph::Stop::Provider => StopReason::Complete,
         };
-        summary.complete &= result.complete;
-        let mut source_ids = BTreeMap::new();
-        for source in result.sources {
-            let original = source.id.clone();
-            source_ids.insert(original, emit_source(source, emit, native)?);
+        summary.cancellation_requested = evidence.graph.stop == graph::Stop::Cancelled;
+        if !evidence.graph.complete
+            && evidence.graph.stop != graph::Stop::Demand
+            && summary.unknown == 0
+        {
+            summary.unknown = 1;
         }
-        for diagnostic in result.diagnostics {
-            summary.unknown += 1;
-            summary.complete = false;
-            emit(Event::Diagnostic {
-                phase: diagnostic.phase,
-                code: diagnostic.code,
-                message: diagnostic.message,
-                source: diagnostic
-                    .source
-                    .map(|source| source_ids.get(&source).cloned().unwrap_or(source)),
-            })?;
+    }
+    for mut row in result.rows {
+        if let Some(id) = source_ids.get(&row.source) {
+            row.source = id.clone();
         }
-        for mut row in result.rows {
-            if let Some(id) = source_ids.get(&row.source) {
-                row.source = id.clone();
-            }
-            let Some(reference) = &row.reference else {
-                failed(
-                    &mut summary,
-                    emit,
-                    Error::Unavailable(
-                        "native relationship has no guarded destination address".into(),
-                    ),
-                )?;
-                continue;
-            };
-            let Locator::Semantic { path, .. } = &reference.locator else {
-                failed(
-                    &mut summary,
-                    emit,
-                    Error::Unavailable(
-                        "native relationship destination has no guarded working source".into(),
-                    ),
-                )?;
-                continue;
-            };
-            if !allowed.contains(&path.to_path_buf().canonicalize()?) {
-                continue;
-            }
-            if let Locator::Semantic {
-                generation: Some(generation),
-                ..
-            } = &reference.locator
-            {
-                if world
-                    .as_ref()
-                    .is_some_and(|original| original != generation)
-                {
-                    failed(
-                        &mut summary,
-                        emit,
-                        Error::Stale(
-                            "native relationship traversal crossed semantic world generations"
-                                .into(),
-                        ),
-                    )?;
-                    return Ok(summary);
-                }
-                world.get_or_insert_with(|| generation.clone());
-            }
-            let key = native_position_key(&reference.locator)?;
-            if !visited.contains(&key) {
-                if visited.len() >= max_nodes {
-                    summary.complete = false;
-                    summary.stop = StopReason::Limit;
-                    return Ok(summary);
-                }
-                visited.insert(key.clone());
-                queue.push_back((reference.locator.clone(), distance + 1));
-            }
-            if emitted.insert(key.clone()) {
-                accepted(
-                    Box::new(row.clone()),
-                    request,
-                    &mut summary,
-                    emit,
-                    &mut counted,
-                )?;
-            }
-            if limits(request).is_some_and(|limit| summary.matches >= limit as u64) {
-                summary.complete = false;
-                summary.stop = StopReason::Limit;
-                return Ok(summary);
-            }
-        }
+        accepted(Box::new(row), request, &mut summary, emit, &mut counted)?;
     }
     Ok(summary)
 }

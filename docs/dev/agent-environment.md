@@ -407,6 +407,41 @@ node and entity predicates; an unavailable refinement remains unknown rather tha
 returned-witness grouping, answer demand and display allowance. NDJSON delivers whole live
 records followed by the coverage summary; absent finality means incomplete delivery.
 
+For responsibility questions in reviews, the typed `related` predicate accepts `seeds` (original
+result-reference objects), `relations`, `direction`, `depth`, `max_nodes`, `max_edges` and
+`seed_match: "any" | "all"`. Its `traversal` source selector admits seeds and supporting
+intermediates; the outer request's `sources` select returned answer nodes. For example, an
+incoming `field_type`/`parameter_type` question with two policy-type seeds and `seed_match:
+"all"` can find operations consuming a shared request type even when that intermediate is
+outside the output package. Select the same prepared working native world for all seeds;
+index/revision evidence cannot become current native semantics. Scalar `seed`/`relation`
+request forms are replaced; `schema 'search request'` advertises the current input shape.
+
+`summary.relationships` retains separate graph scopes for composed clauses: shared declaration
+or occurrence addresses, canonical edges, role-qualified occurrence witnesses, per-seed minimum
+distances, explicit frontier, examination count and stopping reason. Node expansion preserves
+the original semantic session; witness expansion uses its exact guarded source interval.
+Two parameter positions can share endpoints while retaining separate witnesses. Depth is an
+intentional question boundary; an exhausted node/edge allowance or unsupported provider fact
+does not establish absence. Counts concern selected answer nodes, independently of edge
+examination and rendered rows. Related NDJSON records describe a settled bounded graph; ordinary
+source searches continue to stream. Human graph views include reusable `inspect --result`
+actions, and field/budget projection preserves graph identities and coverage.
+
+`scripts/pse search syntax --grammar` reads the linked Rust grammar's native `NODE_TYPES`
+without source discovery or analyzer preparation. `--node-kind function_item` selects its
+exact native entry, including fields and child constraints; `--grammar bash` exposes the linked
+Bash source grammar. `scripts/pse schema 'search syntax grammar'` describes the response envelope,
+while the response itself contains grammar data. Grammar inspection is separate from pattern,
+rule and Tree-sitter extraction modes. Native Tree-sitter construction failures retain zero-based
+query row, UTF-8 byte column and byte offset, rather than source-file coordinates.
+
+For native ast-grep rules, choose strictness and ancestor/descendant search extent explicitly.
+For example, `{"rule":{"pattern":{"context":"call($ARG)","strictness":"smart"},
+"inside":{"kind":"function_item","stopBy":"end"}}}` searches ancestors up to the
+root; `stopBy: "neighbor"` checks only the immediate parent. These are native matching
+policies, and syntax matches do not establish resolved binding identity.
+
 `scripts/pse propose syntax FILE --pattern 'call($ARG)' --replacement
 'wrapped($ARG)' --select 0` preserves native template captures and original trivia without
 source or Git-index writes. Its `--inside`, `--has`, `--exclude`, `--capture` and

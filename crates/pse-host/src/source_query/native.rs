@@ -161,7 +161,7 @@ impl CompiledSyntax {
     pub fn tree_sitter(text: &str) -> Result<Self, QueryError> {
         let language: tree_sitter::Language = tree_sitter_rust::LANGUAGE.into();
         let query = tree_sitter::Query::new(&language, text)
-            .map_err(|error| QueryError::Parse(error.to_string()))?;
+            .map_err(|error| QueryError::TreeSitter(error.into()))?;
         for pattern in 0..query.pattern_count() {
             if !query.general_predicates(pattern).is_empty()
                 || !query.property_predicates(pattern).is_empty()

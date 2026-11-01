@@ -256,7 +256,7 @@ impl Client {
                 }
                 None => Err(Error::Protocol("package reply has no outcome".into())),
             },
-            Request::Query(_) | Request::WorkspaceSymbols(_) => {
+            Request::Query(_) | Request::WorkspaceSymbols(_) | Request::Graph(_) => {
                 let mut conversation = client.run().await.map_err(transport_error)?;
                 conversation
                     .send(pb::NativeControl {
@@ -587,6 +587,7 @@ fn operation_name(request: &Request) -> &'static str {
         Request::Stop {} => "stop",
         Request::Query(_) => "query",
         Request::WorkspaceSymbols(_) => "workspace_symbols",
+        Request::Graph(_) => "bounded_relationships",
         Request::PackageContext { .. } => "package_context",
     }
 }
@@ -616,6 +617,9 @@ fn response_from_event(event: pb::NativeEvent) -> Result<Option<Result<Response>
         ),
         Some(pb::native_event::Item::Workspace(answer)) => {
             Some(wire::workspace_from_pb(*answer).map(Response::WorkspaceSymbols))
+        }
+        Some(pb::native_event::Item::Graph(answer)) => {
+            Some(wire::graph_answer_from_pb(*answer).map(Response::Graph))
         }
         Some(pb::native_event::Item::Failure(failure)) => {
             Some(Err(Error::Refusal(wire::failure_from_pb(*failure)?)))
@@ -695,6 +699,9 @@ impl ServiceEngine {
                             .workspace_symbols(query)
                             .await
                             .map(Response::WorkspaceSymbols),
+                        Request::Graph(_) => Err(Error::unsupported(
+                            "bounded relationships require one explicitly prepared native_snapshot world",
+                        )),
                     }
                 };
                 tokio::select! {
@@ -715,6 +722,11 @@ impl ServiceEngine {
                         settle_cpu(engine.start_symbols(query, token.clone()), &token)
                             .await
                             .map(Response::WorkspaceSymbols)
+                    }
+                    Request::Graph(query) => {
+                        settle_cpu(engine.start_graph(query, token.clone()), &token)
+                            .await
+                            .map(Response::Graph)
                     }
                     Request::PackageContext { package_id } => {
                         let engine = self.clone();

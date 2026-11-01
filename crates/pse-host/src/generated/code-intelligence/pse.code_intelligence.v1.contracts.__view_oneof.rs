@@ -299,6 +299,11 @@ pub mod native_request {
                 super::super::super::super::__buffa::view::NativeWorkspaceQueryView<'a>,
             >,
         ),
+        Graph(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeGraphQueryView<'a>,
+            >,
+        ),
     }
 }
 pub mod native_package_reply {
@@ -377,6 +382,11 @@ pub mod native_event {
         Terminal(
             ::buffa::alloc::boxed::Box<
                 super::super::super::super::__buffa::view::TerminalView<'a>,
+            >,
+        ),
+        Graph(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeGraphAnswerView<'a>,
             >,
         ),
     }

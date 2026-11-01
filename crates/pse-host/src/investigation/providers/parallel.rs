@@ -34,6 +34,7 @@ pub(super) fn run(
                 code: "search.input".into(),
                 message: format!("explicit source {path:?}: {error}"),
                 source: None,
+                detail: None,
             })?;
             initial.failures += 1;
             initial.complete = false;
@@ -104,6 +105,7 @@ pub(super) fn run(
                             code: "search.traversal".into(),
                             message: error.to_string(),
                             source: None,
+                            detail: None,
                         }),
                         Err(_) => Err(Error::Unavailable("search writer owner panicked".into())),
                     };

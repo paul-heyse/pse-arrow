@@ -448,6 +448,11 @@ pub enum Relationship {
     REFERENCES = 1i32,
     CALLS = 2i32,
     IMPLEMENTATIONS = 3i32,
+    RELATION_CONTAINS = 4i32,
+    PARAMETER_TYPE = 5i32,
+    RETURN_TYPE = 6i32,
+    FIELD_TYPE = 7i32,
+    USES = 8i32,
 }
 impl Relationship {
     ///Idiomatic alias for [`Self::DEFINITION`]; `Debug` prints the variant name.
@@ -462,6 +467,21 @@ impl Relationship {
     ///Idiomatic alias for [`Self::IMPLEMENTATIONS`]; `Debug` prints the variant name.
     #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
     pub const Implementations: Self = Self::IMPLEMENTATIONS;
+    ///Idiomatic alias for [`Self::RELATION_CONTAINS`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const RelationContains: Self = Self::RELATION_CONTAINS;
+    ///Idiomatic alias for [`Self::PARAMETER_TYPE`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const ParameterType: Self = Self::PARAMETER_TYPE;
+    ///Idiomatic alias for [`Self::RETURN_TYPE`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const ReturnType: Self = Self::RETURN_TYPE;
+    ///Idiomatic alias for [`Self::FIELD_TYPE`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const FieldType: Self = Self::FIELD_TYPE;
+    ///Idiomatic alias for [`Self::USES`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const Uses: Self = Self::USES;
 }
 impl ::core::default::Default for Relationship {
     fn default() -> Self {
@@ -561,6 +581,11 @@ impl ::buffa::Enumeration for Relationship {
             1i32 => ::core::option::Option::Some(Self::REFERENCES),
             2i32 => ::core::option::Option::Some(Self::CALLS),
             3i32 => ::core::option::Option::Some(Self::IMPLEMENTATIONS),
+            4i32 => ::core::option::Option::Some(Self::RELATION_CONTAINS),
+            5i32 => ::core::option::Option::Some(Self::PARAMETER_TYPE),
+            6i32 => ::core::option::Option::Some(Self::RETURN_TYPE),
+            7i32 => ::core::option::Option::Some(Self::FIELD_TYPE),
+            8i32 => ::core::option::Option::Some(Self::USES),
             _ => ::core::option::Option::None,
         }
     }
@@ -573,6 +598,11 @@ impl ::buffa::Enumeration for Relationship {
             Self::REFERENCES => "REFERENCES",
             Self::CALLS => "CALLS",
             Self::IMPLEMENTATIONS => "IMPLEMENTATIONS",
+            Self::RELATION_CONTAINS => "RELATION_CONTAINS",
+            Self::PARAMETER_TYPE => "PARAMETER_TYPE",
+            Self::RETURN_TYPE => "RETURN_TYPE",
+            Self::FIELD_TYPE => "FIELD_TYPE",
+            Self::USES => "USES",
         }
     }
     fn from_proto_name(name: &str) -> ::core::option::Option<Self> {
@@ -581,11 +611,26 @@ impl ::buffa::Enumeration for Relationship {
             "REFERENCES" => ::core::option::Option::Some(Self::REFERENCES),
             "CALLS" => ::core::option::Option::Some(Self::CALLS),
             "IMPLEMENTATIONS" => ::core::option::Option::Some(Self::IMPLEMENTATIONS),
+            "RELATION_CONTAINS" => ::core::option::Option::Some(Self::RELATION_CONTAINS),
+            "PARAMETER_TYPE" => ::core::option::Option::Some(Self::PARAMETER_TYPE),
+            "RETURN_TYPE" => ::core::option::Option::Some(Self::RETURN_TYPE),
+            "FIELD_TYPE" => ::core::option::Option::Some(Self::FIELD_TYPE),
+            "USES" => ::core::option::Option::Some(Self::USES),
             _ => ::core::option::Option::None,
         }
     }
     fn values() -> &'static [Self] {
-        &[Self::DEFINITION, Self::REFERENCES, Self::CALLS, Self::IMPLEMENTATIONS]
+        &[
+            Self::DEFINITION,
+            Self::REFERENCES,
+            Self::CALLS,
+            Self::IMPLEMENTATIONS,
+            Self::RELATION_CONTAINS,
+            Self::PARAMETER_TYPE,
+            Self::RETURN_TYPE,
+            Self::FIELD_TYPE,
+            Self::USES,
+        ]
     }
 }
 #[allow(non_camel_case_types, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
@@ -720,6 +765,140 @@ impl ::buffa::Enumeration for Direction {
     }
     fn values() -> &'static [Self] {
         &[Self::OUTGOING, Self::INCOMING]
+    }
+}
+#[allow(non_camel_case_types, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[repr(i32)]
+pub enum SeedMatch {
+    ANY_SEED = 0i32,
+    ALL_SEEDS = 1i32,
+}
+impl SeedMatch {
+    ///Idiomatic alias for [`Self::ANY_SEED`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const AnySeed: Self = Self::ANY_SEED;
+    ///Idiomatic alias for [`Self::ALL_SEEDS`]; `Debug` prints the variant name.
+    #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    pub const AllSeeds: Self = Self::ALL_SEEDS;
+}
+impl ::core::default::Default for SeedMatch {
+    fn default() -> Self {
+        Self::ANY_SEED
+    }
+}
+impl ::serde::Serialize for SeedMatch {
+    fn serialize<S: ::serde::Serializer>(
+        &self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        s.serialize_str(::buffa::Enumeration::proto_name(self))
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for SeedMatch {
+    fn deserialize<D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        struct _V;
+        impl ::serde::de::Visitor<'_> for _V {
+            type Value = SeedMatch;
+            fn expecting(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
+                f.write_str(
+                    concat!("a string, integer, or null for ", stringify!(SeedMatch)),
+                )
+            }
+            fn visit_str<E: ::serde::de::Error>(
+                self,
+                v: &str,
+            ) -> ::core::result::Result<SeedMatch, E> {
+                <SeedMatch as ::buffa::Enumeration>::from_proto_name(v)
+                    .ok_or_else(|| { ::serde::de::Error::unknown_variant(v, &[]) })
+            }
+            fn visit_i64<E: ::serde::de::Error>(
+                self,
+                v: i64,
+            ) -> ::core::result::Result<SeedMatch, E> {
+                let v32 = i32::try_from(v)
+                    .map_err(|_| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("enum value {v} out of i32 range"),
+                        )
+                    })?;
+                <SeedMatch as ::buffa::Enumeration>::from_i32(v32)
+                    .ok_or_else(|| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("unknown enum value {v32}"),
+                        )
+                    })
+            }
+            fn visit_u64<E: ::serde::de::Error>(
+                self,
+                v: u64,
+            ) -> ::core::result::Result<SeedMatch, E> {
+                let v32 = i32::try_from(v)
+                    .map_err(|_| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("enum value {v} out of i32 range"),
+                        )
+                    })?;
+                <SeedMatch as ::buffa::Enumeration>::from_i32(v32)
+                    .ok_or_else(|| {
+                        ::serde::de::Error::custom(
+                            ::buffa::alloc::format!("unknown enum value {v32}"),
+                        )
+                    })
+            }
+            fn visit_unit<E: ::serde::de::Error>(
+                self,
+            ) -> ::core::result::Result<SeedMatch, E> {
+                ::core::result::Result::Ok(::core::default::Default::default())
+            }
+        }
+        d.deserialize_any(_V)
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for SeedMatch {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+impl ::buffa::Enumeration for SeedMatch {
+    fn from_i32(value: i32) -> ::core::option::Option<Self> {
+        match value {
+            0i32 => ::core::option::Option::Some(Self::ANY_SEED),
+            1i32 => ::core::option::Option::Some(Self::ALL_SEEDS),
+            _ => ::core::option::Option::None,
+        }
+    }
+    fn to_i32(&self) -> i32 {
+        *self as i32
+    }
+    fn proto_name(&self) -> &'static str {
+        match self {
+            Self::ANY_SEED => "ANY_SEED",
+            Self::ALL_SEEDS => "ALL_SEEDS",
+        }
+    }
+    fn from_proto_name(name: &str) -> ::core::option::Option<Self> {
+        match name {
+            "ANY_SEED" => ::core::option::Option::Some(Self::ANY_SEED),
+            "ALL_SEEDS" => ::core::option::Option::Some(Self::ALL_SEEDS),
+            _ => ::core::option::Option::None,
+        }
+    }
+    fn values() -> &'static [Self] {
+        &[Self::ANY_SEED, Self::ALL_SEEDS]
     }
 }
 #[allow(non_camel_case_types, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
@@ -8640,19 +8819,6 @@ pub const __GUARDED_REFERENCE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = :
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct Related {
-    /// Field 1: `seed`
-    #[serde(
-        rename = "seed",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
-    )]
-    pub seed: ::buffa::MessageField<GuardedReference, ::buffa::Inline<GuardedReference>>,
-    /// Field 2: `relation`
-    #[serde(
-        rename = "relation",
-        with = "::buffa::json_helpers::proto_enum",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
-    )]
-    pub relation: ::buffa::EnumValue<Relationship>,
     /// Field 3: `direction`
     #[serde(
         rename = "direction",
@@ -8675,6 +8841,45 @@ pub struct Related {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_nodes: u64,
+    /// Field 6: `seeds`
+    #[serde(
+        rename = "seeds",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub seeds: ::buffa::alloc::vec::Vec<GuardedReference>,
+    /// Field 7: `relations`
+    #[serde(
+        rename = "relations",
+        with = "::buffa::json_helpers::repeated_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub relations: ::buffa::alloc::vec::Vec<::buffa::EnumValue<Relationship>>,
+    /// Field 8: `traversal`
+    #[serde(
+        rename = "traversal",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub traversal: ::buffa::MessageField<
+        SourceSelector,
+        ::buffa::Inline<SourceSelector>,
+    >,
+    /// Field 9: `max_edges`
+    #[serde(
+        rename = "maxEdges",
+        alias = "max_edges",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub max_edges: u64,
+    /// Field 10: `seed_match`
+    #[serde(
+        rename = "seedMatch",
+        alias = "seed_match",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub seed_match: ::buffa::EnumValue<SeedMatch>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -8682,11 +8887,14 @@ pub struct Related {
 impl ::core::fmt::Debug for Related {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         f.debug_struct("Related")
-            .field("seed", &self.seed)
-            .field("relation", &self.relation)
             .field("direction", &self.direction)
             .field("depth", &self.depth)
             .field("max_nodes", &self.max_nodes)
+            .field("seeds", &self.seeds)
+            .field("relations", &self.relations)
+            .field("traversal", &self.traversal)
+            .field("max_edges", &self.max_edges)
+            .field("seed_match", &self.seed_match)
             .finish()
     }
 }
@@ -8716,14 +8924,6 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Related {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match field.number() {
-            1u32 => {
-                ::buffa_descriptor::reflect::ValueRef::Message(
-                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.seed),
-                )
-            }
-            2u32 => {
-                ::buffa_descriptor::reflect::ValueRef::EnumNumber(self.relation.to_i32())
-            }
             3u32 => {
                 ::buffa_descriptor::reflect::ValueRef::EnumNumber(
                     self.direction.to_i32(),
@@ -8731,6 +8931,19 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Related {
             }
             4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.depth),
             5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.max_nodes),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.seeds),
+            7u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.relations),
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.traversal),
+                )
+            }
+            9u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.max_edges),
+            10u32 => {
+                ::buffa_descriptor::reflect::ValueRef::EnumNumber(
+                    self.seed_match.to_i32(),
+                )
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -8743,11 +8956,14 @@ impl ::buffa_descriptor::reflect::ReflectMessage for Related {
     }
     fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
         match field.number() {
-            1u32 => self.seed.is_set(),
-            2u32 => self.relation.to_i32() != 0,
             3u32 => self.direction.to_i32() != 0,
             4u32 => self.depth != 0,
             5u32 => self.max_nodes != 0,
+            6u32 => !self.seeds.is_empty(),
+            7u32 => !self.relations.is_empty(),
+            8u32 => self.traversal.is_set(),
+            9u32 => self.max_edges != 0,
+            10u32 => self.seed_match.to_i32() != 0,
             _ => false,
         }
     }
@@ -8826,20 +9042,6 @@ impl ::buffa::Message for Related {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
-        if self.seed.is_set() {
-            let __slot = __cache.reserve();
-            let inner_size = self.seed.compute_size(__cache);
-            __cache.set(__slot, inner_size);
-            size
-                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                    + inner_size as u64;
-        }
-        {
-            let val = self.relation.to_i32();
-            if val != 0 {
-                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
-            }
-        }
         {
             let val = self.direction.to_i32();
             if val != 0 {
@@ -8852,6 +9054,39 @@ impl ::buffa::Message for Related {
         if self.max_nodes != 0u64 {
             size += 1u64 + ::buffa::types::uint64_encoded_len(self.max_nodes) as u64;
         }
+        for v in &self.seeds {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.relations.is_empty() {
+            let payload: u64 = self
+                .relations
+                .iter()
+                .map(|v| ::buffa::types::int32_encoded_len(v.to_i32()) as u64)
+                .sum::<u64>();
+            size += 1u64 + ::buffa::encoding::varint_len(payload) as u64 + payload;
+        }
+        if self.traversal.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.traversal.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.max_edges != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.max_edges) as u64;
+        }
+        {
+            let val = self.seed_match.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -8862,20 +9097,6 @@ impl ::buffa::Message for Related {
     ) {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
-        if self.seed.is_set() {
-            ::buffa::types::put_len_delimited_header(
-                1u32,
-                u64::from(__cache.consume_next()),
-                buf,
-            );
-            self.seed.write_to(__cache, buf);
-        }
-        {
-            let val = self.relation.to_i32();
-            if val != 0 {
-                ::buffa::types::put_int32_field(2u32, val, buf);
-            }
-        }
         {
             let val = self.direction.to_i32();
             if val != 0 {
@@ -8887,6 +9108,42 @@ impl ::buffa::Message for Related {
         }
         if self.max_nodes != 0u64 {
             ::buffa::types::put_uint64_field(5u32, self.max_nodes, buf);
+        }
+        for v in &self.seeds {
+            ::buffa::types::put_len_delimited_header(
+                6u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.relations.is_empty() {
+            let payload: u64 = self
+                .relations
+                .iter()
+                .map(|v| ::buffa::types::int32_encoded_len(v.to_i32()) as u64)
+                .sum::<u64>();
+            ::buffa::types::put_len_delimited_header(7u32, payload, buf);
+            for v in &self.relations {
+                ::buffa::types::encode_int32(v.to_i32(), buf);
+            }
+        }
+        if self.traversal.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                8u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.traversal.write_to(__cache, buf);
+        }
+        if self.max_edges != 0u64 {
+            ::buffa::types::put_uint64_field(9u32, self.max_edges, buf);
+        }
+        {
+            let val = self.seed_match.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(10u32, val, buf);
+            }
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -8901,26 +9158,6 @@ impl ::buffa::Message for Related {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::Message::merge_length_delimited(
-                    self.seed.get_or_insert_default(),
-                    buf,
-                    ctx,
-                )?;
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::Varint,
-                )?;
-                self.relation = ::buffa::EnumValue::from(
-                    ::buffa::types::decode_int32(buf)?,
-                );
-            }
             3u32 => {
                 ::buffa::encoding::check_wire_type(
                     tag,
@@ -8944,6 +9181,83 @@ impl ::buffa::Message for Related {
                 )?;
                 self.max_nodes = ::buffa::types::decode_uint64(buf)?;
             }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.seeds.push(elem);
+            }
+            7u32 => {
+                if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
+                    let len = ::buffa::encoding::decode_varint(buf)?;
+                    let len = usize::try_from(len)
+                        .map_err(|_| ::buffa::DecodeError::MessageTooLarge)?;
+                    if buf.remaining() < len {
+                        return ::core::result::Result::Err(
+                            ::buffa::DecodeError::UnexpectedEof,
+                        );
+                    }
+                    self.relations.reserve(len);
+                    let mut limited = buf.take(len);
+                    while limited.has_remaining() {
+                        self.relations
+                            .push(
+                                ::buffa::EnumValue::from(
+                                    ::buffa::types::decode_int32_packed(&mut limited)?,
+                                ),
+                            );
+                    }
+                    let leftover = limited.remaining();
+                    if leftover > 0 {
+                        limited.advance(leftover);
+                    }
+                } else if tag.wire_type() == ::buffa::encoding::WireType::Varint {
+                    self.relations
+                        .push(
+                            ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?),
+                        );
+                } else {
+                    return ::core::result::Result::Err(
+                        ::buffa::encoding::wire_type_mismatch(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        ),
+                    );
+                }
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.traversal.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.max_edges = ::buffa::types::decode_uint64(buf)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.seed_match = ::buffa::EnumValue::from(
+                    ::buffa::types::decode_int32(buf)?,
+                );
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -8952,11 +9266,14 @@ impl ::buffa::Message for Related {
         ::core::result::Result::Ok(())
     }
     fn clear(&mut self) {
-        self.seed = ::buffa::MessageField::none();
-        self.relation = ::buffa::EnumValue::from(0);
         self.direction = ::buffa::EnumValue::from(0);
         self.depth = 0u64;
         self.max_nodes = 0u64;
+        self.seeds.clear();
+        self.relations.clear();
+        self.traversal = ::buffa::MessageField::none();
+        self.max_edges = 0u64;
+        self.seed_match = ::buffa::EnumValue::from(0);
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -8976,17 +9293,6 @@ impl ::buffa::text::TextFormat for Related {
     ) -> ::core::fmt::Result {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
-        if self.seed.is_set() {
-            enc.write_field_name("seed")?;
-            enc.write_message(&*self.seed)?;
-        }
-        if self.relation.to_i32() != 0 {
-            enc.write_field_name("relation")?;
-            match &self.relation {
-                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
-                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
-            }
-        }
         if self.direction.to_i32() != 0 {
             enc.write_field_name("direction")?;
             match &self.direction {
@@ -9002,6 +9308,32 @@ impl ::buffa::text::TextFormat for Related {
             enc.write_field_name("max_nodes")?;
             enc.write_u64(self.max_nodes)?;
         }
+        if self.traversal.is_set() {
+            enc.write_field_name("traversal")?;
+            enc.write_message(&*self.traversal)?;
+        }
+        if self.max_edges != 0u64 {
+            enc.write_field_name("max_edges")?;
+            enc.write_u64(self.max_edges)?;
+        }
+        if self.seed_match.to_i32() != 0 {
+            enc.write_field_name("seed_match")?;
+            match &self.seed_match {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        for __v in &self.seeds {
+            enc.write_field_name("seeds")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.relations {
+            enc.write_field_name("relations")?;
+            match __v {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
     }
@@ -9013,12 +9345,6 @@ impl ::buffa::text::TextFormat for Related {
         use ::buffa::Enumeration as _;
         while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
             match __name {
-                "seed" => dec.merge_message(self.seed.get_or_insert_default())?,
-                "relation" => {
-                    self.relation = dec
-                        .read_enum_by_name::<Relationship>()
-                        .map(::buffa::EnumValue::from)?;
-                }
                 "direction" => {
                     self.direction = dec
                         .read_enum_by_name::<Direction>()
@@ -9026,6 +9352,33 @@ impl ::buffa::text::TextFormat for Related {
                 }
                 "depth" => self.depth = dec.read_u64()?,
                 "max_nodes" => self.max_nodes = dec.read_u64()?,
+                "traversal" => dec.merge_message(self.traversal.get_or_insert_default())?,
+                "max_edges" => self.max_edges = dec.read_u64()?,
+                "seed_match" => {
+                    self.seed_match = dec
+                        .read_enum_by_name::<SeedMatch>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "seeds" => {
+                    dec.read_repeated_into(
+                        &mut self.seeds,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "relations" => {
+                    dec.read_repeated_into(
+                        &mut self.relations,
+                        |__d| {
+                            __d
+                                .read_enum_by_name::<Relationship>()
+                                .map(::buffa::EnumValue::from)
+                        },
+                    )?
+                }
                 _ => dec.skip_value()?,
             }
         }
@@ -21917,6 +22270,660 @@ pub mod native_workspace_query {
     }
 }
 #[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphQuery {
+    /// Field 1: `seeds`
+    #[serde(
+        rename = "seeds",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub seeds: ::buffa::alloc::vec::Vec<NativeQuery>,
+    /// Field 2: `relations`
+    #[serde(
+        rename = "relations",
+        with = "::buffa::json_helpers::repeated_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub relations: ::buffa::alloc::vec::Vec<::buffa::EnumValue<Relationship>>,
+    /// Field 3: `direction`
+    #[serde(
+        rename = "direction",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub direction: ::buffa::EnumValue<Direction>,
+    /// Field 4: `traversal_paths`
+    #[serde(
+        rename = "traversalPaths",
+        alias = "traversal_paths",
+        with = "::buffa::json_helpers::proto_seq",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub traversal_paths: ::buffa::alloc::vec::Vec<::buffa::alloc::vec::Vec<u8>>,
+    /// Field 5: `output_paths`
+    #[serde(
+        rename = "outputPaths",
+        alias = "output_paths",
+        with = "::buffa::json_helpers::proto_seq",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub output_paths: ::buffa::alloc::vec::Vec<::buffa::alloc::vec::Vec<u8>>,
+    /// Field 6: `depth`
+    #[serde(
+        rename = "depth",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub depth: u64,
+    /// Field 7: `max_nodes`
+    #[serde(
+        rename = "maxNodes",
+        alias = "max_nodes",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub max_nodes: u64,
+    /// Field 8: `max_edges`
+    #[serde(
+        rename = "maxEdges",
+        alias = "max_edges",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub max_edges: u64,
+    /// Field 9: `seed_match`
+    #[serde(
+        rename = "seedMatch",
+        alias = "seed_match",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub seed_match: ::buffa::EnumValue<SeedMatch>,
+    /// Field 10: `exists`
+    #[serde(
+        rename = "exists",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub exists: bool,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphQuery {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphQuery")
+            .field("seeds", &self.seeds)
+            .field("relations", &self.relations)
+            .field("direction", &self.direction)
+            .field("traversal_paths", &self.traversal_paths)
+            .field("output_paths", &self.output_paths)
+            .field("depth", &self.depth)
+            .field("max_nodes", &self.max_nodes)
+            .field("max_edges", &self.max_edges)
+            .field("seed_match", &self.seed_match)
+            .field("exists", &self.exists)
+            .finish()
+    }
+}
+impl NativeGraphQuery {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphQuery";
+}
+::buffa::impl_default_instance!(NativeGraphQuery);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphQuery {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.seeds),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.relations),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::EnumNumber(
+                    self.direction.to_i32(),
+                )
+            }
+            4u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.traversal_paths),
+            5u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.output_paths),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.depth),
+            7u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.max_nodes),
+            8u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.max_edges),
+            9u32 => {
+                ::buffa_descriptor::reflect::ValueRef::EnumNumber(
+                    self.seed_match.to_i32(),
+                )
+            }
+            10u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.exists),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.seeds.is_empty(),
+            2u32 => !self.relations.is_empty(),
+            3u32 => self.direction.to_i32() != 0,
+            4u32 => !self.traversal_paths.is_empty(),
+            5u32 => !self.output_paths.is_empty(),
+            6u32 => self.depth != 0,
+            7u32 => self.max_nodes != 0,
+            8u32 => self.max_edges != 0,
+            9u32 => self.seed_match.to_i32() != 0,
+            10u32 => self.exists,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphQuery {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphQuery {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphQuery {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphQuery {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphQuery";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphQuery";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphQuery";
+}
+impl ::buffa::Message for NativeGraphQuery {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.seeds {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.relations.is_empty() {
+            let payload: u64 = self
+                .relations
+                .iter()
+                .map(|v| ::buffa::types::int32_encoded_len(v.to_i32()) as u64)
+                .sum::<u64>();
+            size += 1u64 + ::buffa::encoding::varint_len(payload) as u64 + payload;
+        }
+        {
+            let val = self.direction.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
+        for v in &self.traversal_paths {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+        }
+        for v in &self.output_paths {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+        }
+        if self.depth != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.depth) as u64;
+        }
+        if self.max_nodes != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.max_nodes) as u64;
+        }
+        if self.max_edges != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.max_edges) as u64;
+        }
+        {
+            let val = self.seed_match.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
+        if self.exists {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        for v in &self.seeds {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.relations.is_empty() {
+            let payload: u64 = self
+                .relations
+                .iter()
+                .map(|v| ::buffa::types::int32_encoded_len(v.to_i32()) as u64)
+                .sum::<u64>();
+            ::buffa::types::put_len_delimited_header(2u32, payload, buf);
+            for v in &self.relations {
+                ::buffa::types::encode_int32(v.to_i32(), buf);
+            }
+        }
+        {
+            let val = self.direction.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(3u32, val, buf);
+            }
+        }
+        for v in &self.traversal_paths {
+            ::buffa::types::put_shared_bytes_field(4u32, v, buf);
+        }
+        for v in &self.output_paths {
+            ::buffa::types::put_shared_bytes_field(5u32, v, buf);
+        }
+        if self.depth != 0u64 {
+            ::buffa::types::put_uint64_field(6u32, self.depth, buf);
+        }
+        if self.max_nodes != 0u64 {
+            ::buffa::types::put_uint64_field(7u32, self.max_nodes, buf);
+        }
+        if self.max_edges != 0u64 {
+            ::buffa::types::put_uint64_field(8u32, self.max_edges, buf);
+        }
+        {
+            let val = self.seed_match.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(9u32, val, buf);
+            }
+        }
+        if self.exists {
+            ::buffa::types::put_bool_field(10u32, self.exists, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.seeds.push(elem);
+            }
+            2u32 => {
+                if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
+                    let len = ::buffa::encoding::decode_varint(buf)?;
+                    let len = usize::try_from(len)
+                        .map_err(|_| ::buffa::DecodeError::MessageTooLarge)?;
+                    if buf.remaining() < len {
+                        return ::core::result::Result::Err(
+                            ::buffa::DecodeError::UnexpectedEof,
+                        );
+                    }
+                    self.relations.reserve(len);
+                    let mut limited = buf.take(len);
+                    while limited.has_remaining() {
+                        self.relations
+                            .push(
+                                ::buffa::EnumValue::from(
+                                    ::buffa::types::decode_int32_packed(&mut limited)?,
+                                ),
+                            );
+                    }
+                    let leftover = limited.remaining();
+                    if leftover > 0 {
+                        limited.advance(leftover);
+                    }
+                } else if tag.wire_type() == ::buffa::encoding::WireType::Varint {
+                    self.relations
+                        .push(
+                            ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?),
+                        );
+                } else {
+                    return ::core::result::Result::Err(
+                        ::buffa::encoding::wire_type_mismatch(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        ),
+                    );
+                }
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.direction = ::buffa::EnumValue::from(
+                    ::buffa::types::decode_int32(buf)?,
+                );
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_bytes(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.traversal_paths.push(__elem);
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_bytes(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.output_paths.push(__elem);
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.depth = ::buffa::types::decode_uint64(buf)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.max_nodes = ::buffa::types::decode_uint64(buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.max_edges = ::buffa::types::decode_uint64(buf)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.seed_match = ::buffa::EnumValue::from(
+                    ::buffa::types::decode_int32(buf)?,
+                );
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.exists = ::buffa::types::decode_bool(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.seeds.clear();
+        self.relations.clear();
+        self.direction = ::buffa::EnumValue::from(0);
+        self.traversal_paths.clear();
+        self.output_paths.clear();
+        self.depth = 0u64;
+        self.max_nodes = 0u64;
+        self.max_edges = 0u64;
+        self.seed_match = ::buffa::EnumValue::from(0);
+        self.exists = false;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphQuery {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphQuery";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphQuery {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.direction.to_i32() != 0 {
+            enc.write_field_name("direction")?;
+            match &self.direction {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        if self.depth != 0u64 {
+            enc.write_field_name("depth")?;
+            enc.write_u64(self.depth)?;
+        }
+        if self.max_nodes != 0u64 {
+            enc.write_field_name("max_nodes")?;
+            enc.write_u64(self.max_nodes)?;
+        }
+        if self.max_edges != 0u64 {
+            enc.write_field_name("max_edges")?;
+            enc.write_u64(self.max_edges)?;
+        }
+        if self.seed_match.to_i32() != 0 {
+            enc.write_field_name("seed_match")?;
+            match &self.seed_match {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        if self.exists {
+            enc.write_field_name("exists")?;
+            enc.write_bool(self.exists)?;
+        }
+        for __v in &self.seeds {
+            enc.write_field_name("seeds")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.relations {
+            enc.write_field_name("relations")?;
+            match __v {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        for __v in &self.traversal_paths {
+            enc.write_field_name("traversal_paths")?;
+            enc.write_bytes(__v)?;
+        }
+        for __v in &self.output_paths {
+            enc.write_field_name("output_paths")?;
+            enc.write_bytes(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "direction" => {
+                    self.direction = dec
+                        .read_enum_by_name::<Direction>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "depth" => self.depth = dec.read_u64()?,
+                "max_nodes" => self.max_nodes = dec.read_u64()?,
+                "max_edges" => self.max_edges = dec.read_u64()?,
+                "seed_match" => {
+                    self.seed_match = dec
+                        .read_enum_by_name::<SeedMatch>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "exists" => self.exists = dec.read_bool()?,
+                "seeds" => {
+                    dec.read_repeated_into(
+                        &mut self.seeds,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "relations" => {
+                    dec.read_repeated_into(
+                        &mut self.relations,
+                        |__d| {
+                            __d
+                                .read_enum_by_name::<Relationship>()
+                                .map(::buffa::EnumValue::from)
+                        },
+                    )?
+                }
+                "traversal_paths" => {
+                    dec.read_repeated_into(
+                        &mut self.traversal_paths,
+                        |__d| __d.read_bytes(),
+                    )?
+                }
+                "output_paths" => {
+                    dec.read_repeated_into(
+                        &mut self.output_paths,
+                        |__d| __d.read_bytes(),
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphQuery {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_QUERY_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphQuery",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphQuery>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphQuery>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_QUERY_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphQuery",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphQuery>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphQuery>,
+};
+#[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize)]
 #[serde(default)]
 pub struct NativeRequest {
@@ -21993,6 +23000,24 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeRequest {
                     }
                 }
             }
+            3u32 => {
+                match &self.operation {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::native_request::Operation::Graph(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <NativeGraphQuery as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -22015,6 +23040,12 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeRequest {
                 ::core::matches!(
                     & self.operation,
                     ::core::option::Option::Some(__buffa::oneof::native_request::Operation::Workspace(_))
+                )
+            }
+            3u32 => {
+                ::core::matches!(
+                    & self.operation,
+                    ::core::option::Option::Some(__buffa::oneof::native_request::Operation::Graph(_))
                 )
             }
             _ => false,
@@ -22113,6 +23144,14 @@ impl ::buffa::Message for NativeRequest {
                         += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
                             + inner as u64;
                 }
+                __buffa::oneof::native_request::Operation::Graph(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
             }
         }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
@@ -22138,6 +23177,14 @@ impl ::buffa::Message for NativeRequest {
                 __buffa::oneof::native_request::Operation::Workspace(x) => {
                     ::buffa::types::put_len_delimited_header(
                         2u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::native_request::Operation::Graph(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
                         u64::from(__cache.consume_next()),
                         buf,
                     );
@@ -22200,6 +23247,26 @@ impl ::buffa::Message for NativeRequest {
                     );
                 }
             }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::native_request::Operation::Graph(ref mut existing),
+                ) = self.operation
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.operation = ::core::option::Option::Some(
+                        __buffa::oneof::native_request::Operation::Graph(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -22236,6 +23303,10 @@ impl ::buffa::text::TextFormat for NativeRequest {
                 }
                 __buffa::oneof::native_request::Operation::Workspace(__v) => {
                     enc.write_field_name("workspace")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::native_request::Operation::Graph(__v) => {
+                    enc.write_field_name("graph")?;
                     enc.write_message(&**__v)?;
                 }
             }
@@ -22282,6 +23353,24 @@ impl ::buffa::text::TextFormat for NativeRequest {
                         dec.merge_message(&mut __m)?;
                         self.operation = ::core::option::Option::Some(
                             __buffa::oneof::native_request::Operation::Workspace(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "graph" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::native_request::Operation::Graph(
+                            ref mut __existing,
+                        ),
+                    ) = self.operation
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.operation = ::core::option::Option::Some(
+                            __buffa::oneof::native_request::Operation::Graph(
                                 ::buffa::alloc::boxed::Box::new(__m),
                             ),
                         );
@@ -22359,6 +23448,30 @@ impl<'de> ::serde::Deserialize<'de> for NativeRequest {
                                 }
                                 __oneof_operation = Some(
                                     __buffa::oneof::native_request::Operation::Workspace(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "graph" => {
+                            let v: ::core::option::Option<NativeGraphQuery> = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            NativeGraphQuery,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_operation.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'operation'",
+                                        ),
+                                    );
+                                }
+                                __oneof_operation = Some(
+                                    __buffa::oneof::native_request::Operation::Graph(
                                         ::buffa::alloc::boxed::Box::new(v),
                                     ),
                                 );
@@ -46221,6 +47334,3790 @@ pub const __NATIVE_WORKSPACE_ANSWER_TEXT_ANY: ::buffa::type_registry::TextAnyEnt
     text_merge: ::buffa::type_registry::any_merge_text::<NativeWorkspaceAnswer>,
 };
 #[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphNode {
+    /// Field 1: `location`
+    #[serde(
+        rename = "location",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub location: ::buffa::MessageField<
+        NativeByteLocation,
+        ::buffa::Inline<NativeByteLocation>,
+    >,
+    /// Field 2: `name`
+    #[serde(rename = "name", skip_serializing_if = "::core::option::Option::is_none")]
+    pub name: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 3: `source_sha256`
+    #[serde(
+        rename = "sourceSha256",
+        alias = "source_sha256",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub source_sha256: ::buffa::alloc::string::String,
+    /// Field 4: `declaration`
+    #[serde(
+        rename = "declaration",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub declaration: bool,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphNode {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphNode")
+            .field("location", &self.location)
+            .field("name", &self.name)
+            .field("source_sha256", &self.source_sha256)
+            .field("declaration", &self.declaration)
+            .finish()
+    }
+}
+impl NativeGraphNode {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphNode";
+}
+impl NativeGraphNode {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::name`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_name(
+        mut self,
+        value: impl Into<::buffa::alloc::string::String>,
+    ) -> Self {
+        self.name = Some(value.into());
+        self
+    }
+}
+::buffa::impl_default_instance!(NativeGraphNode);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphNode {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.location),
+                )
+            }
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    self.name.as_deref().unwrap_or(""),
+                )
+            }
+            3u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.source_sha256),
+            4u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.declaration),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.location.is_set(),
+            2u32 => self.name.is_some(),
+            3u32 => !self.source_sha256.is_empty(),
+            4u32 => self.declaration,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphNode {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphNode {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphNode {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphNode {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphNode";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphNode";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphNode";
+}
+impl ::buffa::Message for NativeGraphNode {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.location.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.location.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if let Some(ref v) = self.name {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if !self.source_sha256.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.source_sha256) as u64;
+        }
+        if self.declaration {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.location.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.location.write_to(__cache, buf);
+        }
+        if let Some(ref v) = self.name {
+            ::buffa::types::put_string_field(2u32, v, buf);
+        }
+        if !self.source_sha256.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.source_sha256, buf);
+        }
+        if self.declaration {
+            ::buffa::types::put_bool_field(4u32, self.declaration, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.location.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(
+                    self.name.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.source_sha256, buf)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.declaration = ::buffa::types::decode_bool(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.location = ::buffa::MessageField::none();
+        self.name = ::core::option::Option::None;
+        self.source_sha256.clear();
+        self.declaration = false;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphNode {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphNode";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphNode {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.location.is_set() {
+            enc.write_field_name("location")?;
+            enc.write_message(&*self.location)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.name {
+            enc.write_field_name("name")?;
+            enc.write_string(__v)?;
+        }
+        if !self.source_sha256.is_empty() {
+            enc.write_field_name("source_sha256")?;
+            enc.write_string(&self.source_sha256)?;
+        }
+        if self.declaration {
+            enc.write_field_name("declaration")?;
+            enc.write_bool(self.declaration)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "location" => dec.merge_message(self.location.get_or_insert_default())?,
+                "name" => {
+                    self.name = ::core::option::Option::Some(
+                        dec.read_string()?.into_owned(),
+                    );
+                }
+                "source_sha256" => self.source_sha256 = dec.read_string()?.into_owned(),
+                "declaration" => self.declaration = dec.read_bool()?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphNode {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_NODE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphNode",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphNode>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphNode>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_NODE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphNode",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphNode>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphNode>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphRole {
+    /// Field 1: `kind`
+    #[serde(
+        rename = "kind",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub kind: ::buffa::EnumValue<native_graph_role::Kind>,
+    /// Field 2: `index`
+    #[serde(
+        rename = "index",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub index: ::core::option::Option<u64>,
+    /// Field 3: `name`
+    #[serde(rename = "name", skip_serializing_if = "::core::option::Option::is_none")]
+    pub name: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 4: `async_output`
+    #[serde(
+        rename = "asyncOutput",
+        alias = "async_output",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub async_output: ::core::option::Option<bool>,
+    /// Field 5: `read`
+    #[serde(rename = "read", skip_serializing_if = "::core::option::Option::is_none")]
+    pub read: ::core::option::Option<bool>,
+    /// Field 6: `write`
+    #[serde(rename = "write", skip_serializing_if = "::core::option::Option::is_none")]
+    pub write: ::core::option::Option<bool>,
+    /// Field 7: `import`
+    #[serde(rename = "import", skip_serializing_if = "::core::option::Option::is_none")]
+    pub import: ::core::option::Option<bool>,
+    /// Field 8: `test`
+    #[serde(rename = "test", skip_serializing_if = "::core::option::Option::is_none")]
+    pub test: ::core::option::Option<bool>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphRole {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphRole")
+            .field("kind", &self.kind)
+            .field("index", &self.index)
+            .field("name", &self.name)
+            .field("async_output", &self.async_output)
+            .field("read", &self.read)
+            .field("write", &self.write)
+            .field("import", &self.import)
+            .field("test", &self.test)
+            .finish()
+    }
+}
+impl NativeGraphRole {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphRole";
+}
+impl NativeGraphRole {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::index`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_index(mut self, value: u64) -> Self {
+        self.index = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::name`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_name(
+        mut self,
+        value: impl Into<::buffa::alloc::string::String>,
+    ) -> Self {
+        self.name = Some(value.into());
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::async_output`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_async_output(mut self, value: bool) -> Self {
+        self.async_output = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::read`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_read(mut self, value: bool) -> Self {
+        self.read = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::write`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_write(mut self, value: bool) -> Self {
+        self.write = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::import`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_import(mut self, value: bool) -> Self {
+        self.import = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::test`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_test(mut self, value: bool) -> Self {
+        self.test = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(NativeGraphRole);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphRole {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::EnumNumber(self.kind.to_i32()),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.index.unwrap_or(0)),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    self.name.as_deref().unwrap_or(""),
+                )
+            }
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(
+                    self.async_output.unwrap_or(false),
+                )
+            }
+            5u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(self.read.unwrap_or(false))
+            }
+            6u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(self.write.unwrap_or(false))
+            }
+            7u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(self.import.unwrap_or(false))
+            }
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(self.test.unwrap_or(false))
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.kind.to_i32() != 0,
+            2u32 => self.index.is_some(),
+            3u32 => self.name.is_some(),
+            4u32 => self.async_output.is_some(),
+            5u32 => self.read.is_some(),
+            6u32 => self.write.is_some(),
+            7u32 => self.import.is_some(),
+            8u32 => self.test.is_some(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphRole {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphRole {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphRole {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphRole {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphRole";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphRole";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphRole";
+}
+impl ::buffa::Message for NativeGraphRole {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        {
+            let val = self.kind.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
+        if let Some(v) = self.index {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(v) as u64;
+        }
+        if let Some(ref v) = self.name {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if self.async_output.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.read.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.write.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.import.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.test.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        {
+            let val = self.kind.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(1u32, val, buf);
+            }
+        }
+        if let Some(v) = self.index {
+            ::buffa::types::put_uint64_field(2u32, v, buf);
+        }
+        if let Some(ref v) = self.name {
+            ::buffa::types::put_string_field(3u32, v, buf);
+        }
+        if let Some(v) = self.async_output {
+            ::buffa::types::put_bool_field(4u32, v, buf);
+        }
+        if let Some(v) = self.read {
+            ::buffa::types::put_bool_field(5u32, v, buf);
+        }
+        if let Some(v) = self.write {
+            ::buffa::types::put_bool_field(6u32, v, buf);
+        }
+        if let Some(v) = self.import {
+            ::buffa::types::put_bool_field(7u32, v, buf);
+        }
+        if let Some(v) = self.test {
+            ::buffa::types::put_bool_field(8u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.kind = ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?);
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.index = ::core::option::Option::Some(
+                    ::buffa::types::decode_uint64(buf)?,
+                );
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(
+                    self.name.get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.async_output = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.read = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.write = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.import = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.test = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.kind = ::buffa::EnumValue::from(0);
+        self.index = ::core::option::Option::None;
+        self.name = ::core::option::Option::None;
+        self.async_output = ::core::option::Option::None;
+        self.read = ::core::option::Option::None;
+        self.write = ::core::option::Option::None;
+        self.import = ::core::option::Option::None;
+        self.test = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphRole {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphRole";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphRole {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.kind.to_i32() != 0 {
+            enc.write_field_name("kind")?;
+            match &self.kind {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        if let ::core::option::Option::Some(ref __v) = self.index {
+            enc.write_field_name("index")?;
+            enc.write_u64(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.name {
+            enc.write_field_name("name")?;
+            enc.write_string(__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.async_output {
+            enc.write_field_name("async_output")?;
+            enc.write_bool(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.read {
+            enc.write_field_name("read")?;
+            enc.write_bool(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.write {
+            enc.write_field_name("write")?;
+            enc.write_bool(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.import {
+            enc.write_field_name("import")?;
+            enc.write_bool(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.test {
+            enc.write_field_name("test")?;
+            enc.write_bool(*__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "kind" => {
+                    self.kind = dec
+                        .read_enum_by_name::<native_graph_role::Kind>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "index" => self.index = ::core::option::Option::Some(dec.read_u64()?),
+                "name" => {
+                    self.name = ::core::option::Option::Some(
+                        dec.read_string()?.into_owned(),
+                    );
+                }
+                "async_output" => {
+                    self.async_output = ::core::option::Option::Some(dec.read_bool()?);
+                }
+                "read" => self.read = ::core::option::Option::Some(dec.read_bool()?),
+                "write" => self.write = ::core::option::Option::Some(dec.read_bool()?),
+                "import" => self.import = ::core::option::Option::Some(dec.read_bool()?),
+                "test" => self.test = ::core::option::Option::Some(dec.read_bool()?),
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphRole {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_ROLE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphRole",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphRole>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphRole>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_ROLE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphRole",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphRole>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphRole>,
+};
+pub mod native_graph_role {
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    use super::*;
+    #[allow(non_camel_case_types, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[repr(i32)]
+    pub enum Kind {
+        CONTAINMENT = 0i32,
+        PARAMETER = 1i32,
+        RETURN = 2i32,
+        FIELD = 3i32,
+        REFERENCE = 4i32,
+        NAVIGATION = 5i32,
+    }
+    impl Kind {
+        ///Idiomatic alias for [`Self::CONTAINMENT`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Containment: Self = Self::CONTAINMENT;
+        ///Idiomatic alias for [`Self::PARAMETER`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Parameter: Self = Self::PARAMETER;
+        ///Idiomatic alias for [`Self::RETURN`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Return: Self = Self::RETURN;
+        ///Idiomatic alias for [`Self::FIELD`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Field: Self = Self::FIELD;
+        ///Idiomatic alias for [`Self::REFERENCE`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Reference: Self = Self::REFERENCE;
+        ///Idiomatic alias for [`Self::NAVIGATION`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Navigation: Self = Self::NAVIGATION;
+    }
+    impl ::core::default::Default for Kind {
+        fn default() -> Self {
+            Self::CONTAINMENT
+        }
+    }
+    impl ::serde::Serialize for Kind {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            s.serialize_str(::buffa::Enumeration::proto_name(self))
+        }
+    }
+    impl<'de> ::serde::Deserialize<'de> for Kind {
+        fn deserialize<D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            struct _V;
+            impl ::serde::de::Visitor<'_> for _V {
+                type Value = Kind;
+                fn expecting(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.write_str(
+                        concat!("a string, integer, or null for ", stringify!(Kind)),
+                    )
+                }
+                fn visit_str<E: ::serde::de::Error>(
+                    self,
+                    v: &str,
+                ) -> ::core::result::Result<Kind, E> {
+                    <Kind as ::buffa::Enumeration>::from_proto_name(v)
+                        .ok_or_else(|| { ::serde::de::Error::unknown_variant(v, &[]) })
+                }
+                fn visit_i64<E: ::serde::de::Error>(
+                    self,
+                    v: i64,
+                ) -> ::core::result::Result<Kind, E> {
+                    let v32 = i32::try_from(v)
+                        .map_err(|_| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("enum value {v} out of i32 range"),
+                            )
+                        })?;
+                    <Kind as ::buffa::Enumeration>::from_i32(v32)
+                        .ok_or_else(|| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("unknown enum value {v32}"),
+                            )
+                        })
+                }
+                fn visit_u64<E: ::serde::de::Error>(
+                    self,
+                    v: u64,
+                ) -> ::core::result::Result<Kind, E> {
+                    let v32 = i32::try_from(v)
+                        .map_err(|_| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("enum value {v} out of i32 range"),
+                            )
+                        })?;
+                    <Kind as ::buffa::Enumeration>::from_i32(v32)
+                        .ok_or_else(|| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("unknown enum value {v32}"),
+                            )
+                        })
+                }
+                fn visit_unit<E: ::serde::de::Error>(
+                    self,
+                ) -> ::core::result::Result<Kind, E> {
+                    ::core::result::Result::Ok(::core::default::Default::default())
+                }
+            }
+            d.deserialize_any(_V)
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Kind {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    impl ::buffa::Enumeration for Kind {
+        fn from_i32(value: i32) -> ::core::option::Option<Self> {
+            match value {
+                0i32 => ::core::option::Option::Some(Self::CONTAINMENT),
+                1i32 => ::core::option::Option::Some(Self::PARAMETER),
+                2i32 => ::core::option::Option::Some(Self::RETURN),
+                3i32 => ::core::option::Option::Some(Self::FIELD),
+                4i32 => ::core::option::Option::Some(Self::REFERENCE),
+                5i32 => ::core::option::Option::Some(Self::NAVIGATION),
+                _ => ::core::option::Option::None,
+            }
+        }
+        fn to_i32(&self) -> i32 {
+            *self as i32
+        }
+        fn proto_name(&self) -> &'static str {
+            match self {
+                Self::CONTAINMENT => "CONTAINMENT",
+                Self::PARAMETER => "PARAMETER",
+                Self::RETURN => "RETURN",
+                Self::FIELD => "FIELD",
+                Self::REFERENCE => "REFERENCE",
+                Self::NAVIGATION => "NAVIGATION",
+            }
+        }
+        fn from_proto_name(name: &str) -> ::core::option::Option<Self> {
+            match name {
+                "CONTAINMENT" => ::core::option::Option::Some(Self::CONTAINMENT),
+                "PARAMETER" => ::core::option::Option::Some(Self::PARAMETER),
+                "RETURN" => ::core::option::Option::Some(Self::RETURN),
+                "FIELD" => ::core::option::Option::Some(Self::FIELD),
+                "REFERENCE" => ::core::option::Option::Some(Self::REFERENCE),
+                "NAVIGATION" => ::core::option::Option::Some(Self::NAVIGATION),
+                _ => ::core::option::Option::None,
+            }
+        }
+        fn values() -> &'static [Self] {
+            &[
+                Self::CONTAINMENT,
+                Self::PARAMETER,
+                Self::RETURN,
+                Self::FIELD,
+                Self::REFERENCE,
+                Self::NAVIGATION,
+            ]
+        }
+    }
+}
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphWitness {
+    /// Field 1: `location`
+    #[serde(
+        rename = "location",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub location: ::buffa::MessageField<
+        NativeByteLocation,
+        ::buffa::Inline<NativeByteLocation>,
+    >,
+    /// Field 2: `source_sha256`
+    #[serde(
+        rename = "sourceSha256",
+        alias = "source_sha256",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub source_sha256: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 3: `role`
+    #[serde(
+        rename = "role",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub role: ::buffa::MessageField<NativeGraphRole, ::buffa::Inline<NativeGraphRole>>,
+    /// Field 4: `declared_type`
+    #[serde(
+        rename = "declaredType",
+        alias = "declared_type",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub declared_type: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 5: `instantiated_type`
+    #[serde(
+        rename = "instantiatedType",
+        alias = "instantiated_type",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub instantiated_type: ::core::option::Option<::buffa::alloc::string::String>,
+    /// Field 6: `limitations`
+    #[serde(
+        rename = "limitations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub limitations: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphWitness {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphWitness")
+            .field("location", &self.location)
+            .field("source_sha256", &self.source_sha256)
+            .field("role", &self.role)
+            .field("declared_type", &self.declared_type)
+            .field("instantiated_type", &self.instantiated_type)
+            .field("limitations", &self.limitations)
+            .finish()
+    }
+}
+impl NativeGraphWitness {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphWitness";
+}
+impl NativeGraphWitness {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::source_sha256`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_source_sha256(
+        mut self,
+        value: impl Into<::buffa::alloc::string::String>,
+    ) -> Self {
+        self.source_sha256 = Some(value.into());
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::declared_type`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_declared_type(
+        mut self,
+        value: impl Into<::buffa::alloc::string::String>,
+    ) -> Self {
+        self.declared_type = Some(value.into());
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::instantiated_type`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_instantiated_type(
+        mut self,
+        value: impl Into<::buffa::alloc::string::String>,
+    ) -> Self {
+        self.instantiated_type = Some(value.into());
+        self
+    }
+}
+::buffa::impl_default_instance!(NativeGraphWitness);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphWitness {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.location),
+                )
+            }
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    self.source_sha256.as_deref().unwrap_or(""),
+                )
+            }
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.role),
+                )
+            }
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    self.declared_type.as_deref().unwrap_or(""),
+                )
+            }
+            5u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    self.instantiated_type.as_deref().unwrap_or(""),
+                )
+            }
+            6u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.limitations),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.location.is_set(),
+            2u32 => self.source_sha256.is_some(),
+            3u32 => self.role.is_set(),
+            4u32 => self.declared_type.is_some(),
+            5u32 => self.instantiated_type.is_some(),
+            6u32 => !self.limitations.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphWitness {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphWitness {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphWitness {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphWitness {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphWitness";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphWitness";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphWitness";
+}
+impl ::buffa::Message for NativeGraphWitness {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.location.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.location.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if let Some(ref v) = self.source_sha256 {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if self.role.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.role.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if let Some(ref v) = self.declared_type {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        if let Some(ref v) = self.instantiated_type {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        for v in &self.limitations {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.location.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.location.write_to(__cache, buf);
+        }
+        if let Some(ref v) = self.source_sha256 {
+            ::buffa::types::put_string_field(2u32, v, buf);
+        }
+        if self.role.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.role.write_to(__cache, buf);
+        }
+        if let Some(ref v) = self.declared_type {
+            ::buffa::types::put_string_field(4u32, v, buf);
+        }
+        if let Some(ref v) = self.instantiated_type {
+            ::buffa::types::put_string_field(5u32, v, buf);
+        }
+        for v in &self.limitations {
+            ::buffa::types::put_string_field(6u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.location.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(
+                    self
+                        .source_sha256
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.role.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(
+                    self
+                        .declared_type
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(
+                    self
+                        .instantiated_type
+                        .get_or_insert_with(::buffa::alloc::string::String::new),
+                    buf,
+                )?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.limitations.push(__elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.location = ::buffa::MessageField::none();
+        self.source_sha256 = ::core::option::Option::None;
+        self.role = ::buffa::MessageField::none();
+        self.declared_type = ::core::option::Option::None;
+        self.instantiated_type = ::core::option::Option::None;
+        self.limitations.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphWitness {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphWitness";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphWitness {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.location.is_set() {
+            enc.write_field_name("location")?;
+            enc.write_message(&*self.location)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.source_sha256 {
+            enc.write_field_name("source_sha256")?;
+            enc.write_string(__v)?;
+        }
+        if self.role.is_set() {
+            enc.write_field_name("role")?;
+            enc.write_message(&*self.role)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.declared_type {
+            enc.write_field_name("declared_type")?;
+            enc.write_string(__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.instantiated_type {
+            enc.write_field_name("instantiated_type")?;
+            enc.write_string(__v)?;
+        }
+        for __v in &self.limitations {
+            enc.write_field_name("limitations")?;
+            enc.write_string(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "location" => dec.merge_message(self.location.get_or_insert_default())?,
+                "source_sha256" => {
+                    self.source_sha256 = ::core::option::Option::Some(
+                        dec.read_string()?.into_owned(),
+                    );
+                }
+                "role" => dec.merge_message(self.role.get_or_insert_default())?,
+                "declared_type" => {
+                    self.declared_type = ::core::option::Option::Some(
+                        dec.read_string()?.into_owned(),
+                    );
+                }
+                "instantiated_type" => {
+                    self.instantiated_type = ::core::option::Option::Some(
+                        dec.read_string()?.into_owned(),
+                    );
+                }
+                "limitations" => {
+                    dec.read_repeated_into(
+                        &mut self.limitations,
+                        |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphWitness {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_WITNESS_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphWitness",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphWitness>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphWitness>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_WITNESS_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphWitness",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphWitness>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphWitness>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphEdge {
+    /// Field 1: `source`
+    #[serde(
+        rename = "source",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub source: u64,
+    /// Field 2: `target`
+    #[serde(
+        rename = "target",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub target: u64,
+    /// Field 3: `relation`
+    #[serde(
+        rename = "relation",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub relation: ::buffa::EnumValue<Relationship>,
+    /// Field 4: `witness`
+    #[serde(
+        rename = "witness",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub witness: u64,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphEdge {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphEdge")
+            .field("source", &self.source)
+            .field("target", &self.target)
+            .field("relation", &self.relation)
+            .field("witness", &self.witness)
+            .finish()
+    }
+}
+impl NativeGraphEdge {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphEdge";
+}
+::buffa::impl_default_instance!(NativeGraphEdge);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphEdge {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.source),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.target),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::EnumNumber(self.relation.to_i32())
+            }
+            4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.witness),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.source != 0,
+            2u32 => self.target != 0,
+            3u32 => self.relation.to_i32() != 0,
+            4u32 => self.witness != 0,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphEdge {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphEdge {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphEdge {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphEdge {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphEdge";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphEdge";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphEdge";
+}
+impl ::buffa::Message for NativeGraphEdge {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.source != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.source) as u64;
+        }
+        if self.target != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.target) as u64;
+        }
+        {
+            let val = self.relation.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
+        if self.witness != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.witness) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.source != 0u64 {
+            ::buffa::types::put_uint64_field(1u32, self.source, buf);
+        }
+        if self.target != 0u64 {
+            ::buffa::types::put_uint64_field(2u32, self.target, buf);
+        }
+        {
+            let val = self.relation.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(3u32, val, buf);
+            }
+        }
+        if self.witness != 0u64 {
+            ::buffa::types::put_uint64_field(4u32, self.witness, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.source = ::buffa::types::decode_uint64(buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.target = ::buffa::types::decode_uint64(buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.relation = ::buffa::EnumValue::from(
+                    ::buffa::types::decode_int32(buf)?,
+                );
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.witness = ::buffa::types::decode_uint64(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.source = 0u64;
+        self.target = 0u64;
+        self.relation = ::buffa::EnumValue::from(0);
+        self.witness = 0u64;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphEdge {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphEdge";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphEdge {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.source != 0u64 {
+            enc.write_field_name("source")?;
+            enc.write_u64(self.source)?;
+        }
+        if self.target != 0u64 {
+            enc.write_field_name("target")?;
+            enc.write_u64(self.target)?;
+        }
+        if self.relation.to_i32() != 0 {
+            enc.write_field_name("relation")?;
+            match &self.relation {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        if self.witness != 0u64 {
+            enc.write_field_name("witness")?;
+            enc.write_u64(self.witness)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "source" => self.source = dec.read_u64()?,
+                "target" => self.target = dec.read_u64()?,
+                "relation" => {
+                    self.relation = dec
+                        .read_enum_by_name::<Relationship>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "witness" => self.witness = dec.read_u64()?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphEdge {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_EDGE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphEdge",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphEdge>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphEdge>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_EDGE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphEdge",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphEdge>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphEdge>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphDistance {
+    /// Field 1: `distance`
+    #[serde(
+        rename = "distance",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub distance: ::core::option::Option<u64>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphDistance {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphDistance").field("distance", &self.distance).finish()
+    }
+}
+impl NativeGraphDistance {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphDistance";
+}
+impl NativeGraphDistance {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::distance`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_distance(mut self, value: u64) -> Self {
+        self.distance = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(NativeGraphDistance);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphDistance {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U64(self.distance.unwrap_or(0))
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.distance.is_some(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphDistance {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphDistance {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphDistance {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphDistance {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphDistance";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphDistance";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphDistance";
+}
+impl ::buffa::Message for NativeGraphDistance {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if let Some(v) = self.distance {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let Some(v) = self.distance {
+            ::buffa::types::put_uint64_field(1u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.distance = ::core::option::Option::Some(
+                    ::buffa::types::decode_uint64(buf)?,
+                );
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.distance = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphDistance {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphDistance";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphDistance {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref __v) = self.distance {
+            enc.write_field_name("distance")?;
+            enc.write_u64(*__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "distance" => {
+                    self.distance = ::core::option::Option::Some(dec.read_u64()?);
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphDistance {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_DISTANCE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphDistance",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphDistance>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphDistance>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_DISTANCE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphDistance",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphDistance>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphDistance>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphReached {
+    /// Field 1: `node`
+    #[serde(
+        rename = "node",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub node: u64,
+    /// Field 2: `distances`
+    #[serde(
+        rename = "distances",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub distances: ::buffa::alloc::vec::Vec<NativeGraphDistance>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphReached {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphReached")
+            .field("node", &self.node)
+            .field("distances", &self.distances)
+            .finish()
+    }
+}
+impl NativeGraphReached {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphReached";
+}
+::buffa::impl_default_instance!(NativeGraphReached);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphReached {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.node),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.distances),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.node != 0,
+            2u32 => !self.distances.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphReached {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphReached {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphReached {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphReached {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphReached";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphReached";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphReached";
+}
+impl ::buffa::Message for NativeGraphReached {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.node != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.node) as u64;
+        }
+        for v in &self.distances {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.node != 0u64 {
+            ::buffa::types::put_uint64_field(1u32, self.node, buf);
+        }
+        for v in &self.distances {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.node = ::buffa::types::decode_uint64(buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.distances.push(elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.node = 0u64;
+        self.distances.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphReached {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphReached";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphReached {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.node != 0u64 {
+            enc.write_field_name("node")?;
+            enc.write_u64(self.node)?;
+        }
+        for __v in &self.distances {
+            enc.write_field_name("distances")?;
+            enc.write_message(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "node" => self.node = dec.read_u64()?,
+                "distances" => {
+                    dec.read_repeated_into(
+                        &mut self.distances,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphReached {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_REACHED_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphReached",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphReached>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphReached>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_REACHED_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphReached",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphReached>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphReached>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphTraversal {
+    /// Field 1: `reached`
+    #[serde(
+        rename = "reached",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub reached: ::buffa::alloc::vec::Vec<NativeGraphReached>,
+    /// Field 2: `selected`
+    #[serde(
+        rename = "selected",
+        with = "::buffa::json_helpers::proto_seq",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub selected: ::buffa::alloc::vec::Vec<u64>,
+    /// Field 3: `edges`
+    #[serde(
+        rename = "edges",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub edges: ::buffa::alloc::vec::Vec<NativeGraphEdge>,
+    /// Field 4: `frontier`
+    #[serde(
+        rename = "frontier",
+        with = "::buffa::json_helpers::proto_seq",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub frontier: ::buffa::alloc::vec::Vec<u64>,
+    /// Field 5: `complete`
+    #[serde(
+        rename = "complete",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub complete: bool,
+    /// Field 6: `stop`
+    #[serde(
+        rename = "stop",
+        with = "::buffa::json_helpers::proto_enum",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_default_enum_value"
+    )]
+    pub stop: ::buffa::EnumValue<native_graph_traversal::Stop>,
+    /// Field 7: `examined_edges`
+    #[serde(
+        rename = "examinedEdges",
+        alias = "examined_edges",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub examined_edges: u64,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphTraversal {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphTraversal")
+            .field("reached", &self.reached)
+            .field("selected", &self.selected)
+            .field("edges", &self.edges)
+            .field("frontier", &self.frontier)
+            .field("complete", &self.complete)
+            .field("stop", &self.stop)
+            .field("examined_edges", &self.examined_edges)
+            .finish()
+    }
+}
+impl NativeGraphTraversal {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphTraversal";
+}
+::buffa::impl_default_instance!(NativeGraphTraversal);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphTraversal {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.reached),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.selected),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.edges),
+            4u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.frontier),
+            5u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.complete),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::EnumNumber(self.stop.to_i32()),
+            7u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.examined_edges),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.reached.is_empty(),
+            2u32 => !self.selected.is_empty(),
+            3u32 => !self.edges.is_empty(),
+            4u32 => !self.frontier.is_empty(),
+            5u32 => self.complete,
+            6u32 => self.stop.to_i32() != 0,
+            7u32 => self.examined_edges != 0,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphTraversal {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphTraversal {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphTraversal {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphTraversal {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphTraversal";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphTraversal";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphTraversal";
+}
+impl ::buffa::Message for NativeGraphTraversal {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.reached {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.selected.is_empty() {
+            let payload: u64 = self
+                .selected
+                .iter()
+                .map(|&v| ::buffa::types::uint64_encoded_len(v) as u64)
+                .sum::<u64>();
+            size += 1u64 + ::buffa::encoding::varint_len(payload) as u64 + payload;
+        }
+        for v in &self.edges {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.frontier.is_empty() {
+            let payload: u64 = self
+                .frontier
+                .iter()
+                .map(|&v| ::buffa::types::uint64_encoded_len(v) as u64)
+                .sum::<u64>();
+            size += 1u64 + ::buffa::encoding::varint_len(payload) as u64 + payload;
+        }
+        if self.complete {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        {
+            let val = self.stop.to_i32();
+            if val != 0 {
+                size += 1u64 + ::buffa::types::int32_encoded_len(val) as u64;
+            }
+        }
+        if self.examined_edges != 0u64 {
+            size
+                += 1u64 + ::buffa::types::uint64_encoded_len(self.examined_edges) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        for v in &self.reached {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.selected.is_empty() {
+            let payload: u64 = self
+                .selected
+                .iter()
+                .map(|&v| ::buffa::types::uint64_encoded_len(v) as u64)
+                .sum::<u64>();
+            ::buffa::types::put_len_delimited_header(2u32, payload, buf);
+            for &v in &self.selected {
+                ::buffa::types::encode_uint64(v, buf);
+            }
+        }
+        for v in &self.edges {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.frontier.is_empty() {
+            let payload: u64 = self
+                .frontier
+                .iter()
+                .map(|&v| ::buffa::types::uint64_encoded_len(v) as u64)
+                .sum::<u64>();
+            ::buffa::types::put_len_delimited_header(4u32, payload, buf);
+            for &v in &self.frontier {
+                ::buffa::types::encode_uint64(v, buf);
+            }
+        }
+        if self.complete {
+            ::buffa::types::put_bool_field(5u32, self.complete, buf);
+        }
+        {
+            let val = self.stop.to_i32();
+            if val != 0 {
+                ::buffa::types::put_int32_field(6u32, val, buf);
+            }
+        }
+        if self.examined_edges != 0u64 {
+            ::buffa::types::put_uint64_field(7u32, self.examined_edges, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.reached.push(elem);
+            }
+            2u32 => {
+                if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
+                    let len = ::buffa::encoding::decode_varint(buf)?;
+                    let len = usize::try_from(len)
+                        .map_err(|_| ::buffa::DecodeError::MessageTooLarge)?;
+                    if buf.remaining() < len {
+                        return ::core::result::Result::Err(
+                            ::buffa::DecodeError::UnexpectedEof,
+                        );
+                    }
+                    if buf.chunk().len() >= len {
+                        ::buffa::types::extend_packed_uint64(
+                            &buf.chunk()[..len],
+                            &mut self.selected,
+                            len,
+                        )?;
+                        buf.advance(len);
+                    } else {
+                        self.selected.reserve(len);
+                        let mut limited = buf.take(len);
+                        while limited.has_remaining() {
+                            self.selected
+                                .push(::buffa::types::decode_uint64_packed(&mut limited)?);
+                        }
+                        let leftover = limited.remaining();
+                        if leftover > 0 {
+                            limited.advance(leftover);
+                        }
+                    }
+                } else if tag.wire_type() == ::buffa::encoding::WireType::Varint {
+                    self.selected.push(::buffa::types::decode_uint64(buf)?);
+                } else {
+                    return ::core::result::Result::Err(
+                        ::buffa::encoding::wire_type_mismatch(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        ),
+                    );
+                }
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.edges.push(elem);
+            }
+            4u32 => {
+                if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
+                    let len = ::buffa::encoding::decode_varint(buf)?;
+                    let len = usize::try_from(len)
+                        .map_err(|_| ::buffa::DecodeError::MessageTooLarge)?;
+                    if buf.remaining() < len {
+                        return ::core::result::Result::Err(
+                            ::buffa::DecodeError::UnexpectedEof,
+                        );
+                    }
+                    if buf.chunk().len() >= len {
+                        ::buffa::types::extend_packed_uint64(
+                            &buf.chunk()[..len],
+                            &mut self.frontier,
+                            len,
+                        )?;
+                        buf.advance(len);
+                    } else {
+                        self.frontier.reserve(len);
+                        let mut limited = buf.take(len);
+                        while limited.has_remaining() {
+                            self.frontier
+                                .push(::buffa::types::decode_uint64_packed(&mut limited)?);
+                        }
+                        let leftover = limited.remaining();
+                        if leftover > 0 {
+                            limited.advance(leftover);
+                        }
+                    }
+                } else if tag.wire_type() == ::buffa::encoding::WireType::Varint {
+                    self.frontier.push(::buffa::types::decode_uint64(buf)?);
+                } else {
+                    return ::core::result::Result::Err(
+                        ::buffa::encoding::wire_type_mismatch(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        ),
+                    );
+                }
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.complete = ::buffa::types::decode_bool(buf)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.stop = ::buffa::EnumValue::from(::buffa::types::decode_int32(buf)?);
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.examined_edges = ::buffa::types::decode_uint64(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.reached.clear();
+        self.selected.clear();
+        self.edges.clear();
+        self.frontier.clear();
+        self.complete = false;
+        self.stop = ::buffa::EnumValue::from(0);
+        self.examined_edges = 0u64;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphTraversal {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphTraversal";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphTraversal {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.complete {
+            enc.write_field_name("complete")?;
+            enc.write_bool(self.complete)?;
+        }
+        if self.stop.to_i32() != 0 {
+            enc.write_field_name("stop")?;
+            match &self.stop {
+                ::buffa::EnumValue::Known(__e) => enc.write_enum_name(__e.proto_name())?,
+                ::buffa::EnumValue::Unknown(__n) => enc.write_enum_number(*__n)?,
+            }
+        }
+        if self.examined_edges != 0u64 {
+            enc.write_field_name("examined_edges")?;
+            enc.write_u64(self.examined_edges)?;
+        }
+        for __v in &self.reached {
+            enc.write_field_name("reached")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.selected {
+            enc.write_field_name("selected")?;
+            enc.write_u64(*__v)?;
+        }
+        for __v in &self.edges {
+            enc.write_field_name("edges")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.frontier {
+            enc.write_field_name("frontier")?;
+            enc.write_u64(*__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "complete" => self.complete = dec.read_bool()?,
+                "stop" => {
+                    self.stop = dec
+                        .read_enum_by_name::<native_graph_traversal::Stop>()
+                        .map(::buffa::EnumValue::from)?;
+                }
+                "examined_edges" => self.examined_edges = dec.read_u64()?,
+                "reached" => {
+                    dec.read_repeated_into(
+                        &mut self.reached,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "selected" => {
+                    dec.read_repeated_into(&mut self.selected, |__d| __d.read_u64())?
+                }
+                "edges" => {
+                    dec.read_repeated_into(
+                        &mut self.edges,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "frontier" => {
+                    dec.read_repeated_into(&mut self.frontier, |__d| __d.read_u64())?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphTraversal {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_TRAVERSAL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphTraversal",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphTraversal>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphTraversal>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_TRAVERSAL_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphTraversal",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphTraversal>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphTraversal>,
+};
+pub mod native_graph_traversal {
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    use super::*;
+    #[allow(non_camel_case_types, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+    #[repr(i32)]
+    pub enum Stop {
+        COMPLETE = 0i32,
+        NODES = 1i32,
+        EDGES = 2i32,
+        PROVIDER = 3i32,
+        CANCELLED = 4i32,
+        DEMAND = 5i32,
+    }
+    impl Stop {
+        ///Idiomatic alias for [`Self::COMPLETE`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Complete: Self = Self::COMPLETE;
+        ///Idiomatic alias for [`Self::NODES`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Nodes: Self = Self::NODES;
+        ///Idiomatic alias for [`Self::EDGES`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Edges: Self = Self::EDGES;
+        ///Idiomatic alias for [`Self::PROVIDER`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Provider: Self = Self::PROVIDER;
+        ///Idiomatic alias for [`Self::CANCELLED`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Cancelled: Self = Self::CANCELLED;
+        ///Idiomatic alias for [`Self::DEMAND`]; `Debug` prints the variant name.
+        #[allow(non_upper_case_globals, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        pub const Demand: Self = Self::DEMAND;
+    }
+    impl ::core::default::Default for Stop {
+        fn default() -> Self {
+            Self::COMPLETE
+        }
+    }
+    impl ::serde::Serialize for Stop {
+        fn serialize<S: ::serde::Serializer>(
+            &self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            s.serialize_str(::buffa::Enumeration::proto_name(self))
+        }
+    }
+    impl<'de> ::serde::Deserialize<'de> for Stop {
+        fn deserialize<D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            struct _V;
+            impl ::serde::de::Visitor<'_> for _V {
+                type Value = Stop;
+                fn expecting(
+                    &self,
+                    f: &mut ::core::fmt::Formatter<'_>,
+                ) -> ::core::fmt::Result {
+                    f.write_str(
+                        concat!("a string, integer, or null for ", stringify!(Stop)),
+                    )
+                }
+                fn visit_str<E: ::serde::de::Error>(
+                    self,
+                    v: &str,
+                ) -> ::core::result::Result<Stop, E> {
+                    <Stop as ::buffa::Enumeration>::from_proto_name(v)
+                        .ok_or_else(|| { ::serde::de::Error::unknown_variant(v, &[]) })
+                }
+                fn visit_i64<E: ::serde::de::Error>(
+                    self,
+                    v: i64,
+                ) -> ::core::result::Result<Stop, E> {
+                    let v32 = i32::try_from(v)
+                        .map_err(|_| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("enum value {v} out of i32 range"),
+                            )
+                        })?;
+                    <Stop as ::buffa::Enumeration>::from_i32(v32)
+                        .ok_or_else(|| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("unknown enum value {v32}"),
+                            )
+                        })
+                }
+                fn visit_u64<E: ::serde::de::Error>(
+                    self,
+                    v: u64,
+                ) -> ::core::result::Result<Stop, E> {
+                    let v32 = i32::try_from(v)
+                        .map_err(|_| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("enum value {v} out of i32 range"),
+                            )
+                        })?;
+                    <Stop as ::buffa::Enumeration>::from_i32(v32)
+                        .ok_or_else(|| {
+                            ::serde::de::Error::custom(
+                                ::buffa::alloc::format!("unknown enum value {v32}"),
+                            )
+                        })
+                }
+                fn visit_unit<E: ::serde::de::Error>(
+                    self,
+                ) -> ::core::result::Result<Stop, E> {
+                    ::core::result::Result::Ok(::core::default::Default::default())
+                }
+            }
+            d.deserialize_any(_V)
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Stop {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    impl ::buffa::Enumeration for Stop {
+        fn from_i32(value: i32) -> ::core::option::Option<Self> {
+            match value {
+                0i32 => ::core::option::Option::Some(Self::COMPLETE),
+                1i32 => ::core::option::Option::Some(Self::NODES),
+                2i32 => ::core::option::Option::Some(Self::EDGES),
+                3i32 => ::core::option::Option::Some(Self::PROVIDER),
+                4i32 => ::core::option::Option::Some(Self::CANCELLED),
+                5i32 => ::core::option::Option::Some(Self::DEMAND),
+                _ => ::core::option::Option::None,
+            }
+        }
+        fn to_i32(&self) -> i32 {
+            *self as i32
+        }
+        fn proto_name(&self) -> &'static str {
+            match self {
+                Self::COMPLETE => "COMPLETE",
+                Self::NODES => "NODES",
+                Self::EDGES => "EDGES",
+                Self::PROVIDER => "PROVIDER",
+                Self::CANCELLED => "CANCELLED",
+                Self::DEMAND => "DEMAND",
+            }
+        }
+        fn from_proto_name(name: &str) -> ::core::option::Option<Self> {
+            match name {
+                "COMPLETE" => ::core::option::Option::Some(Self::COMPLETE),
+                "NODES" => ::core::option::Option::Some(Self::NODES),
+                "EDGES" => ::core::option::Option::Some(Self::EDGES),
+                "PROVIDER" => ::core::option::Option::Some(Self::PROVIDER),
+                "CANCELLED" => ::core::option::Option::Some(Self::CANCELLED),
+                "DEMAND" => ::core::option::Option::Some(Self::DEMAND),
+                _ => ::core::option::Option::None,
+            }
+        }
+        fn values() -> &'static [Self] {
+            &[
+                Self::COMPLETE,
+                Self::NODES,
+                Self::EDGES,
+                Self::PROVIDER,
+                Self::CANCELLED,
+                Self::DEMAND,
+            ]
+        }
+    }
+}
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct NativeGraphAnswer {
+    /// Field 1: `session`
+    #[serde(
+        rename = "session",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub session: ::buffa::MessageField<
+        NativeAnalysisContext,
+        ::buffa::Inline<NativeAnalysisContext>,
+    >,
+    /// Field 2: `generation`
+    #[serde(
+        rename = "generation",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub generation: u64,
+    /// Field 3: `nodes`
+    #[serde(
+        rename = "nodes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub nodes: ::buffa::alloc::vec::Vec<NativeGraphNode>,
+    /// Field 4: `witnesses`
+    #[serde(
+        rename = "witnesses",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub witnesses: ::buffa::alloc::vec::Vec<NativeGraphWitness>,
+    /// Field 5: `traversal`
+    #[serde(
+        rename = "traversal",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub traversal: ::buffa::MessageField<
+        NativeGraphTraversal,
+        ::buffa::Inline<NativeGraphTraversal>,
+    >,
+    /// Field 6: `limitations`
+    #[serde(
+        rename = "limitations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub limitations: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for NativeGraphAnswer {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("NativeGraphAnswer")
+            .field("session", &self.session)
+            .field("generation", &self.generation)
+            .field("nodes", &self.nodes)
+            .field("witnesses", &self.witnesses)
+            .field("traversal", &self.traversal)
+            .field("limitations", &self.limitations)
+            .finish()
+    }
+}
+impl NativeGraphAnswer {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphAnswer";
+}
+::buffa::impl_default_instance!(NativeGraphAnswer);
+impl ::buffa_descriptor::reflect::ReflectMessage for NativeGraphAnswer {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.session),
+                )
+            }
+            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.generation),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.nodes),
+            4u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.witnesses),
+            5u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.traversal),
+                )
+            }
+            6u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.limitations),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.session.is_set(),
+            2u32 => self.generation != 0,
+            3u32 => !self.nodes.is_empty(),
+            4u32 => !self.witnesses.is_empty(),
+            5u32 => self.traversal.is_set(),
+            6u32 => !self.limitations.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for NativeGraphAnswer {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl NativeGraphAnswer {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for NativeGraphAnswer {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for NativeGraphAnswer {
+    const PACKAGE: &'static str = "pse.code_intelligence.v1";
+    const NAME: &'static str = "NativeGraphAnswer";
+    const FULL_NAME: &'static str = "pse.code_intelligence.v1.NativeGraphAnswer";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.code_intelligence.v1.NativeGraphAnswer";
+}
+impl ::buffa::Message for NativeGraphAnswer {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.session.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.session.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.generation != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.generation) as u64;
+        }
+        for v in &self.nodes {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.witnesses {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.traversal.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.traversal.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.limitations {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.session.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.session.write_to(__cache, buf);
+        }
+        if self.generation != 0u64 {
+            ::buffa::types::put_uint64_field(2u32, self.generation, buf);
+        }
+        for v in &self.nodes {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.witnesses {
+            ::buffa::types::put_len_delimited_header(
+                4u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if self.traversal.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                5u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.traversal.write_to(__cache, buf);
+        }
+        for v in &self.limitations {
+            ::buffa::types::put_string_field(6u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.session.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.generation = ::buffa::types::decode_uint64(buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.nodes.push(elem);
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.witnesses.push(elem);
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.traversal.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.limitations.push(__elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.session = ::buffa::MessageField::none();
+        self.generation = 0u64;
+        self.nodes.clear();
+        self.witnesses.clear();
+        self.traversal = ::buffa::MessageField::none();
+        self.limitations.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for NativeGraphAnswer {
+    const PROTO_FQN: &'static str = "pse.code_intelligence.v1.NativeGraphAnswer";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for NativeGraphAnswer {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.session.is_set() {
+            enc.write_field_name("session")?;
+            enc.write_message(&*self.session)?;
+        }
+        if self.generation != 0u64 {
+            enc.write_field_name("generation")?;
+            enc.write_u64(self.generation)?;
+        }
+        if self.traversal.is_set() {
+            enc.write_field_name("traversal")?;
+            enc.write_message(&*self.traversal)?;
+        }
+        for __v in &self.nodes {
+            enc.write_field_name("nodes")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.witnesses {
+            enc.write_field_name("witnesses")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.limitations {
+            enc.write_field_name("limitations")?;
+            enc.write_string(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "session" => dec.merge_message(self.session.get_or_insert_default())?,
+                "generation" => self.generation = dec.read_u64()?,
+                "traversal" => dec.merge_message(self.traversal.get_or_insert_default())?,
+                "nodes" => {
+                    dec.read_repeated_into(
+                        &mut self.nodes,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "witnesses" => {
+                    dec.read_repeated_into(
+                        &mut self.witnesses,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "limitations" => {
+                    dec.read_repeated_into(
+                        &mut self.limitations,
+                        |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for NativeGraphAnswer {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_ANSWER_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphAnswer",
+    to_json: ::buffa::type_registry::any_to_json::<NativeGraphAnswer>,
+    from_json: ::buffa::type_registry::any_from_json::<NativeGraphAnswer>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __NATIVE_GRAPH_ANSWER_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.code_intelligence.v1.NativeGraphAnswer",
+    text_encode: ::buffa::type_registry::any_encode_text::<NativeGraphAnswer>,
+    text_merge: ::buffa::type_registry::any_merge_text::<NativeGraphAnswer>,
+};
+#[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize)]
 #[serde(default)]
 pub struct NativeControl {
@@ -46826,6 +51723,24 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeEvent {
                     }
                 }
             }
+            5u32 => {
+                match &self.item {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::native_event::Item::Graph(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <NativeGraphAnswer as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -46860,6 +51775,12 @@ impl ::buffa_descriptor::reflect::ReflectMessage for NativeEvent {
                 ::core::matches!(
                     & self.item,
                     ::core::option::Option::Some(__buffa::oneof::native_event::Item::Terminal(_))
+                )
+            }
+            5u32 => {
+                ::core::matches!(
+                    & self.item,
+                    ::core::option::Option::Some(__buffa::oneof::native_event::Item::Graph(_))
                 )
             }
             _ => false,
@@ -46974,6 +51895,14 @@ impl ::buffa::Message for NativeEvent {
                         += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
                             + inner as u64;
                 }
+                __buffa::oneof::native_event::Item::Graph(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
             }
         }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
@@ -47015,6 +51944,14 @@ impl ::buffa::Message for NativeEvent {
                 __buffa::oneof::native_event::Item::Terminal(x) => {
                     ::buffa::types::put_len_delimited_header(
                         4u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::native_event::Item::Graph(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        5u32,
                         u64::from(__cache.consume_next()),
                         buf,
                     );
@@ -47115,6 +52052,26 @@ impl ::buffa::Message for NativeEvent {
                     );
                 }
             }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::native_event::Item::Graph(ref mut existing),
+                ) = self.item
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.item = ::core::option::Option::Some(
+                        __buffa::oneof::native_event::Item::Graph(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -47159,6 +52116,10 @@ impl ::buffa::text::TextFormat for NativeEvent {
                 }
                 __buffa::oneof::native_event::Item::Terminal(__v) => {
                     enc.write_field_name("terminal")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::native_event::Item::Graph(__v) => {
+                    enc.write_field_name("graph")?;
                     enc.write_message(&**__v)?;
                 }
             }
@@ -47233,6 +52194,22 @@ impl ::buffa::text::TextFormat for NativeEvent {
                         dec.merge_message(&mut __m)?;
                         self.item = ::core::option::Option::Some(
                             __buffa::oneof::native_event::Item::Terminal(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "graph" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::native_event::Item::Graph(ref mut __existing),
+                    ) = self.item
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.item = ::core::option::Option::Some(
+                            __buffa::oneof::native_event::Item::Graph(
                                 ::buffa::alloc::boxed::Box::new(__m),
                             ),
                         );
@@ -47358,6 +52335,30 @@ impl<'de> ::serde::Deserialize<'de> for NativeEvent {
                                 }
                                 __oneof_item = Some(
                                     __buffa::oneof::native_event::Item::Terminal(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "graph" => {
+                            let v: ::core::option::Option<NativeGraphAnswer> = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            NativeGraphAnswer,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_item.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'item'",
+                                        ),
+                                    );
+                                }
+                                __oneof_item = Some(
+                                    __buffa::oneof::native_event::Item::Graph(
                                         ::buffa::alloc::boxed::Box::new(v),
                                     ),
                                 );

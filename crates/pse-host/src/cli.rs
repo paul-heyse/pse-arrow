@@ -661,6 +661,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "search request" => Ok(crate::investigation::Request::input_schema()),
         "search stream" => Ok(crate::investigation::Event::output_schema()),
+        "search syntax grammar" => {
+            envelope::schema::<crate::source_query::GrammarReport>(command, view)
+        }
         name if name == "search" || name.starts_with("search ") => {
             let view = crate::investigation::presentation::envelope_view(view);
             envelope::schema::<crate::investigation::Report>("search", &view)

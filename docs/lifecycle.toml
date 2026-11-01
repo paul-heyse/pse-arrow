@@ -5403,7 +5403,7 @@ kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A02"
-to = "docs/plans/60b-native-relationships-and-lifetime-evidence.md::package-state::B01"
+to = "docs/plans/60a-evidence-contracts-and-query-composition.md::package-state::A01"
 kind = "depends-on"
 
 

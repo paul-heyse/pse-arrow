@@ -21,7 +21,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use tokio_util::sync::CancellationToken;
+mod grammar;
 mod native;
+pub use grammar::{GrammarLanguage, GrammarReport, grammar};
 pub use native::{
     CompiledSyntax, NativeMatches, ParsedSyntax, SelectionDemand, native_rule, tree_sitter_query,
 };
@@ -299,6 +301,9 @@ pub enum QueryError {
     /// Grammar/runtime refusal is explicit rather than a missing match.
     #[error("syntax backend refused source: {0}")]
     Parse(String),
+    /// Native query construction retains the original kind and query-byte coordinates.
+    #[error("Tree-sitter query: {0}")]
+    TreeSitter(#[from] TreeSitterQueryError),
     /// An explicitly requested capture or template variable is not defined.
     #[error("undefined syntax capture: {0}")]
     UndefinedCapture(String),
@@ -312,6 +317,50 @@ pub enum QueryError {
     #[error("{0}")]
     Unavailable(String),
 }
+
+/// Owned native query-construction failure; coordinates are zero-based query bytes.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, thiserror::Error)]
+#[error("{kind} at row {row}, byte column {column} (offset {offset}): {message}")]
+pub struct TreeSitterQueryError {
+    /// Native `QueryErrorKind` spelling.
+    pub kind: String,
+    /// Zero-based query row, independent from source locations.
+    pub row: usize,
+    /// Zero-based UTF-8 byte column in the query.
+    pub column: usize,
+    /// UTF-8 byte offset in the query.
+    pub offset: usize,
+    /// Original native explanation.
+    pub message: String,
+}
+impl From<tree_sitter::QueryError> for TreeSitterQueryError {
+    fn from(error: tree_sitter::QueryError) -> Self {
+        Self {
+            kind: format!("{:?}", error.kind),
+            row: error.row,
+            column: error.column,
+            offset: error.offset,
+            message: error.message,
+        }
+    }
+}
+impl TreeSitterQueryError {
+    /// Use the existing diagnostic projection's parser context, without a second taxonomy.
+    pub fn record(&self) -> crate::envelope::ErrorRecord {
+        let policy = crate::envelope::RedactionPolicy::from_environment();
+        let mut record = crate::envelope::ErrorRecord::from_diagnostic(self, None, &policy);
+        record.parser_context = [
+            ("error_kind".into(), self.kind.clone()),
+            ("row".into(), self.row.to_string()),
+            ("column".into(), self.column.to_string()),
+            ("offset".into(), self.offset.to_string()),
+            ("coordinate_encoding".into(), "zero_based_utf8_bytes".into()),
+        ]
+        .into();
+        record
+    }
+}
+impl miette::Diagnostic for TreeSitterQueryError {}
 pse_diagnostics::impl_diagnostic! {QueryError,
     code(_this){Some(pse_diagnostics::DiagnosticCode::HostOwnership)},
     forward(_this){None},help(_this){None},related(_this){None},source(_this){None}

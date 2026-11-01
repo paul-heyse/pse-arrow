@@ -609,8 +609,18 @@ Options:
       --fields <FIELDS>
           Select comma-separated payload fields while retaining identity, state and coverage
 
+      --grammar [<GRAMMAR>]
+          Inspect the linked grammar's NODE_TYPES without acquiring sources or an analyzer
+
+          Possible values:
+          - rust: The grammar used by Rust structural search
+          - bash: The grammar used by Bash source investigation
+
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --node-kind <NODE_KIND>
+          Select an exact native node kind from --grammar
 
       --path <PATHS>
           Restrict source paths without requiring Cargo or analyzer preparation

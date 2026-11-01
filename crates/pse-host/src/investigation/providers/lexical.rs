@@ -593,7 +593,7 @@ impl Sink for StreamingSink<'_, '_> {
     fn binary_data(&mut self, _: &Searcher, offset: u64) -> io::Result<bool> {
         self.state.summary.complete = false;
         self.state.summary.unknown += 1;
-        (self.state.emit)(Event::Diagnostic{phase:DiagnosticPhase::Provider,code:"search.binary_excluded".into(),message:format!("binary content detected at original byte {offset}; file examination stopped under binary=skip"),source:self.source.clone()}).map_err(io::Error::other)?;
+        (self.state.emit)(Event::Diagnostic{phase:DiagnosticPhase::Provider,code:"search.binary_excluded".into(),message:format!("binary content detected at original byte {offset}; file examination stopped under binary=skip"),source:self.source.clone(),detail:None}).map_err(io::Error::other)?;
         Ok(false)
     }
 }

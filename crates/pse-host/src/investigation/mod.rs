@@ -3,6 +3,7 @@
 //! Shared, source-aware search interpretation and record delivery.
 pub mod composition;
 pub mod config;
+pub mod graph;
 mod model;
 pub(crate) mod native_path_serde;
 pub mod presentation;
@@ -76,6 +77,19 @@ pub enum FailureDisposition {
     Failed,
 }
 impl Error {
+    /// Retain native query-construction metadata through the existing local IO wrapper.
+    pub fn query_error_record(&self) -> Option<Box<crate::envelope::ErrorRecord>> {
+        let Self::Io(error) = self else {
+            return None;
+        };
+        let original = error
+            .get_ref()?
+            .downcast_ref::<crate::source_query::QueryError>()?;
+        match original {
+            crate::source_query::QueryError::TreeSitter(error) => Some(Box::new(error.record())),
+            _ => None,
+        }
+    }
     /// Classify the boundary without interpreting diagnostic code or display text.
     pub fn phase(&self) -> DiagnosticPhase {
         match self {

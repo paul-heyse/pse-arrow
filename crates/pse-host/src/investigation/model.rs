@@ -51,6 +51,9 @@ impl Request {
                 "result limit must be positive; use exists for a witness".into(),
             ));
         }
+        if self.predicate.has_related() && self.sources.kind != SourceKind::Working {
+            return Err(Error::Invalid("native relationships require working answer sources; index/revision sources cannot be reinterpreted as current native semantics".into()));
+        }
         if self.answer.cursor.is_some() && self.answer.order != ResultOrder::Stable {
             return Err(Error::Invalid(
                 "continuation requires stable ordering".into(),
@@ -187,12 +190,17 @@ pub enum Predicate {
         /// Context-bound refinement.
         filter: Refinement,
     },
-    /// Traverse a bounded native relationship from one guarded seed.
+    /// Traverse selected native relationships from guarded seeds in one prepared world.
     Related {
-        /// Original source/entity/API address.
-        seed: ResultReference,
-        /// Native relationship.
-        relation: Relationship,
+        /// Original source/entity/API addresses; their order defines seed attribution.
+        seeds: Vec<ResultReference>,
+        /// Nonempty selected native relationship families.
+        relations: Vec<Relationship>,
+        /// Domain admitting seeds and supporting intermediates, independent of answer sources.
+        traversal: SourceSelector,
+        /// Whether any seed or every seed must establish an ordinary answer.
+        #[serde(default)]
+        seed_match: super::graph::SeedMatch,
         /// Incoming uses/callers or outgoing declaration/call targets; unsupported inverse edges refuse.
         #[serde(default)]
         direction: Direction,
@@ -202,6 +210,9 @@ pub enum Predicate {
         /// Maximum distinct native locations admitted to traversal.
         #[serde(default = "relationship_nodes")]
         max_nodes: usize,
+        /// Maximum native edge observations examined, independent of rendered rows.
+        #[serde(default = "relationship_edges")]
+        max_edges: usize,
     },
     /// All clauses have witnesses within the stated unit.
     All {
@@ -226,6 +237,17 @@ pub enum Predicate {
     },
 }
 impl Predicate {
+    fn has_related(&self) -> bool {
+        match self {
+            Self::Related { .. } => true,
+            Self::All { clauses, .. } | Self::Any { clauses, .. } => {
+                clauses.iter().any(Self::has_related)
+            }
+            Self::Not { clause, .. } => clause.has_related(),
+            Self::Refine { candidates, .. } => candidates.has_related(),
+            _ => false,
+        }
+    }
     fn validate(&self) -> Result<(), Error> {
         match self {
             Self::Schema(query) => query.validate(),
@@ -272,11 +294,46 @@ impl Predicate {
                 }
             }
             Self::Related {
-                depth, max_nodes, ..
-            } if *depth == 0 || *max_nodes == 0 => Err(Error::Invalid(
-                "relationship depth and max_nodes must be positive finite bounds".into(),
-            )),
-            Self::Related { seed, .. } => seed.validate(),
+                seeds,
+                relations,
+                traversal,
+                depth,
+                max_nodes,
+                max_edges,
+                ..
+            } => {
+                if seeds.is_empty() || relations.is_empty() {
+                    return Err(Error::Invalid(
+                        "relationship seeds and relations must not be empty".into(),
+                    ));
+                }
+                if relations
+                    .iter()
+                    .enumerate()
+                    .any(|(index, relation)| relations[..index].contains(relation))
+                {
+                    return Err(Error::Invalid(
+                        "relationship relations must select each kind once".into(),
+                    ));
+                }
+                if *depth == 0 || *max_nodes == 0 || *max_edges == 0 {
+                    return Err(Error::Invalid("relationship depth, max_nodes and max_edges must be positive finite bounds".into()));
+                }
+                if seeds.len() > *max_nodes {
+                    return Err(Error::Invalid(
+                        "relationship max_nodes must admit every seed ordinal".into(),
+                    ));
+                }
+                if traversal.kind != SourceKind::Working {
+                    return Err(Error::Invalid(
+                        "relationship traversal requires a working source domain".into(),
+                    ));
+                }
+                for seed in seeds {
+                    seed.validate()?;
+                }
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -286,6 +343,9 @@ fn one() -> usize {
 }
 fn relationship_nodes() -> usize {
     100
+}
+fn relationship_edges() -> usize {
+    1000
 }
 /// Native context refinement; unavailable facts remain unknown rather than false.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -313,7 +373,9 @@ pub enum Refinement {
     },
 }
 /// Selected native graph edge, not runtime reachability.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Relationship {
     /// Resolved declaration target.
@@ -324,6 +386,16 @@ pub enum Relationship {
     Calls,
     /// Native implementation targets.
     Implementations,
+    /// Native declaration containment.
+    Contains,
+    /// Nominal type dependency of a native parameter position.
+    ParameterType,
+    /// Nominal declared return or async output type dependency.
+    ReturnType,
+    /// Nominal type dependency of a native field position.
+    FieldType,
+    /// Explicit native resolved use, distinct from calls and implicit language operations.
+    Uses,
 }
 /// Explicit relationship direction.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1037,6 +1109,9 @@ pub struct Summary {
     /// Intentionally omitted detail fields; mandatory addressing meaning is retained.
     #[serde(default)]
     pub omitted_fields: Vec<String>,
+    /// Shared witnessed relationship evidence, retained independently of row/text projection.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relationships: Vec<RelationshipEvidence>,
 }
 impl Default for Summary {
     fn default() -> Self {
@@ -1054,8 +1129,62 @@ impl Default for Summary {
             next_cursor: None,
             groups: BTreeMap::new(),
             omitted_fields: Vec::new(),
+            relationships: Vec::new(),
         }
     }
+}
+/// One graph node retains native declaration identity and guarded expansion.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct RelationshipNode {
+    /// Index used by this answer's canonical edges and attribution.
+    pub id: usize,
+    /// Original resolved declaration identity, absent for a reference-use occurrence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entity: Option<EntityIdentity>,
+    /// Guarded original declaration action.
+    pub reference: ResultReference,
+    /// Presentation only; never used to join identities.
+    pub name: Option<String>,
+}
+/// One original occurrence preserves role, type context and a guarded source action.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct RelationshipWitness {
+    /// Index used by the canonical edge.
+    pub id: usize,
+    /// Guarded original occurrence action, absent when mapping is unavailable.
+    pub reference: Option<ResultReference>,
+    /// Producer-supplied structural/native role.
+    pub role: crate::semantic::GraphRole,
+    /// Native declaration-owned rendering, never parsed to discover endpoints.
+    pub declared_type: Option<String>,
+    /// Native contextual rendering, separate from declaration-owned type.
+    pub instantiated_type: Option<String>,
+    /// Original mapping and evidence limits.
+    pub limitations: Vec<String>,
+}
+/// Compact final graph answer; coverage is independent of a rendered match allowance.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct RelationshipEvidence {
+    /// Original seed ordinals as normalized request-local node indexes.
+    pub seeds: Vec<usize>,
+    /// Requested relation families, including unsupported or empty observations.
+    pub relations: Vec<Relationship>,
+    /// Requested walk direction; edge endpoints remain canonical.
+    pub direction: Direction,
+    /// Required seed-attribution rule for selected answer nodes.
+    pub seed_match: super::graph::SeedMatch,
+    /// Declared traversal domain, separate from ordinary answer selection.
+    pub traversal: SourceSelector,
+    /// Intentional edge-distance boundary.
+    pub depth: usize,
+    /// Shared selected and supporting identities.
+    pub nodes: Vec<RelationshipNode>,
+    /// Original edge-occurrence evidence.
+    pub witnesses: Vec<RelationshipWitness>,
+    /// Attribution, canonical edges, explicit frontier and actual stopping reason.
+    pub graph: super::graph::TraversalResult,
+    /// Native provider limits, not fabricated negative facts.
+    pub limitations: Vec<String>,
 }
 /// Original ordered query diagnostic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1087,6 +1216,9 @@ pub struct QueryDiagnostic {
     pub message: String,
     /// Selected source when known.
     pub source: Option<String>,
+    /// Structured native cause and query coordinates, when the producer supplies them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<Box<crate::envelope::ErrorRecord>>,
 }
 /// Complete typed stream records, with one terminal coverage summary.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -1130,6 +1262,9 @@ pub enum Event {
         message: String,
         /// Source when known.
         source: Option<String>,
+        /// Structured native query cause, retained independently of its display message.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        detail: Option<Box<crate::envelope::ErrorRecord>>,
     },
     /// Actual final coverage and settlement.
     Terminal(Summary),
@@ -1193,6 +1328,48 @@ mod tests {
             clauses: Vec::new(),
         };
         assert!(request.validate().is_err());
+    }
+    #[test]
+    fn related_contract_requires_independent_domain_and_nonempty_finite_intent() {
+        let seed = ResultReference::new(Locator::Source {
+            path: PathBuf::from("src/lib.rs").into(),
+            source: SourceKind::Working,
+            range: None,
+            guard: None,
+        });
+        let base = serde_json::json!({"predicate": {
+            "kind":"related", "seeds":[seed], "relations":["parameter_type"],
+            "traversal":{"packages":["native"]}
+        }});
+        let request: Request = serde_json::from_value(base.clone()).unwrap();
+        request.validate().unwrap();
+        assert!(matches!(
+            request.predicate,
+            Predicate::Related {
+                seed_match: super::super::graph::SeedMatch::Any,
+                max_edges: 1000,
+                ..
+            }
+        ));
+        for (field, value) in [
+            ("seeds", serde_json::json!([])),
+            ("relations", serde_json::json!([])),
+            ("relations", serde_json::json!(["uses", "uses"])),
+            ("depth", serde_json::json!(0)),
+            ("max_nodes", serde_json::json!(0)),
+            ("max_edges", serde_json::json!(0)),
+            ("traversal", serde_json::json!({"kind":{"kind":"index"}})),
+        ] {
+            let mut invalid = base.clone();
+            invalid["predicate"][field] = value;
+            let request: Request = serde_json::from_value(invalid).unwrap();
+            assert!(request.validate().is_err(), "accepted invalid {field}");
+        }
+        let mut legacy = base;
+        let predicate = legacy["predicate"].as_object_mut().unwrap();
+        let seed = predicate.remove("seeds").unwrap()[0].clone();
+        predicate.insert("seed".into(), seed);
+        assert!(serde_json::from_value::<Request>(legacy).is_err());
     }
     #[test]
     fn references_preserve_raw_paths_and_reject_bad_versions() {
@@ -1311,11 +1488,14 @@ mod tests {
             }
             let request = Request {
                 predicate: Predicate::Related {
-                    seed: invalid,
-                    relation: Relationship::References,
+                    seeds: vec![invalid],
+                    relations: vec![Relationship::References],
+                    traversal: SourceSelector::default(),
+                    seed_match: super::super::graph::SeedMatch::Any,
                     direction: Direction::Outgoing,
                     depth: 1,
                     max_nodes: 10,
+                    max_edges: 100,
                 },
                 ..Default::default()
             };

@@ -28,6 +28,7 @@ use tokio_util::sync::CancellationToken;
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod actions;
 mod candidates;
+mod graph;
 mod importability;
 mod runnables;
 
@@ -636,7 +637,7 @@ impl Engine {
             backend: BACKEND.into(),
             position_encoding: "utf-8".into(),
             generation: 1,
-            server_capabilities: json!({"nativeSnapshot":true,"typedFacts":true,"referenceRoles":true,"workspaceSymbolProvider":true,"sourceApplication":false,"procMacros":self.configuration.build_macros}),
+            server_capabilities: json!({"nativeSnapshot":true,"typedFacts":true,"referenceRoles":true,"boundedRelationships":true,"workspaceSymbolProvider":true,"sourceApplication":false,"procMacros":self.configuration.build_macros}),
             backend_status: self.analysis_context().backend_status,
             active_requests: self.active.load(Ordering::SeqCst),
             context_current: current.is_ok(),
@@ -712,6 +713,84 @@ impl Engine {
                 return Err(Error::Cancelled);
             }
             Ok(result)
+        });
+        match native_cancel {
+            Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
+            None => task,
+        }
+    }
+    pub(super) fn start_graph(
+        &self,
+        query: super::GraphQuery,
+        token: CancellationToken,
+    ) -> CpuTask<Result<super::GraphAnswer>> {
+        self.start_graph_observed(query, token, || {})
+    }
+    fn start_graph_observed(
+        &self,
+        query: super::GraphQuery,
+        token: CancellationToken,
+        entered: impl FnOnce() + Send + 'static,
+    ) -> CpuTask<Result<super::GraphAnswer>> {
+        let inputs = self
+            .world
+            .lock()
+            .map_err(super::engine::protocol)
+            .map(|world| {
+                let (db, cancellation) = world.db.request_snapshot();
+                (
+                    db,
+                    cancellation,
+                    world.files.clone(),
+                    world.paths.clone(),
+                    world.digests.clone(),
+                )
+            });
+        let native_cancel = inputs.as_ref().ok().map(|(_, c, _, _, _)| c.clone());
+        let context = self.context.clone();
+        let session = self.analysis_context();
+        let active = self.active.clone();
+        let packages = self.packages.clone();
+        let runnable_targets = self.runnable_targets.clone();
+        let task = spawn_cpu(token, move |token| {
+            struct Active(Arc<AtomicUsize>);
+            impl Drop for Active {
+                fn drop(&mut self) {
+                    self.0.fetch_sub(1, Ordering::SeqCst);
+                }
+            }
+            active.fetch_add(1, Ordering::SeqCst);
+            let _active = Active(active);
+            context.check()?;
+            entered();
+            if token.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            let (db, _cancellation, files, paths, digests) = inputs?;
+            let answer = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
+                || {
+                    ra_ap_hir::attach_db_allow_change(&db, || {
+                        graph::query(
+                            QuerySnapshot {
+                                db: &db,
+                                files: &files,
+                                paths: &paths,
+                                digests: &digests,
+                                packages: &packages,
+                                runnable_targets: &runnable_targets,
+                            },
+                            session,
+                            query,
+                            &token,
+                        )
+                    })
+                },
+            )))??;
+            context.check()?;
+            if token.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            Ok(answer)
         });
         match native_cancel {
             Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
@@ -2014,6 +2093,369 @@ mod tests {
                 .unwrap(),
         )
         .unwrap()
+    }
+
+    #[tokio::test]
+    async fn bounded_graph_preserves_parallel_roles_aliases_enum_fields_and_async_output() {
+        use crate::investigation::{Direction, Relationship, graph::SeedMatch};
+        use crate::semantic::{GraphQuery, GraphRole};
+        let (root, configuration, file) = fixture();
+        std::fs::write(&file, "pub struct Policy;\npub type Alias = Policy;\npub enum Event { Named { policy: Policy }, Pair(Policy, Policy) }\npub fn consume(first: Policy, second: Policy)->Policy {first}\npub fn aliased(value: Alias) {}\npub async fn produce()->Policy {Policy}\npub mod outside;\npub fn external(value: outside::Remote) {}\npub fn recursive(){recursive();}\nimpl Policy {pub fn act(&self) {}}\npub fn caller(){Policy.act();}\npub fn unresolved(){missing();}\n").unwrap();
+        std::fs::write(root.path().join("src/outside.rs"), "pub struct Remote;\n").unwrap();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let intent = GraphQuery {
+            seeds: vec![query(&file, "Policy;", Kind::Explain)],
+            relations: vec![Relationship::ParameterType],
+            direction: Direction::Incoming,
+            traversal_paths: vec![file.clone()],
+            output_paths: vec![file.clone()],
+            depth: 1,
+            max_nodes: 30,
+            max_edges: 100,
+            seed_match: SeedMatch::Any,
+            exists: false,
+        };
+        let answer = engine
+            .start_graph(intent.clone(), CancellationToken::new())
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(answer.traversal.complete, "{:?}", answer.limitations);
+        let selected = answer
+            .traversal
+            .selected
+            .iter()
+            .map(|&id| answer.nodes[id].name.as_deref().unwrap_or(""))
+            .collect::<BTreeSet<_>>();
+        assert_eq!(selected, BTreeSet::from(["consume", "aliased"]));
+        let consume = answer
+            .nodes
+            .iter()
+            .position(|node| node.name.as_deref() == Some("consume"))
+            .unwrap();
+        let roles = answer
+            .traversal
+            .edges
+            .iter()
+            .filter(|edge| edge.source == consume)
+            .map(|edge| match answer.witnesses[edge.witness].role {
+                GraphRole::Parameter { index } => index,
+                _ => panic!("parameter role"),
+            })
+            .collect::<BTreeSet<_>>();
+        assert_eq!(roles, BTreeSet::from([0, 1]));
+        assert!(
+            answer
+                .witnesses
+                .iter()
+                .all(|witness| witness.source_sha256.is_some())
+        );
+
+        let fields = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "Event {", Kind::Explain)],
+                    relations: vec![Relationship::FieldType],
+                    direction: Direction::Outgoing,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            fields.traversal.edges.len(),
+            3,
+            "all enum variant fields are distinct witnesses"
+        );
+        assert_eq!(fields.traversal.selected.len(), 1);
+        let returns = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "produce()", Kind::Explain)],
+                    relations: vec![Relationship::ReturnType],
+                    direction: Direction::Outgoing,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(returns.traversal.edges.iter().any(|edge| matches!(
+            returns.witnesses[edge.witness].role,
+            GraphRole::Return { async_output: true }
+        )));
+        let excluded = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "external(value", Kind::Explain)],
+                    direction: Direction::Outgoing,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(excluded.traversal.complete);
+        assert!(
+            excluded.traversal.selected.is_empty(),
+            "out-of-domain ADTs are not admitted as intermediates or answers"
+        );
+        assert!(excluded.traversal.edges.is_empty());
+        let cycle = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "recursive(){", Kind::Explain)],
+                    relations: vec![Relationship::Uses],
+                    direction: Direction::Outgoing,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            cycle.traversal.selected.len(),
+            1,
+            "a positive cycle can return its seed at minimum distance zero"
+        );
+        let methods = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "act(&self)", Kind::Explain)],
+                    relations: vec![Relationship::Uses],
+                    direction: Direction::Incoming,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            methods
+                .traversal
+                .selected
+                .iter()
+                .any(|&id| methods.nodes[id].name.as_deref() == Some("caller")),
+            "resolved method syntax supplies a use edge"
+        );
+        assert!(
+            !methods.traversal.complete,
+            "unresolved written paths cannot establish complete use absence"
+        );
+        let variant = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "Named {", Kind::Explain)],
+                    relations: vec![Relationship::Contains],
+                    direction: Direction::Outgoing,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(variant.traversal.selected.len(), 1);
+        assert_eq!(
+            variant.nodes[variant.traversal.selected[0]].name.as_deref(),
+            Some("policy")
+        );
+        let field = engine
+            .start_graph(
+                GraphQuery {
+                    seeds: vec![query(&file, "policy:", Kind::Explain)],
+                    relations: vec![Relationship::Contains],
+                    direction: Direction::Outgoing,
+                    ..intent.clone()
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            field.nodes[field.traversal.reached[0].node].name.as_deref(),
+            Some("policy"),
+            "field seed remains the field declaration"
+        );
+        assert!(field.traversal.selected.is_empty());
+        let mut stale = intent.clone();
+        stale.seeds[0].if_generation = Some(2);
+        assert!(
+            engine
+                .start_graph(stale, CancellationToken::new())
+                .settle()
+                .await
+                .unwrap()
+                .is_err()
+        );
+        let limited = engine
+            .start_graph(
+                GraphQuery {
+                    max_edges: 1,
+                    ..intent
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !limited.traversal.complete,
+            "edge-limited inverse cannot establish absence"
+        );
+        assert_eq!(engine.active.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn bounded_graph_cancellation_settles_its_cpu_owner_and_preserves_sibling() {
+        use crate::investigation::{Direction, Relationship, graph::SeedMatch};
+        let (root, configuration, file) = fixture();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let intent = super::super::GraphQuery {
+            seeds: vec![query(&file, "A;", Kind::Explain)],
+            relations: vec![Relationship::ParameterType],
+            direction: Direction::Incoming,
+            traversal_paths: vec![file.clone()],
+            output_paths: vec![file.clone()],
+            depth: 1,
+            max_nodes: 30,
+            max_edges: 100,
+            seed_match: SeedMatch::Any,
+            exists: false,
+        };
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        // Observe the actual CPU owner at a deterministic boundary after its
+        // context check; no delay or dropped task stands in for settlement.
+        let mut cancelled =
+            engine.start_graph_observed(intent.clone(), CancellationToken::new(), move || {
+                entered_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+            });
+        tokio::time::timeout(std::time::Duration::from_secs(30), entered_rx)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut sibling = engine.start_graph(intent.clone(), CancellationToken::new());
+        cancelled.cancel();
+        release_tx.send(()).unwrap();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(30), cancelled.settle())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(result, Err(Error::Cancelled)), "{result:?}");
+        assert!(sibling.settle().await.unwrap().is_ok());
+        assert!(
+            engine
+                .start_graph(intent, CancellationToken::new())
+                .settle()
+                .await
+                .unwrap()
+                .is_ok()
+        );
+        assert_eq!(engine.active.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn bounded_graph_definition_keeps_original_use_and_references_target_declarations() {
+        use crate::investigation::{Direction, Relationship, graph::SeedMatch};
+        let (root, configuration, file) = fixture();
+        let engine = Engine::start(root.path(), configuration).unwrap();
+        let intent = super::super::GraphQuery {
+            seeds: vec![query(&file, "facade();", Kind::Explain)],
+            relations: vec![Relationship::Definition],
+            direction: Direction::Outgoing,
+            traversal_paths: vec![
+                file.clone(),
+                root.path().join("Cargo.toml"),
+                root.path().join("Cargo.lock"),
+            ],
+            output_paths: vec![file.clone()],
+            depth: 1,
+            max_nodes: 30,
+            max_edges: 100,
+            seed_match: SeedMatch::Any,
+            exists: false,
+        };
+        let definition = engine
+            .start_graph(intent.clone(), CancellationToken::new())
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            definition.traversal.complete,
+            "{:?}",
+            definition.limitations
+        );
+        assert_eq!(definition.traversal.edges.len(), 1);
+        let edge = &definition.traversal.edges[0];
+        assert!(!definition.nodes[edge.source].declaration);
+        assert!(definition.nodes[edge.target].declaration);
+        assert_eq!(
+            definition.nodes[edge.target].name.as_deref(),
+            Some("original")
+        );
+        let witness = definition.witnesses[edge.witness]
+            .location
+            .as_ref()
+            .unwrap();
+        assert_eq!(witness.start, SOURCE.find("facade();").unwrap());
+        assert_eq!(witness.end - witness.start, "facade".len());
+        let references = engine
+            .start_graph(
+                super::super::GraphQuery {
+                    seeds: vec![query(&file, "original()->", Kind::Explain)],
+                    relations: vec![Relationship::References],
+                    direction: Direction::Incoming,
+                    depth: 2,
+                    ..intent
+                },
+                CancellationToken::new(),
+            )
+            .settle()
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            references.traversal.complete,
+            "{:?}",
+            references.limitations
+        );
+        assert!(!references.traversal.edges.is_empty());
+        assert!(
+            references
+                .traversal
+                .edges
+                .iter()
+                .all(|edge| references.nodes[edge.target].declaration
+                    && !references.nodes[edge.source].declaration)
+        );
+        assert!(
+            references
+                .traversal
+                .reached
+                .iter()
+                .flat_map(|reached| &reached.distances)
+                .all(|distance| distance.is_none_or(|distance| distance <= 1)),
+            "reference use sites never become fabricated declaration targets on a second hop"
+        );
     }
 
     #[tokio::test]

@@ -76,14 +76,20 @@ message HistoryQuery {
 }
 // Original versioned address bytes are interpreted and guarded by their native owner.
 message GuardedReference { bytes address = 1 [(buf.validate.field).bytes.min_len = 1]; ContextGuard guard = 2; }
-enum Relationship { DEFINITION = 0; REFERENCES = 1; CALLS = 2; IMPLEMENTATIONS = 3; }
+enum Relationship { DEFINITION = 0; REFERENCES = 1; CALLS = 2; IMPLEMENTATIONS = 3; RELATION_CONTAINS = 4; PARAMETER_TYPE = 5; RETURN_TYPE = 6; FIELD_TYPE = 7; USES = 8; }
 enum Direction { OUTGOING = 0; INCOMING = 1; }
 message Related {
-  GuardedReference seed = 1 [(buf.validate.field).required = true];
-  Relationship relation = 2; Direction direction = 3;
+  reserved 1, 2;
+  Direction direction = 3;
   uint64 depth = 4 [(buf.validate.field).uint64.gte = 1];
   uint64 max_nodes = 5 [(buf.validate.field).uint64.gte = 1];
+  repeated GuardedReference seeds = 6 [(buf.validate.field).repeated.min_items = 1];
+  repeated Relationship relations = 7 [(buf.validate.field).repeated.min_items = 1];
+  SourceSelector traversal = 8 [(buf.validate.field).required = true];
+  uint64 max_edges = 9 [(buf.validate.field).uint64.gte = 1];
+  SeedMatch seed_match = 10;
 }
+enum SeedMatch { ANY_SEED = 0; ALL_SEEDS = 1; }
 message Refinement {
   oneof filter { option (buf.validate.oneof).required = true; GuardedReference resolves_to = 1; string native_predicate = 2 [(buf.validate.field).string.min_len = 1]; GuardedReference used_at = 3; GuardedReference importable_at = 4; }
 }
@@ -223,8 +229,20 @@ message NativeWorkspaceQuery {
   bool include_dependencies = 4;
   optional uint64 if_generation = 5;
 }
+message NativeGraphQuery {
+  repeated NativeQuery seeds = 1 [(buf.validate.field).repeated.min_items = 1];
+  repeated Relationship relations = 2 [(buf.validate.field).repeated.min_items = 1];
+  Direction direction = 3;
+  repeated bytes traversal_paths = 4;
+  repeated bytes output_paths = 5;
+  uint64 depth = 6 [(buf.validate.field).uint64.gte = 1];
+  uint64 max_nodes = 7 [(buf.validate.field).uint64.gte = 1];
+  uint64 max_edges = 8 [(buf.validate.field).uint64.gte = 1];
+  SeedMatch seed_match = 9;
+  bool exists = 10;
+}
 message NativeRequest {
-  oneof operation { option (buf.validate.oneof).required = true; NativeQuery query = 1; NativeWorkspaceQuery workspace = 2; }
+  oneof operation { option (buf.validate.oneof).required = true; NativeQuery query = 1; NativeWorkspaceQuery workspace = 2; NativeGraphQuery graph = 3; }
 }
 message NativeConfiguration {
   enum Backend { LIVE_LSP = 0; NATIVE_SNAPSHOT = 1; }
@@ -401,8 +419,46 @@ message NativeAnswer {
   NativeTypedFacts native_types = 14;
 }
 message NativeWorkspaceAnswer { NativeAnalysisContext session = 1; uint64 generation = 2; NativeSection symbols = 3; repeated string limitations = 4; repeated NativeSymbolFact observed = 5; }
+message NativeGraphNode { NativeByteLocation location = 1 [(buf.validate.field).required = true]; optional string name = 2; string source_sha256 = 3; bool declaration = 4; }
+message NativeGraphRole {
+  enum Kind { CONTAINMENT = 0; PARAMETER = 1; RETURN = 2; FIELD = 3; REFERENCE = 4; NAVIGATION = 5; }
+  Kind kind = 1;
+  optional uint64 index = 2;
+  optional string name = 3;
+  optional bool async_output = 4;
+  optional bool read = 5; optional bool write = 6; optional bool import = 7; optional bool test = 8;
+}
+message NativeGraphWitness {
+  NativeByteLocation location = 1;
+  optional string source_sha256 = 2;
+  NativeGraphRole role = 3 [(buf.validate.field).required = true];
+  optional string declared_type = 4;
+  optional string instantiated_type = 5;
+  repeated string limitations = 6;
+}
+message NativeGraphEdge { uint64 source = 1; uint64 target = 2; Relationship relation = 3; uint64 witness = 4; }
+message NativeGraphDistance { optional uint64 distance = 1; }
+message NativeGraphReached { uint64 node = 1; repeated NativeGraphDistance distances = 2; }
+message NativeGraphTraversal {
+  enum Stop { COMPLETE = 0; NODES = 1; EDGES = 2; PROVIDER = 3; CANCELLED = 4; DEMAND = 5; }
+  repeated NativeGraphReached reached = 1;
+  repeated uint64 selected = 2;
+  repeated NativeGraphEdge edges = 3;
+  repeated uint64 frontier = 4;
+  bool complete = 5;
+  Stop stop = 6;
+  uint64 examined_edges = 7;
+}
+message NativeGraphAnswer {
+  NativeAnalysisContext session = 1 [(buf.validate.field).required = true];
+  uint64 generation = 2;
+  repeated NativeGraphNode nodes = 3;
+  repeated NativeGraphWitness witnesses = 4;
+  NativeGraphTraversal traversal = 5 [(buf.validate.field).required = true];
+  repeated string limitations = 6;
+}
 message NativeControl { oneof action { option (buf.validate.oneof).required = true; NativeRequest start = 1; google.protobuf.Empty cancel = 2; } }
-message NativeEvent { oneof item { option (buf.validate.oneof).required = true; NativeAnswer query = 1; NativeWorkspaceAnswer workspace = 2; Failure failure = 3; Terminal terminal = 4; } }
+message NativeEvent { oneof item { option (buf.validate.oneof).required = true; NativeAnswer query = 1; NativeWorkspaceAnswer workspace = 2; Failure failure = 3; Terminal terminal = 4; NativeGraphAnswer graph = 5; } }
 service NativeSemantic {
   rpc Status(google.protobuf.Empty) returns (NativeSessionStatus);
   rpc PackageContext(NativePackageRequest) returns (NativePackageReply);

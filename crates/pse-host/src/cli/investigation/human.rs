@@ -12,7 +12,14 @@ pub(super) fn row(
     path: Option<&query::NativePath>,
 ) -> Result<String, query::Error> {
     let mut text = String::new();
-    let path = path
+    let path = row
+        .reference
+        .as_ref()
+        .and_then(|reference| match &reference.locator {
+            query::Locator::Semantic { path, .. } => Some(path),
+            _ => None,
+        })
+        .or(path)
         .map(|path| format!("{:?}", path.to_path_buf()))
         .unwrap_or_else(|| row.source.clone());
     let line = row
@@ -79,10 +86,85 @@ pub(super) fn report(response: &Envelope<Report>) -> Result<String, query::Error
     for failure in &response.payload.native_failures {
         let _ = writeln!(text, "native_failure={}", serde_json::to_string(failure)?);
     }
+    for evidence in &response.payload.summary.relationships {
+        text.push_str(&relationships(evidence)?);
+    }
+    let mut coverage = response.payload.summary.clone();
+    // The graph's identities and coverage were rendered once above, with reusable actions.
+    coverage.relationships.clear();
+    let _ = writeln!(text, "coverage={}", serde_json::to_string(&coverage)?);
+    Ok(text)
+}
+
+fn relationships(evidence: &query::RelationshipEvidence) -> Result<String, query::Error> {
+    let mut text = String::new();
     let _ = writeln!(
         text,
-        "coverage={}",
-        serde_json::to_string(&response.payload.summary)?
+        "relationships: seeds={:?}; relations={:?}; direction={:?}; seed_match={:?}; depth={}; complete={}; stop={:?}; examined_edges={}; frontier={:?}",
+        evidence.seeds,
+        evidence.relations,
+        evidence.direction,
+        evidence.seed_match,
+        evidence.depth,
+        evidence.graph.complete,
+        evidence.graph.stop,
+        evidence.graph.examined_edges,
+        evidence.graph.frontier
     );
+    let _ = writeln!(
+        text,
+        "traversal={}",
+        serde_json::to_string(&evidence.traversal)?
+    );
+    for node in &evidence.nodes {
+        let selected = evidence.graph.selected.contains(&node.id);
+        let distances = evidence
+            .graph
+            .reached
+            .iter()
+            .find(|reached| reached.node == node.id)
+            .map(|reached| &reached.distances);
+        let _ = writeln!(
+            text,
+            "node {} [{}] {}; seed_distances={distances:?}",
+            node.id,
+            if selected { "answer" } else { "support" },
+            node.name.as_deref().unwrap_or("<unnamed>")
+        );
+        let _ = writeln!(text, "  entity={}", serde_json::to_string(&node.entity)?);
+        if let query::Locator::Semantic {
+            path, line, column, ..
+        } = &node.reference.locator
+        {
+            let _ = writeln!(text, "  location={:?}:{line}:{column}", path.to_path_buf());
+        }
+        let _ = writeln!(text, "  inspect --result {}", node.reference.encode()?);
+    }
+    for edge in &evidence.graph.edges {
+        let _ = writeln!(
+            text,
+            "edge {} -> {} [{:?}]; witness={}",
+            edge.source, edge.target, edge.relation, edge.witness
+        );
+    }
+    for witness in &evidence.witnesses {
+        let _ = writeln!(
+            text,
+            "witness {} role={}; declared_type={:?}; instantiated_type={:?}",
+            witness.id,
+            serde_json::to_string(&witness.role)?,
+            witness.declared_type,
+            witness.instantiated_type
+        );
+        if let Some(reference) = &witness.reference {
+            let _ = writeln!(text, "  inspect --result {}", reference.encode()?);
+        }
+        for limitation in &witness.limitations {
+            let _ = writeln!(text, "  limitation={limitation}");
+        }
+    }
+    for limitation in &evidence.limitations {
+        let _ = writeln!(text, "limitation={limitation}");
+    }
     Ok(text)
 }

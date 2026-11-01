@@ -93,6 +93,14 @@ substituted field type. Challenge call classification against exact pinned
 not the old display label. A02 can consume the early relation slice once its tests/public
 adapter work; completion of B01 still requires the remaining selected relation families.
 Migrate shared result consumers and delete replaced text-parsing/duplicate classification.
+
+The early producer slice is delivered and targeted-tested with
+[60a's Outcome](60a-evidence-contracts-and-query-composition.md#outcome): containment,
+role-qualified nominal dependencies and explicit resolved uses feed the multi-seed consumer.
+Remaining B01 work includes its selected associated/visibility/supertrait and contextual field/
+use classification obligations above. Current Uses coverage explicitly retains unsupported
+field-use and block-local populations as incomplete; implicit operations are not reclassified
+as ordinary source uses. B01 completion must preserve these distinctions while extending them.
 Do not delete complementary live-provider capabilities merely because snapshots lack parity.
 
 <a id="b02"></a>
@@ -211,7 +219,7 @@ provenance assembly after the typed consumer passes, retaining cheap text/AST no
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| B01 | planned | Native semantic relationship owner | Selected declaration/type/field/associated relations with honest calls/use classification |
+| B01 | in-progress | Native semantic relationship owner | Early A01/A02 producer delivered at 60a Outcome; selected associated/visibility/supertrait and contextual-use obligations remain |
 | B02 | planned | Native body evidence owner | Joined existing capture/compiler/original-work evidence; deeper extraction conditional |
 | B03 | planned | Native predicate owner | Existing contextual predicates consumed with origin checks and inconclusive cases |
 | B04 | deferred | Native semantic owner | Observable bulk-work trigger and selected decision before any implementation |
