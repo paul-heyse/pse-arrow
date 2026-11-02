@@ -40,7 +40,7 @@ Source: [Notion](https://app.notion.com/p/40a141b5836981759d35df77a6e2f160).
 
 **Layer:** Solution
 
-**Owned by:** [Solution member](solution.md#source-40a141b583698178a443d0006d4e600a)
+**Owned by:** [Solution](solution.md#source-40a141b5836981029300ed3530505b8c), with optional reference to a Solution member or inspected point when required by the analysis
 
 **Concept:** Analysis result
 
@@ -176,7 +176,7 @@ Source: [Notion](https://app.notion.com/p/40a141b5836981029300ed3530505b8c).
 
 **Multiplicity:** Root, or 1 per run in a Study node
 
-**Owns:** [Status](solution.md#source-40a141b583698165a9ccf9ce28c8145b); [Solution member](solution.md#source-40a141b583698178a443d0006d4e600a); [Estimate](solution.md#source-40a141b5836981948f10d1d7ca299ca2); [Statistic set](solution.md#source-40a141b58369813a8300e656a69146f1); [Accuracy report](solution.md#source-40a141b583698188916ac01f3414f387); [Diagnostic](solution.md#source-40a141b5836981619fc2f56e768b3161); [Provenance](solution.md#source-40a141b5836981c9bfd6c7611aae1941); [Validation finding](cross-cutting.md#source-40b141b5836981a0972ec6905ba54ace)
+**Owns:** [Status](solution.md#source-40a141b583698165a9ccf9ce28c8145b); [Solution member](solution.md#source-40a141b583698178a443d0006d4e600a); [Estimate](solution.md#source-40a141b5836981948f10d1d7ca299ca2); [Statistic set](solution.md#source-40a141b58369813a8300e656a69146f1); [Accuracy report](solution.md#source-40a141b583698188916ac01f3414f387); [Diagnostic](solution.md#source-40a141b5836981619fc2f56e768b3161); [Provenance](solution.md#source-40a141b5836981c9bfd6c7611aae1941); [Validation finding](cross-cutting.md#source-40b141b5836981a0972ec6905ba54ace); [Analysis result](solution.md#source-40a141b5836981759d35df77a6e2f160)
 
 **Definition:** The retained outcome of a selected semantic task and execution attempt: zero or more candidate/qualified members plus coverage, assessments, diagnostics and provenance. Failure, refusal or analysis-only outcomes may have no numerical member.
 
@@ -196,7 +196,7 @@ Source: [Notion](https://app.notion.com/p/40a141b583698178a443d0006d4e600a).
 
 **Multiplicity:** 0..n
 
-**Owns:** [Value set](solution.md#source-40a141b583698176aea2d453f400ae87); [Derivative set](solution.md#source-40a141b5836981e28eddeb1dac551b51); [Dual set](solution.md#source-40a141b5836981938396d09024102dff); [Analysis result](solution.md#source-40a141b5836981759d35df77a6e2f160)
+**Owns:** [Value set](solution.md#source-40a141b583698176aea2d453f400ae87); [Derivative set](solution.md#source-40a141b5836981e28eddeb1dac551b51); [Dual set](solution.md#source-40a141b5836981938396d09024102dff). Task-owned analysis products may reference this member.
 
 **Definition:** One candidate or qualified result branch, such as a root, optimum or Pareto point, with its own values, coverage and validity/acceptance findings.
 

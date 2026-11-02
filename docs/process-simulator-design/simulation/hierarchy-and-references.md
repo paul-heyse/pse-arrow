@@ -33,8 +33,8 @@ The Concepts database rows describe **concept types**. A type may list several p
 | Scenario | Bindings, guesses, distributions, case-specific requirements | Overlap and completeness checked against active roles |
 | Query | Roles, regime requests, answer profile, expressions, criteria, constraints, outputs, accuracy requests | Active task intent |
 | Study | Problem nodes, data edges, generators, selectors, external sources/sinks, nested Studies | Explicit iteration and termination semantics |
-| Solution | Status, members, estimates/statistics, diagnostics, accuracy report, provenance | Failed or infeasible runs may have zero solution members |
-| Solution member | Values, derivatives, duals, analyses | Available outputs carry qualification and origin |
+| Solution | Status, members, estimates/statistics, analyses, diagnostics, accuracy report, provenance | Failure or successful structural analysis may have zero solution members |
+| Solution member | Values, derivatives, duals | Task-owned analyses reference a member/point only where required; analysis applicability is distinct from physical-state permission |
 | Execution environment | Registry and available execution capabilities | Deployment context |
 | Execution plan | Plan steps and reconstruction/provenance mappings | A plan definition is distinct from each Run |
 

@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 336
-date: 2026-11-01
+revision: 337
+date: 2026-11-02
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 337 | 2026-11-02 | Reconcile §0 expanded process-delivery target with Plan64 RC01/RC02 and native scientific-reference boundary; finite H01 inventory remains pending. | Operator-authorized Plan64a design/contracts execution; reviewed target only, no production or scientific qualification and no ADR status change. |
 | 336 | 2026-11-01 | Record Plan63 selective source detail, typed origins/recovery, same-world native scopes, protocol8 and selected qualification (§21.7, §24.2). | Operator-authorized Plan63 execution within proposed ADR-0233/0235; coordinator Outcome owns actual commands, corrected failures, deliberate retain decisions and local Linux evidence limits. Formal ADR status is unchanged. |
 | 335 | 2026-11-01 | Reconcile the architecture with current source: native solver/profile and initialization capabilities, retained physical admissions and reuse, identity/name resolution, grammar metadata, result statistics, project/research meanings and dependency boundaries; organize host tools, canonical lifecycles and qualification history. Stable section identities and original evidence conditions are preserved. | Operator-authorized documentation reconciliation within existing decisions; Interface-checked against current source and selected test bodies. No product execution, new scientific qualification, future roadmap or formal ADR acceptance follows. |
 | 334 | 2026-11-01 | Record Plan60 comparison, original workflow contexts, canonical association/relevance and agent handoff/correction realization (§21.7); selected local Linux qualification is owned by the coordinator Outcome (§24.2). | Operator-authorized remaining Plan60 execution within proposed ADR-0235; scoped evidence and explicit exclusions do not confer formal ADR acceptance. |

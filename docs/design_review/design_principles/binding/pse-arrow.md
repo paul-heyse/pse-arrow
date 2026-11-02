@@ -151,7 +151,7 @@ routes govern adoption.
   edit/re-solve, studies, recycles, dynamics and extension) and in blueprint §0 and §0.2 (the
   IDAES-PSE modeling capability families this core re-implements). The mechanisms those passages
   name are rules, like ADRs, blueprint D1–D14, plans and the policies on this page: the Rust core
-  with a Python authoring and result boundary, the clean-room parity harness against a pinned
+  with native authoring and result operations and isolated Python scientific references, the clean-room parity harness against a pinned
   `idaes-pse`, and §0.2's *Realization here* column. A review lists the rules its
   recommendations would change (`review#RCnn`); they change only after the operator confirms
   them in plan creation.

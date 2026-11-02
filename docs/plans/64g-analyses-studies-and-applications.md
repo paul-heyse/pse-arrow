@@ -48,6 +48,7 @@ Engineering assessments retain physical contributor, boundary, currency/base per
 | G05 | planned | Selected dynamic route from 64e or accepted steady period model; G01 | Control/horizon and multiperiod/grid workflows retain physical-time/coupling meaning and intentional failure behavior |
 | G06 | planned | G01; selected physical results and assessment inputs | Cost/environment/utility products and useful stream/result/visualization views preserve identities, assumptions, provenance and permission |
 | G07 | planned | Selected G02–G06 integrations and their actual consumers | Joined workflow acceptance, consumer migration and enduring contract publication completed within declared scope |
+| G08 | planned | 64a A04 publication-witness target; exact selector/writer closure | Atomic capture/protections/receipt replaces pending global gate, preserving future-member completeness, unrelated liveness and recovery |
 
 ## Investigations and execution route
 
@@ -78,3 +79,13 @@ Prepare immutable science once where compatible, isolate mutable attempt state, 
 Migration moves every selected producer and reader of a changed contract together, including generated schemas and exact retained readback. Delete replaced interpretation paths after consumers move and revealing tests pass. Existing Plans28/40/53/54/58h keep their status and qualification duties. G07 completes only the selected P6 population and linked obligations, not unselected industry or supplemental whole-distribution claims.
 
 **Outcome:** Proposed only. No implementation, tests, probes or measurements were performed by authoring this document. The next ready work is G01's scoped consumer/design assessment once the shared contracts and exposed-product selection are available.
+
+## G08 — Atomic capture and unrelated liveness
+
+64a assigns the DA-063 production correction here. Replace the cross-RPC open/pending/commit protocol with one bounded transaction that registers a publication witness, evaluates complete selector membership, protects captured results/manifests and records an exact-request receipt atomically. Every membership or captured-metadata writer updates the witness in its own transaction, including insertion/removal and project/branch/research/outcome dependencies. Lease-only renewal does not; cancellation never waits for a pending-capture gate but updates the witness when it changes captured facts. Start conservatively with a global witness; narrowing it requires evidence that all selector dependencies remain covered.
+
+Use commit-time conflict detection and bounded retry rather than durable exclusion. Idempotent replay after lost acknowledgement resolves the recorded receipt; same identity with changed request refuses. Drain/settle legacy pending captures before cutover. Remove their RPC, busy guard and obsolete recovery-incarnation path only after all writers/consumers migrate, preserving protected-read ownership and authenticated abandoned-owner cleanup.
+
+Writable Surrealism is the preferred typed whole-operation prototype if its inherited-transaction failure probe passes and it removes procedural SQL/client choreography. First prove multi-write rollback after typed failure/timeout and actual completion before ownership release on the selected engine. Its current purity attestation must be explicitly amended through the decision route; network/module-KV side effects remain outside the selected transaction contract. If that probe fails, use the same atomic witness design in the existing authored transaction owner; do not keep two production implementations. This fallback selects an established mechanism for the same contract, not weaker capture semantics.
+
+Discriminate concurrent future-matching inserts and selector-metadata changes from unrelated renewal/cancellation; verify either a retry or one complete protected population, lost-ACK replay and stale-owner refusal. Record actual contention/retry behavior before claiming improved throughput. H05's persisted-study claims consume implemented G08 and applicable original-owner qualification; A04 source reasoning alone does not repair DA-063.

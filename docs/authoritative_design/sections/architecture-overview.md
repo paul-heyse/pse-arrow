@@ -23,7 +23,7 @@ are in the [reading guide](reading-guide.md).
 
 ### 0.2 What "core IDAES-PSE capabilities" means here
 
-The target scope includes the IDAES modeling framework and scientific libraries. K0–K8
+The target scope includes the IDAES modeling framework and scientific libraries. **Proposed expanded delivery target:** Plan64 includes released process applications, surrogate workflows and specialized families through an exact finite configuration/case inventory owned by Plan64h H01. That inventory remains pending; supplemental non-process obligations and beyond-release extensions stay separately identified. No expanded equivalence or implementation claim follows from this target. K0–K8
 implements the generic mechanisms and selected scientific seed; the remaining Plan 20
 ports are not implied by that seed. The table names
 the capability families the architecture is shaped to express and how each is realized.

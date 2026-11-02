@@ -27,6 +27,7 @@ The first supported interface is a Rust domain-operation surface using existing 
 | C04 | planned | Protected result/producer completion contract | Export selection derives exact scientific usability; affected readers/writers migrate together |
 | C05 | planned | RC04; completion and local-analysis contracts | Exposed product applicability and exact governing scope are consistent across native/recorded consumers |
 | C06 | planned | C01–C05 selected behavior; B delivery; H02 matched reference contracts and inputs | Recycle/exchanger native journeys and independent-reference handoff pass complete first-delivery acceptance |
+| C07 | planned | 64a A04 ordinary-interval disposition | Quality-owned tolerance semantics integrated into affected ordinary/conditional/initialization acceptance without relaxing hard domains or fixed specifications |
 
 ## C01 — Native inspection and editing
 
@@ -75,3 +76,9 @@ Use the actual recycle-flash and exchanger-costing authored definitions in `pack
 Retain exchanger unknown-area/pressure-extrapolation permissions and costing currency/unit conventions; matched arithmetic is not a qualified equipment purchase price. Inspect semantic physical outputs and exact retained readback through explicit local/recorded routes. H's reference construction can overlap after scientific correspondence settles; integrated D closeout needs the completed native side.
 
 **Proposed verification:** revealing owner tests and affected compile checks during implementation; assembled native/reference journeys only when their selected scope is integrated. Preserve independent analytic balance expectations and wrong/missing-output comparator controls. A–D completion is bounded first-delivery acceptance, not P0–P7 equivalence. All production packages remain planned at publication.
+
+## C07 — Shared ordinary-interval acceptance
+
+64a's source assessment assigns the DA-062 correction here. Reuse `pse-backend-native::quality` interval/tolerance computation in the affected initialization and conditional/causal consumers, retaining original source IDs and physical-coordinate assessment. Trace each caller to distinguish ordinary free-variable tolerance from hard domain/sign guards and fixed specifications before replacing its comparison. No global relaxation or interval-arithmetic subsystem is selected.
+
+Exercise a finite representable deviation inside ordinary tolerance, one outside, and strict-domain/fixed-value countercontrols across the affected routes. Migrate all selected consumers and delete their replaced ordinary comparisons; keep the stronger checks where their meaning requires them. C03/C06 and E/G/H acceptance consume the correction only for routes implicated by this discrepancy. Passing this slice does not independently close every DA-062 manifestation. This is a scheduled production package, not work executed by 64a.

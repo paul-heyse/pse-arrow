@@ -76,7 +76,7 @@ Source: [Notion](https://app.notion.com/p/40a141b583698181a474da42aa85b717).
 
 **Rules:** Ordinary dependencies are acyclic; any iterative procedure has an explicit convergence/stop policy, state ownership and completion contract. A plan is derived from a semantic request and method selection, not a replacement domain model.
 
-**Multiplicity:** Root, keyed to a problem's semantic hash
+**Multiplicity:** Root, associated with a semantic problem; reusable artifacts are keyed by their complete consumed dependencies, not the complete submission hash
 
 **Owns:** [Plan step](execution.md#source-40a141b583698168bfddf63954d5d738); [Run](execution.md#source-40a141b5836981198e93c8c05502f226)
 

@@ -23,7 +23,7 @@ The architecture is a re-implementation, not a translation:
 - **No IDAES code is copied** into this repository. No file, no function body, no
   docstring. The pull-request template carries a clean-room attestation, and
   `external/` is on the agent configuration's deny list for edits.
-- The **only** coupling is the parity harness (`python/pse/parity/`), which
+- The **only** coupling is the isolated scientific-reference harness (`tests/reference/oracles/`), which
   imports `idaes` in a separate environment and compares results.
 - Scientific comparisons use explicit formulation mappings under matched conditions.
   Historical enumeration spelling is not a compatibility obligation (blueprint §6.14,
@@ -49,8 +49,8 @@ it is the version `scripts/fetch-external.sh` checks out. A lint in
 drift from what the tests measure against.
 
 The parity environment is a **separate resolution** (`.venv-parity`, CPython
-3.13, supported by the pinned solver image), while the platform package
-targets ≥ 3.11 and is verified on 3.14. The IDAES 2.13.0 group allows interpreters
+3.13, supported by the pinned solver image). The product is native Rust; Python is
+an isolated scientific-reference/tool dependency. The IDAES 2.13.0 group allows interpreters
 below 3.15. Keeping the environments separate is what stops
 IDAES's transitive dependencies — `pydantic`, `sympy`, `networkx`, `pandas` —
 from becoming platform dependencies. The parity pre-flight **fails rather than
@@ -87,13 +87,17 @@ When citing the project this one is compared against:
 
 ## What "core IDAES-PSE capabilities" means
 
-The scope is the modeling framework, not the example libraries: the process
+The expanded target includes the modeling framework and released process-capability families: the process
 block lifecycle, unit models and ports, control volumes, the physical and
 modular property frameworks, reactions, the generic unit model library, costing,
 initialization, scaling, diagnostics, solvers and DAE discretization,
-serialization and units, and parameter sweeps. Surrogates, the DMF, the UI,
-Pecos, the apps and the `models_extra` libraries are **out of scope**; surrogate
-*embedding* would use the physical provider contract (blueprint §9.4). Blueprint §0.2
+serialization and units, and parameter sweeps. Released process applications, surrogate
+workflows and specialized `models_extra` families enter through a finite configuration/case
+population owned by [Plan64h](plans/64h-reference-coverage-and-qualification.md). Its H01
+inventory is not yet complete; this target statement is not a delivered-equivalence claim.
+Supplemental non-process applications, external companions and native extensions retain
+explicit separate scope. Python object hierarchies and upstream deployment mechanics are
+not the scientific correspondence contract. Blueprint §0.2
 carries the full table, and the
 [capability coverage appendix](authoritative_design/sections/scope-and-open-design.md#capability-coverage-against-idaes)
 records the current status of each capability.

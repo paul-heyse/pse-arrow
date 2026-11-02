@@ -37,7 +37,7 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 | H02 | planned | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Matched recycle/exchanger reference contracts and independent candidate/comparison controls are ready before integrated execution |
 | H03 | planned | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Packet D establishes complete outputs, intended failure correspondence, original physical checks and exact retained readback |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
-| H05 | planned | Selected H03/H04 outcomes; original execution and persistence owners | Relevant assembled native/operational journeys, interruption and deployment support claims are qualified without duplicating other plans' status |
+| H05 | planned | Selected H03/H04 outcomes; applicable C07/G08 corrections; original execution/persistence owners | Relevant assembled native/operational journeys, interruption and deployment support claims are qualified without duplicating other plans' status |
 | H06 | planned | Selected quality-equivalent cases and a concrete benefit/capacity question | Representative cold/reuse/structural/study/trajectory measurements answer the claim with original failures and conditions retained |
 | H07 | planned | All required population rows and consumed owner obligations | Scope-end checks, final claim/evidence reconciliation and enduring publication complete with zero unresolved required variants |
 
