@@ -556,6 +556,14 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
         cells.push(&v.value);
         paths.extend(provenance_paths(&v.provenance));
     }
+    if let Some(v) = &row.value.annotation
+        && v.kind == pse_model::generated::enums::ModelingAnnotationKind::EngineeringRule
+    {
+        // This target names the package constant itself; the registry deliberately
+        // excludes it from expression occurrences. Both source selectors must
+        // retain that ordinary constant's type/value/provenance dependencies.
+        names.push(v.target.trim());
+    }
     if let Some(v) = &row.value.accumulator {
         types.push(&v.r#type);
     }
@@ -728,6 +736,68 @@ mod tests {
     use super::*;
     use pse_authoring::language;
     use pse_ids::SemanticId;
+
+    #[test]
+    fn engineering_rule_marker_keeps_its_constant_through_selected_source_projections() {
+        let rows = crate::kernel_types::source(
+            "package p {constant floor:Scalar=0.001 provenance(s, role.given); constant unrelated:Scalar=99 provenance(s, role.given); annotation engineering_rule p.floor; def Root {var x:Scalar; eq e:x==1;}}",
+        );
+        let marker = rows
+            .iter()
+            .find(|row| is_engineering_rule_marker(row))
+            .unwrap();
+        assert_eq!(requirements(marker).names, ["p.floor"]);
+        let references = declaration_references(marker, None).unwrap();
+        assert_eq!(references.names, ["p.floor"]);
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let floor = rows
+            .iter()
+            .find(|row| row.name == "floor")
+            .unwrap()
+            .declaration_id;
+        let unrelated = rows
+            .iter()
+            .find(|row| row.name == "unrelated")
+            .unwrap()
+            .declaration_id;
+        let (quantities, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let checked = crate::check(
+            &rows,
+            &crate::TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &quantities,
+                preconditions: &preconditions,
+                scope: &crate::PhysicalScope::default(),
+            },
+        )
+        .unwrap();
+        for selected in [
+            checked.select(root).unwrap(),
+            checked.select_static(root, &[]).unwrap(),
+        ] {
+            assert!(selected.declarations.contains_key(&marker.declaration_id));
+            assert!(selected.declarations.contains_key(&floor));
+            assert!(selected.constants.contains_key(&floor));
+            assert!(
+                !selected.declarations.contains_key(&unrelated),
+                "an engineering marker does not select every package constant"
+            );
+            let rules = crate::annotation::engineering_rules(&selected).unwrap();
+            assert_eq!(rules.len(), 1);
+            assert_eq!(rules[0].id, floor.as_id());
+            assert_eq!(rules[0].marker, marker.declaration_id);
+            assert_eq!(rules[0].value, checked.constants[&floor].value);
+        }
+    }
 
     #[test]
     fn unread_nearer_scope_cannot_resolve_to_an_outer_shadow() {
