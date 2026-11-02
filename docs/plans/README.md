@@ -9,6 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
+| [64: Process-simulator target](64-process-simulator-target.md) | Draft P0–P7 series, accepted RC01–RC04 directions and planned first A–D delivery. Authoring grants no production execution authority. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |
@@ -19,7 +20,7 @@ resume stopped work or establish implementation, qualification or measured benef
 [Plan63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md#outcome)
 is complete. Its coordinator owns O01–O08 disposition, integrated qualification and deliberate
 limits; companions retain source-detail, recovery and native evidence plus the C03 symbol-search
-decision. It remains the highest-numbered series and the current qualification reference.
+decision. It remains the current code-intelligence qualification reference.
 Blueprint §21.7 owns enduring contracts and §24.2 the evidence boundary. Retention authorizes no new work.
 
 [Plan60: Engineering code intelligence](60-engineering-code-intelligence.md#outcome) is complete.

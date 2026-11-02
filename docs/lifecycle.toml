@@ -6615,3 +6615,145 @@ kind = "depends-on"
 from = "docs/plans/63-code-intelligence-cli-robustness.md::opportunity-dispositions::O08"
 to = "docs/plans/63-code-intelligence-cli-robustness.md::package-state::Q01"
 kind = "depends-on"
+
+# Plan64: native package state and single review disposition owner.
+
+[[scope_tables]]
+path = "docs/plans/64a-scope-and-shared-contracts.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64b-native-scientific-intake.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64c-process-authoring-and-first-delivery.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64d-scientific-assets-and-equipment.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64e-inventory-distributed-and-cyclic-physics.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64f-specialized-process-families.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64g-analyses-studies-and-applications.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64h-reference-coverage-and-qualification.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^([A-H][0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64-process-simulator-target.md"
+name = "finding-dispositions"
+heading = "Review finding dispositions"
+headers = [
+  "Finding",
+  "Disposition",
+  "Work owner",
+  "Completion or settling evidence",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(F[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F01"
+to = "docs/plans/64c-process-authoring-and-first-delivery.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F02"
+to = "docs/plans/64c-process-authoring-and-first-delivery.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F03"
+to = "docs/plans/64c-process-authoring-and-first-delivery.md::package-state::C05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F04"
+to = "docs/plans/64a-scope-and-shared-contracts.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F05"
+to = "docs/plans/64a-scope-and-shared-contracts.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F06"
+to = "docs/plans/64a-scope-and-shared-contracts.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F06"
+to = "docs/plans/64c-process-authoring-and-first-delivery.md::package-state::C05"
+kind = "depends-on"

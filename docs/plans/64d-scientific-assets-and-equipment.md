@@ -1,0 +1,89 @@
+---
+title: "Plan64d: Scientific assets and reusable equipment"
+status: draft
+date: 2026-11-02
+doc_role: plan
+doc_owner: docs/plans/64-process-simulator-target.md
+doc_topics: [current-work, design, validation]
+review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
+adrs: []
+---
+
+# Scientific assets and reusable equipment
+
+## Target and inspected foundation
+
+**Proposed:** deliver P2/P3 scientific foundations and generic equipment by complete consumer closures and supported configurations. The [coordinator](64-process-simulator-target.md) owns combined scope and review disposition; this companion owns D01–D06. Source baseline is `1acd8c83c`, consuming the [integrated review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), [scientific delivery contracts](../process-simulator-design/delivery/scientific-packages-and-equipment.md) and [finite IDAES scope](../process-simulator-design/delivery/idaes-scope-and-capability-coverage.md). All packages remain planned; authoring ran no scientific qualification.
+
+**Interface-checked:** scientific definitions already live in authored packages. Relevant owners include [property selection](../../packages/reference/domain/models/properties.pse), [chemistry](../../packages/reference/physical/models/chemistry.pse), [equilibrium/state bindings](../../packages/reference/thermodynamics/models/equilibrium.pse), [reaction projection](../../packages/reference/thermodynamics/models/reactions.pse) and [process specialization](../../crates/pse-modeling/src/specialize/process.rs). Extend these consumers and their existing compiler/provider contracts; no second equipment graph, compulsory control-volume ancestry or new universal scientific AST is selected.
+
+Current source is a starting implementation, not proof of complete configuration coverage. Ideal/PR, SRK-related records, NRTL, nonassociating PC-SAFT, caloric and existing state bindings must be assessed for their exact consumed behavior before adding duplicate science. Transport, general multiparameter properties, electrolyte/speciation, new state families and broader reactions remain selected scientific work, not capabilities granted by similar names.
+
+## Scientific and equipment contract
+
+Each increment delivers native definitions and exact source-attributed data; the supported component/phase/configuration population; demanded values, derivative order and validity; at least one consuming case; and independent evidence matching its claim. It preserves exact chemistry separately from empirical characterization, physical geometry separately from discretization, and scientific model substitution separately from implementation substitution.
+
+State definitions own independent coordinates, supplied/receiving responsibility, reconstruction and transport observations. Equilibrium and numerical realization remain separate. Missing binary interaction data is not zero; a start does not select a requested stable branch; a potential evaluated at supplied density does not establish flash or global equilibrium. Retain support/refusal when derivatives, phase behavior or input records do not meet the consumer's contract.
+
+A reusable unit exposes states, ports, optional balance regions/inventories, geometry, closure equations, supported configurations and specification freedoms. Reuse the physical definition across rating, sizing and optimization. A junction or boundary source need not contain a storage volume. Internal transfers cancel once under matching conventions; enclosing a subflowsheet must not count them twice. Material topology is not numerical solve order.
+
+Reaction increments retain participating subjects, stoichiometry, extent/rate basis, kinetic/equilibrium law, data and formation/sensible-energy convention. Extend checked `reactions.Projection` where its exact chemistry applies; do not replace it with arbitrary per-component source callbacks. A weaker empirical conversion requires its own explicit accounting contract rather than an invented complete composition guarantee.
+
+## Package state
+
+| ID | Status | Prerequisites | Completion |
+|---|---|---|---|
+| D01 | planned | 64h H01 finite family/configuration population; 64a scope; 64b source policy | Scientific dependency groups, consuming cases, current capability evidence and missing contracts settled |
+| D02 | planned | D01 selected state/property demands; 64b ordinary inputs | State/property/caloric/steam increments supply demanded outputs, derivatives, datum and branch/refusal behavior |
+| D03 | planned | D01; selected transport/reaction dependencies | Transport, reactions and electrolyte/speciation increments satisfy their actual consuming contracts |
+| D04 | planned | Relevant D02/D03 slices; 64c first-delivery composition | Generic equipment configurations and rating/design behavior delivered with initialization and original checks |
+| D05 | planned | D04 selected equipment/property closures | HDA and methanol integration plus selected custom composition demonstrate complete steady workflows |
+| D06 | planned | D02–D05 delivered populations; 64h correspondence | Selected scientific/equipment rows have independent configuration-specific evidence and truthful remaining coverage |
+
+### D01 — Resolve the scientific dependency program
+
+For each mandatory family/configuration selected by 64a, identify actual existing definitions and records, unresolved semantics, exact input source, supported numerical products and the smallest consuming case. Separate missing data, missing authored science, generic contract gaps, unimplemented integration and pending qualification. Package-name existence cannot settle any of those categories.
+
+The investigation outputs consumer-specific scientific slices: state-coordinate families; cubic/activity/caloric extensions; steam/supercritical-fluid needs; equilibrium/stoichiometric chemistry; transport; and electrolyte/true-apparent representation. Each slice names its enabling contract and the downstream cases it unlocks. Unresolved phase/datum/derivative/representation choices block that slice's implementation design, not independent families. Do not require all of P2 before a usable equipment group proceeds.
+
+### D02 — Deliver state and thermodynamic foundations
+
+Extend demanded state-coordinate families through existing semantic slots and reconstruction. Verify state round trips and advected component/enthalpy correspondence, including selected zero-flow/disappearing-phase behavior. Preserve PR variant conventions, NRTL's potential-derived activity response and the distinction between nonassociating PC-SAFT and new association/polar science.
+
+Deliver steam/supercritical-fluid capabilities with pump/turbine or heat-exchanger consumers. Compare authored and selected external realizations only for the complete demanded physical contract, including ideal/caloric contributions, datum, root/phase selection, derivatives and domain failures. No particular external dependency is adopted by this plan.
+
+The review preserves useful candidates: CoolProp `AbstractState`, `update`, keyed outputs and supported partial derivatives permit repeated products from an attempt-owned state, but phase/backend/data/reference-state limits matter ([primary API](https://coolprop.org/coolprop/LowLevelAPI.html)). teqp `build_multifluid_model`, `get_Arxy` and `pure_VLE_T` expose residual Helmholtz/phase capabilities; ideal/caloric completeness and ancillary-versus-equilibrium meaning remain separate ([multifluid](https://teqp.readthedocs.io/en/latest/models/multifluid.html), [derivatives](https://teqp.readthedocs.io/en/latest/derivs/derivs.html)). Treat these as researched candidates, not pinned integrations. Exact version/ABI/data selection and focused source validation are D02 decisions before adapter implementation.
+
+### D03 — Deliver transport, reaction and electrolyte closures
+
+Transport increments deliver phase/mixture rules and selected viscosity, conductivity or diffusion consumers. Reaction increments supply rate/equilibrium methods, extent normalization and reaction energy without double-counting formation enthalpy. Electrolyte work supplies actual speciation and true/apparent mappings, charge/composition and equilibrium equations, activity/transport requirements and independent checks; generic charge metadata is insufficient.
+
+Use an equilibrium/stoichiometric reactor as a reaction witness and the selected rate-based capture/contacting consumer as the electrolyte/transport witness. Preserve the same scientific input and tolerance mapping for reference reproduction. Capability questions about missing sparse derivatives or nonsmooth phase transitions produce explicit refusals or qualified products; do not silently approximate an exact derivative claim.
+
+### D04 — Deliver reusable generic equipment configurations
+
+Expand the finite selected configurations of feeds/feed flashes, junctions/scalers/translators, mixers/separators, pressure changers, valves/pipes, flash, stoichiometric/equilibrium/Gibbs reactors, CSTR/PFR, solid-liquid separation, multi-stream contactors and exchanger families. Tray/column and custom-unit composition enter where mandatory examples demand them. Distributed/transient variants consume the physical contracts of 64e rather than removing current refusals early.
+
+Each configuration owns its pressure/energy/material assumptions and effective fixed/free roles. Exercise rating and design over the same exchanger definition and a compatible property/closure substitution without rewriting side balances. Gibbs stationarity is not a stable-equilibrium certificate. Initialization uses existing staged/tear/continuation overlays and 64c's complete-report contract; final acceptance assesses the restored original problem.
+
+IDAES `PropertyInterrogatorBlock`/`ReactionInterrogatorBlock` and `list_required_properties` illustrate demand discovery, not executable science or complete optional-configuration coverage ([2.13 documentation](https://idaes-pse.readthedocs.io/en/2.13.0/reference_guides/model_libraries/generic/property_models/interrogator.html)). Native specialization explains its actual demanded closure. [Tagged MSContactor behavior](https://github.com/IDAES/idaes-pse/blob/2.13.0/idaes/models/unit_models/mscontactor.py) supports composition without compulsory control-volume ancestry; do not translate its Python hierarchy.
+
+### D05 — Integrate steady process and assessment consumers
+
+Use the selected HDA simulation/optimization/costing and methanol-synthesis flowsheets as joined milestones. Match property/reaction assumptions, pressure closure, recycles and explicit design specifications before numerical comparison. Missing science remains attributed to its D02/D03/D04 owner; a setup failure cannot satisfy an intended recycle or domain-failure test.
+
+Costing/assessment packages consume identified physical outputs and preserve currency/base date, period, utilization, factor provenance, allocation and system boundary. Keep capital, operating cost, emission and characterized impact distinct. The P1 exchanger correlation is a scoped witness, not evidence for all equipment purchase prices. Broader assessment inputs enter with their actual P3/P6 consumers rather than a comprehensive finance database.
+
+### D06 — Close the selected scientific configurations
+
+For each delivered configuration retain independent value/derivative, convention, original residual/bounds/domain, material/energy/element/charge and branch evidence appropriate to its claim. Compare a declared operating region and selected boundaries, not only one nominal point. Shared production calculations cannot generate the expected scientific answer being tested. Source/readback identity and numerical acceptance are separate checks.
+
+Hand 64h exact native/reference configurations, output mappings, comparison allowances and unavailable/unattempted scope. A supported unit configuration can complete while another configuration remains open; a nominal heater pass cannot qualify the generic library. Independent specialized families in 64f consume the actual accepted slices, not the completion label of this whole document.
+
+## Execution and evidence boundary
+
+Keep extraction/database access outside scalar property callbacks. Prepare immutable science once while its premises hold; attempt-owned mutable provider state is not shared between concurrent solves. Prefer native composed evaluation and sparse products where they meet the actual contract; retain necessary independent physical checks for every new numerical state. Repeated assembly, per-scalar crossings and nested pools need justified workload fit, but no cost model or universal streaming requirement follows.
+
+**Planned verification:** targeted owner tests during implementation, selected real native/property/unit/reference integrations at scope end, and 64h assembled finite-population acceptance. Preserve original failed, unavailable and not-run evidence. Performance/robustness gains remain unmeasured until a matched-quality campaign establishes them. No current new scientific conformance status follows from this plan.
+
+Next work is D01's dependency investigation alongside ready 64b/64c first-delivery work. New generic contracts use the existing decision route and migrate their actual consumers together; replaced mechanisms, callers, tests and fixtures retire once their target replacements pass. This companion neither reopens completed solver machinery nor absorbs existing Plan53/58h qualification.
