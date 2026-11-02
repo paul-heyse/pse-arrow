@@ -10,16 +10,16 @@ No scientific execution or performance measurement was run.
 | Family | Current observation and research relevance |
 | --- | --- |
 | Expressions, rewriting and differentiation | The symbolic engine provides the expression representation and transformations. Its full pattern/rewrite surface remains eligible beyond familiar parser and derivative routes. |
-| Optimized evaluators and code generation | [Math library integration](../../../../crates/pse-math/src/library.rs) exports evaluator instructions once per floating representation and derives storage/eligibility facts. Export is already used; recommending first adoption would be mistaken. |
+| Optimized evaluators and code generation | [Math library integration](../../../../crates/pse-math/src/library.rs) already prepares outputs jointly through `Atom::evaluator_multiple` in `exact_evaluator`, exports instructions once per floating representation, and derives storage/eligibility facts. Both joint preparation and export are current leverage. |
 | Exact polynomial algebra and roots | The [maintained supplier delta](../../../../vendor/symbolica-bounded-roots.md) adds bounded square-free and isolation overloads to the 3.0.1 source. This local surface differs from the upstream API at the same version. |
 | Coefficient domains and numerical composition | Exact coefficients, floating mapping, series and derivative representations offer useful compositions. Mathematical equivalence alone does not establish identical floating-point realization. |
 | Streaming, matrices, tensors and companion systems | The [broad overview](../../../libraries/scientific_calcs/symbolica.md) supplies territory to investigate. This pass establishes no complete local-use or configuration verdict for those families. |
 
 ## Research priorities
 
-1. **Explore shared multi-output evaluator preparation.** `Atom::evaluator_multiple` can optimize
-   expressions together and share subexpressions. This could matter where related outputs are
-   prepared independently. First establish the existing grouping and reuse boundaries, then ask
+1. **Extend useful grouping and reuse of multi-output preparation.** `Atom::evaluator_multiple`
+   already optimizes expressions together in `exact_evaluator`. Further leverage could matter
+   where related outputs remain outside that grouping. Establish the existing reuse boundaries, then ask
    whether preparation, memory lifetime and numerical policy permit combining them. Do not
    infer redundancy from multiple evaluator objects alone. [Evaluator contract](evaluator-contract.md).
 2. **Reuse exported representation facts across consumers.** `ExpressionEvaluator::export_instructions`

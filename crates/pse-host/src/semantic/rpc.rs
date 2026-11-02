@@ -294,7 +294,10 @@ impl Client {
                 }
                 None => Err(Error::Protocol("package reply has no outcome".into())),
             },
-            Request::Query(_) | Request::WorkspaceSymbols(_) | Request::Graph(_) => {
+            Request::Query(_)
+            | Request::WorkspaceSymbols(_)
+            | Request::Graph(_)
+            | Request::DependencyUsage { .. } => {
                 let mut conversation = client.run().await.map_err(transport_error)?;
                 conversation
                     .send(pb::NativeControl {
@@ -626,6 +629,7 @@ fn operation_name(request: &Request) -> &'static str {
         Request::Query(_) => "query",
         Request::WorkspaceSymbols(_) => "workspace_symbols",
         Request::Graph(_) => "bounded_relationships",
+        Request::DependencyUsage { .. } => "dependency_usage",
         Request::PackageContext { .. } => "package_context",
     }
 }
@@ -658,6 +662,9 @@ fn response_from_event(event: pb::NativeEvent) -> Result<Option<Result<Response>
         }
         Some(pb::native_event::Item::Graph(answer)) => {
             Some(wire::graph_answer_from_pb(*answer).map(Response::Graph))
+        }
+        Some(pb::native_event::Item::DependencyUsage(answer)) => {
+            Some(wire::usage_answer_from_pb(*answer).map(Response::DependencyUsage))
         }
         Some(pb::native_event::Item::Failure(failure)) => Some(Err(Error::Refusal(Box::new(
             wire::failure_from_pb(*failure)?,
@@ -740,6 +747,9 @@ impl ServiceEngine {
                         Request::Graph(_) => Err(Error::unsupported(
                             "bounded relationships require one explicitly prepared native_snapshot world",
                         )),
+                        Request::DependencyUsage { .. } => Err(Error::unsupported(
+                            "dependency usage requires a prepared native snapshot",
+                        )),
                     }
                 };
                 tokio::select! {
@@ -766,6 +776,12 @@ impl ServiceEngine {
                             .await
                             .map(Response::Graph)
                     }
+                    Request::DependencyUsage { package_ids } => settle_cpu(
+                        engine.start_dependency_usage(package_ids, token.clone()),
+                        &token,
+                    )
+                    .await
+                    .map(Response::DependencyUsage),
                     Request::PackageContext { package_id } => {
                         let engine = self.clone();
                         let task =

@@ -277,8 +277,28 @@ message NativeGraphQuery {
   SeedMatch seed_match = 9;
   bool exists = 10;
 }
+message NativeDependencyUsageQuery { repeated string package_ids = 1 [(buf.validate.field).repeated.min_items = 1]; }
+message NativeDependencyReference {
+  NativeByteLocation definition = 1 [(buf.validate.field).required = true];
+  repeated NativeLibraryProfile profiles = 2;
+  NativeByteLocation occurrence = 3 [(buf.validate.field).required = true];
+  string source_sha256 = 4;
+  string symbol_kind = 5;
+  optional string name = 6;
+  string role = 7;
+}
+message NativeDependencyUsageAnswer {
+  NativeAnalysisContext session = 1 [(buf.validate.field).required = true];
+  uint64 generation = 2;
+  repeated string package_ids = 3;
+  repeated NativeDependencyReference references = 4;
+  uint64 indexed_files = 5;
+  uint64 unmapped_definitions = 6;
+  repeated string limitations = 7;
+  repeated string unavailable_package_ids = 8;
+}
 message NativeRequest {
-  oneof operation { option (buf.validate.oneof).required = true; NativeQuery query = 1; NativeWorkspaceQuery workspace = 2; NativeGraphQuery graph = 3; }
+  oneof operation { option (buf.validate.oneof).required = true; NativeQuery query = 1; NativeWorkspaceQuery workspace = 2; NativeGraphQuery graph = 3; NativeDependencyUsageQuery dependency_usage = 4; }
 }
 message NativeConfiguration {
   enum Backend { LIVE_LSP = 0; NATIVE_SNAPSHOT = 1; }
@@ -495,7 +515,7 @@ message NativeGraphAnswer {
   repeated string limitations = 6;
 }
 message NativeControl { oneof action { option (buf.validate.oneof).required = true; NativeRequest start = 1; google.protobuf.Empty cancel = 2; } }
-message NativeEvent { oneof item { option (buf.validate.oneof).required = true; NativeAnswer query = 1; NativeWorkspaceAnswer workspace = 2; Failure failure = 3; Terminal terminal = 4; NativeGraphAnswer graph = 5; } }
+message NativeEvent { oneof item { option (buf.validate.oneof).required = true; NativeAnswer query = 1; NativeWorkspaceAnswer workspace = 2; Failure failure = 3; Terminal terminal = 4; NativeGraphAnswer graph = 5; NativeDependencyUsageAnswer dependency_usage = 6; } }
 service NativeSemantic {
   rpc Status(google.protobuf.Empty) returns (NativeSessionStatus);
   rpc PackageContext(NativePackageRequest) returns (NativePackageReply);

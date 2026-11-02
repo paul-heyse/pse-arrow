@@ -33,7 +33,7 @@ pub use service::{
 use std::path::PathBuf;
 
 /// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 8;
+pub const SESSION_PROTOCOL_VERSION: u32 = 9;
 
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
@@ -108,6 +108,11 @@ pub enum Request {
     WorkspaceSymbols(WorkspaceQuery),
     /// One bounded relationship investigation in one original native snapshot.
     Graph(GraphQuery),
+    /// Batch resolved workspace references to exact dependency packages.
+    DependencyUsage {
+        /// Exact source-qualified Cargo package identifiers.
+        package_ids: Vec<String>,
+    },
     /// Read selected package facts from the already loaded native Cargo/VFS world.
     PackageContext {
         /// Exact Cargo source-qualified package identity.
@@ -182,6 +187,44 @@ pub struct PackageContextAnswer {
     pub generation: u64,
     /// All actual matching library contexts; ambiguity is not collapsed.
     pub packages: Vec<NativePackageContext>,
+}
+/// A source-qualified observed reference; this is not evidence of runtime execution.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct DependencyReference {
+    /// Original declaration location in the selected VFS world.
+    pub definition: NativeLocation,
+    /// All captured dependency profiles whose source root contains the declaration.
+    pub profiles: Vec<NativeLibraryProfile>,
+    /// Original written workspace occurrence.
+    pub occurrence: NativeLocation,
+    /// Digest of the occurrence's original snapshot bytes.
+    pub source_sha256: String,
+    /// Upstream symbol category, retained for presentation only.
+    pub symbol_kind: String,
+    /// Resolved declaration label, when available.
+    pub name: Option<String>,
+    /// Syntactic occurrence role, not an execution classification.
+    pub role: String,
+}
+/// One batch census in one explicitly prepared immutable native world.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct DependencyUsageAnswer {
+    /// Actual selected analysis context.
+    pub session: AnalysisContext,
+    /// Immutable world generation.
+    pub generation: u64,
+    /// Exact requested Cargo package IDs.
+    pub package_ids: Vec<String>,
+    /// Requested packages absent from the selected native graph, never zero-use verdicts.
+    pub unavailable_package_ids: Vec<String>,
+    /// Resolved reference observations, excluding definition occurrences.
+    pub references: Vec<DependencyReference>,
+    /// Number of source files indexed by the upstream batch operation.
+    pub indexed_files: usize,
+    /// Resolved symbols for which no original definition mapping was available.
+    pub unmapped_definitions: usize,
+    /// Explicit scope and interpretation limits.
+    pub limitations: Vec<String>,
 }
 /// Policies directly supported by the selected native symbol index.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema)]
@@ -492,12 +535,21 @@ pub enum Response {
     WorkspaceSymbols(WorkspaceAnswer),
     /// Settled bounded native relationship evidence.
     Graph(GraphAnswer),
+    /// Settled batch reference observations.
+    DependencyUsage(DependencyUsageAnswer),
     /// Qualified loaded Cargo/VFS package context.
     PackageContext(PackageContextAnswer),
     /// Stop accepted by the session owner; teardown remains session-owned.
     Stopped,
 }
 impl Response {
+    /// Extract a batch dependency census.
+    pub fn into_dependency_usage(self) -> Result<DependencyUsageAnswer> {
+        match self {
+            Self::DependencyUsage(value) => Ok(value),
+            _ => Err(Error::Protocol("expected dependency usage response".into())),
+        }
+    }
     /// Extract a bounded relationship investigation.
     pub fn into_graph(self) -> Result<GraphAnswer> {
         match self {

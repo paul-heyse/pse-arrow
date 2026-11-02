@@ -82,6 +82,9 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_OCCURRENCE_FILE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_WORKSPACE_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_GRAPH_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DEPENDENCY_USAGE_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DEPENDENCY_REFERENCE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DEPENDENCY_USAGE_ANSWER_JSON_ANY);
         reg.register_json_any(super::__NATIVE_REQUEST_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CONFIGURATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_ANALYSIS_CONTEXT_JSON_ANY);
@@ -201,6 +204,9 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_OCCURRENCE_FILE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_WORKSPACE_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_GRAPH_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DEPENDENCY_USAGE_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DEPENDENCY_REFERENCE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DEPENDENCY_USAGE_ANSWER_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_REQUEST_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CONFIGURATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_ANALYSIS_CONTEXT_TEXT_ANY);
@@ -497,6 +503,18 @@ pub use self::__buffa::view::NativeWorkspaceQueryOwnedView;
 pub use self::__buffa::view::NativeGraphQueryView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeGraphQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyReferenceView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyReferenceOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageAnswerView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageAnswerOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeRequestView;
 #[doc(inline)]

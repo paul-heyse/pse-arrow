@@ -23,6 +23,7 @@ use std::{
 pub mod bridge;
 pub mod comparison;
 pub mod doctests;
+pub mod export;
 pub mod query;
 
 /// A version, acquisition or original native input failure.

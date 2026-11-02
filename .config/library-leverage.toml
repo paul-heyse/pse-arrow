@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Logical selection only. Versions and sources come from locked Cargo metadata.
+[families.datafusion-arrow]
+packages = ["datafusion", "datafusion-*", "arrow", "arrow-*", "parquet"]
+references = ["docs/libraries/analytical_infrastructure/datafusion.md", "docs/libraries/analytical_infrastructure/arrow.md"]
+
+[families.tokio]
+packages = ["tokio", "tokio-util"]
+references = ["docs/libraries/runtime/tokio.md", "docs/libraries/runtime/tokio-util.md"]
+
+[families.symbolica]
+packages = ["symbolica"]
+references = ["docs/libraries/scientific_calcs/symbolica.md"]

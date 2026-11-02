@@ -11,6 +11,8 @@ use std::{
     num::{NonZeroU64, NonZeroUsize},
     path::{Path, PathBuf},
 };
+#[path = "dependency_usage.rs"]
+mod dependency_usage;
 #[path = "schema.rs"]
 mod schema;
 #[path = "source.rs"]
@@ -19,6 +21,8 @@ mod source;
 /// Explicit evidence kinds never guess whether an operand is a file or invocation.
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
+    /// Observe written references to exact Cargo package IDs in a prepared native world.
+    DependencyUsage(dependency_usage::Args),
     /// Compare explicitly addressed source, API, retained context or native world evidence.
     Comparison(super::comparison::Args),
     /// Navigate an explicitly supplied complete descriptor set, or compare schema worlds.
@@ -260,6 +264,7 @@ pub(super) fn inspect(
         Action::Declaration(options) => source::declaration(options, selected, output),
         Action::Origin(options) => source::origin(options, selected, output),
         Action::Entity(options) => source::entity(options, selected, output),
+        Action::DependencyUsage(options) => dependency_usage::inspect(options, &root, output),
         Action::Api(options) => crate::cli::api::inspect(options, &root, output),
         Action::Dependency {
             package,

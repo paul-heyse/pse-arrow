@@ -707,6 +707,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "inspect dependency" => envelope::schema::<crate::dependency::Report>(command, view),
         "inspect dependency-units" => envelope::schema::<dependency::Units>(command, view),
+        "inspect dependency-usage" => {
+            envelope::schema::<crate::semantic::DependencyUsageAnswer>(command, view)
+        }
         "inspect affected" => envelope::schema::<crate::affected::Preview>(command, view),
         "inspect changes" => envelope::schema::<changes::Report>(command, view),
         "inspect api" => envelope::schema::<crate::api::query::Report>(command, view),

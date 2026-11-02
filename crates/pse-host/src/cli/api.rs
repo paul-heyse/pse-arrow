@@ -34,6 +34,9 @@ pub(super) struct Arguments {
 }
 #[derive(Debug, Args)]
 pub(in crate::cli) struct InspectArgs {
+    /// Export deterministic JSONL facts from an already acquired artifact into a new directory.
+    #[arg(long, conflicts_with_all=["path", "search", "cursor", "compare_with", "native_examples", "adjacency", "kind", "input", "output_type", "where_shapes", "trait_name", "unsafe_only", "async_only", "const_only", "docs", "examples", "declaration"])]
+    export_jsonl: Option<std::path::PathBuf>,
     /// Exact locked dependency name, name@version or source-qualified Cargo package ID.
     crate_query: String,
     /// Public crate-relative item path; omission lists candidates.
@@ -191,6 +194,11 @@ pub(super) fn dispatch(
         check_docs,
         extract_examples,
     } = arguments;
+    if lookup.export_jsonl.is_some() {
+        return Err(error(api::ApiError::Invalid(
+            "--export-jsonl reads an acquired artifact: use inspect api separately from acquisition/check effects".into(),
+        )));
+    }
     let operation = if extract_examples {
         Operation::ExtractExamples
     } else if prepare {
@@ -419,6 +427,18 @@ fn perform(
             output,
         );
     };
+    if let Some(directory) = arguments.export_jsonl {
+        let manifest = api::export::write(&artifact, &root.join(directory)).map_err(error)?;
+        let mut response = Envelope::response(
+            "inspect api",
+            "complete selected-artifact facts export; no acquisition or execution",
+            api::query::Report::Export { manifest },
+        );
+        response.subject_state = envelope::SubjectState::Available;
+        response.providers = providers;
+        response.observation.scope = "one_acquired_rustdoc_artifact_export".into();
+        return Ok(output.emit(response)?);
+    }
     if let Some(baseline) = arguments.compare_with {
         let baseline = api::retained(&root.join(baseline)).map_err(error)?;
         if !matches!(effect, Some((Operation::Compatibility, _))) {
@@ -653,6 +673,48 @@ fn perform(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn bulk_export_is_a_whole_artifact_read_without_query_filters() {
+        use clap::Parser as _;
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse",
+                "inspect",
+                "api",
+                "dep",
+                "--export-jsonl",
+                "facts"
+            ])
+            .is_ok()
+        );
+        for filter in ["--docs", "--unsafe-only", "--declaration"] {
+            assert!(
+                super::super::Cli::try_parse_from([
+                    "pse",
+                    "inspect",
+                    "api",
+                    "dep",
+                    "--export-jsonl",
+                    "facts",
+                    filter
+                ])
+                .is_err()
+            );
+        }
+        assert!(
+            super::super::Cli::try_parse_from([
+                "pse",
+                "inspect",
+                "api",
+                "dep",
+                "--export-jsonl",
+                "facts",
+                "--search",
+                "Foo"
+            ])
+            .is_err()
+        );
+    }
     use clap::Parser as _;
     #[test]
     fn native_example_extraction_and_retained_inspection_have_separate_effect_controls() {

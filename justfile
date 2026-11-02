@@ -208,6 +208,13 @@ lib-outline doc:
     exec scripts/pse --format human outline "$1"
 
 [group('discovery')]
+[doc('Bundle selected library evidence; pass --output DIR and optional --prepare/--acquire')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--", "bash", "-euo", "pipefail")]
+library-evidence *args:
+    exec cargo xtask library-evidence "$@"
+
+[group('discovery')]
 [doc('cargo metadata for the workspace (no dependency resolution)')]
 metadata:
     cargo metadata --no-deps --format-version 1

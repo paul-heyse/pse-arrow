@@ -31,6 +31,7 @@ mod actions;
 #[path = "native/cancellation_tests.rs"]
 mod cancellation_tests;
 mod candidates;
+mod dependency_usage;
 mod doc_links;
 mod graph;
 mod importability;
@@ -856,6 +857,75 @@ impl Engine {
                             },
                             session,
                             query,
+                            &token,
+                        )
+                    })
+                },
+            )))??;
+            context.check()?;
+            if token.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            Ok(answer)
+        });
+        match native_cancel {
+            Some(cancel) => task.with_cancel_hook(move || cancel.cancel()),
+            None => task,
+        }
+    }
+    pub(super) fn start_dependency_usage(
+        &self,
+        package_ids: Vec<String>,
+        token: CancellationToken,
+    ) -> CpuTask<Result<super::DependencyUsageAnswer>> {
+        let inputs = self
+            .world
+            .lock()
+            .map_err(super::engine::protocol)
+            .map(|world| {
+                let (db, cancellation) = world.db.request_snapshot();
+                (
+                    db,
+                    cancellation,
+                    world.files.clone(),
+                    world.paths.clone(),
+                    world.digests.clone(),
+                )
+            });
+        let native_cancel = inputs.as_ref().ok().map(|(_, c, _, _, _)| c.clone());
+        let context = self.context.clone();
+        let session = self.analysis_context();
+        let active = self.active.clone();
+        let packages = self.packages.clone();
+        let runnable_targets = self.runnable_targets.clone();
+        let task = spawn_cpu(token, move |token| {
+            struct Active(Arc<AtomicUsize>);
+            impl Drop for Active {
+                fn drop(&mut self) {
+                    self.0.fetch_sub(1, Ordering::SeqCst);
+                }
+            }
+            active.fetch_add(1, Ordering::SeqCst);
+            let _active = Active(active);
+            context.check()?;
+            if token.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            let (db, _cancellation, files, paths, digests) = inputs?;
+            let answer = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
+                || {
+                    ra_ap_hir::attach_db_allow_change(&db, || {
+                        dependency_usage::query(
+                            QuerySnapshot {
+                                db: &db,
+                                files: &files,
+                                paths: &paths,
+                                digests: &digests,
+                                packages: &packages,
+                                runnable_targets: &runnable_targets,
+                            },
+                            session,
+                            package_ids,
                             &token,
                         )
                     })

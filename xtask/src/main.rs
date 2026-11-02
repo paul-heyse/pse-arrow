@@ -37,6 +37,7 @@ mod dependency_ceilings;
 mod evidence_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
+mod library_evidence;
 mod producer_identity;
 #[cfg(feature = "physical-admission")]
 mod scientific_inputs;
@@ -65,6 +66,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Bundle library API and observed reference evidence; preparation is opt-in.
+    LibraryEvidence(library_evidence::Args),
     /// Describe this compiled owner's actual command grammar without preparing any tools.
     Commands {
         /// Emit structured parser descriptions.
@@ -602,6 +605,7 @@ fn main() -> Result<()> {
     }
     let root = workspace_root()?;
     match cli.command {
+        Cmd::LibraryEvidence(args) => library_evidence::run(&root, args),
         Cmd::Commands { .. } => bail!("command discovery was not handled before checkout lookup"),
         Cmd::Owner { query } => xtask::documentation::ownership::execute(&root, query),
         Cmd::Register { command } => {

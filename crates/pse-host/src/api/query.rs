@@ -349,6 +349,11 @@ pub(crate) struct ExternalUse {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "availability", rename_all = "snake_case")]
 pub enum Report {
+    /// Deterministic facts exported from one already acquired artifact.
+    Export {
+        /// Completed bundle and its exact source/context identity.
+        manifest: super::export::Manifest,
+    },
     /// Original native preprocessing, separate from authored fence reading and execution.
     NativeExamples {
         /// Whole extracted examples from one addressed native artifact.
@@ -377,8 +382,8 @@ pub enum Report {
         requested_target: Option<String>,
     },
 }
-#[derive(Clone)]
-struct Address {
+#[derive(Clone, Serialize)]
+pub(crate) struct Address {
     path: String,
     id: Id,
     trait_provenance: Option<TraitProvenance>,
@@ -526,7 +531,7 @@ pub(crate) fn definition_prefix(document: &Crate, canonical: &[String]) -> Optio
         .map(|address| address.path)
         .min_by_key(String::len)
 }
-fn addresses(document: &Crate) -> Vec<Address> {
+pub(crate) fn addresses(document: &Crate) -> Vec<Address> {
     let root = document
         .index
         .get(&document.root)

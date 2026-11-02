@@ -699,6 +699,9 @@ pub mod native_request {
         Query(::buffa::alloc::boxed::Box<super::super::super::NativeQuery>),
         Workspace(::buffa::alloc::boxed::Box<super::super::super::NativeWorkspaceQuery>),
         Graph(::buffa::alloc::boxed::Box<super::super::super::NativeGraphQuery>),
+        DependencyUsage(
+            ::buffa::alloc::boxed::Box<super::super::super::NativeDependencyUsageQuery>,
+        ),
     }
     impl ::buffa::Oneof for Operation {}
     impl From<super::super::super::NativeQuery> for Operation {
@@ -733,6 +736,17 @@ pub mod native_request {
             Self::Some(Operation::from(v))
         }
     }
+    impl From<super::super::super::NativeDependencyUsageQuery> for Operation {
+        fn from(v: super::super::super::NativeDependencyUsageQuery) -> Self {
+            Self::DependencyUsage(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeDependencyUsageQuery>
+    for ::core::option::Option<Operation> {
+        fn from(v: super::super::super::NativeDependencyUsageQuery) -> Self {
+            Self::Some(Operation::from(v))
+        }
+    }
     impl ::serde::Serialize for Operation {
         fn serialize<S: ::serde::Serializer>(
             &self,
@@ -749,6 +763,9 @@ pub mod native_request {
                 }
                 Self::Graph(v) => {
                     map.serialize_entry("graph", &**v)?;
+                }
+                Self::DependencyUsage(v) => {
+                    map.serialize_entry("dependencyUsage", &**v)?;
                 }
             }
             map.end()
@@ -913,6 +930,9 @@ pub mod native_event {
         Failure(::buffa::alloc::boxed::Box<super::super::super::Failure>),
         Terminal(::buffa::alloc::boxed::Box<super::super::super::Terminal>),
         Graph(::buffa::alloc::boxed::Box<super::super::super::NativeGraphAnswer>),
+        DependencyUsage(
+            ::buffa::alloc::boxed::Box<super::super::super::NativeDependencyUsageAnswer>,
+        ),
     }
     impl ::buffa::Oneof for Item {}
     impl From<super::super::super::NativeAnswer> for Item {
@@ -966,6 +986,17 @@ pub mod native_event {
             Self::Some(Item::from(v))
         }
     }
+    impl From<super::super::super::NativeDependencyUsageAnswer> for Item {
+        fn from(v: super::super::super::NativeDependencyUsageAnswer) -> Self {
+            Self::DependencyUsage(::buffa::alloc::boxed::Box::new(v))
+        }
+    }
+    impl From<super::super::super::NativeDependencyUsageAnswer>
+    for ::core::option::Option<Item> {
+        fn from(v: super::super::super::NativeDependencyUsageAnswer) -> Self {
+            Self::Some(Item::from(v))
+        }
+    }
     impl ::serde::Serialize for Item {
         fn serialize<S: ::serde::Serializer>(
             &self,
@@ -988,6 +1019,9 @@ pub mod native_event {
                 }
                 Self::Graph(v) => {
                     map.serialize_entry("graph", &**v)?;
+                }
+                Self::DependencyUsage(v) => {
+                    map.serialize_entry("dependencyUsage", &**v)?;
                 }
             }
             map.end()

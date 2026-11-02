@@ -327,6 +327,13 @@ pub mod native_request {
                 super::super::super::super::__buffa::view::NativeGraphQueryView<'a>,
             >,
         ),
+        DependencyUsage(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeDependencyUsageQueryView<
+                    'a,
+                >,
+            >,
+        ),
     }
 }
 pub mod native_package_reply {
@@ -410,6 +417,13 @@ pub mod native_event {
         Graph(
             ::buffa::alloc::boxed::Box<
                 super::super::super::super::__buffa::view::NativeGraphAnswerView<'a>,
+            >,
+        ),
+        DependencyUsage(
+            ::buffa::alloc::boxed::Box<
+                super::super::super::super::__buffa::view::NativeDependencyUsageAnswerView<
+                    'a,
+                >,
             >,
         ),
     }

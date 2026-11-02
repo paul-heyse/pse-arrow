@@ -212,6 +212,29 @@ fn public_aliases_and_trait_default_methods_retain_their_public_import() {
         .index
         .insert(Id(5), item(5, "help", ItemEnum::Function(function)));
     let paths = query::test_public_paths(&document);
+    let exported = export::facts(&document).unwrap();
+    assert_eq!(exported["implementations"].len(), 1);
+    assert_eq!(exported["declarations"].len(), 6);
+    assert_eq!(
+        exported["traits"][0]["provided_methods"],
+        serde_json::json!([5])
+    );
+    assert!(
+        exported["traits"][0]["required_methods"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        exported["public-paths"]
+            .iter()
+            .any(|row| row["path"] == "demo::Alias::help")
+    );
+    assert!(
+        !exported["public-paths"]
+            .iter()
+            .any(|row| row["path"] == "demo::Original")
+    );
     assert!(
         paths
             .iter()
