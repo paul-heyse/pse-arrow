@@ -48,7 +48,10 @@ Select `datafusion-arrow` or `symbolica`, repeat `--family`, or omit it for all 
 families. The directory must be new. The family mapping in `.config/library-leverage.toml`
 contains package selectors and overview routes; dependency owners supply versions and sources.
 
-Add `--prepare` to explicitly prepare the selected native snapshot and `--acquire` to acquire
+Prepare a reusable session separately with `pse code session prepare --backend native-snapshot`
+and the selected context flags, outside an enclosing workload. Native ownership prevents this
+workflow from independently detaching that service. Add `--prepare` to explicitly prepare the
+native analysis tool and `--acquire` to acquire
 selected package APIs. These effects can compile providers and dependency documentation.
 `--features`, `--target`, `--no-default-features`, `--test-context` and `--build-macros`
 select the investigated world; they do not establish every other build configuration.

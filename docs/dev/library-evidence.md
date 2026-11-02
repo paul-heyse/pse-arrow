@@ -6,8 +6,11 @@ omission selects every family in `.config/library-leverage.toml`. The output dir
 must be new and its parent must exist. The family configuration selects package names
 and reference documents; locked Cargo metadata owns versions and sources.
 
-Preparation is explicit. Add `--prepare` to prepare the native analysis tool and the
-selected native semantic session. Add `--acquire` to acquire selected packages' rustdoc
+Preparation is explicit. Add `--prepare` to prepare the native analysis tool. Prepare
+the reusable semantic session separately with `scripts/pse code session prepare
+--backend native-snapshot` and the desired context flags, before running this recipe.
+The native service owner prohibits independent detachment from an enclosing workload;
+the bundle must reuse that separately prepared session. Add `--acquire` to acquire selected packages' rustdoc
 artifacts. These operations may compile dependencies; neither runs scientific workflows.
 Reads never silently prepare missing inputs. Native build-script/proc-macro execution
 requires `--build-macros`. `--features`, `--no-default-features`, `--target`, and
@@ -17,7 +20,9 @@ API exports retain their separately acquired documentation context and feature s
 For example, after reviewing the requested effects:
 
 ```bash
-just library-evidence --family symbolica --output /tmp/symbolica-evidence --prepare --acquire
+scripts/pse tools prepare native-analysis
+scripts/pse code session prepare --backend native-snapshot
+just library-evidence --family symbolica --output /tmp/symbolica-evidence --acquire
 ```
 
 The Rust `xtask library-evidence` owner composes the native commands; the recipe is a

@@ -21,7 +21,7 @@ pub(crate) struct Args {
     /// New caller-owned output directory; existing output is never overwritten.
     #[arg(long)]
     output: PathBuf,
-    /// Explicitly prepare the native analysis tool and selected semantic session.
+    /// Explicitly prepare the native analysis tool. Prepare the reusable session separately.
     #[arg(long)]
     prepare: bool,
     /// Explicitly acquire each selected package's API documentation before exporting.
@@ -199,9 +199,6 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
             "prepare-tool",
             vec!["tools".into(), "prepare".into(), "native-analysis".into()],
         )?);
-        let mut command = vec!["code".into(), "session".into(), "prepare".into()];
-        command.extend(context(&args));
-        steps.push(capture(root, &output, "prepare-session", command)?);
     }
     let mut usage = vec!["inspect".into(), "dependency-usage".into()];
     usage.extend(selected.keys().cloned());

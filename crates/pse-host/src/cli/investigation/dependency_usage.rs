@@ -13,6 +13,9 @@ pub(in crate::cli::investigation) struct Args {
     /// Source-qualified Cargo IDs (use inspect dependency to resolve names first).
     #[arg(required = true, num_args = 1..)]
     package_ids: Vec<String>,
+    /// Analyze a separately prepared project while retaining this checkout's session owner.
+    #[arg(long)]
+    project: Option<std::path::PathBuf>,
     #[arg(long, value_enum, default_value = "native-snapshot")]
     backend: semantic::Backend,
     #[arg(long, value_delimiter = ',')]
@@ -32,7 +35,7 @@ pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result
     let error = |error: semantic::Error| HostError::Ownership(error.to_string());
     let expected = semantic::Configuration {
         backend: args.backend,
-        project: root.to_path_buf(),
+        project: args.project.unwrap_or_else(|| root.to_path_buf()),
         features: args.features,
         no_default_features: args.no_default_features,
         target: args.target,
