@@ -98,3 +98,25 @@ Retain exchanger unknown-area/pressure-extrapolation permissions and costing cur
 64a's source assessment assigns the DA-062 correction here. Reuse `pse-backend-native::quality` interval/tolerance computation in the affected initialization and conditional/causal consumers, retaining original source IDs and physical-coordinate assessment. Trace each caller to distinguish ordinary free-variable tolerance from hard domain/sign guards and fixed specifications before replacing its comparison. No global relaxation or interval-arithmetic subsystem is selected.
 
 Exercise a finite representable deviation inside ordinary tolerance, one outside, and strict-domain/fixed-value countercontrols across the affected routes. Migrate all selected consumers and delete their replaced ordinary comparisons; keep the stronger checks where their meaning requires them. C03/C06 and E/G/H acceptance consume the correction only for routes implicated by this discrepancy. Passing this slice does not independently close every DA-062 manifestation. This is a scheduled production package, not work executed by 64a.
+
+## Current checkpoint — 2026-11-02
+
+Full initialization outcomes, actual parent projection coordinates, protected scoped product
+permission, compiler-bound structural case-variable inspection and ordinary-bound acceptance
+are implemented. Their selected authoring/initialization/permission/budget controls pass, as
+do the workspace and selected native-provider all-target compile checks. Ordinary design,
+arithmetic closure, positive recycle and the canonical source-to-consuming-case/readback
+journey pass their focused controls. Rating now passes an explicit same-case accepted-design
+to original-rating composition through the public Rust operations, transferring complete
+typed primal inputs and requiring fresh final permission. Generic cold starts under Ipopt
+and POUNCE remain unqualified; no restored initializer policy or solver factors are invented.
+Its long preparation exposed duplicate static function-source materialization before the
+existing tracked selector cache. C02's bounded correction and affected reruns remain open.
+The overheated
+stage retains an actual Ipopt numerical stop and the original50K connection contradiction,
+not a mathematical infeasibility certificate. Its case-local expectation and independent
+contradiction control preserve that distinction without changing central classification.
+The exact overheated contradiction and historical recycle preservation controls pass.
+The Perry benzene liquid-Cp allowance preserves its published envelope and makes the
+368K recycle use explicit extrapolation. Native delivery, affected preservation controls and
+scope-end qualification remain open; H02/H03 reference execution remains separate.

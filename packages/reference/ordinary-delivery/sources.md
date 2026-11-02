@@ -16,9 +16,9 @@ are adopted here.
 | Native case | Physical definition and specification | Native/reference obligation |
 |---|---|---|
 | `ordinary_delivery.ordinary_recycle` | Ideal benzene/toluene recycle, heater, adiabatic isobaric flash and liquid splitter; equimolar fresh feed, 1 mol/s, 368 K, 101325 Pa; purge fraction 0.25 | Run the `tear` stage, then the unchanged closed recycle. Retain all attempts, accepted original state, component/energy closure and physical reports. |
-| `ordinary_delivery.ordinary_overheated` | Same original recycle specification; `overheated_tear` substitutes a 500 K tear port while preserving the defined tear component and energy transport | Reach that actual stage, retain its attributed `trial_rejected` failure and attempt evidence, commit no original state, and leave the authored specification unchanged. A package/setup error does not satisfy the control. |
+| `ordinary_delivery.ordinary_overheated` | Same original recycle specification; `overheated_tear` substitutes a 500 K tear port while preserving the defined tear component and energy transport; explicit Ipopt backend | Reach that actual stage and retain its attributed numerical stop, the independently checked 500 K versus 450 K temperature contradiction and attempt evidence. Commit no original state and leave the authored specification unchanged. A package/setup error or unrelated numerical failure does not satisfy the control. |
 | `ordinary_delivery.ordinary_exchanger` | Co-current Peng–Robinson exchanger with relational density on all four states; equimolar sides at 101325 Pa, hot 5 mol/s at 365 K, cold 1 mol/s at 300 K, zero pressure drops, coefficient 100 W/(m² K); cold outlet fixed at 331.6111111111111 K and area free | Solve design area and the original side balances; evaluate SSLW costing at that actual area. The source-to-publication journey runs this case from a freshly reopened canonical source. |
-| `ordinary_delivery.ordinary_rating` | Same exchanger physics and feeds; area fixed at 1 m² and cold outlet temperature free | Match this fixed/free correspondence explicitly. It is a different specification over the same physical definition. |
+| `ordinary_delivery.ordinary_rating` | Same exchanger physics and feeds; area fixed at 1 m² and cold outlet temperature free; explicit Ipopt | Use the public Rust design-to-rating composition below, then independently qualify the unchanged rating specification. It is a different question over the same physical definition. |
 | `ordinary_delivery.ordinary_arithmetic_closure` | Same design specification, side balances and costing; replace the logarithmic mean temperature difference with the compatible arithmetic mean closure | Compare against the arithmetic-mean formulation, retaining the changed closure as part of scientific correspondence. |
 
 The ideal recycle and PR exchanger are distinct thermodynamic realizations. Both
@@ -38,12 +38,78 @@ reference must use the current ordinary controls and parameter selections; this
 package makes no historical default-fixture parity claim. Initial guesses remain
 execution inputs, while the selected smoothing changes the formulation.
 
+Rating overrides only numerical starts: hot/cold outlet temperatures start at
+360/330K, and the co-current first/second differences at65/30K. The inherited
+state guess would put both free outlets at367.5K, equal to each other and above
+the365K hot feed. The selected starts respect the physical direction of transfer
+and the logarithmic driving-force domain. Area remains fixed at1m² and the cold
+outlet temperature remains free; no equation, bound or acceptance budget changes.
+The generic declared cold-start rating did not converge: Ipopt reported
+`Restoration_Failed` with large original material/equilibrium violations. An
+independent existing-method trial of POUNCE interior-point/FERAL reported
+`Infeasible_Problem_Detected` with an unqualified candidate, large original
+material/EOS violations and failed density-domain checks. Neither stop establishes
+that the physical rating problem is impossible. The selected workflow uses Ipopt
+for both questions and supplies a coherent accepted design state through existing
+public native start operations; it does not guess every PR auxiliary coordinate.
+
+The Rust operation composition selects the **same rating case/root/instance**
+throughout. It clones the analysis, temporarily frees area and fixes the cold
+outlet at the design temperature, and calls `prepare_analysis`/`solve_case`. Only an
+originally accepted design point can supply the next input. It then prepares the
+unchanged original rating analysis, verifies source/target quantity and unit
+identity, and transfers exactly every original free target coordinate from the
+accepted state. This includes the formerly fixed cold outlet and all PR auxiliary
+states, while excluding the rating's fixed area. Incomplete coverage refuses.
+`PreparedSolve::with_primal_start` constructs a new target-compatible primal-only
+payload; `ModelingSolvePreparation::with_start` retains explicit-input attribution.
+No native factors, duals, barrier parameter or mutable solver state transfers.
+The final operation receives its own original assessment, permission and point
+identity. The immutable authored source/specification remains unchanged.
+
+This is explicit composition of the existing Rust operation interface. It does
+not add authored fixed/free stage overlays or claim that the generic declared
+cold-start case now converges, and it does not fabricate an initializer report.
+Current acceptance evidence belongs to Plan64c.
+
+The native composition reuses `recycle_flash.RecycleLoop` through the ordinary
+`RecycleModel` interface. The existing `RecycleMixer`/`PhaseAwareMixer`
+constructors accept an explicit recycle package; their historical default remains
+the original BT liquid package. The existing exchanger equations, costing and
+report source identities have one home in
+`exchanger_costing.CostedExchangerModel`; both the historical `CostedExchanger`
+constructor and this package's `Exchanger` consume that interface. No duplicated
+side-balance or costing definition supplies the ordinary cases.
+
 The case permissions retain unknown empirical applicability for FeOS gas heat
-capacity and PR critical/prediction data. The exchanger explicitly permits unknown
+capacity and PR critical/prediction data. FeOS caloric increments use an explicit
+unknown whole-integration-path claim with both physical endpoints retained; source
+data bounds do not become an empirical interval proof. The common DIPPR100
+mathematical integrals have one definition shared with the existing interval-gated
+correlation functions. The exchanger explicitly permits unknown
 SSLW area support and pressure-factor extrapolation below its published interval.
 Cost reports retain `USD_CE500` meaning, the existing u-tube/stainless/twelve-foot
 configuration, oversize factor and hot-side pressure selection. Arithmetic agreement
 does not qualify a purchase price or validate unsupported equipment sizes.
+
+The recycle cases separately authorize the exact published Perry benzene liquid-Cp
+record's extrapolation: their 368K operating temperature is14.76K above its unchanged
+353.24K source maximum. This record permission denies unknown evidence and does not
+cover other DIPPR100 records or any exchanger case. The overheated control retains
+the same ordinary-input allowance, but its 500K tear still violates the original
+300–450K physical specification/transport obligations and must fail without commit.
+An independent reference must reproduce the explicit liquid-Cp extrapolation, while
+retaining its limited evidence claim.
+
+For these ordinary inputs, the selected Ipopt attempt terminates with
+`Restoration_Failed` (-2), numerical category and unqualified candidate. The failure
+control requires that actual native outcome, an executed `overheated_tear` result,
+the compiled 500K source coordinate, the receiver's unchanged 450K upper bound,
+the resulting approximately50K temperature-connection violation and failed recycle
+transport closure. This is an attributed native numerical stop at the contradictory
+physical stage, not a native mathematical infeasibility certificate. The original
+oracle witness retains its separate `trial_rejected` expectation and is not changed
+to match this ordinary configuration.
 
 ## Required outputs and independent controls
 

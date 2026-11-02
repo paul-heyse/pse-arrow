@@ -31,9 +31,19 @@ preserving source/parameterization bindings and exact-parent delta semantics.
 - The FeOS file does not supply an empirical validity interval. The selected298.15–450K
   interval bounds this consuming realization; it is not a newly verified empirical
   validity envelope. Consumer acceptance and empirical evidence remain separate.
+  `feos_dh` and `feos_ds` retain an explicit unknown claim over both physical
+  integration endpoints, using the shared DIPPR100 mathematical cores. They do not
+  infer whole-path support from two unknown point claims. The generic
+  `properties.caloric_dh`/`caloric_ds` interval facade remains applicable to records
+  with declared interval regions; this package selects the explicit unknown-path
+  wrappers for FeOS data.
 - Liquid heat capacity comes from the existing published Perry seventh-edition banks
   for both species. Preserve their original envelopes. An ordinary case exceeding one
   needs an explicit attributed applicability decision, not enlarged source bounds.
+  The retained benzene range is278.68–353.24K; toluene is178.18–500K. The ordinary
+  368K recycle is therefore explicit benzene liquid-Cp extrapolation,14.76K above
+  its published maximum. Its consuming recycle cases target that exact record with
+  `allow_extrapolation`, keeping unknown evidence denied and the source range intact.
 - Ideal-gas enthalpy and entropy are zero at298.15K under the native stock convention.
   Liquid enthalpy is offset by the sourced CRC vaporization enthalpy at298.15K. This
   defines energy differences without claiming new formation enthalpies. No liquid

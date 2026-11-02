@@ -18,27 +18,15 @@ use properties @"1.0.0";
 use costing @"1.0.0";
 use numerical_policy @"1.0.0";
 use temperature_driving_force @"1.0.0";
+use correlations @"1.0.0";
+use references @"1.0.0";
 
 // Reuse the process definitions and original topology; change scientific selections.
-def OrdinaryPhaseAwareMixer:recycle_flash.PhaseAwareMixer {
-override param inlet_pkg:equilibrium.ThermoPackage=ordinary_bt.Ideal(defined_state=true);
-override param outlet_pkg:equilibrium.ThermoPackage=ordinary_bt.Ideal(defined_state=false);
-override param inlets:Set<kinds.port_set>=recycle_flash.mixer_inlets;
-override param momentum_mixing:compatibility.MomentumMixingType=compatibility.MomentumMixingType.none;
-override param recycle_pkg:equilibrium.ThermoPackage=ordinary_bt.Liquid(defined_state=true);
-}
-def OrdinaryMixer:recycle_flash.RecycleMixer {
-override param inlet_pkg:equilibrium.ThermoPackage=ordinary_bt.Ideal(defined_state=true);
-override param outlet_pkg:equilibrium.ThermoPackage=ordinary_bt.Ideal(defined_state=false);
-override param inlets:Set<kinds.port_set>=recycle_flash.mixer_inlets;
-override param momentum_mixing:compatibility.MomentumMixingType=compatibility.MomentumMixingType.none;
-override child unit:mixing.MixerModel=OrdinaryPhaseAwareMixer;
-}
 fn component_h(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=if p==chemistry.liquid then ordinary_bt.liquid_h(T,j) else ordinary_bt.vapor_h(T,j);
-def Recycle:recycle_flash.RecycleLoop {
+interface RecycleModel extends recycle_flash.RecycleLoop {
 override param components:Set<chemistry.species>=ordinary_bt.aromatics;
 override child feed:units.Feed=units.Feed(pkg=ordinary_bt.Ideal(defined_state=true));
-override child mixer:recycle_flash.RecycleMixer=OrdinaryMixer;
+override child mixer:recycle_flash.RecycleMixer=recycle_flash.RecycleMixer(inlet_pkg=ordinary_bt.Ideal(defined_state=true),outlet_pkg=ordinary_bt.Ideal(defined_state=false),inlets=recycle_flash.mixer_inlets,momentum_mixing=compatibility.MomentumMixingType.none,recycle_package=ordinary_bt.Liquid(defined_state=true));
 override child heater:recycle_flash.RecycleHeater=recycle_flash.RecycleHeater(inlet_pkg=ordinary_bt.Ideal(defined_state=true),outlet_pkg=ordinary_bt.Ideal(defined_state=false),target_value=368{K});
 override child flash:recycle_flash.RecycleEquilibriumFlash=recycle_flash.RecycleEquilibriumFlash(inlet_pkg=ordinary_bt.Ideal(defined_state=true),outlet_pkg=ordinary_bt.Ideal(defined_state=false));
 override child splitter:recycle_flash.RecycleSplitter=recycle_flash.RecycleSplitter(pkg=ordinary_bt.Liquid(defined_state=true),outlets=recycle_flash.liquid_outlets,component_enthalpy=component_h,purge_value=0.25);
@@ -59,10 +47,12 @@ annotation report flash.unit.vapor_component_flow[chem.toluene]("ordinary vapor 
 annotation report splitter.unit.component_flow[recycle_flash.purged,chem.benzene]("ordinary purge benzene");
 annotation report splitter.unit.component_flow[recycle_flash.purged,chem.toluene]("ordinary purge toluene");
 }
-def Overheated:Recycle {
+def Recycle:RecycleModel {}
+def Overheated:RecycleModel {
+let overheated_temperature:Temperature=500{K};
 state overheated supplied(true) {
 coordinate component[j in components]=tear_component[j];
-coordinate temperature=500{K}; coordinate pressure=tear_pressure;
+coordinate temperature=overheated_temperature; coordinate pressure=tear_pressure;
 transport component[j in components]=tear_component[j] tolerance numerical_policy.component_flow;
 transport energy=tear_energy tolerance numerical_policy.power;
 }
@@ -70,7 +60,7 @@ material port overheated_port=overheated;
 annotation connectivity overheated_port(0,1);
 stage "overheated_tear" {override connect recycle:overheated_port -> mixer.inlet_ports[recycle_flash.recycled];}
 }
-def Exchanger(force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD):exchanger_costing.CostedExchanger {
+def Exchanger(force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD):exchanger_costing.CostedExchangerModel {
 override child exchanger:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=ordinary_bt.PR(defined_state=true),hot_outlet_pkg=ordinary_bt.PR(defined_state=false),cold_inlet_pkg=ordinary_bt.PR(defined_state=true),cold_outlet_pkg=ordinary_bt.PR(defined_state=false),driving_force=force,cocurrent=true);
 annotation report exchanger.hot.heat("ordinary hot duty");
 annotation report exchanger.cold.heat("ordinary cold duty");
@@ -80,12 +70,17 @@ annotation report cost.pressure_factor("ordinary pressure factor");
 }
 case ordinary_recycle fixture {dof 0;route steady;procedure initialize;stages("tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};} {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
+// The selected benzene liquid Cp publication ends at353.24K:368K is explicit
+// extrapolation,14.76K beyond that range. This exact record allowance neither
+// changes the source envelope nor permits unknown evidence or a hard-domain breach.
+permission benzene_liquid_cp_extrapolation records(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit]) allow_unknown false allow_extrapolation true;
 child root:Recycle=Recycle;
 expect root.overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
 expect root.overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
 }
-case ordinary_overheated fixture {dof 0;route steady;procedure initialize;stages("overheated_tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);failure trial_rejected members(root.recycle);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};} {
+case ordinary_overheated fixture {dof 0;route steady;procedure initialize;stages("overheated_tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);failure numerical members(root.recycle);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};policy {backend ipopt;} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
+permission benzene_liquid_cp_extrapolation records(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit]) allow_unknown false allow_extrapolation true;
 child root:Overheated=Overheated;
 }
 case ordinary_exchanger fixture {dof 0;route steady;procedure solve;
@@ -102,7 +97,11 @@ expect root.capital==root.cost.capital_cost tolerance 1e-8{USD_CE500};
 case ordinary_rating fixture {dof 0;route steady;procedure solve;
 fix root.exchanger.hot.inlet.flow=5{mol/s};fix root.exchanger.hot.inlet.T=365{K};fix root.exchanger.hot.inlet.pressure=101325{Pa};fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.hot.delta_pressure=0{Pa};
 fix root.exchanger.cold.inlet.flow=1{mol/s};fix root.exchanger.cold.inlet.T=300{K};fix root.exchanger.cold.inlet.pressure=101325{Pa};fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.cold.delta_pressure=0{Pa};fix root.exchanger.area=1{m^2};fix root.exchanger.coefficient=100{W/(m^2*K)};
-policy {limits body_occurrences(1000000);} } {
+// Ordered physical starts replace the inherited367.5K guess on both free
+// outlets. They are numerical inputs, not fixed specifications or new equations.
+value root.exchanger.hot.outlet.T=360{K};value root.exchanger.cold.outlet.T=330{K};
+value root.exchanger.delta.first=65{K};value root.exchanger.delta.second=30{K};
+policy {backend ipopt;limits body_occurrences(1000000);} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
 permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;

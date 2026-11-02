@@ -355,7 +355,7 @@ mod tests {
     ) -> Vec<pse_model::generated::runtime::modeling_knowledge::Row> {
         use pse_relations::columnar::RelationRow;
         let knowledge = package
-            .knowledge(services, Some(dataset), 10_000, 16 << 20, cancel.token())
+            .knowledge(services, Some(dataset), 10_000, 16 << 20, &cancel.token())
             .await
             .unwrap();
         pse_model::generated::runtime::modeling_knowledge::Row::rows(knowledge.table()).unwrap()
@@ -364,7 +364,7 @@ mod tests {
     #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
     #[tokio::test]
     async fn ordinary_selected_source_discovery_distinguishes_reimport_and_changed_science() {
-        let (runtime, package, _spill, _) = pr_jacobian_tests::ordinary_delivery_package()
+        let (runtime, package, _spill, _) = pr_jacobian_tests::ordinary_delivery_package(false)
             .await
             .unwrap();
         let services = runtime.preparation_services();
@@ -450,7 +450,7 @@ mod tests {
             .as_mut()
             .unwrap()
             .magnitude += 1.;
-        *dataset.provenance.role.last_mut().unwrap() = "fitted".into();
+        *dataset.provenance.role.last_mut().unwrap() = "derived".into();
         let changed = package
             .with_delta(
                 &runtime.source_services(),
@@ -471,18 +471,51 @@ mod tests {
                     source_only: false,
                     offset: 0,
                     limit: 16,
-                    logical: vec![format!("modeling:{}", target.declaration_id)],
+                    logical: vec![
+                        format!("modeling:{}", target.declaration_id),
+                        format!("document:{}", target.document_id),
+                    ],
                 },
                 &cancel,
             )
             .await
             .unwrap();
-        assert_eq!(comparison.total, 1);
+        assert_eq!(comparison.total, 2, "{:?}", comparison.comparison.changes);
+        assert_eq!(
+            comparison
+                .comparison
+                .changes
+                .iter()
+                .map(|change| change.logical.clone())
+                .collect::<std::collections::BTreeSet<_>>(),
+            std::collections::BTreeSet::from([
+                format!("modeling:{}", target.declaration_id),
+                format!("document:{}", target.document_id),
+            ]),
+            "a typed scientific edit changes its declaration and retires its stale authoritative text"
+        );
+        let scientific_change = comparison
+            .comparison
+            .changes
+            .iter()
+            .find(|change| change.logical == format!("modeling:{}", target.declaration_id))
+            .unwrap();
         assert!(
-            comparison.comparison.changes[0]
+            scientific_change
                 .impacts
                 .contains(&ProjectChangeImpact::Structural)
         );
+        assert!(!scientific_change.added && !scientific_change.removed);
+        for (details, text_retained) in [(&comparison.before, true), (&comparison.after, false)] {
+            let document = details
+                .iter()
+                .find(|detail| detail.logical == format!("document:{}", target.document_id))
+                .unwrap();
+            let Some(ProjectSourceObject::Document(document)) = &document.object else {
+                panic!("exact source document metadata must remain inspectable");
+            };
+            assert_eq!(document.document.source_text.is_some(), text_retained);
+        }
         let impact = package
             .selected_source_impact(&services, &changed, &roots, 100_000, 16 << 20, &cancel)
             .await
@@ -572,7 +605,8 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             refused.boundary_diagnostic().rule,
-            pse_diagnostics::DiagnosticRule::ModelingProvenance
+            pse_diagnostics::DiagnosticRule::ModelingProvenance,
+            "the actual production read must refuse its restricted source: {refused}"
         );
 
         let mut replacement = target.clone();

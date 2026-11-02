@@ -20,7 +20,12 @@ pub mod scientific_intake;
 mod structural;
 pub use structural::ModelingStructuralAnalysis;
 mod knowledge;
-#[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
+#[cfg(all(
+    test,
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation",
+    feature = "solver-ipopt"
+))]
 mod ordinary_delivery_tests;
 #[cfg(test)]
 mod process_edit_tests;

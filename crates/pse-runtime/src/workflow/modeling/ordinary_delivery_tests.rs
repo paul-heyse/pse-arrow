@@ -9,7 +9,7 @@ type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 #[tokio::test]
 async fn ordinary_delivery_admits_complete_source_and_process_definitions() -> TestResult {
-    let (runtime, package, _spill, _) = pr_jacobian_tests::ordinary_delivery_package().await?;
+    let (runtime, package, _spill, _) = pr_jacobian_tests::ordinary_delivery_package(false).await?;
     let rows = package
         .declarations(&runtime.preparation_services())
         .await?;
@@ -43,15 +43,42 @@ async fn ordinary_delivery_admits_complete_source_and_process_definitions() -> T
 
 async fn execute(name: &str, expected: bool) -> TestResult {
     let (runtime, package, _spill, preparation) =
-        pr_jacobian_tests::ordinary_delivery_package().await?;
+        pr_jacobian_tests::ordinary_delivery_package(false).await?;
     let services = runtime.execution_services();
     let rows = package.declarations(services.preparation()).await?;
+    let interval_claim = rows
+        .iter()
+        .find(|row| row.name == "feos_interval_unknown")
+        .ok_or("whole caloric interval claim absent")?
+        .declaration_id
+        .as_id();
     let selected = rows
         .iter()
         .find(|row| row.name == name)
         .ok_or("ordinary case absent")?;
     let case = selected.declaration_id;
     let original_specification = selected.value.clone();
+    let perry_permission = rows
+        .iter()
+        .find(|row| row.name == "benzene_liquid_cp_extrapolation" && row.parent_id == Some(case));
+    assert_eq!(
+        perry_permission.is_some(),
+        matches!(name, "ordinary_recycle" | "ordinary_overheated"),
+        "only the ordinary recycle scenarios authorize this exact liquid-Cp extrapolation"
+    );
+    if let Some(permission) = perry_permission {
+        let policy = permission
+            .value
+            .permission
+            .as_ref()
+            .ok_or("record allowance absent")?;
+        assert_eq!(
+            policy.target_kind,
+            pse_model::generated::enums::ModelingPermissionTarget::Records
+        );
+        assert_eq!(policy.targets.len(), 1);
+        assert!(!policy.allow_unknown && policy.allow_extrapolation);
+    }
     let cancel = crate::CancelSource::new();
     let declared = package
         .declared_execution(
@@ -71,11 +98,19 @@ async fn execute(name: &str, expected: bool) -> TestResult {
             &cancel,
         )
         .await?;
-    match package
-        .execute_declared(&services, &declared, &cancel)
-        .await?
-    {
+    let outcome = if name == "ordinary_rating" {
+        DeclaredAlgebraicOutcome::Solve(
+            rating_from_accepted_design(&package, &services, &declared, interval_claim, &cancel)
+                .await?,
+        )
+    } else {
+        package
+            .execute_declared(&services, &declared, &cancel)
+            .await?
+    };
+    match outcome {
         DeclaredAlgebraicOutcome::Initialization(report) => {
+            initialization_failure_diagnostics(name, &report);
             assert_eq!(report.completed, expected, "{name}: {:?}", report.failure);
             assert!(
                 !report.attempts.is_empty(),
@@ -99,6 +134,22 @@ async fn execute(name: &str, expected: bool) -> TestResult {
                 assert!(result.accepted);
                 check_recycle_reports(&result.reports)?;
                 assert_original_checks(result)?;
+                assert_unknown_caloric_interval(result, interval_claim)?;
+                let claim = rows
+                    .iter()
+                    .find(|row| row.name == "correlation_range")
+                    .ok_or("published temperature-correlation range claim absent")?
+                    .declaration_id
+                    .as_id();
+                assert_perry_extrapolation(
+                    result,
+                    claim,
+                    case.as_id(),
+                    perry_permission
+                        .ok_or("ordinary recycle record allowance absent")?
+                        .declaration_id
+                        .as_id(),
+                )?;
             } else {
                 let failure = report
                     .failure
@@ -106,7 +157,7 @@ async fn execute(name: &str, expected: bool) -> TestResult {
                     .ok_or("intended stage failure absent")?;
                 assert_eq!(
                     failure.class,
-                    pse_model::diagnostic::BoundaryClass::TrialRejected
+                    pse_model::diagnostic::BoundaryClass::Numerical
                 );
                 let attempt = report
                     .attempts
@@ -120,6 +171,9 @@ async fn execute(name: &str, expected: bool) -> TestResult {
                     attempt.result.is_ok(),
                     "setup failure cannot satisfy a scientific rejection control"
                 );
+                assert_overheated_contradiction(
+                    attempt.result.as_ref().map_err(|cause| cause.to_string())?,
+                )?;
                 let original = package
                     .prepare_analysis(services.preparation(), &declared.analysis, &cancel)
                     .await?;
@@ -137,6 +191,7 @@ async fn execute(name: &str, expected: bool) -> TestResult {
             assert_eq!(report.table()?.batch().num_rows(), 1);
         }
         DeclaredAlgebraicOutcome::Solve(result) => {
+            failure_diagnostics(name, &result);
             assert_eq!(
                 result.accepted,
                 expected,
@@ -144,8 +199,27 @@ async fn execute(name: &str, expected: bool) -> TestResult {
                 result.diagnostic()
             );
             assert_original_checks(&result)?;
+            assert_unknown_caloric_interval(&result, interval_claim)?;
             check_exchanger_reports(&result.reports, name == "ordinary_arithmetic_closure")?;
             if name == "ordinary_rating" {
+                let model = &result.prepared.model.model.compiled().model;
+                let symbol = |suffix: &str| {
+                    model
+                        .symbols
+                        .values()
+                        .find(|symbol| symbol.lineage.path.ends_with(suffix))
+                        .map(|symbol| symbol.id)
+                        .ok_or("rating specification symbol absent")
+                };
+                let columns = result.prepared.model.case.compiled().plan.columns();
+                assert!(
+                    columns.contains(&symbol("exchanger.cold.outlet.T")?),
+                    "rating cold outlet remains a free physical variable"
+                );
+                assert!(
+                    !columns.contains(&symbol("exchanger.area")?),
+                    "rating area remains fixed"
+                );
                 near(
                     report_label(&result.reports, "solved heat-transfer area")?,
                     1.,
@@ -195,6 +269,414 @@ async fn execute(name: &str, expected: bool) -> TestResult {
     Ok(())
 }
 
+/// Client composition of public Rust operations. One immutable case supplies both
+/// questions; an accepted design point supplies only a primal input to the rating.
+async fn rating_from_accepted_design(
+    package: &ModelingPackage,
+    services: &crate::workflow::ExecutionServices,
+    declared: &DeclaredExecution,
+    interval_claim: SemanticId,
+    cancel: &crate::CancelSource,
+) -> Result<ModelingResult, Box<dyn std::error::Error + Send + Sync>> {
+    use pse_backend_native::solve::{Backend, SolverSelection, StartPolicy, WarmPayload};
+    let revision = package.revision_id().to_owned();
+    let original = declared.analysis.clone();
+    assert_eq!(
+        original.solver.selection,
+        SolverSelection::Explicit(Backend::Ipopt)
+    );
+    let area_path = original
+        .case
+        .variables
+        .keys()
+        .find(|path| path.ends_with("root.exchanger.area"))
+        .ok_or("admitted rating area path absent")?
+        .clone();
+    let cold_path = original
+        .case
+        .values
+        .keys()
+        .find(|path| path.ends_with("root.exchanger.cold.outlet.T"))
+        .ok_or("admitted rating cold outlet path absent")?
+        .clone();
+    let mut design = original.clone();
+    design
+        .case
+        .variables
+        .get_mut(&area_path)
+        .ok_or("rating area state absent")?
+        .fixed = Some(false);
+    design
+        .case
+        .variables
+        .entry(cold_path.clone())
+        .or_default()
+        .fixed = Some(true);
+    design
+        .case
+        .values
+        .insert(cold_path.clone(), 331.6111111111111);
+    assert_eq!(
+        (design.root, design.instance),
+        (original.root, original.instance)
+    );
+    assert_eq!(design.bindings, original.bindings);
+    let prepared = package
+        .prepare_analysis(services.preparation(), &design, cancel)
+        .await?;
+    let accepted = package
+        .solve_case(services, prepared, design.compiler, cancel)
+        .await?;
+    failure_diagnostics("ordinary_rating_design_start", &accepted);
+    if !accepted.accepted {
+        return Err("the auxiliary design did not establish an original-permitted point".into());
+    }
+    assert_original_checks(&accepted)?;
+    assert_unknown_caloric_interval(&accepted, interval_claim)?;
+    check_exchanger_reports(&accepted.reports, false)?;
+    near(
+        report_path(&accepted.reports, "exchanger.cold.outlet.T")?,
+        331.6111111111111,
+        0.1,
+    )?;
+    let mut target = package
+        .prepare_analysis(services.preparation(), &original, cancel)
+        .await?;
+    let target_model = &target.model.model.compiled().model;
+    let area = target_model
+        .paths
+        .get(&area_path)
+        .copied()
+        .ok_or("actual area binding absent")?;
+    let cold = target_model
+        .paths
+        .get(&cold_path)
+        .copied()
+        .ok_or("actual cold outlet binding absent")?;
+    let source_variables = accepted
+        .prepared
+        .model
+        .case
+        .compiled()
+        .plan
+        .structure()
+        .variables();
+    let target_variables = target.model.case.compiled().plan.structure().variables();
+    assert!(
+        source_variables
+            .iter()
+            .find(|variable| variable.port.id == cold)
+            .ok_or("design cold outlet variable absent")?
+            .fixed
+    );
+    assert!(
+        !source_variables
+            .iter()
+            .find(|variable| variable.port.id == area)
+            .ok_or("design area variable absent")?
+            .fixed
+    );
+    assert!(
+        !target_variables
+            .iter()
+            .find(|variable| variable.port.id == cold)
+            .ok_or("rating cold outlet variable absent")?
+            .fixed
+    );
+    assert!(
+        target_variables
+            .iter()
+            .find(|variable| variable.port.id == area)
+            .ok_or("rating area variable absent")?
+            .fixed
+    );
+    let mut values = BTreeMap::new();
+    for id in target.model.case.compiled().plan.columns() {
+        let source = source_variables
+            .iter()
+            .find(|variable| variable.port.id == *id)
+            .ok_or("accepted source coordinate absent")?;
+        let destination = target_variables
+            .iter()
+            .find(|variable| variable.port.id == *id)
+            .ok_or("original rating coordinate absent")?;
+        assert_eq!(
+            (source.port.quantity, source.port.unit),
+            (destination.port.quantity, destination.port.unit)
+        );
+        let value = accepted
+            .values
+            .scalars
+            .get(id)
+            .copied()
+            .filter(|value| value.is_finite())
+            .ok_or("accepted design does not cover a finite target coordinate")?;
+        assert!(values.insert(*id, value).is_none());
+    }
+    assert_eq!(
+        values.len(),
+        target.model.case.compiled().plan.columns().len()
+    );
+    near(
+        *values
+            .get(&cold)
+            .ok_or("newly free cold outlet was dropped from accepted-state transfer")?,
+        331.6111111111111,
+        1e-12,
+    )?;
+    assert!(
+        !values.contains_key(&area),
+        "a source free-area solution cannot overwrite the target's fixed area"
+    );
+    let mut missing_cold = values.clone();
+    missing_cold.remove(&cold);
+    assert!(
+        target
+            .solve
+            .clone()
+            .with_primal_start(missing_cold)
+            .is_err(),
+        "partial auxiliary-state coverage must refuse"
+    );
+    let seeded = target
+        .solve
+        .clone()
+        .with_primal_start(values)
+        .map_err(crate::math::MathRuntimeError::from)?;
+    let mut seed = seeded
+        .requested_start()
+        .ok_or("explicit primal start absent")?
+        .clone();
+    let WarmPayload::Nlp {
+        bounds,
+        rows,
+        barrier,
+        working,
+        ..
+    } = &seed.payload
+    else {
+        return Err("the selected rating input must be a primal-only NLP start".into());
+    };
+    assert!(bounds.is_none() && rows.is_none() && barrier.is_none() && working.is_none());
+    if let crate::math::solves::Outcome::Native(source) = &accepted.outcome {
+        seed.origin = source
+            .warm_start
+            .as_ref()
+            .and_then(|start| start.origin.clone());
+    }
+    target = target.with_start(seed)?;
+    assert_eq!(target.profile.controls.start, StartPolicy::Explicit);
+    assert_eq!(
+        target.solve.replay_profile().controls.start,
+        StartPolicy::Explicit
+    );
+    assert_eq!(
+        original.case, declared.analysis.case,
+        "preparation and start transfer cannot mutate the original specification"
+    );
+    assert_eq!(package.revision_id(), revision);
+    let handle = services.start_modeling(vec![target], false, cancel).await?;
+    let run = handle.wait().await?;
+    let crate::workflow::RunReport::Modeling(results) =
+        run.report().map_err(|cause| cause.to_string())?
+    else {
+        return Err("restored rating did not return its actual modeling report".into());
+    };
+    let [result] = results.as_slice() else {
+        return Err("restored rating must produce one original result".into());
+    };
+    failure_diagnostics("ordinary_rating_from_design", result);
+    assert!(
+        result.accepted && run.usable(),
+        "an accepted start cannot establish target success without fresh original qualification"
+    );
+    let permission = run
+        .completion()
+        .map_err(|cause| cause.to_string())?
+        .step_permission(0)
+        .ok_or("fresh final rating permission absent")?;
+    assert!(permission.permits_result());
+    assert_eq!(permission.reference_point, Some(result.run_id.as_id()));
+    assert_ne!(
+        result.run_id, accepted.run_id,
+        "design and rating retain separate original point identities"
+    );
+    Ok(result.clone())
+}
+
+#[allow(
+    clippy::print_stderr,
+    reason = "failed ordinary scientific controls retain bounded native and physical diagnostics without dumping prepared source or model owners"
+)]
+fn failure_diagnostics(name: &str, result: &ModelingResult) {
+    if result.accepted {
+        return;
+    }
+    let model = &result.prepared.model.model.compiled().model;
+    let path = |id: &SemanticId| {
+        model
+            .symbols
+            .get(id)
+            .map(|row| row.lineage.path.as_str())
+            .or_else(|| {
+                model
+                    .equations
+                    .iter()
+                    .find(|row| row.id == *id)
+                    .map(|row| row.lineage.path.as_str())
+            })
+            .or_else(|| model.closures.get(id).map(|row| row.lineage.path.as_str()))
+    };
+    eprintln!(
+        "{name}: original={:?}; validation={:?}",
+        result.diagnostic(),
+        result.validation_error
+    );
+    let quality = |quality: &pse_backend_native::quality::Quality| {
+        eprintln!(
+            "{name}: original normalized maximum={}",
+            quality.normalized_max
+        );
+        for (kind, row) in quality
+            .rows
+            .iter()
+            .map(|row| ("row", row))
+            .chain(quality.bounds.iter().map(|row| ("bound", row)))
+            .filter(|(_, row)| !row.physical.is_finite() || row.physical > row.tolerance)
+            .take(8)
+        {
+            eprintln!(
+                "{name}: violated {kind} path={:?}, value={}, tolerance={}",
+                path(&row.id),
+                row.physical,
+                row.tolerance
+            );
+        }
+    };
+    let native = |report: &pse_backend_native::solve::SolveReport| {
+        eprintln!(
+            "{name}: native={:?}, code={}, name={}, category={:?}, qualification={:?}, message={:?}",
+            report.backend,
+            report.termination.code,
+            report.termination.name,
+            report.termination.category,
+            report.qualification,
+            report.termination.message
+        );
+        if let Some(candidate) = &report.candidate {
+            for (id, value) in report
+                .variables
+                .iter()
+                .zip(&candidate.primal)
+                .filter(|(id, _)| {
+                    path(id).is_some_and(|path| {
+                        [
+                            "exchanger.hot.outlet.T",
+                            "exchanger.cold.outlet.T",
+                            "exchanger.area",
+                            "exchanger.delta.first",
+                            "exchanger.delta.second",
+                            "exchanger.hot.heat",
+                            "exchanger.cold.heat",
+                        ]
+                        .iter()
+                        .any(|suffix| path.ends_with(suffix))
+                    })
+                })
+            {
+                eprintln!("{name}: retained candidate {:?}={value}", path(id));
+            }
+        }
+        if let Some(observed) = &report.quality {
+            quality(observed);
+        }
+    };
+    match &result.outcome {
+        crate::math::solves::Outcome::Native(report) => native(report),
+        crate::math::solves::Outcome::Constant(report) => {
+            quality(&report.quality);
+            for component in report.component_reports().take(4) {
+                native(component);
+            }
+        }
+        crate::math::solves::Outcome::Rejected(cause) => {
+            eprintln!("{name}: execution rejected: {cause}")
+        }
+    }
+    for check in result
+        .checks
+        .iter()
+        .filter(|check| !check.satisfied)
+        .take(6)
+    {
+        eprintln!(
+            "{name}: failed {:?}, path={:?}, value={}, tolerance={:?}, applicability={:?}",
+            check.kind,
+            path(&check.target_id),
+            check.value,
+            check.tolerance,
+            check.applicability_outcome
+        );
+    }
+    for row in result
+        .reports
+        .iter()
+        .filter(|row| {
+            row.path.contains("exchanger.")
+                && (row.path.ends_with("outlet.T")
+                    || row.path.ends_with("energy_flow")
+                    || row.path.ends_with(".area"))
+        })
+        .take(10)
+    {
+        eprintln!("{name}: physical report {}={}", row.path, row.value);
+    }
+}
+
+#[allow(
+    clippy::print_stderr,
+    reason = "initialization failure controls retain bounded actual stage and native causes instead of disguising a numerical stop as the intended physical rejection"
+)]
+fn initialization_failure_diagnostics(name: &str, report: &ModelingInitializationReport) {
+    if report.completed {
+        return;
+    }
+    if let Some(failure) = &report.failure {
+        eprintln!(
+            "{name}: initialization failure class={:?}, stage={:?}, rule={:?}, sources={:?}, observations={:?}",
+            failure.class,
+            failure.stage,
+            failure.rule,
+            failure.sources.iter().take(8).collect::<Vec<_>>(),
+            failure.observations.iter().take(4).collect::<Vec<_>>()
+        );
+    }
+    for (ordinal, attempt) in report.attempts.iter().enumerate().take(6) {
+        eprintln!(
+            "{name}: attempt={ordinal}, step={:?}, accepted={}, interruption={:?}",
+            attempt.step,
+            attempt.accepted(),
+            attempt
+                .interruption
+                .as_ref()
+                .map(|cause| (cause.class, cause.rule))
+        );
+        match &attempt.result {
+            Ok(result) => failure_diagnostics(name, result),
+            Err(cause) => {
+                let cause = cause.boundary_diagnostic();
+                eprintln!(
+                    "{name}: attempt={ordinal} produced no result; class={:?}, stage={:?}, rule={:?}, observations={:?}",
+                    cause.class,
+                    cause.stage,
+                    cause.rule,
+                    cause.observations.iter().take(4).collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+}
+
 fn near(actual: f64, expected: f64, tolerance: f64) -> TestResult {
     if actual.is_finite() && expected.is_finite() && (actual - expected).abs() <= tolerance {
         Ok(())
@@ -239,6 +721,183 @@ fn assert_original_checks(result: &ModelingResult) -> TestResult {
         .any(|check| check.kind == pse_model::generated::enums::ModelingCheckKind::Closure)
     {
         return Err("original conservation/transport checks absent".into());
+    }
+    Ok(())
+}
+fn assert_unknown_caloric_interval(result: &ModelingResult, claim: SemanticId) -> TestResult {
+    let checks = result
+        .checks
+        .iter()
+        .filter(|check| check.claim_id == Some(claim))
+        .collect::<Vec<_>>();
+    if checks.is_empty() {
+        return Err("whole caloric interval evidence was not retained".into());
+    }
+    for check in checks {
+        if check.applicability_outcome
+            != Some(pse_model::generated::enums::ModelingApplicabilityOutcome::UnknownEvidence)
+            || check.unknown_allowed != Some(true)
+            || check.permission_ids.is_empty()
+            || check.applicability_basis.is_some()
+            || check.coverage_id.is_some()
+            || !check.input_values.iter().any(|input| input.name == "T0")
+            || !check.input_values.iter().any(|input| input.name == "T")
+        {
+            return Err("caloric integration must retain both physical endpoints and explicitly permitted unknown evidence".into());
+        }
+    }
+    Ok(())
+}
+fn assert_overheated_contradiction(result: &ModelingResult) -> TestResult {
+    use pse_backend_native::solve::{Backend, Qualification, Termination};
+    let crate::math::solves::Outcome::Native(native) = &result.outcome else {
+        return Err("the overheated control must retain its actual native attempt".into());
+    };
+    assert_eq!(native.backend, Backend::Ipopt);
+    assert_eq!(native.termination.category, Termination::Numerical);
+    assert_eq!(native.qualification, Qualification::Unqualified);
+    assert_eq!(native.termination.code, -2);
+    assert_eq!(native.termination.name, "Restoration_Failed");
+    let model = &result.prepared.model.model.compiled().model;
+    let connection = model
+        .connections
+        .values()
+        .find(|connection| connection.lineage.path.ends_with("root.recycle"))
+        .ok_or("actual overheated recycle connection absent")?;
+    let temperature = |port: SemanticId| {
+        model
+            .material_ports
+            .get(&port)
+            .and_then(|port| {
+                port.coordinates
+                    .iter()
+                    .find(|(slot, _)| slot.name == "temperature" && slot.indices.is_empty())
+            })
+            .map(|(_, id)| *id)
+            .ok_or("actual material-port temperature coordinate absent")
+    };
+    let source_coordinate = temperature(connection.from)?;
+    let receiver_coordinate = temperature(connection.to)?;
+    let source = model
+        .ports
+        .get(&source_coordinate)
+        .ok_or("source coordinate alias absent")?
+        .symbol;
+    let receiver = model
+        .ports
+        .get(&receiver_coordinate)
+        .ok_or("receiver coordinate alias absent")?
+        .symbol;
+    let symbol = model
+        .symbols
+        .get(&source)
+        .ok_or("source temperature meaning absent")?;
+    let definition = symbol
+        .definition
+        .and_then(|root| model.resolved.nodes.get(root))
+        .ok_or("source temperature definition absent")?;
+    let pse_modeling::resolved::Node::Number(number) = definition else {
+        return Err(
+            "overheated control's temperature must retain its selected literal meaning".into(),
+        );
+    };
+    near(number.value, 500., 0.)?;
+    let variable = result
+        .prepared
+        .model
+        .case
+        .compiled()
+        .plan
+        .structure()
+        .variables()
+        .iter()
+        .find(|variable| variable.port.id == receiver)
+        .ok_or("receiver temperature variable absent")?;
+    let upper = variable
+        .upper
+        .ok_or("receiver physical temperature upper bound absent")?;
+    near(upper, 450., 0.)?;
+    let row = connection
+        .bindings
+        .iter()
+        .zip(&connection.rows)
+        .find(|((from, to), _)| *from == source_coordinate && *to == receiver_coordinate)
+        .map(|(_, row)| *row)
+        .ok_or("actual temperature connection row absent")?;
+    let violation = native
+        .quality
+        .as_ref()
+        .and_then(|quality| quality.rows.iter().find(|violation| violation.id == row))
+        .ok_or("native result omitted original temperature-connection assessment")?;
+    near(
+        violation.physical,
+        number.value - upper,
+        2. * violation.tolerance,
+    )?;
+    assert!(
+        violation.physical > violation.tolerance,
+        "the native numerical stop must retain the actual50K physical contradiction"
+    );
+    assert!(
+        result.checks.iter().any(|check| check.kind
+            == pse_model::generated::enums::ModelingCheckKind::Closure
+            && model
+                .closures
+                .get(&check.target_id)
+                .is_some_and(|closure| closure.lineage.declaration
+                    == connection.lineage.declaration
+                    && closure.lineage.instance == connection.lineage.instance)
+            && !check.satisfied),
+        "the actual recycle transport closure must fail"
+    );
+    Ok(())
+}
+fn assert_perry_extrapolation(
+    result: &ModelingResult,
+    claim: SemanticId,
+    scope: SemanticId,
+    permission: SemanticId,
+) -> TestResult {
+    use pse_model::generated::enums::{ModelingApplicabilityOutcome, ModelingPermissionTarget};
+    let checks = result
+        .checks
+        .iter()
+        .filter(|check| {
+            check.claim_id == Some(claim)
+                && check.applicability_outcome == Some(ModelingApplicabilityOutcome::OutsideRegion)
+                && check.permission_ids.contains(&permission)
+        })
+        .collect::<Vec<_>>();
+    if checks.is_empty() {
+        return Err("published benzene liquid-Cp extrapolation was not retained".into());
+    }
+    if !checks.iter().any(|check| {
+        check
+            .input_values
+            .iter()
+            .any(|input| input.name == "T" && (input.value - 368.).abs() <= 0.1)
+    }) {
+        return Err(
+            "the 368K liquid-Cp use must retain its actual outside-range observation".into(),
+        );
+    }
+    for check in checks {
+        let authorization = check
+            .applicability_permissions
+            .iter()
+            .find(|entry| entry.permission_id == permission)
+            .ok_or("exact record extrapolation authorization absent")?;
+        if check.selected_records.len() != 1
+            || authorization.targets != check.selected_records
+            || authorization.scope != scope
+            || authorization.target_kind != ModelingPermissionTarget::Records
+            || authorization.allow_unknown
+            || !authorization.allow_extrapolation
+            || check.extrapolation_allowed != Some(true)
+            || !check.satisfied
+        {
+            return Err("liquid-Cp extrapolation cannot broaden its exact record, lexical scope or independent flags".into());
+        }
     }
     Ok(())
 }
@@ -376,7 +1035,7 @@ async fn ordinary_delivery_compatible_closure_preserves_side_balances() -> TestR
 #[tokio::test]
 async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source() -> TestResult {
     let (runtime, package, _spill, preparation) =
-        pr_jacobian_tests::ordinary_delivery_package().await?;
+        pr_jacobian_tests::ordinary_delivery_package(true).await?;
     let physical = package.physical_context().clone();
     let runtime = super::super::durable_tests::durable_runtime_on(runtime);
     let cancel = crate::CancelSource::new();
@@ -646,6 +1305,14 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
     };
     assert_eq!(results.len(), 1);
     assert_original_checks(&results[0])?;
+    assert_unknown_caloric_interval(
+        &results[0],
+        rows.iter()
+            .find(|row| row.name == "feos_interval_unknown")
+            .ok_or("reopened whole caloric interval claim absent")?
+            .declaration_id
+            .as_id(),
+    )?;
     check_exchanger_reports(&results[0].reports, false)?;
     let expected_reports = run
         .table("runtime.modeling_reports")

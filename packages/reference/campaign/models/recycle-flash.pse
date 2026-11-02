@@ -20,8 +20,8 @@
 @id("01a0f042b660738c8ffef71512501cdc") entity kinds.port_set purged {}
 @id("01a0f042b660738c8ffef71697e2af80") set mixer_inlets:Set<kinds.port_set>={fresh,recycled};
 @id("01a0f042b660738c8ffef717a4ad6bb4") set liquid_outlets:Set<kinds.port_set>={recycled,purged};
-@id("80c24da5bd3242fe9cace3c5100df935") def PhaseAwareMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType):mixing.MixerModel {
-@id("0b36ad7ee6da4b6e822cb2bca18eac28") param recycle_pkg:equilibrium.ThermoPackage=bt_ideal.BTLiquid(defined_state=true);
+@id("80c24da5bd3242fe9cace3c5100df935") def PhaseAwareMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType,recycle_package:equilibrium.ThermoPackage=bt_ideal.BTLiquid(defined_state=true)):mixing.MixerModel {
+@id("0b36ad7ee6da4b6e822cb2bca18eac28") param recycle_pkg:equilibrium.ThermoPackage=recycle_package;
 @id("94e4540d35444229b3477e367f93f6e0") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
 @id("1e5774de2eef41f595068d7582553605") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
 @id("b674f0e6b849457da81c4df6a7da878f") override param inlet_membership:Set<kinds.port_set>=inlets;
@@ -29,8 +29,8 @@
 @id("91003809120d4e37a52d0bb420bcde00") override child inlet[i in inlet_membership]:equilibrium.ThermoPackage=if i==recycled then recycle_pkg else inlet_package;
 @id("486260b3ece44d31acda1fb23d161961") override let in_phase_component[i in inlet_boundaries,p in phases,j in components]:ComponentFlow=if p in inlet[i].phases then inlet[i].phase_component_flow[p,j] else 0{mol/s};
 }
-@id("3f86e78525fb4c41bcedc24aa318262b") def RecycleMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType) {
-@id("685af2727e424e229eb56b878d2eff6b") child unit:mixing.MixerModel=PhaseAwareMixer(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,inlets=inlets,momentum_mixing=momentum_mixing);
+@id("3f86e78525fb4c41bcedc24aa318262b") def RecycleMixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>,momentum_mixing:compatibility.MomentumMixingType,recycle_package:equilibrium.ThermoPackage=bt_ideal.BTLiquid(defined_state=true)) {
+@id("685af2727e424e229eb56b878d2eff6b") child unit:mixing.MixerModel=PhaseAwareMixer(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,inlets=inlets,momentum_mixing=momentum_mixing,recycle_package=recycle_package);
 @id("a1a1cf897fc54736ad310856d8c7ce15") eq fresh_pressure_selection:unit.outlet.pressure==unit.inlet[fresh].pressure;
 @id("4ac41154da6a4184b56c884904bf0a44") material port inlet_ports[i in inlets]=unit.inlet[i].material_state;
 @id("ac07559d3cff434086f53e0cb1971ae1") annotation connectivity inlet_ports(1,0);

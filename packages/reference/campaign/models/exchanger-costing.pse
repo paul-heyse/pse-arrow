@@ -14,7 +14,7 @@
 // exchanger by its heat-transfer area at its tube-side pressure; like IDAES 2.13 the
 // higher-pressure hot side is taken as the tube side. The costing reads the exchanger's
 // area and hot inlet pressure; the flowsheet aggregates its capital cost.
-@id("01a0f037426c718f919d21345bc55dd7") def CostedExchanger {
+@id("9714d8af8ee64194b62710423b5ef4fa") interface CostedExchangerModel {
 @id("01a0f037426c718f919d2135618abd83") child exchanger:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=bt_pr.BT_PR(defined_state=true,density=peng_robinson.RelationalDensity),hot_outlet_pkg=bt_pr.BT_PR(defined_state=false,density=peng_robinson.RelationalDensity),cold_inlet_pkg=bt_pr.BT_PR(defined_state=true,minimum=300{K},density=peng_robinson.RelationalDensity),cold_outlet_pkg=bt_pr.BT_PR(defined_state=false,minimum=300{K},density=peng_robinson.RelationalDensity),cocurrent=true);
 @id("01a0f037426c718f919d21368cbe5864") child cost:costing.HeatExchangerCost=costing.HeatExchangerCost;
 @id("01a0f037426c718f919d213746716515") eq costed_area:cost.area==exchanger.area;
@@ -23,6 +23,7 @@
 @id("01a0f037426c718f919d213ad27eadda") contribute capital role positive=cost.capital_cost;
 @id("01a0f037426c718f919d213bed0c9515") annotation report exchanger.area("solved heat-transfer area");
 }
+@id("01a0f037426c718f919d21345bc55dd7") def CostedExchanger:CostedExchangerModel {}
 // The IDAES 2.13 TestBT_Generic_cocurrent exchanger with its area left free: the cold
 // outlet is held at the test's 596.9 degR, so the solve recovers the test's 1 m2 area
 // (the test's 0.1 degR outlet tolerance is 0.003 m2 of area). The exchanger runs at

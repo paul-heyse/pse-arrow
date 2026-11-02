@@ -65,6 +65,7 @@ async fn package(
     settings: &Settings,
     source: &SourceRun,
     root: &Path,
+    canonical: bool,
 ) -> TestResult<(Runtime, ModelingPackage, tempfile::TempDir)> {
     let spill = tempfile::tempdir()?;
     let positive = |value| {
@@ -99,11 +100,16 @@ async fn package(
     })?;
     let registry = pse_schema::shared_registry()?;
     let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
-    let runtime = Runtime::from_shared(
-        shared.clone(),
-        sessions.bind_model(registry.clone())?,
-        crate::workflow::tests::canonical_deployment(),
-    )?;
+    let model = sessions.bind_model(registry.clone())?;
+    let runtime = if canonical {
+        Runtime::from_shared(
+            shared.clone(),
+            model,
+            crate::workflow::tests::canonical_deployment(),
+        )?
+    } else {
+        Runtime::from_shared_local(shared.clone(), model)?
+    };
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
     let validation = runtime.validation_context();
@@ -155,7 +161,8 @@ pub(super) async fn reference_seed_package() -> TestResult<(
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (runtime, package, spill) = package(&manifest.settings, source, &root).await?;
+    // Recycle/CSTR reference controls execute locally and retain no canonical data.
+    let (runtime, package, spill) = package(&manifest.settings, source, &root, false).await?;
     Ok((
         runtime,
         package,
@@ -181,7 +188,7 @@ pub(super) async fn ordinary_source_package() -> TestResult<(
         .clone();
     source.dependencies.push(source.package.clone());
     source.package = "data/ordinary-bt".into();
-    let (runtime, package, spill) = package(&manifest.settings, &source, &root).await?;
+    let (runtime, package, spill) = package(&manifest.settings, &source, &root, false).await?;
     Ok((
         runtime,
         package,
@@ -191,7 +198,9 @@ pub(super) async fn ordinary_source_package() -> TestResult<(
 }
 
 /// Joined first-delivery closure, retaining the original independent reference inputs.
-pub(super) async fn ordinary_delivery_package() -> TestResult<(
+pub(super) async fn ordinary_delivery_package(
+    canonical: bool,
+) -> TestResult<(
     Runtime,
     ModelingPackage,
     tempfile::TempDir,
@@ -215,7 +224,7 @@ pub(super) async fn ordinary_delivery_package() -> TestResult<(
         }
     }
     source.package = "ordinary-delivery".into();
-    let (runtime, package, spill) = package(&manifest.settings, &source, &root).await?;
+    let (runtime, package, spill) = package(&manifest.settings, &source, &root, canonical).await?;
     Ok((
         runtime,
         package,
@@ -906,7 +915,7 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (runtime, package, _spill) = package(&manifest.settings, source, &root).await?;
+    let (runtime, package, _spill) = package(&manifest.settings, source, &root, true).await?;
     let services = runtime.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
     let cancel = crate::CancelSource::new();
@@ -1175,7 +1184,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (runtime, package, _spill) = package(&manifest.settings, source, &root).await?;
+    let (runtime, package, _spill) = package(&manifest.settings, source, &root, true).await?;
     let services = runtime.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
     let cancel = crate::CancelSource::new();
