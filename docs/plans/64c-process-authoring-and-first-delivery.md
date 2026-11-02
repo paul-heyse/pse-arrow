@@ -1,8 +1,8 @@
 ---
 title: "Plan64c: Process authoring and first delivery"
-status: draft
+status: in-progress
 date: 2026-11-02
-adrs: []
+adrs: [ADR-0236]
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -18,6 +18,22 @@ doc_topics: [current-work, design, validation]
 The first supported interface is a Rust domain-operation surface using existing `ModelingPackage` and workflow/result owners. A graphical application, new language binding or compulsory CLI wrapper is not needed to establish it. Typed declaration editing is the first edit representation; text documents can still be admitted as source, but editing declarations does not promise regenerated authoritative text. Preserve draft diagnostics without claiming an invalid draft can solve.
 
 ## Package state
+
+### Execution requirements from 64a
+
+Consume [64a's operation decisions](64a-scope-and-shared-contracts.md#a03--selected-library-backed-operation-design) at these owners:
+
+| Package | Selected mechanism and boundary |
+|---|---|
+| C01/C02 | Typed declaration edits and existing flow owners; Salsa derivation is separate from runtime custody/pressure. Use consumed dependencies, not whole-submission invalidation or a second cache. |
+| C02 | Symbolica parameterized multi-output/function DAG and demanded Numerica realizations; faer symbolic analysis and numeric factors have distinct dependencies. Preserve solver-owned POUNCE/FERAL factors; reject aborted optimization before retention. |
+| C05 | Compiler-bound incidence through POUNCE HK/DM/BTF independently of candidate values, numerical Jacobians and solver eligibility; point diagnostics keep their separate owner. |
+| C03/C06 | Completion-driven finite fan-out where useful, explicit admission closure/cancellation settlement and native joins for foreign/TLS teardown. No scheduler rewrite. |
+| C04/C05 | Scoped producer facts and registry-generated boundary adapters; retain Buffa/ConnectRPC and protected lineage. No quantity-only permission or caller-authoritative export label. |
+
+C03 preserves Solve versus full Initialization report, including unsuccessful reports. C04/C05 migrate local/durable/inspection/fitting/uncertainty/portability consumers together under proposed ADR-0236. Version changed interpretations explicitly; historical missing scope cannot strengthen permission. C07 covers final initialization, ready-state and conditional ordinary free-variable acceptance without relaxing hard domains or fixed specifications.
+
+C06 completes native journeys and the exact H02/H03 handoff, not matched-reference execution or full A–D acceptance. G08, broader analyses and the collective upgrade retain their owners.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 ---
 title: "Plan64b: Native scientific intake"
-status: draft
+status: in-progress
 date: 2026-11-02
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -22,6 +22,14 @@ Consume the [integrated review](../design_review/reviews/design_review_process_s
 Source owners are [documents](../../crates/pse-runtime/src/workflow/modeling/documents.rs), [delta admission](../../crates/pse-runtime/src/workflow/modeling/canonical/delta.rs), [canonical workflow](../../crates/pse-runtime/src/workflow/modeling/canonical.rs), [staging](../../crates/pse-operations/src/canonical_staging.rs), [research publication](../../crates/pse-runtime/src/workflow/research_publication.rs) and [knowledge declarations](../../crates/pse-schema/src/catalog/modeling_knowledge.rs). Extend the existing owner if a demanded operation is missing; do not build a second loader/admission/publication path.
 
 ## Target behavior and selected scientific boundary
+
+### Execution requirements from 64a
+
+Consume [64a's operation decisions](64a-scope-and-shared-contracts.md#a03--selected-library-backed-operation-design). Typed declarations remain scientific authority; Serde/Schemars describe boundaries and Arrow/Parquet/DataFusion supply applicable artifact and relational operations. Reuse ordinary SurrealDB staging/publication and registry-generated projections. No second scientific interpreter or general importer is selected; writable Surrealism belongs to G08.
+
+B01 resolves the two-case subset without waiting for full H01. Current BTIdeal/BT_PR oracle banks do not establish ordinary eligibility. Select and attribute each source before adding an adapter; missing records block their dependent case. Preserve formulation, units, basis, datum, applicability and missing-versus-predictive-zero distinctions.
+
+Execution completes B's native obligations and reference handoff. H02/H03 execution and the collective dependency upgrade remain separate.
 
 Inventory the actual dependency closures of [recycle-flash](../../packages/reference/campaign/models/recycle-flash.pse) and [exchanger-costing](../../packages/reference/campaign/models/exchanger-costing.pse). Keep the recycle's ideal benzene/toluene formulation distinct from the exchanger's BT_PR/relational-density configuration. The named tests are reference witnesses, not ordinary-input authorizations. The exchanger's explicit unknown-area and pressure-extrapolation allowances, and its limited cost claim, survive the ordinary case definition.
 
