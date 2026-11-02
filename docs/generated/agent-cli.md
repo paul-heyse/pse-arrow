@@ -3475,8 +3475,8 @@ Options:
   -C <checkout>
 
 
-      --search <SEARCH>
-          Case-insensitive name/documentation search
+      --export-jsonl <EXPORT_JSONL>
+          Export deterministic JSONL facts from an already acquired artifact into a new directory
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -3490,11 +3490,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --target <TARGET>
-          Explicit target triple; default is the pinned rustc's observed host
+      --search <SEARCH>
+          Case-insensitive name/documentation search
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --kind <KIND>
           Possible values:
@@ -3509,9 +3515,6 @@ Options:
           - module:     A module declaration
           - macro:      A declarative or procedural macro
           - other:      Another rustdoc declaration, retained without guessing its kind
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --input <INPUT>
 
@@ -5092,6 +5095,7 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  dependency-usage    Observe written references to exact Cargo package IDs in a prepared native world
   comparison          Compare explicitly addressed source, API, retained context or native world evidence
   schema              Navigate an explicitly supplied complete descriptor set, or compare schema worlds
   payload             Explain selected binary, JSON or textproto payloads without invoking an RPC
@@ -5230,6 +5234,69 @@ Options:
 
       --work-result <WORK_RESULT>
           Accompanying original work outcome, with association qualified separately
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect dependency-usage`
+
+~~~~text
+Observe written references to exact Cargo package IDs in a prepared native world
+
+Usage: pse inspect dependency-usage [OPTIONS] <PACKAGE_IDS>...
+
+Arguments:
+  <PACKAGE_IDS>...
+          Source-qualified Cargo IDs (use inspect dependency to resolve names first)
+
+Options:
+  -C <checkout>
+
+
+      --project <PROJECT>
+          Analyze a separately prepared project while retaining this checkout's session owner
+
+      --backend <BACKEND>
+          Possible values:
+          - lsp:             The explicitly prepared reusable rust-analyzer LSP session
+          - native-snapshot: An explicitly prepared immutable compatible-family HIR/IDE snapshot
+
+          [default: native-snapshot]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --features <FEATURES>
+
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --no-default-features
+
+
+      --target <TARGET>
+
+
+      --test-context
+
+
+      --build-macros
+
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5759,8 +5826,8 @@ Options:
   -C <checkout>
 
 
-      --search <SEARCH>
-          Case-insensitive name/documentation search
+      --export-jsonl <EXPORT_JSONL>
+          Export deterministic JSONL facts from an already acquired artifact into a new directory
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -5774,11 +5841,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --target <TARGET>
-          Explicit target triple; default is the pinned rustc's observed host
+      --search <SEARCH>
+          Case-insensitive name/documentation search
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --target <TARGET>
+          Explicit target triple; default is the pinned rustc's observed host
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --kind <KIND>
           Possible values:
@@ -5793,9 +5866,6 @@ Options:
           - module:     A module declaration
           - macro:      A declarative or procedural macro
           - other:      Another rustdoc declaration, retained without guessing its kind
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
 
       --input <INPUT>
 
