@@ -1,21 +1,18 @@
 # Engineering inquiries
 
 These optional examples support investigation; the calling skill owns its lens, conclusions
-and publication. Start with the smallest source-only question and expand a particular unknown.
+and publication. Use standard search/read tools for routine discovery; consider native evidence
+when identity, structured facts or original context could resolve a particular unknown.
 Use actual command help/schema for operands and pass returned `address` strings unchanged.
 The encoded address preserves native path bytes and integer guards through ordinary JSON clients.
 An available command is not a requirement to use it.
 
 ## Authority, enforcement and consumers
 
-Start with the named contract section and its native owner. Find authored references and
-declarations before preparing an analyzer:
-
-```bash
-pse search text 'force_validate' --literal --path crates/pse-host/src --context 1
-pse inspect --source crates/pse-host/src/correctness.rs --head 30
-pse search symbol QuantityRegistryBuilder --path crates/pse-quantity/src
-```
+Start with the named contract section and its native owner. Standard searches and source
+reading can locate authored references and declarations. Consider resolved references or calls
+when aliases, same-spelled entities or indirect consumers make lexical matches ambiguous;
+prepare an analyzer only when that distinction matters to the investigation.
 
 A mention nominates a place to inspect. It does not establish ownership, enforcement or
 implementation. Use a guarded result's association view to follow declared ownership,

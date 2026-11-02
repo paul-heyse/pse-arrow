@@ -359,7 +359,9 @@ The shared native `scripts/pse-host agent-hook tooling-advice` handler is wired 
 Bash tool calls in `.codex/hooks.json` and `.claude/settings.json`. It offers relevant native
 capability guidance as `hookSpecificOutput.additionalContext` for `PreToolUse`; it always exits
 zero and neither blocks nor rewrites commands. Advice points to the local `pse-cli` skill
-rather than inserting its full capability reference. Raw tools remain available.
+rather than inserting its full capability reference. Routine file/text searches and Rust source
+reads receive no nudge. Structural-search advice offers guarded edit previews conditionally;
+capability availability alone establishes no tool preference.
 Changed Codex hook definitions require the native `/hooks` review/trust flow before they become
 active; no global configuration, MCP registration or trust bypass is part of this setup.
 

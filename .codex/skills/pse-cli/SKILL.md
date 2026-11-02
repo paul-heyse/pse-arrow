@@ -1,14 +1,23 @@
 ---
 name: pse-cli
-description: Select and use pse-arrow's native CLI for source and Rust code intelligence, pinned API and compiler investigations, correctness tests, managed runs and result inspection. Use while investigating or implementing in this checkout; choose the capability that answers the current question.
+description: Consider pse-arrow's advanced Rust code intelligence for resolved relationships, types, guarded edit previews, pinned APIs and compiler evidence; select native correctness, managed execution and retained-result capabilities when useful. Routine file/text searches and source reads use standard tools.
 ---
 
-# Use the native CLI
+# Choose tools by the question
 
-Prefer `pse` when its capability fits: it preserves the checkout's actual correctness
-selection, source-built fixtures, native process ownership and original results. Raw Cargo,
-nextest, search tools and specialized recipes remain available; use them when they better
-answer the question, retaining the repository's environment and validation obligations.
+Use standard search and reading tools for routine file discovery, text matching and source
+inspection. `rg`, `rg --files` and ordinary source readers are usually sufficient.
+
+Consider native code intelligence when resolved identity, inferred types, relationships,
+structured API information, guarded edit previews or original compiler evidence could answer
+the question more directly or reliably. These capabilities are options for engineering judgment,
+not a required sequence or a universal preference. Weigh the expected information gain against
+preparation cost and tools already available; a prepared session or acquired artifact can make
+a focused query inexpensive. Stop when the evidence answers the question.
+
+Native correctness selection, source-built fixtures, managed execution and retained outcomes
+have separate operational value. Retain the repository's environment and validation obligations
+when choosing between native commands, raw Cargo/nextest and specialized recipes.
 
 The native environment puts the checkout's `scripts/` on `PATH`, so `pse` resolves to
 `scripts/pse`. Without activation, use that explicit launcher. Prepare a missing host with
@@ -16,43 +25,43 @@ The native environment puts the checkout's `scripts/` on `PATH`, so `pse` resolv
 syntax, `pse help COMMAND` for structured parser metadata, or `pse commands FAMILY` for discovery.
 Do not guess options or response fields.
 
-## Choose by question
+## Advanced code intelligence to consider
 
 For optional review/planning examples and their evidence limits, see
 [engineering inquiries](references/engineering-inquiries.md). The calling process retains
 its own judgment and publication boundary.
 
-| Need | Start with |
+| Question where deeper evidence could help | Capability to consider |
 |---|---|
-| Find files, text, Rust syntax or declarations across source/configuration | `search` with an explicit mode and useful path/package scope; default first 20 arrivals |
-| Read known source, index/revision bytes, a declaration or addressed evidence | `inspect --source FILE`, `inspect outline`, `inspect declaration`, or a returned result reference |
-| Resolve an entity, callers, implementations, annotations or candidate APIs in Rust context | Explicit `code session prepare`, then `search symbol --semantic` or `inspect entity --view ...` |
-| Construct a checked edit preview | `propose --result REF`, `propose syntax` for native capture templates, or a native semantic transformation under `propose` |
-| Learn locked APIs, dependency inclusion or selected compiler units | `search api`, `inspect dependency` / `inspect dependency-units`; acquisition stays explicit |
-| Inspect an original compiler failure or investigate native compiler behavior | `inspect diagnostic` / `inspect compiler-artifact`; explicit `compiler generate` / `compiler probe` for new evidence |
+| Which references, callers or implementations belong to this actual entity, including aliases? | `inspect entity --view refs`, `calls` or `implementations` in an explicitly prepared semantic session |
+| What type, receiver adjustment, trait predicate or API candidate applies here? | Entity views `explain`, `hints`, `predicate` and `candidates`; `compatibility` compares types and `visibility` examines access in a selected context |
+| Where did macro-generated behavior come from? | Entity views `macro`, `derive-origin` and `format-origin`, subject to backend support |
+| Would a refactor preserve the intended identity and syntax? | `propose rename`, `file-rename`, `assist`, `ssr`, `syntax` or `grammar` constructs guarded previews; none applies edits or proves compilation |
+| What does the exact locked dependency expose, and how do its APIs connect or differ? | `search api` / `inspect api` query acquired signatures, bounds, implementations, reexports and artifact comparisons |
+| Why is a dependency or feature included, and in which target/host/build units? | `inspect dependency` / `inspect dependency-units` distinguish authored links, metadata and compiler-unit context |
+| What explains a compiler failure, capture, suspension, cleanup or concrete layout? | Read `inspect diagnostic` / `inspect compiler-facts` / `inspect compiler-artifact`; explicitly acquire new evidence with `compiler generate` or an authored probe when warranted |
+
+Read only the relevant section of [code-intelligence.md](references/code-intelligence.md)
+for preparation, examples and evidence limits. Native search/read commands remain available
+when structural captures, interpreted source facts or guarded references add value.
+
+## Native execution and results
+
+| Need | Capability |
+|---|---|
 | Choose revealing correctness tests | `inspect changes` / `inspect affected` and `inspect test-selection`; `inspect tests` reads retained populations; `tests` builds/lists and `test` executes |
 | Supervise work or recover its original outcome | `run`, `history`, `wait`, `inspect invocation`, bounded `inspect log`; `cancel` settles owned work |
 | Inspect an active calculation through its product owner | Explicit `observe prepare`, then `discover`, `schema`, `query` or `follow` |
 
-For code, API and compiler investigations, read only the relevant section of
-[code-intelligence.md](references/code-intelligence.md). It explains when deeper capabilities
-are useful and the evidence boundaries of each answer. The
-[environment guide](../../../docs/dev/agent-environment.md) owns preparation, placement,
+The [environment guide](../../../docs/dev/agent-environment.md) owns preparation, placement,
 run controls and detailed command examples; the
 [qualification guide](../../../docs/dev/validation-assessment.md) owns what checks establish.
 
 ## Keep context proportional
 
-Start with the smallest useful scope and a modest `--limit` for search or `--budget` for detailed inspection. Inspect returned identity,
-coverage, limitations and next actions before expanding. `--fields` selects payload detail;
-it does not remove provenance or turn an incomplete answer into a complete one. Use
-`--format json` for structured work, `human` for reading, or `ndjson` for normalized records.
-Search defaults to fast arrival order; exact counts and exhaustive examination are explicit
-demands. Use stable ordering for guarded continuation pages. First results and short output
-do not establish absence or exact omitted totals. Search flags, typed JSON requests and saved
-queries share one validator; use `search --explain` to inspect the effective selection and
-configuration provenance without starting providers. NDJSON emits complete live records and
-a final coverage summary; missing finality means incomplete delivery.
+Keep queries focused on the useful entity, range or artifact. Inspect returned identity,
+coverage and limitations before expanding; bounded results do not establish exhaustive absence.
+Search options, output formats and request configuration are in the code-intelligence reference.
 
 Use the selected command's `pse schema` view when its returned shape matters. Follow returned
 continuations and guarded actions unchanged rather than reconstructing their identities.

@@ -1,117 +1,20 @@
 # Code intelligence by question
 
-Use the section that answers the current question. `pse COMMAND --help` supplies concise
+Consider these capabilities when their evidence could resolve a useful unknown. Routine
+searches and reads can stay with standard tools; using this reference implies no preference
+for the native equivalent. Preparation cost and backend support matter alongside answer quality.
+`pse COMMAND --help` supplies concise
 syntax; `pse help COMMAND` supplies structured parser metadata. Result schemas come from
 `pse schema`; detailed preparation examples live in the
 [environment guide](../../../../docs/dev/agent-environment.md#focused-command-and-source-context).
 Examples below use operands such as `FILE`, `PACKAGE` and `INVOCATION` to replace deliberately.
 
-- [Written source and structural changes](#written-source-and-structural-changes)
 - [Resolved Rust context and edit proposals](#resolved-rust-context-and-edit-proposals)
 - [Locked APIs and dependency context](#locked-apis-and-dependency-context)
 - [Original failures and new compiler investigations](#original-failures-and-new-compiler-investigations)
 - [Generated-source ownership](#generated-source-ownership)
-
-## Whole-checkout discovery and composed questions
-
-Use `search` to find useful candidates, `inspect` to expand known source or a returned
-reference, and `propose` to construct a checked preview. Preparation and execution remain
-explicit. Ordinary source/text discovery needs no analyzer, database, API acquisition or Cargo.
-
-```bash
-pse search files --path crates/pse-host/src --glob '*.rs' --limit 10
-pse search text 'CancellationToken' --literal --path crates/pse-host/src --context 1
-pse search symbol EnvironmentSettings --path crates/pse-host/src
-pse search syntax 'Command::new($BIN)' --path crates/pse-host/src --limit 8
-pse inspect --source crates/pse-host/src/cli.rs --lines 10:40
-pse search --request query.json --explain
-```
-
-The default is twenty useful arrival-order results. `--exists`, `--count` and `--all`
-request different native examination/completion. `--order deterministic` enables guarded
-continuations; pass the returned cursor unchanged. A small page establishes neither exact
-totals nor exhaustive absence. No-match, partial I/O, stale context, unsupported predicates
-and absent preparation remain different outcomes.
-
-Use a typed JSON request for grouped predicates and batches; `pse schema search request`
-describes its actual input. Same-file conjunction can have different witness nodes; same-node
-conjunction holds on one native node; semantic conjunction binds one entity/context. Unavailable
-information remains unknown, including under negation. Do not narrow global references to
-only files containing a convenient spelling.
-
-`search structured POINTER` selects JSON/TOML/YAML fields, with explicit typed equality;
-it does not implement every jq/SQL operation. `search history` selects native log/blame/pickaxe
-questions. Historical source does not inherit current semantic context. Prefer domain readers
-for dependency features, tests and source ownership over scraping their serialized files.
-
-`--result-fields name,context` chooses optional detail while source/reference/range stay mandatory.
-`--group-by source`, `kind` or `name` groups returned witnesses, not universe-wide counts.
-`--budget` bounds published whole rows independently of requested examination. NDJSON publishes
-live complete records and final coverage; absent finality is incomplete delivery. Actual progress
-is stderr presentation, not a fabricated percentage or success proof.
-
-Saved requests, named queries and source scopes use optional `.config/pse-search.toml` or explicit
-`--config`. Select saved queries with `--query NAME`. Explicit flags override selected request/config
-values; arrays replace, and file-relative paths resolve at their source. `search --explain` exposes
-effective values and provenance without starting providers or another host environment evaluator.
-
-References bind original source/context, without a universal result database. A lexical observation
-need not snapshot a full file. Before previews, exact hydration verifies the observed witness and
-refuses stale premises. A reference must not silently reinterpret an identical path in another checkout.
-
-## Written source and structural changes
-
-For protobuf questions, use `search schema NAME --descriptor FILE`, then expand its guarded
-reference with `inspect --result` or navigate directly with `inspect schema --descriptor FILE
-FULL.NAME`. `inspect payload --descriptor FILE --message FULL.NAME --input PAYLOAD --encoding
-binary` passively explains selected bytes; `json` and `textproto` are explicit alternatives.
-Use schema inspection's `--compare-with BASE` for contract differences. These offline routes
-do not prepare an analyzer or invoke an RPC. Validation coverage, original-byte preservation
-and any generated-Rust association remain separate evidence claims.
-
-Use source-only reads before preparing a semantic service when declaration structure or exact
-written bytes will settle the question. These reads also work outside a pse-arrow checkout.
-
-| Question | Capability and useful limits |
-|---|---|
-| Where is a declaration or document section? | `pse inspect outline FILE --budget 20` reads nested Rust declarations or Markdown headings without Cargo, cfg evaluation or macro expansion. Multiple files are supported; use one file for a continuation. |
-| What exactly surrounds this location? | `pse inspect declaration FILE --at-line N --at-column N` returns the enclosing declaration/section. `--range-start` / `--range-end` select a half-open UTF-8 byte range. Line/column coordinates are one-based Unicode scalars. |
-| What does this written literal, documentation or attribute mean? | Use `--detail facts` for selected interpreted values or `--detail mapped` for decoded-to-source mappings. Outlines default to navigation; declarations default to facts, raw ranges to navigation. Syntax matches carry their enclosing declaration, receiver, ordered arguments and owner-matched documentation/attributes; these remain source facts, without cfg or type inference. |
-| What was staged or committed? | Add `--index` for the raw staged blob or `--revision REF` for a resolved committed blob. This avoids checkout changes and distinguishes Git bytes from current working bytes. |
-| Which written shapes match a refactor? | `pse search syntax 'call($ARG)' --path FILE` returns structural candidates with captures and exact source identity. Rust is the current structural language. |
-| Which matches occur in the intended context? | Native rule requests express ancestor/descendant/sibling/field constraints and repeated captures. Strictness selects matching policy. Syntax previews also retain native `--inside`, `--has`, `--exclude`, `--strictness` and `--capture` input controls. |
-| What would a replacement change? | `propose syntax` uses the same pattern plus `--replacement` and optional `--select` candidate indices. Inspect candidates before selecting edits; selected overlaps and undefined template captures refuse. Neither source nor the Git index changes. |
-| Can a grammar-aware edit handle separators and surrounding syntax? | `propose grammar FILE --byte-start N --byte-end N OPERATION` uses native Rust editing for where predicates, imports, bounds, associated items, match arms and expression precedence. Use its help for operation arguments; an exact source guard and preview remain required before applying edits. |
-| What changed, and which tests might matter? | `pse inspect changes` separates Git layers and declared source/generated owners. `pse inspect affected` supplies conservative test reach. Use these to narrow investigation, then select real tests; reach is not test success. |
-
-For an outline continuation, pass `payload.page.next_cursor` unchanged as `--cursor`; changed
-working bytes refuse. Keep the same `--detail` on continuation. `detail_coverage` describes
-selected fact ranges and file-level inclusion; omitted detail does not establish absent facts.
-Unrequested fact mappings are `null`; a requested empty mapping is `[]`.
-`--fields` projects output independently of detail demand. Source parsing has an explicit
-edition/language policy rather than an
-inferred build context. A syntax match is a written candidate even when names are spelled alike;
-it does not establish resolved identity or active cfg membership. Semantic refinement explicitly
-selects a prepared provider; unavailable information never silently becomes syntax evidence.
-
-Allowances count nested declarations or matches. Review total/omitted and continuation facts
-before concluding a search is complete. `--fields` can hide payload detail while mandatory
-`providers` still records exact source generation and parser context. Read the selected
-declaration or capture rather than dumping a large file solely to locate it.
-
-For query correction, start with `search --request FILE --explain`: it shows resolved operands
-and their contributing input origins without filesystem preflight or provider preparation.
-Request-file paths are relative to that file. Missing explicit roots refuse before Begin and
-may return a safe passive-explain recovery action. Execute returned argv unchanged when useful;
-do not reconstruct hidden/redacted values. A later disappearance or stale prepared world has
-different premises and may require a different action.
-
-Consume both output streams. Command refusals appear on stderr; admitted-query failures appear
-as stdout diagnostics. In JSON inspect `payload.summary` and `payload.diagnostics` even when
-top-level `failures` is empty. In NDJSON consume diagnostic records and require terminal coverage.
-Join each result's `source` with `payload.sources[].id`. Empty projected context text can coexist
-with valid source/relationship evidence. Direct `inspect --source` reads current selected bytes;
-`inspect --result` guards the original source/context and refuses stale evidence.
+- [Whole-checkout discovery and composed questions](#whole-checkout-discovery-and-composed-questions)
+- [Written source and structural changes](#written-source-and-structural-changes)
 
 ## Resolved Rust context and edit proposals
 
@@ -149,7 +52,7 @@ proofs while retaining the original use-site and source guards.
 | What entity/type does this expression name? | `inspect entity --view explain` requests hover, definitions and type resolution. Rendered hover remains rendered evidence when a structured field is unsupported. |
 | Why does this operation capture, borrow or adjust a value? | Native explain/reference facts distinguish operation roles, implicit targets, original/adjusted types and capture/use causes. Keep separate use sites even when they resolve to one declaration. Unavailable native observations stay unavailable. |
 | What layout does the selected target establish? | `inspect entity --view layout` returns fallible full extents only with native Sized evidence; unsized prefixes and unsupported generic/child layouts remain separate. `--compiler-layout INVOCATION` passively associates original type-size evidence through recorded guards; opaque compiler output supplies no numerical ABI equality. |
-| What symbols does the semantic provider see in this file? | `inspect entity --view symbols`; prefer source-only `inspect outline` when written declarations suffice. |
+| What symbols does the semantic provider see in this file? | `inspect entity --view symbols`; ordinary source reading or an optional source-only outline suffices for written declarations. |
 | Where is this actual entity referenced? | `inspect entity --view refs`, including declarations; use it when text matches would conflate same-spelled names. |
 | What calls this function, and what does it call? | `inspect entity --view calls` supplies one-hop incoming/outgoing calls. Expand only the relevant neighbors; this is not a whole-program runtime trace. |
 | Where are native implementation targets? | `inspect entity --view implementations` locates returned targets. It does not establish that every generic trait obligation holds. |
@@ -158,6 +61,16 @@ proofs while retaining the original use-site and source guards.
 | Which APIs fit this editing position? | `inspect entity --view candidates`, then its guarded `inspect entity --view candidate` action for one useful choice. Native declaration signatures remain separate from actual call-site inferred substitutions, receiver adjustments and supported obligations. Hypothetical calls retain unknown inference. Lazy resolution retains imports, snippets and unresolved editing intent. |
 | What inferred annotations help explain these lines? | `inspect entity --view hints` with a selected line/range, then guarded `inspect entity --view hint` resolution when needed. Avoid fetching the whole file's annotations. |
 | Can the native provider establish a specific trait predicate here? | `inspect entity --view predicate FILE --line N --column N --text TEXT`. Preserve holds, not-proven, invalid and unsupported outcomes. Not-proven remains unknown under conjunction or negation. |
+| Do these actual types match, possibly unify or possibly coerce? | `inspect entity --view compatibility` compares the selected operand with an original guarded `--against-result`. Select `--operation equal`, `could-unify` or directional `could-coerce`. Unresolved types and incompatible generic owners can leave the answer unknown; possible unification/coercion is not compiler acceptance. |
+| Can this declaration be accessed from the intended module? | `inspect entity --view visibility` uses the guarded `--against-result` destination's native module context. Visibility is distinct from importability or successful compilation. |
+| Which authored format operand or derive input explains this generated behavior? | `inspect entity --view format-origin` or `derive-origin` returns native source associations where supported. Escaped format braces, opaque/custom templates and generated implementations retain their own limits; an invocation operand is not necessarily a declaration reference. |
+
+Compatibility, visibility and origin observations require a backend that supports them;
+do not assume the default LSP session supplies every native-snapshot fact. Obtain the second
+operand/destination as a guarded source result in the same prepared world, and pass its returned
+address unchanged. Both source identity and session context matter to a comparison.
+The `lifetime` view can compose separately qualified native, original compiler and work evidence;
+it does not establish general borrow/liveness analysis or actual runtime resource release.
 
 Commands operate on working files, without assuming an editor's unsaved buffers. CLI positions
 are one-based Unicode scalar coordinates, converted to the provider's negotiated encoding.
@@ -201,7 +114,7 @@ route. Independent detachment directly from an enclosing workload continues to r
 
 ## Locked APIs and dependency context
 
-Use `pse inspect api` for the exact locked dependency context before designing against remembered APIs.
+Consider `pse inspect api` when exact locked signatures, bounds or reexports would resolve an API question.
 Context7 remains the first external library-documentation lookup under repository policy;
 the acquired local API answers a distinct question about the pinned source and extraction context.
 
@@ -338,3 +251,109 @@ the change. An unknown declaration location stays unknown.
 Changed working bytes refuse the original-hit action. Origin drill-through neither edits
 files nor regenerates output or starts an analyzer. Fix the authored owner and run the declared
 generation route; repository generated-output protections still apply.
+
+## Whole-checkout discovery and composed questions
+
+When structured requests or guarded references help, `search` finds candidates, `inspect`
+expands source or a returned reference, and `propose` constructs a checked preview. These
+commands need not replace ordinary searches or reads. Preparation and execution remain
+explicit. Ordinary source/text discovery needs no analyzer, database, API acquisition or Cargo.
+
+```bash
+pse search files --path crates/pse-host/src --glob '*.rs' --limit 10
+pse search text 'CancellationToken' --literal --path crates/pse-host/src --context 1
+pse search symbol EnvironmentSettings --path crates/pse-host/src
+pse search syntax 'Command::new($BIN)' --path crates/pse-host/src --limit 8
+pse inspect --source crates/pse-host/src/cli.rs --lines 10:40
+pse search --request query.json --explain
+```
+
+Use `--format json` for structured work, `human` for reading or `ndjson` for normalized records.
+`--fields` selects payload detail without removing provenance. A modest `--limit` for search
+or `--budget` for inspection keeps context focused. `pse schema` describes returned shapes.
+
+The default is twenty useful arrival-order results. `--exists`, `--count` and `--all`
+request different native examination/completion. `--order deterministic` enables guarded
+continuations; pass the returned cursor unchanged. A small page establishes neither exact
+totals nor exhaustive absence. No-match, partial I/O, stale context, unsupported predicates
+and absent preparation remain different outcomes.
+
+Use a typed JSON request for grouped predicates and batches; `pse schema search request`
+describes its actual input. Same-file conjunction can have different witness nodes; same-node
+conjunction holds on one native node; semantic conjunction binds one entity/context. Unavailable
+information remains unknown, including under negation. Do not narrow global references to
+only files containing a convenient spelling.
+
+`search structured POINTER` selects JSON/TOML/YAML fields, with explicit typed equality;
+it does not implement every jq/SQL operation. `search history` selects native log/blame/pickaxe
+questions. Historical source does not inherit current semantic context. Prefer domain readers
+for dependency features, tests and source ownership over scraping their serialized files.
+
+`--result-fields name,context` chooses optional detail while source/reference/range stay mandatory.
+`--group-by source`, `kind` or `name` groups returned witnesses, not universe-wide counts.
+`--budget` bounds published whole rows independently of requested examination. NDJSON publishes
+live complete records and final coverage; absent finality is incomplete delivery. Actual progress
+is stderr presentation, not a fabricated percentage or success proof.
+
+Saved requests, named queries and source scopes use optional `.config/pse-search.toml` or explicit
+`--config`. Select saved queries with `--query NAME`. Explicit flags override selected request/config
+values; arrays replace, and file-relative paths resolve at their source. `search --explain` exposes
+effective values and provenance without starting providers or another host environment evaluator.
+
+References bind original source/context, without a universal result database. A lexical observation
+need not snapshot a full file. Before previews, exact hydration verifies the observed witness and
+refuses stale premises. A reference must not silently reinterpret an identical path in another checkout.
+
+## Written source and structural changes
+
+For protobuf questions, use `search schema NAME --descriptor FILE`, then expand its guarded
+reference with `inspect --result` or navigate directly with `inspect schema --descriptor FILE
+FULL.NAME`. `inspect payload --descriptor FILE --message FULL.NAME --input PAYLOAD --encoding
+binary` passively explains selected bytes; `json` and `textproto` are explicit alternatives.
+Use schema inspection's `--compare-with BASE` for contract differences. These offline routes
+do not prepare an analyzer or invoke an RPC. Validation coverage, original-byte preservation
+and any generated-Rust association remain separate evidence claims.
+
+Use source-only reads before preparing a semantic service when declaration structure or exact
+written bytes will settle the question. These reads also work outside a pse-arrow checkout.
+
+| Question | Capability and useful limits |
+|---|---|
+| Where is a declaration or document section? | `pse inspect outline FILE --budget 20` reads nested Rust declarations or Markdown headings without Cargo, cfg evaluation or macro expansion. Multiple files are supported; use one file for a continuation. |
+| What exactly surrounds this location? | `pse inspect declaration FILE --at-line N --at-column N` returns the enclosing declaration/section. `--range-start` / `--range-end` select a half-open UTF-8 byte range. Line/column coordinates are one-based Unicode scalars. |
+| What does this written literal, documentation or attribute mean? | Use `--detail facts` for selected interpreted values or `--detail mapped` for decoded-to-source mappings. Outlines default to navigation; declarations default to facts, raw ranges to navigation. Syntax matches carry their enclosing declaration, receiver, ordered arguments and owner-matched documentation/attributes; these remain source facts, without cfg or type inference. |
+| What was staged or committed? | Add `--index` for the raw staged blob or `--revision REF` for a resolved committed blob. This avoids checkout changes and distinguishes Git bytes from current working bytes. |
+| Which written shapes match a refactor? | `pse search syntax 'call($ARG)' --path FILE` returns structural candidates with captures and exact source identity. Rust is the current structural language. |
+| Which matches occur in the intended context? | Native rule requests express ancestor/descendant/sibling/field constraints and repeated captures. Strictness selects matching policy. Syntax previews also retain native `--inside`, `--has`, `--exclude`, `--strictness` and `--capture` input controls. |
+| What would a replacement change? | `propose syntax` uses the same pattern plus `--replacement` and optional `--select` candidate indices. Inspect candidates before selecting edits; selected overlaps and undefined template captures refuse. Neither source nor the Git index changes. |
+| Can a grammar-aware edit handle separators and surrounding syntax? | `propose grammar FILE --byte-start N --byte-end N OPERATION` uses native Rust editing for where predicates, imports, bounds, associated items, match arms and expression precedence. Use its help for operation arguments; an exact source guard and preview remain required before applying edits. |
+| What changed, and which tests might matter? | `pse inspect changes` separates Git layers and declared source/generated owners. `pse inspect affected` supplies conservative test reach. Use these to narrow investigation, then select real tests; reach is not test success. |
+
+For an outline continuation, pass `payload.page.next_cursor` unchanged as `--cursor`; changed
+working bytes refuse. Keep the same `--detail` on continuation. `detail_coverage` describes
+selected fact ranges and file-level inclusion; omitted detail does not establish absent facts.
+Unrequested fact mappings are `null`; a requested empty mapping is `[]`.
+`--fields` projects output independently of detail demand. Source parsing has an explicit
+edition/language policy rather than an
+inferred build context. A syntax match is a written candidate even when names are spelled alike;
+it does not establish resolved identity or active cfg membership. Semantic refinement explicitly
+selects a prepared provider; unavailable information never silently becomes syntax evidence.
+
+Allowances count nested declarations or matches. Review total/omitted and continuation facts
+before concluding a search is complete. `--fields` can hide payload detail while mandatory
+`providers` still records exact source generation and parser context. Read the selected
+declaration or capture rather than dumping a large file solely to locate it.
+
+For query correction, start with `search --request FILE --explain`: it shows resolved operands
+and their contributing input origins without filesystem preflight or provider preparation.
+Request-file paths are relative to that file. Missing explicit roots refuse before Begin and
+may return a safe passive-explain recovery action. Execute returned argv unchanged when useful;
+do not reconstruct hidden/redacted values. A later disappearance or stale prepared world has
+different premises and may require a different action.
+
+Consume both output streams. Command refusals appear on stderr; admitted-query failures appear
+as stdout diagnostics. In JSON inspect `payload.summary` and `payload.diagnostics` even when
+top-level `failures` is empty. In NDJSON consume diagnostic records and require terminal coverage.
+Join each result's `source` with `payload.sources[].id`. Empty projected context text can coexist
+with valid source/relationship evidence. Direct `inspect --source` reads current selected bytes;
+`inspect --result` guards the original source/context and refuses stale evidence.

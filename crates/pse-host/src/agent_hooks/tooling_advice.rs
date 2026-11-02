@@ -72,26 +72,13 @@ fn route(words: &[String]) -> Option<&'static str> {
         "xtask" => Some(
             "pse inspect owner / pse docs check for those workflows, or pse run -- xtask for other managed work",
         ),
-        "rg" | "ripgrep"
-            if args.iter().any(|arg| arg.ends_with(".rs"))
-                || args.windows(2).any(|pair| {
-                    matches!(pair[0].as_str(), "--type" | "-t") && pair[1] == "rust"
-                }) =>
-        {
-            Some(
-                "pse search text / pse search syntax with an explicit Rust source scope; pse inspect expands guarded results",
-            )
-        }
-        "cat" | "head" | "tail" | "sed" if args.iter().any(|arg| arg.ends_with(".rs")) => Some(
-            "pse inspect --source FILE for exact source ranges, or pse inspect declaration for the enclosing Rust item",
-        ),
         "ast-grep" | "sg"
             if !args
                 .iter()
                 .any(|arg| matches!(arg.as_str(), "--update-all" | "--update" | "-U")) =>
         {
             Some(
-                "pse search syntax for native structural discovery or pse propose syntax for checked capture-preserving previews",
+                "pse propose syntax when a guarded, capture-preserving edit preview would help answer the structural-change question",
             )
         }
         _ => None,
@@ -184,7 +171,7 @@ fn advice(source: &str, root: &Path) -> Option<String> {
     }
     let selected = routes.into_iter().take(3).collect::<Vec<_>>().join("; ");
     Some(format!(
-        "Prefer the native CLI for repository tooling: {selected}. It supplies the applicable execution ownership, correctness/fixture selection and retained results. Use the pse-cli skill and pse commands for the appropriate route. This direct invocation is proceeding unchanged."
+        "Consider native capabilities when they help answer the question or preserve execution ownership: {selected}. Weigh preparation cost and available tools; the pse-cli skill and pse commands describe the options. This direct invocation is proceeding unchanged."
     ))
 }
 
@@ -262,16 +249,25 @@ mod tests {
         }
     }
     #[test]
-    fn focused_rust_reads_offer_native_investigation_without_blanket_search_reminders() {
+    fn routine_searches_and_reads_remain_quiet_while_structural_previews_are_optional() {
         for source in [
-            "rg needle source.rs",
-            "rg -t rust needle",
-            "cat source.rs",
             "ast-grep run --pattern 'call($A)' source.rs",
+            "sg run --pattern 'call($A)' source.rs",
         ] {
             assert!(advice(source, Path::new("/repo")).is_some(), "{source}");
         }
         for source in [
+            "rg needle source.rs",
+            "rg -t rust needle",
+            "ripgrep --type rust needle",
+            "rg --files crates/pse-host/src",
+            "cat source.rs",
+            "head -n 20 source.rs",
+            "tail source.rs",
+            "sed -n '1,20p' source.rs",
+            "env X=y rg needle source.rs",
+            "command cat source.rs",
+            "scripts/pse-env -- rg needle source.rs",
             "rg needle README.md",
             "rg needle .",
             "pse search text needle",
