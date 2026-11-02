@@ -40,7 +40,8 @@ pub struct ModelingAnalysis {
     pub numerical: NumericalInputs,
 }
 /// Stage names and optional declared homotopy, with finite work and recovery controls.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ModelingInitialization {
     /// Declared stages, attempted in order before homotopy.
     pub stages: Vec<String>,
@@ -355,7 +356,7 @@ impl ModelingPackage {
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                self.initialize_model_with_prepared(services, analysis, policy, None, cancel)
+                self.initialize_model_with_prepared(services, analysis, policy, None, None, cancel)
                     .await
             })
             .await
@@ -367,6 +368,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         policy: ModelingInitialization,
         prepared: Option<ModelingPreparation>,
+        run_id: Option<RunId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
         self.check_service_bindings(services.preparation())?;
@@ -496,7 +498,7 @@ impl ModelingPackage {
             prepared_original: base,
             report: ModelingInitializationReport {
                     services: services.preparation().clone(),
-                run_id: pse_operations::mint_id(),
+                run_id: run_id.unwrap_or_else(pse_operations::mint_id),
 
                 attempts: Vec::with_capacity(policy.maximum_attempts),
                 completed: false,

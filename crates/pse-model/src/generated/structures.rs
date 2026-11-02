@@ -1222,6 +1222,38 @@ impl PartialEq for ScientificCoordinateValue {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ScopedPropagationUse {
+    ///scope
+    pub r#scope: crate::generated::enums::ProductUseScope,
+    ///reference_point
+    pub r#reference_point: Option<pse_ids::SemanticId>,
+    ///decision
+    pub r#decision: crate::generated::enums::CandidateUse,
+    ///validity
+    pub r#validity: LocalValidity,
+}
+impl crate::SemanticEq for ScopedPropagationUse {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#scope, &other.r#scope)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#reference_point,
+                &other.r#reference_point,
+            ) && crate::SemanticEq::semantic_eq(&self.r#decision, &other.r#decision)
+            && crate::SemanticEq::semantic_eq(&self.r#validity, &other.r#validity)
+    }
+}
+impl PartialEq for ScopedPropagationUse {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct VersionRequirement {
     ///operator
     pub r#operator: crate::generated::enums::ModelingVersionOperator,
@@ -1830,6 +1862,27 @@ impl crate::HeapUsage for ScientificCoordinateValue {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#coordinate_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame for ScopedPropagationUse {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#scope));
+        crate::SemanticFrame::frame(&self.r#scope, hash);
+        hash.str(stringify!(r#reference_point));
+        crate::SemanticFrame::frame(&self.r#reference_point, hash);
+        hash.str(stringify!(r#decision));
+        crate::SemanticFrame::frame(&self.r#decision, hash);
+        hash.str(stringify!(r#validity));
+        crate::SemanticFrame::frame(&self.r#validity, hash);
+    }
+}
+impl crate::HeapUsage for ScopedPropagationUse {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scope))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reference_point))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#decision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#validity))
     }
 }
 impl crate::SemanticFrame for VersionRequirement {

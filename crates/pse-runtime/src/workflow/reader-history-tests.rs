@@ -242,7 +242,7 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         .await
         .unwrap();
     let stored = crate::workflow::StoredCompletion {
-        version: 3,
+        version: 4,
         attempt_id: pse_operations::mint_id(),
         completion: Some(Default::default()),
         termination: crate::workflow::TerminationDetail {

@@ -592,11 +592,17 @@ impl MathService {
                             && *value <= row.upper + tolerance
                     },
                 );
+                let mut free_tolerances = tolerances.variables.iter();
                 let bounds_ok = structure.variables().iter().all(|variable| {
+                    let tolerance = if variable.fixed {
+                        Some(0.0)
+                    } else {
+                        free_tolerances.next().copied()
+                    };
                     values.scalars.get(&variable.port.id).is_some_and(|value| {
-                        value.is_finite()
-                            && variable.lower.is_none_or(|lower| *value >= lower)
-                            && variable.upper.is_none_or(|upper| *value <= upper)
+                        tolerance.is_some_and(|tolerance| {
+                            original_bound_accepts(variable, *value, tolerance)
+                        })
                     })
                 });
                 execution.check()?;

@@ -149,7 +149,7 @@ impl Default for LeasePolicy {
     }
 }
 // Retained completion interpretation needs only the original store and pool.
-async fn result_scientific_completion(
+pub(super) async fn result_scientific_completion(
     store: &CanonicalStore,
     pool: &Arc<dyn MemoryPool>,
     read: &ResultRead,
@@ -205,22 +205,6 @@ pub(super) async fn result_governing_permission(
 }
 
 /// Product-local permission from this exact protected original completion.
-pub(super) async fn result_product_permission(
-    store: &CanonicalStore,
-    pool: &Arc<dyn MemoryPool>,
-    read: &ResultRead,
-    quantity: pse_model::generated::enums::DerivedQuantity,
-) -> Result<Option<bool>, WorkflowError> {
-    let Some(stored) = result_scientific_completion(store, pool, read).await? else {
-        return Ok(None);
-    };
-    Ok(stored
-        .completion
-        .as_ref()
-        .and_then(|completion| completion.product_permission(quantity))
-        .map(super::completion::ProductPermission::permits_result))
-}
-
 async fn decode_completion(
     store: &CanonicalStore,
     pool: &Arc<dyn MemoryPool>,
@@ -770,7 +754,7 @@ impl Operations {
                 outcome.retryable = true;
                 outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
                 let stored = StoredCompletion {
-                    version: 3,
+                    version: 4,
                     attempt_id,
                     completion: None,
                     termination: outcome.detail,
@@ -893,7 +877,7 @@ pub struct StoredCompletion {
 fn current_stored_completion(
     completion: StoredCompletion,
 ) -> Result<StoredCompletion, WorkflowError> {
-    if completion.version != 3 {
+    if completion.version != 4 {
         return Err(contract("stored completion interpretation"));
     }
     Ok(completion)
@@ -1810,7 +1794,7 @@ impl DurableAttempt {
         };
         self.completion_owner = Some(owner);
         let stored = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id: self.attempt,
             completion,
             termination: outcome.detail,
@@ -1861,7 +1845,7 @@ impl DurableAttempt {
         }
         let outcome = failure(error, cancelled || export_error.is_some());
         let stored = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id: self.attempt,
             completion: None,
             termination: outcome.detail,
@@ -4476,7 +4460,7 @@ mod canonical_durable_codec {
         attempt.stream.finish().await;
         let detail = failure(&Arc::new(contract("synthetic partial original")), false).detail;
         let stored = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id,
             completion: Some(super::super::Completion::default()),
             termination: detail,
@@ -4587,7 +4571,7 @@ mod canonical_durable_codec {
             }),
         };
         let stored = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id,
             completion: None,
             termination: failure(&Arc::new(contract("original failed science")), false).detail,
@@ -5351,7 +5335,7 @@ mod canonical_durable_codec {
         assert!(!attempt.cancelled_refusal(&wrong));
         let outcome = super::failure(&failure, true);
         let stored = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id,
             completion: None,
             termination: outcome.detail,
@@ -5399,7 +5383,7 @@ mod canonical_durable_codec {
         for chunked in [false, true] {
             let (operations, fence) = claimed().await;
             let original = StoredCompletion {
-                version: 3,
+                version: 4,
                 attempt_id: pse_operations::mint_id(),
                 completion: Some(super::super::Completion::default()),
                 termination: detail(
@@ -5489,10 +5473,11 @@ mod canonical_durable_codec {
             .unwrap();
         let attempt_id = pse_operations::mint_id();
         let original = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id,
             completion: Some(super::super::Completion {
                 permission: Some(super::super::completion::ScientificPermission {
+                    reference_point: None,
                     step: None,
                     requested: 1,
                     observed: 0,
@@ -5692,7 +5677,7 @@ mod canonical_durable_codec {
             )
             .unwrap();
             let original = StoredCompletion {
-                version: 3,
+                version: 4,
                 attempt_id,
                 completion: Some(super::super::Completion::default()),
                 termination: detail(
@@ -6777,7 +6762,7 @@ mod ordinary_progress_tests {
     #[test]
     fn stored_completion_requires_explicit_progress_coverage() {
         let stored = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id: pse_operations::mint_id(),
             completion: None,
             termination: detail(
@@ -6795,7 +6780,7 @@ mod ordinary_progress_tests {
         assert!(
             current_stored_completion(serde_json::from_value(current.clone()).unwrap()).is_ok()
         );
-        for version in [1, 2] {
+        for version in [1, 2, 3] {
             let mut historical = current.clone();
             historical["version"] = serde_json::json!(version);
             assert!(

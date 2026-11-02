@@ -13,8 +13,22 @@ pub(super) mod declared;
 pub(crate) mod engagement;
 mod path_pipeline;
 mod preparation;
-pub use declared::{DeclaredExecution, DeclaredProcedure, InitializationOverrides};
+pub use declared::{
+    DeclaredAlgebraicOutcome, DeclaredExecution, DeclaredProcedure, InitializationOverrides,
+};
+pub mod scientific_intake;
+mod structural;
+pub use structural::ModelingStructuralAnalysis;
 mod knowledge;
+#[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
+mod ordinary_delivery_tests;
+#[cfg(test)]
+mod process_edit_tests;
+mod source_impact;
+pub use source_impact::{
+    ModelingRootSourceImpact, ModelingSourceClosure, ModelingSourceImpact,
+    ModelingSourceImpactStatus,
+};
 mod pure;
 pub use conformance::{
     ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,

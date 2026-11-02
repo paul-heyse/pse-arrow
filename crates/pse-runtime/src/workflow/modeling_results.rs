@@ -5,6 +5,7 @@ use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use crate::math::solves::Outcome;
 #[cfg(test)]
 use pse_ids::SemanticId;
+use pse_relations::columnar::RelationRow;
 use pse_relations::generated::{
     enums::DualQualification,
     runtime::{
@@ -14,14 +15,26 @@ use pse_relations::generated::{
         solve_variables as variables,
     },
 };
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 impl RunResult {
     pub(super) async fn encode_modeling(
         &self,
         projection: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let RunRequest::Modeling(requests) = self.request() else {
-            return Err(contract("authored solve request mismatch"));
+        // This is a projection workset of retained attempt owners. The scientific
+        // request and report remain a distinct Initialization operation throughout.
+        let requests = match self.request() {
+            RunRequest::Modeling(requests) => Cow::Borrowed(requests.as_slice()),
+            RunRequest::Initialization(_) => Cow::Owned(match self.report() {
+                Ok(super::RunReport::Initialization(report)) => report
+                    .attempts
+                    .iter()
+                    .filter_map(|attempt| attempt.result.as_ref().ok())
+                    .map(|result| result.prepared.clone())
+                    .collect(),
+                _ => Vec::new(),
+            }),
+            _ => return Err(contract("authored solve request mismatch")),
         };
         if self.horizon_tightenings.is_some() && projection.wants(modeling_findings::RELATION_ID) {
             return self.encode_horizon_findings(projection).await;
@@ -67,6 +80,19 @@ impl RunResult {
         collection
             .ensure::<modeling_findings::Row>()
             .map_err(relation)?;
+        if let Ok(super::RunReport::Initialization(report)) = self.report() {
+            use pse_relations::generated::runtime::modeling_initializations;
+            if projection.wants(modeling_initializations::RELATION_ID) {
+                collection
+                    .ensure::<modeling_initializations::Row>()
+                    .map_err(relation)?;
+                for row in
+                    modeling_initializations::Row::rows(&report.table()?).map_err(relation)?
+                {
+                    collection.push(row).await.map_err(relation)?;
+                }
+            }
+        }
         collection
             .ensure::<solve_strategy_events::Row>()
             .map_err(relation)?;
@@ -119,8 +145,14 @@ impl RunResult {
             &validation,
         )
         .map_err(relation)?;
-        let mut local =
-            super::local_analysis::Rows::new(projection, registry, &pool, &cancel, &validation)?;
+        let mut local = super::local_analysis::Rows::new(
+            projection,
+            registry,
+            &pool,
+            &cancel,
+            &validation,
+            self.completion().ok(),
+        )?;
         // A durable run publishes its incumbent stream as the store held it when the
         // attempt ended (Plan 22 I13); an ephemeral run keeps its retained incumbents in
         // runtime.solve_metrics.
@@ -497,20 +529,32 @@ impl RunResult {
             if let Some(result) = result {
                 if projection.wants(modeling_checks::RELATION_ID) {
                     for row in &result.checks {
-                        collection.push_ref(row).await.map_err(relation)?;
+                        let mut row = row.clone();
+                        row.run_id = self.run_id;
+                        row.step = step;
+                        collection.push(row).await.map_err(relation)?;
                     }
                 }
 
                 if projection.wants(modeling_reports::RELATION_ID) {
                     for row in &result.reports {
-                        collection.push_ref(row).await.map_err(relation)?;
+                        let mut row = row.clone();
+                        row.run_id = self.run_id;
+                        row.step = step;
+                        collection.push(row).await.map_err(relation)?;
                     }
                 }
             }
         }
         // Failures first, then the informational bound tightenings admission recorded for
         // each step's case (ADR-0103 item 4).
-        if projection.wants(modeling_findings::RELATION_ID) {
+        if projection.wants(modeling_findings::RELATION_ID)
+            && let Ok(super::RunReport::Initialization(report)) = self.report()
+        {
+            for row in modeling_findings::Row::rows(&report.findings_table()?).map_err(relation)? {
+                collection.push(row).await.map_err(relation)?;
+            }
+        } else if projection.wants(modeling_findings::RELATION_ID) {
             let tightenings = requests.iter().flat_map(|request| {
                 request
                     .model

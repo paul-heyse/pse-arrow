@@ -5,6 +5,7 @@
     reason = "isolated bounded result fixture publishes partial availability, never admitted scientific usability"
 )]
 use super::*;
+use crate::workflow::PackScientificState;
 use pse_operations::canonical_execution::{
     AttemptFence, RunRequest, SeedEligibility, TerminalClass,
 };
@@ -237,7 +238,7 @@ async fn wide_fixture_with_completion(
     let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
     let completion =
         super::super::durable::inspection_fixture_completion(super::super::StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id: pse_operations::mint_id(),
             completion: original_completion,
             termination: super::super::TerminationDetail {
@@ -1140,6 +1141,7 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
     let validity = super::super::local_analysis::record(Ok(&()), None, false);
     let completion = super::super::Completion {
         permission: Some(super::super::ScientificPermission {
+            reference_point: None,
             step: None,
             requested: 1,
             observed: 1,
@@ -1149,6 +1151,7 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
             qualifiers: vec![],
         }),
         products: vec![super::super::ProductPermission {
+            scope: crate::workflow::completion::ProductScope::Task,
             quantity: DerivedQuantity::ParameterCovariance,
             validity,
             decision: CandidateUse::Unusable,
@@ -1179,28 +1182,11 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         .unwrap(),
         Some(false)
     );
-    assert_eq!(
-        super::super::durable::result_product_permission(
-            runtime.canonical_store().unwrap(),
-            &runtime.shared.pool(),
-            reader.selection(),
-            DerivedQuantity::ParameterCovariance
-        )
-        .await
-        .unwrap(),
-        Some(false)
-    );
-    assert_eq!(
-        super::super::durable::result_product_permission(
-            runtime.canonical_store().unwrap(),
-            &runtime.shared.pool(),
-            reader.selection(),
-            DerivedQuantity::WaldInterval
-        )
-        .await
-        .unwrap(),
-        None
-    );
+    let selection = reader.pack_selection().await.unwrap();
+    assert_eq!(selection.usability, PackScientificState::Unusable);
+    let mut forged = selection.clone();
+    forged.usability = PackScientificState::Usable;
+    assert!(reader.validate_pack_selection(&forged).await.is_err());
     let mut diagnostic_rows = 0;
     while let Some(batch) = reader.next_relation_batch().await.unwrap() {
         diagnostic_rows += batch.batch().num_rows();

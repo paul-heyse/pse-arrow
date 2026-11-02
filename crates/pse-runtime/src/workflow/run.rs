@@ -292,12 +292,26 @@ impl RunResult {
     }
     pub(super) fn modeling_result(&self, step: usize) -> Option<&super::ModelingResult> {
         match self.report() {
+            Ok(RunReport::Initialization(report)) => report
+                .attempts
+                .iter()
+                .filter_map(|attempt| attempt.result.as_ref().ok())
+                .nth(step),
             Ok(RunReport::Modeling(results)) => results.get(step),
             Err(_) => self.modeling_failure.as_ref()?.completed.get(step),
             _ => None,
         }
     }
     pub(super) fn modeling_step(&self, index: usize) -> usize {
+        if let Ok(RunReport::Initialization(report)) = self.report() {
+            return report
+                .attempts
+                .iter()
+                .enumerate()
+                .filter(|(_, attempt)| attempt.result.is_ok())
+                .nth(index)
+                .map_or(index, |(ordinal, _)| ordinal);
+        }
         self.modeling_result(index)
             .map_or(self.modeling_origin + index, |result| {
                 result.original_attempt
@@ -447,10 +461,23 @@ impl RunResult {
         &self,
         step: Option<usize>,
     ) -> Result<super::DiagnosticOrigin, WorkflowError> {
-        let modeling = step.and_then(|step| self.modeling_result(step));
+        let initialization = match self.report() {
+            Ok(RunReport::Initialization(report)) => Some(report),
+            _ => None,
+        };
+        let modeling = step.and_then(|step| match initialization {
+            Some(report) => report
+                .attempts
+                .get(step)
+                .and_then(|attempt| attempt.result.as_ref().ok()),
+            None => self.modeling_result(step),
+        });
         if let Some(step) = step {
             let count = match self.request() {
                 RunRequest::Modeling(request) => request.len(),
+                RunRequest::Initialization(_) => {
+                    initialization.map_or(0, |report| report.attempts.len())
+                }
                 _ => 0,
             };
             if step >= count {
@@ -458,11 +485,16 @@ impl RunResult {
             }
         }
         let failure = match step {
-            Some(step) => modeling
-                .and_then(super::ModelingResult::diagnostic)
+            Some(step) => initialization
+                .and_then(|report| report.attempts.get(step))
+                .and_then(super::ModelingInitializationAttempt::diagnostic)
                 .or_else(|| {
-                    self.modeling_error(step)
-                        .map(WorkflowError::boundary_diagnostic)
+                    modeling
+                        .and_then(super::ModelingResult::diagnostic)
+                        .or_else(|| {
+                            self.modeling_error(step)
+                                .map(WorkflowError::boundary_diagnostic)
+                        })
                 }),
             None => self
                 .error()
@@ -503,6 +535,7 @@ impl RunResult {
             .map(|recorder| recorder.projection())
             .unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
         let family = match self.original_request() {
+            RunRequest::Initialization(_) => "initialization",
             RunRequest::Horizon(_) => "horizon",
             RunRequest::Modeling(_) => "modeling",
             RunRequest::Simulation(_) => "simulation",
@@ -549,7 +582,12 @@ impl RunResult {
             let product_permission = |quantity| {
                 self.completion()
                     .ok()
-                    .and_then(|c| c.product_permission(quantity))
+                    .and_then(|c| {
+                        c.product_permission(
+                            &crate::workflow::completion::ProductScope::Task,
+                            quantity,
+                        )
+                    })
                     .is_some_and(super::ProductPermission::permits_result)
             };
             let covariance = report.and_then(|r| r.covariance.as_ref());
@@ -612,11 +650,11 @@ impl RunResult {
             _ => {}
         }
         let mut omitted_product_steps = 0;
-        if let RunRequest::Modeling(requests) = self.request() {
-            let limit = super::AttemptSummaryLimits::default().steps;
-            omitted_product_steps = requests.len().saturating_sub(limit);
-            for (step, request) in requests.iter().take(limit).enumerate() {
-                let result = self.modeling_result(step);
+        let limit = super::AttemptSummaryLimits::default().steps;
+        let mut append_products =
+            |step: usize,
+             request: &super::ModelingSolvePreparation,
+             result: Option<&super::ModelingResult>| {
                 // Each original completion governs its own scientific products. A
                 // later refused/failed sequence member cannot erase accepted work.
                 let original_permission = self
@@ -666,7 +704,29 @@ impl RunResult {
                     step: Some(step),
                     availability: status(wanted.is_some_and(|w| w.propagation.is_some()), false),
                 });
+            };
+        match self.request() {
+            RunRequest::Modeling(requests) => {
+                omitted_product_steps = requests.len().saturating_sub(limit);
+                for (ordinal, request) in requests.iter().take(limit).enumerate() {
+                    append_products(
+                        self.modeling_step(ordinal),
+                        request,
+                        self.modeling_result(ordinal),
+                    );
+                }
             }
+            RunRequest::Initialization(_) => {
+                if let Ok(RunReport::Initialization(report)) = self.report() {
+                    omitted_product_steps = report.attempts.len().saturating_sub(limit);
+                    for (ordinal, attempt) in report.attempts.iter().take(limit).enumerate() {
+                        if let Ok(result) = &attempt.result {
+                            append_products(ordinal, &result.prepared, Some(result));
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
         let attempt_id = match &self.durability {
             RunDurability::Ephemeral => None,
@@ -1644,6 +1704,87 @@ impl ExecutionServices {
                 self.launch(steps, false, Some(attempt), Some(cancel.clone()))
             })
             .await
+    }
+    /// Start the original authored initialization through the common joined run owner.
+    pub(in crate::workflow) fn start_initialization(
+        &self,
+        operation: super::PreparedInitializationOperation,
+        parent: &crate::CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
+        operation
+            .source
+            .check_service_bindings(self.preparation())?;
+        operation.execution.prepared_model(&operation.source)?;
+        let deadline = std::time::Instant::now()
+            .checked_add(operation.policy()?.time_limit)
+            .ok_or_else(|| deadline_limit("initialization operation deadline overflow"))?;
+        let history = operation.execution.analysis.solver.controls.history;
+        let activity = self.preparation().admit_activity()?;
+        activity.sync_scope(crate::invocation::start_scope(|| {
+            let supervisor =
+                RunSupervisor::new(self.clone(), None, Some(parent), Some(deadline), history)?;
+            Ok(supervisor.spawn(move |supervisor| async move {
+                let RunSupervisor {
+                    services,
+                    run_id,
+                    mut durable,
+                    checks: cancel,
+                    ..
+                } = supervisor;
+                let request = Box::new(operation);
+                let stop = cancel.clone();
+                let admission = admit(
+                    &services.source_services(),
+                    &mut durable,
+                    run_id,
+                    &RunRequest::Initialization(&request),
+                    async { Ok(()) },
+                    Arc::new(move || stop.cancel()),
+                )
+                .await;
+                if let Err(error) = admission {
+                    return RunResult::joined(
+                        run_id,
+                        services,
+                        RunOutcome::Initialization {
+                            request,
+                            result: Err(Arc::new(error)),
+                        },
+                        None,
+                    )
+                    .refused(durable)
+                    .await;
+                }
+                let report = async {
+                    request
+                        .source
+                        .initialize_model_with_prepared(
+                            &services,
+                            &request.execution.analysis,
+                            request.policy()?.clone(),
+                            Some(request.execution.prepared_model(&request.source)?),
+                            Some(run_id),
+                            &cancel,
+                        )
+                        .await
+                }
+                .await
+                .map(Box::new)
+                .map_err(Arc::new);
+                let cancelled = cancel.token().is_cancelled();
+                RunResult::joined(
+                    run_id,
+                    services,
+                    RunOutcome::Initialization {
+                        request,
+                        result: report,
+                    },
+                    None,
+                )
+                .finished(durable, cancelled)
+                .await
+            }))
+        }))
     }
     fn check_sequence(
         &self,

@@ -29,6 +29,8 @@ Consume [64a's operation decisions](64a-scope-and-shared-contracts.md#a03--selec
 
 B01 resolves the two-case subset without waiting for full H01. Current BTIdeal/BT_PR oracle banks do not establish ordinary eligibility. Select and attribute each source before adding an adapter; missing records block their dependent case. Preserve formulation, units, basis, datum, applicability and missing-versus-predictive-zero distinctions.
 
+The [first-case source closure](64b-first-case-source-closure.md) owns the inspected per-record gaps and selected bounded published-data interpretation. Failed acquisition is not evidence that a source does not exist; neither an adapter nor a metadata record closes the missing ordinary science.
+
 Execution completes B's native obligations and reference handoff. H02/H03 execution and the collective dependency upgrade remain separate.
 
 Inventory the actual dependency closures of [recycle-flash](../../packages/reference/campaign/models/recycle-flash.pse) and [exchanger-costing](../../packages/reference/campaign/models/exchanger-costing.pse). Keep the recycle's ideal benzene/toluene formulation distinct from the exchanger's BT_PR/relational-density configuration. The named tests are reference witnesses, not ordinary-input authorizations. The exchanger's explicit unknown-area and pressure-extrapolation allowances, and its limited cost claim, survive the ordinary case definition.
@@ -45,11 +47,11 @@ Discovery answers only consumer questions: what exact selected definitions/recor
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| B01 | planned | 64a selected first-case/reference scope | Exact ordinary data closure and source-role decisions recorded; unresolved records have bounded source-selection work |
-| B02 | planned | B01 selected sources and interpretations | Bounded Rust extraction/reconciliation produces typed deltas with faithful values, provenance and refusal behavior |
-| B03 | planned | B02; existing publication contracts applicable | Ordinary contextual admission, guarded publication and reopened scientific selection work through existing owners |
-| B04 | planned | B03 selected revisions; 64c case binding | Both first-case closures are ordinary eligible and one full source-to-case/readback path is exercised |
-| B05 | planned | B03/B04 outputs | Required discovery and update-impact questions are answered with exact coverage; failed/unchanged/changed imports discriminate authority and identity |
+| B01 | in-progress | 64a selected first-case/reference scope | Exact ordinary data closure and source-role decisions recorded; unresolved records have bounded source-selection work |
+| B02 | in-progress | B01 selected sources and interpretations | Bounded Rust extraction/reconciliation produces typed deltas with faithful values, provenance and refusal behavior |
+| B03 | in-progress | B02; existing publication contracts applicable | Ordinary contextual admission, guarded publication and reopened scientific selection work through existing owners |
+| B04 | in-progress | B03 selected revisions; 64c case binding | Both first-case closures are ordinary eligible and one full source-to-case/readback path is exercised |
+| B05 | in-progress | B03/B04 outputs | Required discovery and update-impact questions are answered with exact coverage; failed/unchanged/changed imports discriminate authority and identity |
 
 ### B01 — Resolve sources and ordinary eligibility
 
@@ -85,6 +87,6 @@ Compare unchanged reimport, changed scientific content, conflicting source inter
 
 **Planned evidence:** targeted adapter/admission/identity tests during implementation; real publication/reopen tests at the relevant integration boundary; 64c ordinary native journeys; and 64h matched-reference/assembled acceptance. Independent values and deliberately wrong/missing/convention-mismatched inputs must discriminate silent acceptance. Commands and modes are selected from the changed packages under AGENTS.md; required Arrow validation remains explicit.
 
-Performance claims remain unmeasured. Keep extraction and database work outside repeated scalar evaluation; hydrate the selected immutable dependency closure for native preparation and reuse it while its premises hold. Measure only a concrete import/query/preparation risk. B01–B05 are planned, not Implemented or Tested, and their completion does not close P2 scientific breadth or the full IDAES population.
+Performance claims remain unmeasured. Keep extraction and database work outside repeated scalar evaluation; hydrate the selected immutable dependency closure for native preparation and reuse it while its premises hold. Measure only a concrete import/query/preparation risk. B01–B05 are in progress; source population and admission do not establish complete publication/native acceptance or close P2 scientific breadth or the full IDAES population.
 
-The next ready intake work is B01 once 64a's first-case scope is available. Its exact source/eligibility decisions unblock B02 and 64c; B03's real published inputs, rather than a proposed interface, unblock ordinary integrated execution.
+**Current checkpoint — 2026-11-02:** the selected ordinary source artifacts, typed scientific definitions and bounded two-species FeOS adapter are implemented. Unchanged reimport and ordinary source admission have passed their focused controls. The unused one-row Poling prototype was deleted after replacement validation. Existing guarded publication owns the source journey; a stale project-generation test setup was corrected and awaits rerun. B05 extends the existing knowledge projection and source-selection premises with bounded selected-consumer impact, including negative lookup observations; it introduces no global catalog. Complete canonical source-to-case/readback and numerical delivery remain open. The [native/reference correspondence](../../packages/reference/ordinary-delivery/sources.md) supplies exact H02/H03 inputs and required outputs without claiming reference execution.

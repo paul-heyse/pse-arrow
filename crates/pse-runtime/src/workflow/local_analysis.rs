@@ -107,9 +107,186 @@ pub(super) struct Step<'a> {
     pub quantities: &'a QuantityRegistry,
 }
 
+/// Retain mathematical verdicts already established by the original numerical owner.
+/// This performs no derivative, factorization or propagation work during completion.
+pub(super) fn original_product_validities(
+    step: &Step<'_>,
+) -> Vec<(DerivedQuantity, LocalValidity)> {
+    let absent = || {
+        (
+            if step.candidate {
+                WithheldReason::NoLocalAnalysis
+            } else {
+                WithheldReason::NoCandidate
+            },
+            "original point analysis unavailable".to_owned(),
+        )
+    };
+    let conditional = step
+        .report
+        .and_then(|r| r.candidate.as_ref())
+        .is_some_and(|c| c.commitment.is_some());
+    if let Some(root) = step.report.and_then(|r| r.evidence.root_response.as_ref()) {
+        let outcome = root.as_ref().map_err(|error| {
+            use pse_backend_native::square_response::Withheld as W;
+            let reason = match error {
+                W::NoCandidate => WithheldReason::NoCandidate,
+                W::Infeasible(_) => WithheldReason::NotFeasible,
+                W::Structural(_) => WithheldReason::StructuralUnavailable,
+                W::Neighborhood(_) => WithheldReason::NeighborhoodUnavailable,
+                W::Rank { .. } => WithheldReason::RankDeficient,
+                W::Numerical(_) => WithheldReason::BacksolveFailed,
+                W::Memory | W::Cause(_) => WithheldReason::AnalysisUnavailable,
+            };
+            (reason, error.to_string())
+        });
+        let mut validity = record(outcome, None, false);
+        if let Ok(response) = root {
+            validity.root_rank = i64::try_from(response.evidence.rank).ok();
+            validity.root_rank_cutoff = Some(response.evidence.cutoff);
+            validity.root_rank_relative_cutoff = Some(response.evidence.relative_cutoff);
+            validity.root_backward_error = Some(response.evidence.backward_error);
+            validity.root_backward_error_limit = Some(response.evidence.backward_error_limit);
+            validity.root_neighborhood = Some(response.evidence.neighborhood.to_owned());
+        }
+        if let Err(pse_backend_native::square_response::Withheld::Rank { rank, cutoff, .. }) = root
+        {
+            validity.root_rank = i64::try_from(*rank).ok();
+            validity.root_rank_cutoff = Some(*cutoff);
+            validity.root_rank_relative_cutoff =
+                Some(pse_backend_native::square_response::DEFAULT_RELATIVE_RANK_CUTOFF);
+        }
+        return vec![(DerivedQuantity::ParametricSensitivity, validity)];
+    }
+    let evidence = step.report.and_then(|r| r.evidence.sensitivity.as_ref());
+    let point = evidence.and_then(|e| e.point.as_ref());
+    let sensitivity = evidence.map_or_else(
+        || Err(absent()),
+        |e| {
+            e.sensitivities
+                .as_ref()
+                .map_err(|w| (reason(w), w.to_string()))
+        },
+    );
+    let mut facts = vec![(
+        DerivedQuantity::ParametricSensitivity,
+        record(sensitivity, point, conditional),
+    )];
+    if step.request.reduced_hessian {
+        let hessian = evidence
+            .and_then(|e| e.reduced_hessian.as_ref())
+            .map_or_else(
+                || Err(absent()),
+                |h| h.as_ref().map_err(|w| (reason(w), w.to_string())),
+            );
+        facts.push((
+            DerivedQuantity::ReducedHessian,
+            record(hessian, point, conditional),
+        ));
+    }
+    facts
+}
+
+fn original_validity(
+    step: &Step<'_>,
+    quantity: DerivedQuantity,
+) -> Result<LocalValidity, WorkflowError> {
+    original_product_validities(step)
+        .into_iter()
+        .find(|(kind, _)| *kind == quantity)
+        .map(|(_, validity)| validity)
+        .ok_or_else(|| contract("original requested analysis validity absent"))
+}
+
+/// A late product carries its own fact; the original invocation remains immutable.
+fn propagation_use(
+    original: Option<&super::Completion>,
+    step: i64,
+    validity: LocalValidity,
+) -> pse_model::generated::structures::ScopedPropagationUse {
+    let reference_point = usize::try_from(step)
+        .ok()
+        .and_then(|step| original.and_then(|completion| completion.step_permission(step)))
+        .and_then(|permission| permission.reference_point);
+    let scope = reference_point.map_or(super::ProductScope::Step { step }, |point| {
+        super::ProductScope::Point {
+            step: Some(step),
+            member: None,
+            point,
+        }
+    });
+    let decision = original.map_or(
+        pse_model::generated::enums::CandidateUse::Unusable,
+        |completion| {
+            completion
+                .derive_permission(
+                    scope,
+                    DerivedQuantity::PropagatedCovariance,
+                    validity.clone(),
+                )
+                .decision
+        },
+    );
+    pse_model::generated::structures::ScopedPropagationUse {
+        scope: pse_model::generated::enums::ProductUseScope::Point,
+        reference_point,
+        decision,
+        validity,
+    }
+}
+
+#[cfg(test)]
+mod propagation_permission_tests {
+    use super::*;
+    use pse_model::generated::enums::CandidateUse;
+
+    #[test]
+    fn lazy_propagation_fact_preserves_original_point_permission_without_mutating_completion() {
+        let point = SemanticId::from_bytes([93; 16]);
+        let mut completion = crate::workflow::Completion::default();
+        completion
+            .step_permissions
+            .push(crate::workflow::ScientificPermission {
+                step: Some(0),
+                reference_point: Some(point),
+                requested: 1,
+                observed: 1,
+                report_succeeded: true,
+                decision: CandidateUse::Usable,
+                refusals: Vec::new(),
+                qualifiers: Vec::new(),
+            });
+        let validity = record(Ok(&()), None, false);
+        let fact = propagation_use(Some(&completion), 0, validity.clone());
+        assert_eq!(fact.reference_point, Some(point));
+        assert_eq!(fact.decision, CandidateUse::Usable);
+        assert!(fact.validity.certified);
+        assert!(
+            completion.products.is_empty(),
+            "late product does not rewrite original invocation"
+        );
+        assert_eq!(
+            propagation_use(Some(&completion), 1, validity.clone()).decision,
+            CandidateUse::Unusable
+        );
+        completion.step_permissions[0].decision = CandidateUse::Unusable;
+        assert_eq!(
+            propagation_use(Some(&completion), 0, validity.clone()).decision,
+            CandidateUse::Unusable
+        );
+        completion.step_permissions[0].decision = CandidateUse::Usable;
+        completion.step_permissions[0].reference_point = None;
+        assert_eq!(
+            propagation_use(Some(&completion), 0, validity).decision,
+            CandidateUse::Unusable
+        );
+    }
+}
+
 /// Builders of the four local-analysis relations over a run's steps.
 pub(super) struct Rows<'a> {
     request: &'a super::result_export::Projection,
+    original: Option<&'a super::Completion>,
     validity: super::result_export::Rows<'a, validity::Row>,
     sensitivities: super::result_export::Rows<'a, sensitivities::Row>,
     hessians: super::result_export::Rows<'a, hessians::Row>,
@@ -122,9 +299,11 @@ impl<'a> Rows<'a> {
         pool: &'a std::sync::Arc<dyn pse_columnar::MemoryPool>,
         cancel: &'a pse_columnar::CancellationToken,
         validation: &'a pse_relations::validate::ValidationContext,
+        original: Option<&'a super::Completion>,
     ) -> Result<Self, WorkflowError> {
         Ok(Self {
             request,
+            original,
             validity: super::result_export::Rows::<validity::Row>::new(
                 request, registry, pool, cancel, validation,
             )
@@ -193,7 +372,7 @@ impl<'a> Rows<'a> {
                 run_id: step.run_id,
                 step: step.step,
                 quantity: DerivedQuantity::ParametricSensitivity,
-                validity: record(sensitivity.clone(), point, conditional),
+                validity: original_validity(step, DerivedQuantity::ParametricSensitivity)?,
             })
             .await
             .map_err(relation)?;
@@ -214,11 +393,7 @@ impl<'a> Rows<'a> {
                     run_id: step.run_id,
                     step: step.step,
                     quantity: DerivedQuantity::ReducedHessian,
-                    validity: record(
-                        hessian.as_ref().map(|h| *h).map_err(Clone::clone),
-                        point,
-                        conditional,
-                    ),
+                    validity: original_validity(step, DerivedQuantity::ReducedHessian)?,
                 })
                 .await
                 .map_err(relation)?;
@@ -286,39 +461,17 @@ impl<'a> Rows<'a> {
             pse_backend_native::square_response::Withheld,
         >,
     ) -> Result<(), WorkflowError> {
-        use pse_backend_native::square_response::Withheld as W;
         let _phase = pse_diagnostics::observation::phase("local.root_response.publication");
-        let outcome = root.as_ref().map_err(|w| {
+        let validity = original_validity(step, DerivedQuantity::ParametricSensitivity)?;
+        let outcome = root.as_ref().map_err(|_| {
             (
-                match w {
-                    W::NoCandidate => WithheldReason::NoCandidate,
-                    W::Infeasible(_) => WithheldReason::NotFeasible,
-                    W::Structural(_) => WithheldReason::StructuralUnavailable,
-                    W::Neighborhood(_) => WithheldReason::NeighborhoodUnavailable,
-                    W::Rank { .. } => WithheldReason::RankDeficient,
-                    W::Numerical(_) => WithheldReason::BacksolveFailed,
-                    W::Memory | W::Cause(_) => WithheldReason::AnalysisUnavailable,
-                },
-                w.to_string(),
+                validity
+                    .reason
+                    .unwrap_or(WithheldReason::AnalysisUnavailable),
+                validity.detail.clone().unwrap_or_default(),
             )
         });
         observe_quantity("root_response", &outcome);
-        let mut validity = record(outcome.clone(), None, false);
-        if let Ok(response) = &outcome {
-            let e = &response.evidence;
-            validity.root_rank = i64::try_from(e.rank).ok();
-            validity.root_rank_cutoff = Some(e.cutoff);
-            validity.root_rank_relative_cutoff = Some(e.relative_cutoff);
-            validity.root_backward_error = Some(e.backward_error);
-            validity.root_backward_error_limit = Some(e.backward_error_limit);
-            validity.root_neighborhood = Some(e.neighborhood.to_owned());
-        }
-        if let Err(W::Rank { rank, cutoff, .. }) = root {
-            validity.root_rank = i64::try_from(*rank).ok();
-            validity.root_rank_cutoff = Some(*cutoff);
-            validity.root_rank_relative_cutoff =
-                Some(pse_backend_native::square_response::DEFAULT_RELATIVE_RANK_CUTOFF);
-        }
         self.validity
             .push(validity::Row {
                 run_id: step.run_id,
@@ -491,6 +644,7 @@ impl<'a> Rows<'a> {
         if external {
             validity_record.detail = Some("mathematical propagation is conditional on the explicit external covariance assumptions; statistical fit provenance is uncertified".into());
         }
+        let product_use = propagation_use(self.original, step.step, validity_record.clone());
         self.validity
             .push(validity::Row {
                 run_id: step.run_id,
@@ -508,7 +662,7 @@ impl<'a> Rows<'a> {
                 .map(|id| units.variable(*id))
                 .collect::<Result<_, _>>()?;
             self.propagated
-                .push(propagated.into_row(step.run_id, step.step, output_units))
+                .push(propagated.into_row(step.run_id, step.step, output_units, product_use))
                 .await
                 .map_err(relation)?;
         }

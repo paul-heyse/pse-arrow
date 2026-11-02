@@ -6,6 +6,15 @@ use crate::math::solves::{NumericalInputs, SolverProfile};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
 use pse_model::generated::enums::{ModelingAnalysisRoute as Route, ModelingProcedure as Procedure};
 use pse_modeling::specialize::{Fixture, IntegrationFixture, ShootingFixture};
+/// Complete result of an authored algebraic procedure.
+/// Initialization retains every attempt, including unsuccessful completion.
+#[derive(Clone, Debug)]
+pub enum DeclaredAlgebraicOutcome {
+    /// The selected solve's original result.
+    Solve(ModelingResult),
+    /// The selected initialization's complete report.
+    Initialization(Box<ModelingInitializationReport>),
+}
 fn authored_fixture(row: &Declaration) -> Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture>{
     row.value
         .scope
@@ -513,7 +522,7 @@ impl ModelingPackage {
         services: &crate::workflow::ExecutionServices,
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
-    ) -> Result<ModelingResult, WorkflowError> {
+    ) -> Result<DeclaredAlgebraicOutcome, WorkflowError> {
         self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.scope(async {
@@ -524,7 +533,7 @@ impl ModelingPackage {
                     execution.analysis.compiler,
                     cancel,
                 )
-                .await
+                .await.map(DeclaredAlgebraicOutcome::Solve)
             }
             DeclaredProcedure::Initialize(plan) => {
                 let report = self
@@ -532,21 +541,11 @@ impl ModelingPackage {
                         &execution.analysis,
                         plan.clone(),
                         Some(execution.prepared_model(self)?),
+                        None,
                         cancel,
                     )
                     .await?;
-                if !report.completed {
-                    return Err(contract(format!(
-                        "declared initialization failed: {:?}",
-                        report.failure
-                    )));
-                }
-                report
-                    .attempts
-                    .last()
-                    .and_then(|a| a.result.as_ref().ok())
-                    .cloned()
-                    .ok_or_else(|| contract("declared initialization has no original result"))
+                Ok(DeclaredAlgebraicOutcome::Initialization(Box::new(report)))
             }
             _ => Err(contract(
                 "algebraic execution requires the authored solve or initialization procedure",
@@ -573,6 +572,7 @@ impl ModelingPackage {
                     &execution.analysis,
                     policy,
                     Some(execution.prepared_model(self)?),
+                    None,
                     cancel,
                 )
                 .await
@@ -617,6 +617,103 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn declared_fixed_initialization_returns_report_through_generic_request() {
+        let rows = pse_authoring::language::parse(
+            "package p { def D {var x:Scalar; eq e:x==2;} test initialized fixture {dof -1; route simultaneous; procedure initialize; fix root.x=2;} {child root:D=D();} }",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let case = rows
+            .iter()
+            .find(|row| row.name == "initialized")
+            .unwrap()
+            .declaration_id;
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let outcome = package
+            .execute_case_request(
+                &runtime.execution_services(),
+                case,
+                &crate::workflow::PreparationSettings {
+                    compiler: crate::workflow::tests::compiler_profile(),
+                    limits: Limits::default(),
+                },
+                crate::math::settings::SolveSettings {
+                    intent: pse_backend_native::solve::SolveIntent::Root,
+                    presolve: pse_backend_native::presolve::PolicyKind::Off,
+                    ..Default::default()
+                },
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let DeclaredAlgebraicOutcome::Initialization(report) = outcome else {
+            panic!("authored initialization must preserve its report");
+        };
+        assert!(
+            report.completed,
+            "failure={:?}; attempts={:?}",
+            report.failure, report.attempts
+        );
+        assert!(report.failure.is_none());
+        assert!(report.committed.is_some());
+        assert!(!report.attempts.is_empty());
+        assert!(report.attempts.last().unwrap().accepted());
+    }
+    #[tokio::test]
+    async fn initialization_retains_strict_function_domain_at_a_small_negative_coordinate() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p {fn nonnegative(x:Scalar)->Scalar valid(x>=0)=x; def D {var x:Scalar; eq e:nonnegative(x)==x;} test initialized fixture {dof -1; route simultaneous; procedure initialize; fix root.x=-0.00048828125;} {child root:D=D();}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let case = rows
+            .iter()
+            .find(|row| row.name == "initialized")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let outcome = package
+            .execute_case_request(
+                &runtime.execution_services(),
+                case,
+                &crate::workflow::PreparationSettings {
+                    compiler: crate::workflow::tests::compiler_profile(),
+                    limits: Limits::default(),
+                },
+                crate::math::settings::SolveSettings {
+                    intent: pse_backend_native::solve::SolveIntent::Root,
+                    presolve: pse_backend_native::presolve::PolicyKind::Off,
+                    ..Default::default()
+                },
+                &crate::CancelSource::new(),
+            )
+            .await;
+        match outcome {
+            Err(error) => assert!(error.boundary_diagnostic().validity.is_some(), "{error:?}"),
+            Ok(DeclaredAlgebraicOutcome::Initialization(report)) => {
+                assert!(!report.completed);
+                assert!(
+                    report
+                        .failure
+                        .as_ref()
+                        .is_some_and(|failure| failure.validity.is_some())
+                        || report
+                            .attempts
+                            .iter()
+                            .filter_map(ModelingInitializationAttempt::diagnostic)
+                            .any(|failure| failure.validity.is_some())
+                );
+            }
+            Ok(DeclaredAlgebraicOutcome::Solve(_)) => {
+                panic!("initialization cannot become a solve result")
+            }
+        }
+    }
     #[tokio::test]
     async fn declared_path_demand_preserves_numeric_rebinding_and_refuses_new_aliases() {
         let rows = pse_authoring::language::parse(

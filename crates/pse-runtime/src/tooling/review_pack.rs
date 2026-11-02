@@ -177,7 +177,7 @@ pub struct PackTableInput {
 #[serde(deny_unknown_fields)]
 pub struct PackSelection {
     /// Supported version of this document contract.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Complete selected membership; no first-page completeness inference.
     pub members: Vec<PackMemberSelection>,
     /// Total selected payload bytes. Index metadata has the independent finite document allowance.
@@ -215,7 +215,7 @@ pub struct PackFileInput {
 #[serde(deny_unknown_fields)]
 pub struct PackExportRequest {
     /// Current export input codec.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Complete selected scope and independent finite allowances.
     pub selection: PackSelection,
     /// Exact explicitly authorized source prefixes, never discovered from embedded paths.
@@ -313,7 +313,7 @@ pub enum PackPublication {
 #[serde(deny_unknown_fields)]
 pub struct PackIndex {
     /// Supported version of this document contract.
-    pub version: Version<2>,
+    pub version: Version<3>,
     /// Original explicit selection and its finite allowances.
     pub selection: PackSelection,
     /// Independent enclosing publication completion state.
@@ -1146,6 +1146,7 @@ impl PackSession {
                         .as_ref()
                         .ok_or_else(|| invalid("not a result selection"))?,
                 )
+                .await
                 .map_err(|e| invalid(e.to_string()))?;
             let staging = self.root.join(".staging").join(id);
             let bytes = reader
@@ -1187,6 +1188,7 @@ impl PackSession {
                         .as_ref()
                         .ok_or_else(|| invalid("not a result selection"))?,
                 )
+                .await
                 .map_err(|e| invalid(e.to_string()))?;
             let staging = self.root.join(".staging").join(id);
             let bytes = reader

@@ -271,6 +271,7 @@ Derived in: pse-runtime.
 | `DurableModelingRequestV1` | `pse.durable.modeling_request.v1` | A durable modeling request. |
 | `DurableModelingRequestV2` | `pse.durable.modeling_request.v2` | Modeling request with current automatic composition interpretation. |
 | `DurableModelingRequestV3` | `pse.durable.modeling_request.v3` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. |
+| `DurableInitializationRequestV1` | `pse.durable.initialization_request.v1` | Original authored initialization constructor, exact policy and native settings. |
 | `DurableStudyRequestV1` | `pse.durable.study_request.v1` | A durable study's request: its definition (Plan 22 O7). |
 | `DurableStudyRequestV2` | `pse.durable.study_request.v2` | Canonical study request including unrestricted submitted numerical settings. |
 | `DurableStudyRequestV3` | `pse.durable.study_request.v3` | Study request with current automatic composition interpretation. |

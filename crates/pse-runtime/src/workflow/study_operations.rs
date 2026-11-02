@@ -642,21 +642,18 @@ impl OperationPreparation<'_> {
         let compiler = self.preparation.compiler;
         let limits = self.preparation.limits;
         match &self.operation {
-            OperationRequest::DeclaredCase(case) => {
-                Ok(PreparedStudyOperation::DeclaredCase(Box::new(
-                    package
-                        .prepare_case_operation(
-                            services,
-                            case.case,
-                            &case.settings,
-                            self.preparation,
-                            Some(case.route),
-                            self.binding,
-                            cancel,
-                        )
-                        .await?,
-                )))
-            }
+            OperationRequest::DeclaredCase(case) => package
+                .prepare_case_operation(
+                    services,
+                    case.case,
+                    &case.settings,
+                    self.preparation,
+                    Some(case.route),
+                    self.binding,
+                    cancel,
+                )
+                .await?
+                .into_study(),
             OperationRequest::Simulation(simulation) => {
                 Ok(PreparedStudyOperation::Simulation(Box::new(
                     package

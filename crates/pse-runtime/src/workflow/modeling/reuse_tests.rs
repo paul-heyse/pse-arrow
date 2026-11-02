@@ -1741,14 +1741,21 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         )
         .await
         .unwrap();
-    let fresh_model = prepared(&runtime.preparation_services(), &fresh).await;
+    assert!(
+        fresh
+            .declarations(&runtime.preparation_services())
+            .await
+            .is_err(),
+        "an independent oracle keeps its own receiving registry and validation bindings"
+    );
+    let fresh_model = prepared(&fresh_runtime.preparation_services(), &fresh).await;
     assert!(
         !Arc::ptr_eq(new_residual.math(), body_for_row(&fresh_model, row).math()),
         "the oracle uses a separate runtime and independently admitted body"
     );
     let fresh_value = fresh
         .observe(
-            &runtime.preparation_services(),
+            &fresh_runtime.preparation_services(),
             fresh_model,
             BTreeSet::from([row, new_term]),
             values,

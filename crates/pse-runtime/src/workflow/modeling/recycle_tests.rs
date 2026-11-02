@@ -144,14 +144,12 @@ async fn reference_recycle_initialization(
             &cancel,
         )
         .await?;
-    let initialized = package
-        .initialize_declared(
-            &services,
-            &declared,
-            InitializationOverrides::default(),
-            &cancel,
-        )
-        .await?;
+    let DeclaredAlgebraicOutcome::Initialization(initialized) = package
+        .execute_declared(&services, &declared, &cancel)
+        .await?
+    else {
+        return Err("authored initialization must return its complete report".into());
+    };
     if !initialized.completed {
         eprintln!(
             "recycle initialization failed: attempts={}, failure={:?}",

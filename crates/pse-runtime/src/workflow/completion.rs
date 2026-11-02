@@ -9,17 +9,17 @@ use pse_model::generated::{
     runtime::{computation_runs, run_lineage, solve_runs},
 };
 
-/// Immutable semantic projection shared by Arrow, Python and publication.
+/// Immutable semantic projection shared by native readers, Arrow and publication.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Completion {
     /// Standalone completion document interpretation.
-    pub version: pse_model::document::Version<2>,
+    pub version: pse_model::document::Version<3>,
     /// Whole original request decision; absence never authorizes scientific reuse.
     pub permission: Option<ScientificPermission>,
     /// Independently requested original modeling steps, never whole-request promotion.
     pub step_permissions: Vec<ScientificPermission>,
-    /// Fit-derived mathematical validity composed with its governing original decision.
+    /// Producer-scoped mathematical validity composed with its governing original decision.
     pub products: Vec<ProductPermission>,
     /// Final physical closure and usability decisions, never recomputed by an exporter.
     pub assessments: Vec<pse_model::generated::runtime::candidate_assessments::Row>,
@@ -40,6 +40,8 @@ pub struct Completion {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ScientificPermission {
+    /// Actual producer-owned original point, absent when no candidate was retained.
+    pub reference_point: Option<pse_ids::SemanticId>,
     /// Absent for the complete request; otherwise the original independent step.
     pub step: Option<i64>,
     /// Required original observations in this scope.
@@ -96,6 +98,7 @@ impl ScientificPermission {
             && !assessments.is_empty()
             && assessments.iter().all(|a| a.permits_result);
         Self {
+            reference_point: None,
             step,
             requested,
             observed,
@@ -115,10 +118,70 @@ impl ScientificPermission {
         }
     }
 }
+/// Original semantic scope of a product, inside its enclosing run/attempt.
+/// Transport ranges and scientific quantity names cannot substitute for this identity.
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "scope", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ProductScope {
+    /// A whole task product, such as a fit's selected covariance.
+    Task,
+    /// A product of one independently requested original step.
+    Step {
+        /// Original independent step, never a selected row ordinal.
+        step: i64,
+    },
+    /// A product at an exact original point, optionally in an independent step/member.
+    Point {
+        /// Original independent step, or task scope when absent.
+        step: Option<i64>,
+        /// Original solution member when the producer supplies a member binding.
+        member: Option<pse_ids::SemanticId>,
+        /// Actual producer-owned retained point identity.
+        point: pse_ids::SemanticId,
+    },
+}
+impl ProductScope {
+    fn governing<'a>(&self, completion: &'a Completion) -> Option<&'a ScientificPermission> {
+        let step = match self {
+            Self::Task => return completion.permission.as_ref(),
+            Self::Step { step } => Some(*step),
+            Self::Point {
+                step,
+                member,
+                point,
+            } => {
+                if member.is_some() {
+                    return None;
+                }
+                let permission = match step {
+                    Some(step) if *step >= 0 => completion
+                        .step_permissions
+                        .iter()
+                        .find(|p| p.step == Some(*step)),
+                    Some(_) => None,
+                    None => completion.permission.as_ref(),
+                }?;
+                return (permission.reference_point == Some(*point)).then_some(permission);
+            }
+        };
+        match step {
+            Some(step) if step >= 0 => completion
+                .step_permissions
+                .iter()
+                .find(|p| p.step == Some(step)),
+            Some(_) => None,
+            None => completion.permission.as_ref(),
+        }
+    }
+}
 /// Local validity remains meaningful even when original permission withholds a product.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProductPermission {
+    /// Exact original product scope; never inferred from quantity or transport layout.
+    pub scope: ProductScope,
     /// Existing registry-owned derived scientific quantity.
     pub quantity: DerivedQuantity,
     /// The independent mathematical assessment.
@@ -168,30 +231,61 @@ impl Completion {
         }
     }
     /// The recorded product fact; consumers never reconstruct its conjunction.
-    pub fn product_permission(&self, quantity: DerivedQuantity) -> Option<&ProductPermission> {
-        self.products.iter().find(|p| p.quantity == quantity)
+    pub fn product_permission(
+        &self,
+        scope: &ProductScope,
+        quantity: DerivedQuantity,
+    ) -> Option<&ProductPermission> {
+        let mut matches = self
+            .products
+            .iter()
+            .filter(|p| &p.scope == scope && p.quantity == quantity);
+        let fact = matches.next()?;
+        // Ambiguous facts never select an arbitrary first product.
+        matches.next().is_none().then_some(fact)
     }
     /// Compose a later derived owner's actual mathematical assessment with original permission.
     pub fn derive_permission(
         &self,
+        scope: ProductScope,
         quantity: DerivedQuantity,
         validity: pse_model::generated::structures::LocalValidity,
     ) -> ProductPermission {
-        let decision = if validity.certified {
-            self.permission
-                .as_ref()
+        // A step coordinate alone is diagnostic provenance, not a retained point.
+        // Current task-derived products are the fit-owned estimate/statistical families.
+        let scope_supports_quantity = match &scope {
+            ProductScope::Step { .. } => false,
+            ProductScope::Task => {
+                matches!(
+                    quantity,
+                    DerivedQuantity::ParameterCovariance
+                        | DerivedQuantity::WaldInterval
+                        | DerivedQuantity::ProfileInterval
+                ) || (quantity == DerivedQuantity::PropagatedCovariance
+                    && self
+                        .product_permission(
+                            &ProductScope::Task,
+                            DerivedQuantity::ParameterCovariance,
+                        )
+                        .is_some_and(ProductPermission::permits_result))
+            }
+            ProductScope::Point { .. } => true,
+        };
+        let decision = if validity.certified && scope_supports_quantity {
+            scope
+                .governing(self)
                 .filter(|p| p.permits_result())
                 .map_or(CandidateUse::Unusable, |p| p.decision)
         } else {
             CandidateUse::Unusable
         };
         ProductPermission {
+            qualifiers: scope
+                .governing(self)
+                .map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
+            scope,
             quantity,
             validity,
-            qualifiers: self
-                .permission
-                .as_ref()
-                .map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
             decision,
         }
     }
@@ -199,6 +293,27 @@ impl Completion {
 
 impl RunResult {
     fn capture_product_permissions(&self, completion: &mut Completion) {
+        if let super::RunRequest::Modeling(requests) = self.original_request() {
+            for (ordinal, request) in requests.iter().enumerate() {
+                self.capture_modeling_product_permissions(
+                    completion,
+                    request,
+                    self.modeling_result(ordinal),
+                    self.modeling_step(ordinal) as i64,
+                );
+            }
+        } else if let Ok(super::RunReport::Initialization(report)) = self.report() {
+            for (ordinal, attempt) in report.attempts.iter().enumerate() {
+                if let Ok(result) = &attempt.result {
+                    self.capture_modeling_product_permissions(
+                        completion,
+                        &result.prepared,
+                        Some(result),
+                        ordinal as i64,
+                    );
+                }
+            }
+        }
         let super::RunOutcome::Fit {
             request,
             result: Ok(report),
@@ -220,7 +335,7 @@ impl RunResult {
                 point,
                 false,
             );
-            let mut fact = completion.derive_permission(quantity, validity);
+            let mut fact = completion.derive_permission(ProductScope::Task, quantity, validity);
             fact.retain_qualifiers(qualifiers.iter().copied());
             completion.products.push(fact);
         };
@@ -269,9 +384,222 @@ impl RunResult {
             );
         }
     }
+    fn capture_modeling_product_permissions(
+        &self,
+        completion: &mut Completion,
+        request: &super::ModelingSolvePreparation,
+        result: Option<&super::ModelingResult>,
+        step: i64,
+    ) {
+        let Some(sensitivity) = &request.profile.sensitivity else {
+            return;
+        };
+        let native = result.and_then(|result| match &result.outcome {
+            Outcome::Native(report) => Some(report.as_ref()),
+            _ => None,
+        });
+        let input = super::local_analysis::Step {
+            run_id: self.run_id,
+            step,
+            request: sensitivity,
+            report: native,
+            candidate: native.is_some_and(|report| report.candidate.is_some()),
+            structure: request.model.case.compiled().plan.structure(),
+            quantities: &request.source.physical.quantities,
+        };
+        let scope =
+            result
+                .filter(|_| input.candidate)
+                .map_or(ProductScope::Step { step }, |result| ProductScope::Point {
+                    step: Some(step),
+                    member: None,
+                    point: result.run_id.as_id(),
+                });
+        for (quantity, validity) in super::local_analysis::original_product_validities(&input) {
+            completion.products.push(completion.derive_permission(
+                scope.clone(),
+                quantity,
+                validity,
+            ));
+        }
+    }
     /// The joined projection; observing it performs no mathematical work.
     pub fn completion(&self) -> Result<&Completion, &WorkflowError> {
         self.completion.as_ref().map_err(AsRef::as_ref)
+    }
+
+    fn capture_modeling_completion(
+        &self,
+        product: &mut Completion,
+        requests: &[super::ModelingSolvePreparation],
+        environment: ContentHash,
+    ) -> Result<(), WorkflowError> {
+        for (ordinal, request) in requests.iter().enumerate() {
+            let step = self.modeling_step(ordinal) as i64;
+            if let Some(result) = self.modeling_result(ordinal) {
+                product.accuracy_goals.extend(
+                    result
+                        .completion
+                        .accuracy
+                        .iter()
+                        .map(|g| g.row(self.run_id, step)),
+                );
+            } else {
+                product.accuracy_goals.extend(
+                    request
+                        .solve
+                        .numerics()
+                        .policy
+                        .goals
+                        .iter()
+                        .cloned()
+                        .map(|goal| {
+                            pse_math::engineering_accuracy::GoalResult::unavailable(
+                                goal,
+                                AccuracyUnavailableReason::MissingEvidence,
+                            )
+                            .row(self.run_id, step)
+                        }),
+                );
+            }
+            let solved = request.model.model.solved();
+            let declaration = request.model.case.compiled().plan.structure();
+            let outcome = self.modeling_result(ordinal).map(|result| &result.outcome);
+            let native = match outcome {
+                Some(Outcome::Native(r)) => Some(r.as_ref()),
+                _ => None,
+            };
+            let constant = match outcome {
+                Some(Outcome::Constant(r)) => Some(r.as_ref()),
+                _ => None,
+            };
+            let quality = native
+                .and_then(|r| r.quality.as_ref())
+                .or_else(|| constant.map(|r| &r.quality));
+            let observation = native
+                .and_then(|r| r.observation.as_ref())
+                .or_else(|| constant.map(|r| &r.observation));
+            let candidate = native.and_then(|r| r.candidate.as_ref());
+            let error = match (self.modeling_error(ordinal), outcome) {
+                (Some(e), _) => Some(e.to_string()),
+                (_, Some(Outcome::Rejected(e))) => Some(e.to_string()),
+                _ => None,
+            };
+            product.solves.push(solve_runs::Row {
+                run_id: self.run_id,
+                step,
+                model_id: Some(solved.model()),
+                revision: Some(request.source.revision.identity().as_id()),
+                case_id: solved.case(),
+                instance_id: Some(solved.instance()),
+                backend: native.map(|r| r.backend),
+                native_code: native.map(|r| r.termination.code),
+                native_status: native.map(|r| r.termination.name.clone()),
+                state: if native.is_some() {
+                    NativeRunState::Native
+                } else if error.is_some() {
+                    NativeRunState::Rejected
+                } else if constant.is_some() {
+                    NativeRunState::ConstantEvaluation
+                } else {
+                    NativeRunState::Unattempted
+                },
+                termination: native.map(|r| r.termination.category),
+                assurance: native.map_or(NativeAssurance::None, |r| r.termination.assurance),
+                qualification: native.map_or_else(
+                    || {
+                        if quality.is_some_and(|q| q.feasible()) {
+                            NativeQualification::Feasible
+                        } else {
+                            NativeQualification::Unqualified
+                        }
+                    },
+                    |r| r.qualification,
+                ),
+                candidate_kind: candidate
+                    .map(|c| c.kind)
+                    .or_else(|| constant.map(|_| NativeCandidateKind::ConstantEvaluation)),
+                feasible: quality.map(|q| q.feasible()),
+                objective: observation
+                    .and_then(|o| o.objective)
+                    .or_else(|| candidate.and_then(|c| c.objective)),
+                objective_sense: declaration.objective().map(|o| match o.sense {
+                    pse_math::binding::ObjectiveSense::Minimize => NativeObjectiveSense::Minimize,
+                    pse_math::binding::ObjectiveSense::Maximize => NativeObjectiveSense::Maximize,
+                }),
+                objective_quantity_id: declaration.objective().map(|o| o.quantity.as_id()),
+                validation_error: native
+                    .and_then(|r| r.validation_failure().map(ToString::to_string)),
+                error,
+                transformation: native
+                    .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
+                commitment: candidate.and_then(|c| c.commitment.as_ref()).map(|c| {
+                    c.columns
+                        .iter()
+                        .map(|(id, (lower, upper))| {
+                            solve_runs::RuntimeSolveRunsFieldCommitmentItem {
+                                source_id: *id,
+                                lower: *lower,
+                                upper: *upper,
+                            }
+                        })
+                        .collect()
+                }),
+            });
+
+            let preparation = request
+                .solve
+                .preparation_identity()
+                .map_err(crate::math::MathRuntimeError::from)?;
+            let selected = request
+                .solve
+                .request_identity()
+                .map_err(crate::math::MathRuntimeError::from)?;
+            let profile = crate::math::solves::profile_key(&request.profile)
+                .map_err(crate::math::MathRuntimeError::from)?;
+            let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
+            identity
+                .hash(&request.source.revision.identity().as_id())
+                .id(&solved.instance().as_id())
+                .hash(&preparation)
+                .hash(&selected.as_id())
+                .hash(&profile.as_id())
+                .hash(&request.solve.numerics().key);
+            // A result is traceable to what seeded it and to native state it reused:
+            // the previous step's seed and the reuse of retained native state enter
+            // its lineage identity (F25).
+            frame_start(&mut identity, native);
+            let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
+            actual_environment.hash(&environment).str(
+                &self.services.outer_attestation().map_or_else(
+                    || "local-unattested".into(),
+                    |attestation| attestation.build.to_hex(),
+                ),
+            );
+            if let Some(native) = native {
+                actual_environment.str(native.backend.as_str());
+                for (name, value) in &native.provenance {
+                    actual_environment.str(name).str(value);
+                }
+            }
+            let lineage = solved.lineage();
+            product.lineage.push(run_lineage::Row {
+                run_id: self.run_id,
+                step,
+                model_id: lineage.model_id,
+                revision: request.source.revision.identity().as_id(),
+                case_id: lineage.case_id,
+                instance_id: lineage.instance_id,
+                fit_id: lineage.fit_id,
+                request_identity: identity.finish_hash(),
+                preparation_identity: preparation,
+                profile_identity: profile.as_id(),
+                numerical_identity: request.solve.numerics().key,
+                physical_identity: request.source.physical.key,
+                environment_identity: actual_environment.finish_hash(),
+            });
+        }
+        Ok(())
     }
 
     #[tracing::instrument(name = "pse.result.completion", skip_all, fields(pse.owner.stage = true))]
@@ -284,7 +612,12 @@ impl RunResult {
         let facts = self.completed_facts();
         product.permission = Some(ScientificPermission::assess(
             None,
-            self.report().is_ok(),
+            match &self.outcome {
+                super::RunOutcome::Initialization {
+                    result: Ok(report), ..
+                } => report.completed,
+                _ => self.report().is_ok(),
+            },
             facts.requested,
             facts.observed,
             &self.assessments,
@@ -294,15 +627,41 @@ impl RunResult {
                 .assessments
                 .iter()
                 .map(|a| {
-                    ScientificPermission::assess(
+                    let mut permission = ScientificPermission::assess(
                         Some(a.step),
                         a.permits_result,
                         1,
                         1,
                         std::slice::from_ref(a),
-                    )
+                    );
+                    permission.reference_point = match self.original_request() {
+                        super::RunRequest::Modeling(requests) => (0..requests.len())
+                            .find(|ordinal| self.modeling_step(*ordinal) as i64 == a.step)
+                            .and_then(|ordinal| self.modeling_result(ordinal)),
+                        _ => None,
+                    }
+                        .filter(|result| matches!(&result.outcome, Outcome::Native(native) if native.candidate.is_some()))
+                        .map(|result| result.run_id.as_id());
+                    permission
                 })
                 .collect();
+        }
+        if let super::RunOutcome::Initialization {
+            result: Ok(report), ..
+        } = &self.outcome
+        {
+            product.step_permissions = report.attempts.iter().enumerate().map(|(ordinal, attempt)| {
+                let assessment = self.assessments.iter().filter(|fact| fact.step == ordinal as i64).cloned().collect::<Vec<_>>();
+                let original = matches!(attempt.step, super::ModelingInitializationStep::Original);
+                let mut permission = ScientificPermission::assess(
+                    Some(ordinal as i64), report.completed && original,
+                    1, usize::from(attempt.result.is_ok()), &assessment,
+                );
+                permission.reference_point = attempt.result.as_ref().ok()
+                    .filter(|result| matches!(&result.outcome, Outcome::Native(native) if native.candidate.is_some()))
+                    .map(|result| result.run_id.as_id());
+                permission
+            }).collect();
         }
         let environment = pse_math::context()
             .map_err(super::math)?
@@ -325,177 +684,16 @@ impl RunResult {
             | super::RunOutcome::Horizon {
                 execution: super::HorizonRunOutcome::Full { requests, .. },
                 ..
-            } => {
-                for (ordinal, request) in requests.iter().enumerate() {
-                    let step = self.modeling_step(ordinal) as i64;
-                    if let Some(result) = self.modeling_result(ordinal) {
-                        product.accuracy_goals.extend(
-                            result
-                                .completion
-                                .accuracy
-                                .iter()
-                                .map(|g| g.row(self.run_id, step)),
-                        );
-                    } else {
-                        product.accuracy_goals.extend(
-                            request
-                                .solve
-                                .numerics()
-                                .policy
-                                .goals
-                                .iter()
-                                .cloned()
-                                .map(|goal| {
-                                    pse_math::engineering_accuracy::GoalResult::unavailable(
-                                        goal,
-                                        AccuracyUnavailableReason::MissingEvidence,
-                                    )
-                                    .row(self.run_id, step)
-                                }),
-                        );
-                    }
-                    let solved = request.model.model.solved();
-                    let declaration = request.model.case.compiled().plan.structure();
-                    let outcome = self.modeling_result(ordinal).map(|result| &result.outcome);
-                    let native = match outcome {
-                        Some(Outcome::Native(r)) => Some(r.as_ref()),
-                        _ => None,
-                    };
-                    let constant = match outcome {
-                        Some(Outcome::Constant(r)) => Some(r.as_ref()),
-                        _ => None,
-                    };
-                    let quality = native
-                        .and_then(|r| r.quality.as_ref())
-                        .or_else(|| constant.map(|r| &r.quality));
-                    let observation = native
-                        .and_then(|r| r.observation.as_ref())
-                        .or_else(|| constant.map(|r| &r.observation));
-                    let candidate = native.and_then(|r| r.candidate.as_ref());
-                    let error = match (self.modeling_error(ordinal), outcome) {
-                        (Some(e), _) => Some(e.to_string()),
-                        (_, Some(Outcome::Rejected(e))) => Some(e.to_string()),
-                        _ => None,
-                    };
-                    product.solves.push(solve_runs::Row {
-                        run_id: self.run_id,
-                        step,
-                        model_id: Some(solved.model()),
-                        revision: Some(request.source.revision.identity().as_id()),
-                        case_id: solved.case(),
-                        instance_id: Some(solved.instance()),
-                        backend: native.map(|r| r.backend),
-                        native_code: native.map(|r| r.termination.code),
-                        native_status: native.map(|r| r.termination.name.clone()),
-                        state: if native.is_some() {
-                            NativeRunState::Native
-                        } else if error.is_some() {
-                            NativeRunState::Rejected
-                        } else if constant.is_some() {
-                            NativeRunState::ConstantEvaluation
-                        } else {
-                            NativeRunState::Unattempted
-                        },
-                        termination: native.map(|r| r.termination.category),
-                        assurance: native
-                            .map_or(NativeAssurance::None, |r| r.termination.assurance),
-                        qualification: native.map_or_else(
-                            || {
-                                if quality.is_some_and(|q| q.feasible()) {
-                                    NativeQualification::Feasible
-                                } else {
-                                    NativeQualification::Unqualified
-                                }
-                            },
-                            |r| r.qualification,
-                        ),
-                        candidate_kind: candidate
-                            .map(|c| c.kind)
-                            .or_else(|| constant.map(|_| NativeCandidateKind::ConstantEvaluation)),
-                        feasible: quality.map(|q| q.feasible()),
-                        objective: observation
-                            .and_then(|o| o.objective)
-                            .or_else(|| candidate.and_then(|c| c.objective)),
-                        objective_sense: declaration.objective().map(|o| match o.sense {
-                            pse_math::binding::ObjectiveSense::Minimize => {
-                                NativeObjectiveSense::Minimize
-                            }
-                            pse_math::binding::ObjectiveSense::Maximize => {
-                                NativeObjectiveSense::Maximize
-                            }
-                        }),
-                        objective_quantity_id: declaration.objective().map(|o| o.quantity.as_id()),
-                        validation_error: native
-                            .and_then(|r| r.validation_failure().map(ToString::to_string)),
-                        error,
-                        transformation: native
-                            .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
-                        commitment: candidate.and_then(|c| c.commitment.as_ref()).map(|c| {
-                            c.columns
-                                .iter()
-                                .map(|(id, (lower, upper))| {
-                                    solve_runs::RuntimeSolveRunsFieldCommitmentItem {
-                                        source_id: *id,
-                                        lower: *lower,
-                                        upper: *upper,
-                                    }
-                                })
-                                .collect()
-                        }),
-                    });
-
-                    let preparation = request
-                        .solve
-                        .preparation_identity()
-                        .map_err(crate::math::MathRuntimeError::from)?;
-                    let selected = request
-                        .solve
-                        .request_identity()
-                        .map_err(crate::math::MathRuntimeError::from)?;
-                    let profile = crate::math::solves::profile_key(&request.profile)
-                        .map_err(crate::math::MathRuntimeError::from)?;
-                    let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
-                    identity
-                        .hash(&request.source.revision.identity().as_id())
-                        .id(&solved.instance().as_id())
-                        .hash(&preparation)
-                        .hash(&selected.as_id())
-                        .hash(&profile.as_id())
-                        .hash(&request.solve.numerics().key);
-                    // A result is traceable to what seeded it and to native state it reused:
-                    // the previous step's seed and the reuse of retained native state enter
-                    // its lineage identity (F25).
-                    frame_start(&mut identity, native);
-                    let mut actual_environment =
-                        FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
-                    actual_environment.hash(&environment).str(
-                        &self.services.outer_attestation().map_or_else(
-                            || "local-unattested".into(),
-                            |attestation| attestation.build.to_hex(),
-                        ),
-                    );
-                    if let Some(native) = native {
-                        actual_environment.str(native.backend.as_str());
-                        for (name, value) in &native.provenance {
-                            actual_environment.str(name).str(value);
-                        }
-                    }
-                    let lineage = solved.lineage();
-                    product.lineage.push(run_lineage::Row {
-                        run_id: self.run_id,
-                        step,
-                        model_id: lineage.model_id,
-                        revision: request.source.revision.identity().as_id(),
-                        case_id: lineage.case_id,
-                        instance_id: lineage.instance_id,
-                        fit_id: lineage.fit_id,
-                        request_identity: identity.finish_hash(),
-                        preparation_identity: preparation,
-                        profile_identity: profile.as_id(),
-                        numerical_identity: request.solve.numerics().key,
-                        physical_identity: request.source.physical.key,
-                        environment_identity: actual_environment.finish_hash(),
-                    });
+            } => self.capture_modeling_completion(&mut product, requests, environment)?,
+            super::RunOutcome::Initialization { result, .. } => {
+                if let Ok(report) = result {
+                    let requests = report
+                        .attempts
+                        .iter()
+                        .filter_map(|attempt| attempt.result.as_ref().ok())
+                        .map(|result| result.prepared.clone())
+                        .collect::<Vec<_>>();
+                    self.capture_modeling_completion(&mut product, &requests, environment)?;
                 }
             }
             super::RunOutcome::Simulation { request: p, result } => {
@@ -1000,6 +1198,7 @@ mod tests {
             ..Default::default()
         };
         let product = completion.derive_permission(
+            ProductScope::Task,
             DerivedQuantity::ParameterCovariance,
             super::super::local_analysis::record(Ok(&()), None, false),
         );
@@ -1020,6 +1219,7 @@ mod tests {
             ..Default::default()
         };
         let mut product = completion.derive_permission(
+            ProductScope::Task,
             DerivedQuantity::ProfileInterval,
             super::super::local_analysis::record(Ok(&()), None, false),
         );
@@ -1055,7 +1255,11 @@ mod tests {
         let mut completion = Completion::default();
         assert!(
             !completion
-                .derive_permission(DerivedQuantity::ParameterCovariance, validity.clone())
+                .derive_permission(
+                    ProductScope::Task,
+                    DerivedQuantity::ParameterCovariance,
+                    validity.clone()
+                )
                 .permits_result()
         );
         completion.permission = Some(ScientificPermission::assess(
@@ -1067,7 +1271,11 @@ mod tests {
         ));
         assert!(
             completion
-                .derive_permission(DerivedQuantity::ParameterCovariance, validity)
+                .derive_permission(
+                    ProductScope::Task,
+                    DerivedQuantity::ParameterCovariance,
+                    validity
+                )
                 .permits_result()
         );
         let withheld = super::super::local_analysis::record::<()>(
@@ -1080,8 +1288,108 @@ mod tests {
         );
         assert!(
             !completion
-                .derive_permission(DerivedQuantity::ParameterCovariance, withheld)
+                .derive_permission(
+                    ProductScope::Task,
+                    DerivedQuantity::ParameterCovariance,
+                    withheld
+                )
                 .permits_result()
+        );
+    }
+
+    #[test]
+    fn point_products_use_exact_original_point_and_independent_step_permission() {
+        let point = SemanticId::from_bytes([91; 16]);
+        let other_point = SemanticId::from_bytes([92; 16]);
+        let mut accepted = ScientificPermission::assess(Some(0), true, 1, 1, &[assessment(true)]);
+        accepted.reference_point = Some(point);
+        let failed = ScientificPermission::assess(Some(1), false, 1, 0, &[]);
+        let mut completion = Completion {
+            permission: Some(ScientificPermission::assess(None, false, 2, 1, &[])),
+            step_permissions: vec![accepted, failed],
+            ..Default::default()
+        };
+        let scope = ProductScope::Point {
+            step: Some(0),
+            member: None,
+            point,
+        };
+        let validity = super::super::local_analysis::record(Ok(&()), None, false);
+        let fact = completion.derive_permission(
+            scope.clone(),
+            DerivedQuantity::ParametricSensitivity,
+            validity.clone(),
+        );
+        assert!(
+            fact.permits_result(),
+            "a failed sibling cannot erase the qualified original point"
+        );
+        completion.products.push(fact);
+        let different = ProductScope::Point {
+            step: Some(0),
+            member: None,
+            point: other_point,
+        };
+        assert!(
+            !completion
+                .derive_permission(
+                    different.clone(),
+                    DerivedQuantity::ParametricSensitivity,
+                    validity.clone()
+                )
+                .permits_result()
+        );
+        assert!(
+            completion
+                .product_permission(&different, DerivedQuantity::ParametricSensitivity)
+                .is_none()
+        );
+        let absent = ProductScope::Point {
+            step: Some(1),
+            member: None,
+            point,
+        };
+        assert!(
+            !completion
+                .derive_permission(
+                    absent,
+                    DerivedQuantity::ParametricSensitivity,
+                    validity.clone()
+                )
+                .permits_result()
+        );
+        assert!(
+            !completion
+                .derive_permission(
+                    ProductScope::Step { step: 0 },
+                    DerivedQuantity::ParametricSensitivity,
+                    validity.clone()
+                )
+                .permits_result(),
+            "step provenance alone cannot supply a point-derived product"
+        );
+        assert!(
+            !completion
+                .derive_permission(
+                    ProductScope::Step { step: 99 },
+                    DerivedQuantity::ParametricSensitivity,
+                    validity
+                )
+                .permits_result()
+        );
+        let encoded = serde_json::to_value(&completion.products[0]).unwrap();
+        assert_eq!(
+            serde_json::from_value::<ProductPermission>(encoded)
+                .unwrap()
+                .scope,
+            scope
+        );
+        completion.products.push(completion.products[0].clone());
+        assert!(
+            completion
+                .product_permission(&scope, DerivedQuantity::ParametricSensitivity)
+                .is_none(),
+            "duplicate keys cannot select an arbitrary product"
         );
     }
 

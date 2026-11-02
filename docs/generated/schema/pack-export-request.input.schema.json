@@ -427,8 +427,8 @@
           "type": "array"
         },
         "version": {
-          "const": 2,
-          "default": 2,
+          "const": 3,
+          "default": 3,
           "description": "Supported version of this document contract.",
           "type": "integer"
         }
@@ -683,8 +683,8 @@
       "type": "array"
     },
     "version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "description": "Current export input codec.",
       "type": "integer"
     }

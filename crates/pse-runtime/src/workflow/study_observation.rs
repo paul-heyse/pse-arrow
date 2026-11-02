@@ -845,7 +845,7 @@ mod canonical_tests {
                 .await
                 .unwrap();
             let stored = crate::workflow::StoredCompletion {
-                version: 3,
+                version: 4,
                 attempt_id: pse_operations::mint_id(),
                 completion: Some(Default::default()),
                 termination: crate::workflow::TerminationDetail {

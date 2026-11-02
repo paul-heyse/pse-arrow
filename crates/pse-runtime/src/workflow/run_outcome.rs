@@ -12,6 +12,8 @@ type Report<T> = Result<T, Arc<WorkflowError>>;
 /// Borrowed execution-input projection; it never stores an independent request.
 #[derive(Clone, Copy, Debug)]
 pub enum RunRequest<'a> {
+    /// Original authored initialization, before a numerical start or final candidate exists.
+    Initialization(&'a super::PreparedInitializationOperation),
     /// Compact horizon inputs.
     Horizon(&'a HorizonRequest),
     /// Actual prepared algebraic targets, including a full horizon's dispatched targets.
@@ -77,6 +79,20 @@ impl<'a> RunRequest<'a> {
         let encode =
             |value| serde_json::to_value(value).map_err(|error| contract(error.to_string()));
         match self {
+            Self::Initialization(request) => RequestFacts {
+                sources: vec![&request.source],
+                identity: Ok((request.identity(), None)),
+                provenance: request.policy().and_then(|policy| {
+                    serde_json::to_value(policy)
+                        .map(|value| vec![value])
+                        .map_err(|error| contract(error.to_string()))
+                }),
+                requested_steps: 1,
+                native_record_coverage: Coverage::StrategyAttempts,
+                replay: Box::new(move |run| {
+                    super::replay::initialization_request_facts(request, run)
+                }),
+            },
             Self::Modeling(steps) => {
                 let identity = (|| {
                     let mut hash =
@@ -178,6 +194,8 @@ impl<'a> RunRequest<'a> {
 /// Borrowed report projection derived from the paired outcome.
 #[derive(Clone, Copy, Debug)]
 pub enum RunReport<'a> {
+    /// Complete stage, continuation and original-specification initialization history.
+    Initialization(&'a super::ModelingInitializationReport),
     /// Compact original horizon history.
     Horizon(&'a Arc<HorizonOutcome>),
     /// Completed algebraic targets.
@@ -206,6 +224,13 @@ pub enum HorizonRunOutcome {
 /// The sole owning request/result pair. A family cannot contain another family's report.
 #[derive(Debug)]
 pub enum RunOutcome {
+    /// An authored initialization keeps failures as scientific history, not an input error.
+    Initialization {
+        /// Original admitted specification and policy.
+        request: Box<super::PreparedInitializationOperation>,
+        /// Full ordered report, or a typed setup/settlement failure.
+        result: Report<Box<super::ModelingInitializationReport>>,
+    },
     /// One finite authored algebraic sequence.
     Modeling {
         /// Original prepared sequence.
@@ -248,6 +273,7 @@ pub enum RunOutcome {
 impl RunOutcome {
     pub(super) fn request(&self) -> RunRequest<'_> {
         match self {
+            Self::Initialization { request, .. } => RunRequest::Initialization(request),
             Self::Modeling { request, .. } => RunRequest::Modeling(request),
             Self::Simulation { request, .. } => RunRequest::Simulation(request),
             Self::Fit { request, .. } => RunRequest::Fit(request),
@@ -269,13 +295,19 @@ impl RunOutcome {
     pub(super) fn original_request(&self) -> RunRequest<'_> {
         match self {
             Self::Horizon { request, .. } => RunRequest::Horizon(request),
-            Self::Modeling { .. } | Self::Simulation { .. } | Self::Fit { .. } => self.request(),
+            Self::Initialization { .. }
+            | Self::Modeling { .. }
+            | Self::Simulation { .. }
+            | Self::Fit { .. } => self.request(),
             #[cfg(feature = "solver-diffsol")]
             Self::Shooting { .. } => self.request(),
         }
     }
     pub(super) fn report(&self) -> Result<RunReport<'_>, &Arc<WorkflowError>> {
         match self {
+            Self::Initialization { result, .. } => result
+                .as_ref()
+                .map(|report| RunReport::Initialization(report)),
             Self::Modeling { result, .. } => result.as_ref().map(RunReport::Modeling),
             Self::Simulation { result, .. } => result
                 .as_ref()
@@ -299,6 +331,7 @@ impl RunOutcome {
     }
     pub(super) fn error(&self) -> Option<&Arc<WorkflowError>> {
         match self {
+            Self::Initialization { result, .. } => result.as_ref().err(),
             Self::Modeling { result, .. } => result.as_ref().err(),
             Self::Simulation { result, .. } => result.as_ref().err(),
             Self::Fit { result, .. } => result.as_ref().err(),
@@ -316,6 +349,7 @@ impl RunOutcome {
     }
     pub(super) fn fail(&mut self, error: Arc<WorkflowError>) {
         match self {
+            Self::Initialization { result, .. } => *result = Err(error),
             Self::Modeling { result, .. } => *result = Err(error),
             Self::Simulation { result, .. } => *result = Err(error),
             Self::Fit { result, .. } => *result = Err(error),
@@ -492,6 +526,37 @@ impl super::RunResult {
             non_modeling_accepted: None,
         };
         match &self.outcome {
+            RunOutcome::Initialization { result, .. } => {
+                facts.table_ids.extend(modeling_table_ids());
+                facts.table_ids.push(modeling_initializations::RELATION_ID);
+                if let Ok(report) = result {
+                    facts.requested = 1;
+                    facts.observed = usize::from(report.completed);
+                    facts.non_modeling_accepted = Some(report.completed);
+                    facts.terminal = report
+                        .failure
+                        .as_ref()
+                        .map(|failure| crate::math::strategy::boundary_failure(failure.class));
+                    for (ordinal, attempt) in report.attempts.iter().enumerate() {
+                        if let Ok(result) = &attempt.result {
+                            facts
+                                .traces
+                                .extend(result.strategy.iter().map(|trace| (ordinal, trace)));
+                            if let crate::math::solves::Outcome::Native(native) = &result.outcome {
+                                facts.native_reports.push((ordinal, native));
+                            }
+                        }
+                    }
+                    if report.completed
+                        && let Some(result) = report
+                            .attempts
+                            .last()
+                            .and_then(|attempt| attempt.result.as_ref().ok())
+                    {
+                        facts.completed_modeling.push((&result.prepared, result));
+                    }
+                }
+            }
             RunOutcome::Horizon {
                 request,
                 execution: HorizonRunOutcome::Compact(result),

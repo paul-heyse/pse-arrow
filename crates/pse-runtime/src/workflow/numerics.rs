@@ -662,6 +662,37 @@ impl RunResult {
                     accuracy: vec![],
                 };
                 let (report, numerical, constant, policy, completed) = match &self.outcome {
+                    super::RunOutcome::Initialization {
+                        result: Ok(initialized),
+                        ..
+                    } if initialized.completed => {
+                        if let Some(result) = initialized
+                            .attempts
+                            .last()
+                            .and_then(|attempt| attempt.result.as_ref().ok())
+                        {
+                            let (report, numerical, constant) = match &result.outcome {
+                                crate::math::solves::Outcome::Native(native) => (
+                                    Some(native.as_ref()),
+                                    native.quality.as_ref().map(|quality| quality.feasible()),
+                                    false,
+                                ),
+                                crate::math::solves::Outcome::Constant(value) => {
+                                    (None, Some(value.quality.feasible()), true)
+                                }
+                                crate::math::solves::Outcome::Rejected(_) => (None, None, false),
+                            };
+                            (
+                                report,
+                                numerical,
+                                constant,
+                                &result.prepared.solve.numerics().policy,
+                                result.completion.clone(),
+                            )
+                        } else {
+                            (None, None, false, &default, unavailable())
+                        }
+                    }
                     super::RunOutcome::Fit {
                         request: p,
                         result: Ok(r),
@@ -727,9 +758,16 @@ impl RunResult {
                     ),
                     _ => (None, None, false, &default, unavailable()),
                 };
+                let assessment_step = match &self.outcome {
+                    super::RunOutcome::Initialization {
+                        result: Ok(initialized),
+                        ..
+                    } if initialized.completed => initialized.attempts.len().saturating_sub(1),
+                    _ => self.modeling_step(step),
+                };
                 let mut row = completed.assessment_row(
                     self.run_id,
-                    self.modeling_step(step) as i64,
+                    assessment_step as i64,
                     policy,
                     report,
                     numerical,
@@ -796,10 +834,23 @@ impl RunResult {
         if request.wants(resolved::RELATION_ID) {
             let policy_count = match self.request() {
                 RunRequest::Modeling(p) => p.len(),
+                RunRequest::Initialization(_) => match self.report() {
+                    Ok(RunReport::Initialization(report)) => report
+                        .attempts
+                        .iter()
+                        .filter(|attempt| attempt.result.is_ok())
+                        .count(),
+                    _ => 0,
+                },
                 _ => 1,
             };
             let policy = |step: usize| {
                 Some(match self.request() {
+                    RunRequest::Initialization(_) => {
+                        return self
+                            .modeling_result(step)
+                            .map(|result| result.prepared.solve.numerics());
+                    }
                     RunRequest::Fit(f) => &f.problem.numerics,
                     RunRequest::Simulation(p) => p.numerics(),
                     #[cfg(feature = "solver-diffsol")]

@@ -437,6 +437,13 @@ pub struct ReplayCoverage {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReplayConstructor {
+    /// Original authored initialization, without manufacturing a prepared numerical point.
+    Initialization {
+        /// Exact original analysis constructor and physical source position.
+        case: Box<ReplayCaseConstructor>,
+        /// Full original stage, continuation and recovery policy.
+        policy: super::ModelingInitialization,
+    },
     /// Original finite authored sequence.
     Modeling {
         /// Original cases in their exact requested order.
@@ -507,6 +514,27 @@ pub(super) struct ReplayRequestFacts {
     pub solver_settings: Vec<ReplaySolverSettings>,
     pub contexts: Vec<pse_model::generated::runtime::scientific_contexts::Row>,
     pub constructor: ReplayConstructor,
+}
+pub(super) fn initialization_request_facts(
+    request: &super::PreparedInitializationOperation,
+    _run_id: RunId,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts {
+        // Initialization has no numerical point before its attempts. Native attempt
+        // records and their contexts remain owned by those actual retained results.
+        runtime_premises: Vec::new(),
+        solver_settings: vec![ReplaySolverSettings::from_profile(
+            &request.execution.analysis.solver,
+        )],
+        contexts: Vec::new(),
+        constructor: ReplayConstructor::Initialization {
+            case: Box::new(ReplayCaseConstructor::from_analysis(
+                0,
+                &request.execution.analysis,
+            )?),
+            policy: request.policy()?.clone(),
+        },
+    })
 }
 pub(super) fn modeling_request_facts(
     steps: &[super::ModelingSolvePreparation],
@@ -789,11 +817,29 @@ impl ScientificReplay {
         let request = self.inputs().facts();
         let native_record_coverage = request.native_record_coverage;
         let ReplayRequestFacts {
-            runtime_premises,
-            solver_settings,
-            contexts,
+            mut runtime_premises,
+            mut solver_settings,
+            mut contexts,
             constructor,
         } = (request.replay)(self.source_run)?;
+        if let Ok(super::RunReport::Initialization(report)) = self.result.report() {
+            // Attempt ordinals belong to the parent initialization. Each child's
+            // prepared source and native point retain their independent identity.
+            solver_settings.clear();
+            for (ordinal, attempt) in report.attempts.iter().enumerate() {
+                let Ok(result) = &attempt.result else {
+                    continue;
+                };
+                runtime_premises.push(result.prepared.solve.execution_snapshot().clone());
+                solver_settings.push(ReplaySolverSettings::from_profile(&result.prepared.profile));
+                contexts.push(super::artifacts::solve_context(
+                    &result.prepared,
+                    self.source_run,
+                    i64::try_from(ordinal)
+                        .map_err(|_| contract("initialization replay attempt ordinal"))?,
+                )?);
+            }
+        }
         let document = ReplayDocument {
             version: pse_model::document::Version,
             source_run: self.source_run,
@@ -836,6 +882,40 @@ impl ScientificReplay {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
         match self.inputs() {
+            RunRequest::Initialization(original) => {
+                let mut source = original.source.clone();
+                source.held_preparation = None;
+                let analysis = &original.execution.analysis;
+                let mut execution = source
+                    .declared_execution_with_demand(
+                        self.result.services.preparation(),
+                        analysis.root,
+                        analysis.compiler,
+                        analysis.solver.clone(),
+                        analysis.numerical.clone(),
+                        analysis.limits,
+                        analysis
+                            .case
+                            .values
+                            .keys()
+                            .chain(analysis.case.variables.keys())
+                            .cloned()
+                            .collect(),
+                        cancel,
+                    )
+                    .await?;
+                execution.analysis = analysis.clone();
+                execution.procedure =
+                    super::DeclaredProcedure::Initialize(original.policy()?.clone());
+                execution.requested_start = original.execution.requested_start;
+                let operation = super::PreparedInitializationOperation::new(source, execution)?;
+                if operation.identity() != original.identity() {
+                    return Err(contract(
+                        "initialization replay constructor differs from its original request",
+                    ));
+                }
+                self.result.services.start_initialization(operation, cancel)
+            }
             RunRequest::Modeling(steps) => {
                 let mut fresh = Vec::with_capacity(steps.len());
                 for step in steps {
@@ -3816,6 +3896,46 @@ pub struct ReplayDecisionDocument {
 impl ScientificReplay {
     fn constructor_extent(&self) -> Result<usize, WorkflowError> {
         let original = match self.inputs() {
+            RunRequest::Initialization(request) => {
+                let analysis = &request.execution.analysis;
+                // Count borrowed variable metadata before cloning the portable
+                // constructor. Numeric bits and bounds have fixed-size encodings.
+                let mut bytes = encoded_extent(
+                    &(
+                        &analysis.bindings,
+                        request.policy()?,
+                        &analysis.numerical.declarations,
+                        &analysis.numerical.targets,
+                    ),
+                    EXPORT_MAX,
+                )?
+                .saturating_add(profile_extent(&analysis.solver)?);
+                for path in analysis
+                    .case
+                    .values
+                    .keys()
+                    .chain(analysis.case.variables.keys())
+                {
+                    bytes = bytes.saturating_add(path.len().saturating_mul(8).saturating_add(1024));
+                }
+                bytes = bytes.saturating_add(analysis.case.members.len().saturating_mul(256));
+                if let Ok(super::RunReport::Initialization(report)) = self.result.report() {
+                    for attempt in &report.attempts {
+                        if let Ok(result) = &attempt.result {
+                            bytes = bytes
+                                .saturating_add(
+                                    result.prepared.original_inputs.descriptive_extent(),
+                                )
+                                .saturating_add(profile_extent(&result.prepared.profile)?)
+                                .saturating_add(encoded_extent(
+                                    result.prepared.solve.execution_snapshot(),
+                                    EXPORT_MAX,
+                                )?);
+                        }
+                    }
+                }
+                bytes
+            }
             RunRequest::Modeling(steps) => steps.iter().try_fold(1024usize, |bytes, step| {
                 let inputs = &step.original_inputs;
                 let specialization = inputs

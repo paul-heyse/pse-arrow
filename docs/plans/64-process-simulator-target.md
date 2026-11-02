@@ -1,6 +1,6 @@
 ---
 title: "Plan64: Process-simulator target"
-status: draft
+status: in-progress
 date: 2026-11-02
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
@@ -115,6 +115,6 @@ No active-plan reference by the scoped DA-062/DA-063 IDs was found during prepar
 
 A–D complete only when ordinary source closure, edits, full success/failure journeys, producer permission, exact readback and complete matched reference outputs pass their own discriminators. P7 closes every mandatory finite population item with accepted evidence, zero failures and truthful public support limits. Missing required prerequisites fail selected runs; unattempted work never counts as a pass. Twelve domain witnesses and 55 notebook families are planning inputs, not the final denominator.
 
-**Current checkpoint — 2026-11-02:** 64a A02/A03/A04 design and disposition work is complete; A01 remains in-progress pending H01's exact finite population. RC02–RC04 descriptive/catalog corrections and RC01's target wording are published; no expanded science or production adoption is established. C07 owns the DA-062 correction and G08 the DA-063 atomic publication-witness replacement. Other production packages remain planned. Next ready design work is H01/B01 input/reference closure; no runtime repair or library upgrade was executed here. All quantitative performance/capacity benefits remain unmeasured.
+**Current checkpoint — 2026-11-02:** the maintainer authorized 64a's design/disposition execution and then 64b/64c's native implementation and reference handoff. A02/A03/A04 design and disposition work is complete; A01 remains in-progress pending H01's exact finite population. B/C implementation is in progress under their companion package tables: independently sourced ordinary BT inputs, full initialization outcomes, producer-owned scoped product permission, structural analysis and ordinary-interval acceptance have been integrated for focused verification. Ordinary recycle/exchanger delivery, fresh recorded readback and scope-end qualification remain open. C07 owns the DA-062 correction and G08 the DA-063 atomic publication-witness replacement. H02/H03 reference execution, broader H01 qualification, G08 and the collective library upgrade retain their separate owners. All quantitative performance/capacity benefits remain unmeasured.
 
 64a's [library-informed decisions](64a-scope-and-shared-contracts.md#executed-design-assessment--2026-11-02) govern the subsequent target: library-owned incremental/symbolic/structural operations, mixed CPU ownership, registry-generated native wire projections and an atomic witness capture rather than durable pending exclusion. Writable Surrealism is a preferred bounded prototype, not an approved capability widening: record its purity/attestation rule impact as a proposed decision before G08 adopts it. Ordinary dependency upgrades need no special approval; actual architecture/durable-contract changes retain their decision routes. The operator intends a separate coordinated upgrade of the latest compatible library set; current pins are not fixed target constraints.

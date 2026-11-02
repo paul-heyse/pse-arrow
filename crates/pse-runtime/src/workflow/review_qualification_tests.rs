@@ -28,6 +28,10 @@ pub(in crate::workflow) async fn assert_review_transport(
             assert_eq!(document.facts.iter().find(|fact| fact.path == path).unwrap().payload, expected);
         };
         match result.replay_request() {
+            RunRequest::Initialization(initialization) => {
+                exact_fact("/initialization/policy", serde_json::to_vec(initialization.policy().unwrap()).unwrap());
+                exact_fact("/initialization/constructor", serde_json::to_vec(&ReplayCaseConstructor::from_analysis(0, &initialization.execution.analysis).unwrap()).unwrap());
+            }
             RunRequest::Modeling(steps) => {
                 for (index, step) in steps.iter().enumerate() {
                     exact_fact(&format!("/steps/{index}/runtime"), serde_json::to_vec(step.solve.execution_snapshot()).unwrap());

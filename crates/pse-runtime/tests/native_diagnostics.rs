@@ -997,6 +997,12 @@ async fn authored_fixed_fixture_shares_initialization_conformance_reports_and_cl
             &cancel,
         ))
         .await?;
+        let pse_runtime::workflow::DeclaredAlgebraicOutcome::Initialization(report) = result else {
+            return Err("initialization report required".into());
+        };
+        assert!(report.completed);
+        assert!(!report.attempts.is_empty());
+        let result = report.attempts.last().unwrap().result.as_ref().unwrap();
         assert!(result.accepted);
         assert!(matches!(
             &result.outcome,

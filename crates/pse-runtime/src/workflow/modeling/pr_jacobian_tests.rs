@@ -164,6 +164,66 @@ pub(super) async fn reference_seed_package() -> TestResult<(
     ))
 }
 
+/// Ordinary scientific input closure, admitted through the same original document owner.
+pub(super) async fn ordinary_source_package() -> TestResult<(
+    Runtime,
+    ModelingPackage,
+    tempfile::TempDir,
+    crate::workflow::PreparationSettings,
+)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
+    let manifest = Manifest::load(&root.join("conformance.toml"))?;
+    let mut source = manifest
+        .runs
+        .iter()
+        .find(|run| run.name == "seed")
+        .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?
+        .clone();
+    source.dependencies.push(source.package.clone());
+    source.package = "data/ordinary-bt".into();
+    let (runtime, package, spill) = package(&manifest.settings, &source, &root).await?;
+    Ok((
+        runtime,
+        package,
+        spill,
+        preparation(&manifest.settings)?.clone(),
+    ))
+}
+
+/// Joined first-delivery closure, retaining the original independent reference inputs.
+pub(super) async fn ordinary_delivery_package() -> TestResult<(
+    Runtime,
+    ModelingPackage,
+    tempfile::TempDir,
+    crate::workflow::PreparationSettings,
+)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
+    let manifest = Manifest::load(&root.join("conformance.toml"))?;
+    let mut source = manifest
+        .runs
+        .iter()
+        .find(|run| run.name == "seed")
+        .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?
+        .clone();
+    for path in [
+        source.package.clone(),
+        "campaign".into(),
+        "data/ordinary-bt".into(),
+    ] {
+        if !source.dependencies.contains(&path) {
+            source.dependencies.push(path);
+        }
+    }
+    source.package = "ordinary-delivery".into();
+    let (runtime, package, spill) = package(&manifest.settings, &source, &root).await?;
+    Ok((
+        runtime,
+        package,
+        spill,
+        preparation(&manifest.settings)?.clone(),
+    ))
+}
+
 #[derive(Clone, Serialize)]
 struct Member {
     id: SemanticId,

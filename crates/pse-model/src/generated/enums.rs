@@ -22737,6 +22737,104 @@ impl PresolvePolicyKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ProductUseScope {
+    ///A fit-owned statistical product under its original task permission.
+    #[serde(rename = "task")]
+    #[strum(serialize = "task")]
+    Task,
+    ///A derived product at the exact original independently assessed point.
+    #[serde(rename = "point")]
+    #[strum(serialize = "point")]
+    Point,
+}
+impl crate::SemanticEq for ProductUseScope {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ProductUseScope {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Task => 0usize,
+            Self::Point => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Task => None,
+            Self::Point => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ProductUseScope {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ProductUseScope))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ProductUseScope)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["task", "point"] })
+    }
+}
+impl ProductUseScope {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ProductUseScope),
+            value: value.to_owned(),
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ProjectChangeImpact {
     ///source
     #[serde(rename = "source")]
@@ -27288,21 +27386,21 @@ macro_rules! for_each_registry_enum {
         PardisoMatching, PardisoOrdering, PhysicalInputKind, PounceFdColoring,
         PounceFdPattern, PounceMethod, PouncePartitionedElements,
         PouncePartitionedUpdate, Preconditioner, PreparationEligibility,
-        PreparationProductKind, PresolvePass, PresolvePolicyKind, ProjectChangeImpact,
-        ProjectMergeChoice, ProjectMergeConflictKind, ProjectMergeMode,
-        ProjectMetadataKind, QuantityAdditionKind, QuantityKindCategory,
-        QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
-        ReductionKind, ReferenceRule, ReferenceStateKind, Relationship, ReusePolicy,
-        RowActivity, ScaleKind, ScientificArtifactFamily, ScientificArtifactKind,
-        SensitivityCorrector, Severity, ShootingMethod, SnapshotClass, SpralOrdering,
-        SpralPivot, SpralScaling, Stability, StateSign, StatementKind,
-        StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
-        StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState,
-        StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
-        StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
-        SubjectRule, TaskMetricsScope, TearMethod, TearPolicy, TimeCoordinateKind,
-        TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization,
-        WithheldReason);
+        PreparationProductKind, PresolvePass, PresolvePolicyKind, ProductUseScope,
+        ProjectChangeImpact, ProjectMergeChoice, ProjectMergeConflictKind,
+        ProjectMergeMode, ProjectMetadataKind, QuantityAdditionKind,
+        QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule,
+        QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind,
+        Relationship, ReusePolicy, RowActivity, ScaleKind, ScientificArtifactFamily,
+        ScientificArtifactKind, SensitivityCorrector, Severity, ShootingMethod,
+        SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
+        StatementKind, StructuralScopeKind, StudyAvailability,
+        StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
+        StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
+        StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
+        StudyUnavailableSeedPolicy, SubjectRule, TaskMetricsScope, TearMethod,
+        TearPolicy, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+        WeightNormalization, WithheldReason);
     };
 }
 impl crate::HeapUsage for AccuracyCriterionStatus {
@@ -29151,6 +29249,16 @@ impl crate::HeapUsage for PresolvePolicyKind {
     }
 }
 impl crate::SemanticFrame for PresolvePolicyKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ProductUseScope {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ProductUseScope {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

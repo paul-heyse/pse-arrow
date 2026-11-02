@@ -3001,12 +3001,33 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 
 A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
 | `step` | `Int64` | false | `key` | — | — |
+| `product_use` | `Struct ScopedPropagationUse` | false | `payload` | — | — |
+| `product_use.scope` | `enum:ProductUseScope` | false | `payload` | — | — |
+| `product_use.reference_point` | `semantic_id` | true | `payload` | — | — |
+| `product_use.decision` | `enum:CandidateUse` | false | `payload` | — | — |
+| `product_use.validity` | `Struct LocalValidity` | false | `payload` | — | — |
+| `product_use.validity.certified` | `Boolean` | false | `payload` | — | — |
+| `product_use.validity.reason` | `enum:WithheldReason` | true | `payload` | — | — |
+| `product_use.validity.detail` | `Utf8` | true | `payload` | — | — |
+| `product_use.validity.conditional` | `Boolean` | false | `payload` | — | — |
+| `product_use.validity.licq` | `Boolean` | true | `payload` | — | — |
+| `product_use.validity.strict_complementarity` | `Boolean` | true | `payload` | — | — |
+| `product_use.validity.second_order` | `Boolean` | true | `payload` | — | — |
+| `product_use.validity.weakly_active` | `Int64` | true | `payload` | — | — |
+| `product_use.validity.condition_1norm` | `Float64` | true | `payload` | — | — |
+| `product_use.validity.residual` | `Float64` | true | `payload` | — | — |
+| `product_use.validity.root_rank` | `Int64` | true | `payload` | — | — |
+| `product_use.validity.root_rank_cutoff` | `Float64` | true | `payload` | — | — |
+| `product_use.validity.root_rank_relative_cutoff` | `Float64` | true | `payload` | — | — |
+| `product_use.validity.root_backward_error` | `Float64` | true | `payload` | — | — |
+| `product_use.validity.root_backward_error_limit` | `Float64` | true | `payload` | — | — |
+| `product_use.validity.root_neighborhood` | `Utf8` | true | `payload` | — | — |
 | `covariance_run_id` | `semantic_id` | true | `payload` | — | — |
 | `covariance_origin` | `enum:CovarianceInputOrigin` | false | `payload` | — | — |
 | `covariance_label` | `Utf8` | false | `payload` | — | — |

@@ -61,7 +61,7 @@ pub use pse_model::generated::r#enums::{
     PardisoMatching, PardisoOrdering, PhysicalInputKind, PounceFdColoring,
     PounceFdPattern, PounceMethod, PouncePartitionedElements, PouncePartitionedUpdate,
     Preconditioner, PreparationEligibility, PreparationProductKind, PresolvePass,
-    PresolvePolicyKind, ProjectChangeImpact, ProjectMergeChoice,
+    PresolvePolicyKind, ProductUseScope, ProjectChangeImpact, ProjectMergeChoice,
     ProjectMergeConflictKind, ProjectMergeMode, ProjectMetadataKind,
     QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
     QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
@@ -6057,6 +6057,35 @@ impl crate::columnar::ArrowValue for PresolvePolicyKind {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(PresolvePolicyKind).to_owned(),
                 enumeration: stringify!(PresolvePolicyKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProductUseScope {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProductUseScope).to_owned(),
+                enumeration: stringify!(ProductUseScope).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

@@ -2402,6 +2402,80 @@
       ],
       "type": "object"
     },
+    "DiscreteInitialization": {
+      "description": "How initialization treats the discrete variables a case leaves free (ADR-0103 item 6).\nA fix is part of every stage and homotopy step's overlay and of no other step: the\nfinal original specification runs unfixed, and nothing a step fixes survives it\n(PS-08).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Fix nothing: a step whose analysis cannot decide a free discrete variable refuses it.",
+          "properties": {
+            "kind": {
+              "const": "refuse",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Fix every free discrete variable at its specification start value.",
+          "properties": {
+            "kind": {
+              "const": "fix_at_start",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Fix every free discrete variable at the value declared for its case path. The\nassignment is complete: a free discrete variable without a value is refused.",
+          "properties": {
+            "kind": {
+              "const": "fix_at",
+              "type": "string"
+            },
+            "values": {
+              "additionalProperties": {
+                "format": "double",
+                "type": "number"
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "values"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Duration": {
+      "properties": {
+        "nanos": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "secs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "secs",
+        "nanos"
+      ],
+      "type": "object"
+    },
     "DynamicSensitivity": {
       "enum": [
         "none",
@@ -2417,6 +2491,22 @@
         "idas"
       ],
       "type": "string"
+    },
+    "EffortPolicyBody": {
+      "additionalProperties": false,
+      "description": "Opt-in adaptation from comparable native nonlinear iteration counts.",
+      "properties": {
+        "target_iterations": {
+          "description": "Desired iterations at the next qualified continuation endpoint.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target_iterations"
+      ],
+      "type": "object"
     },
     "EndpointPolicy": {
       "enum": [
@@ -3954,6 +4044,75 @@
         "limits",
         "starts",
         "transitions"
+      ],
+      "type": "object"
+    },
+    "ModelingInitialization": {
+      "additionalProperties": false,
+      "description": "Stage names and optional declared homotopy, with finite work and recovery controls.",
+      "properties": {
+        "discrete": {
+          "$ref": "#/$defs/DiscreteInitialization",
+          "description": "How stage and homotopy steps treat the discrete variables the case leaves free."
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EffortPolicyBody"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional comparable native-iteration target; omitted retains declared growth."
+        },
+        "growth": {
+          "description": "Step growth after an accepted homotopy step.",
+          "format": "double",
+          "type": "number"
+        },
+        "homotopy": {
+          "description": "Advance the declared continuation parameters from their start to their end.",
+          "type": "boolean"
+        },
+        "initial_step": {
+          "description": "First homotopy step as a fraction of the path.",
+          "format": "double",
+          "type": "number"
+        },
+        "maximum_attempts": {
+          "description": "Attempts across stages, homotopy and the original specification.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minimum_step": {
+          "description": "Smallest step before a failed homotopy stops.",
+          "format": "double",
+          "type": "number"
+        },
+        "stages": {
+          "description": "Declared stages, attempted in order before homotopy.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time_limit": {
+          "$ref": "#/$defs/Duration",
+          "description": "Wall-clock budget of the whole initialization."
+        }
+      },
+      "required": [
+        "stages",
+        "homotopy",
+        "initial_step",
+        "minimum_step",
+        "growth",
+        "effort",
+        "maximum_attempts",
+        "time_limit",
+        "discrete"
       ],
       "type": "object"
     },
@@ -6526,6 +6685,30 @@
     "ReplayConstructor": {
       "description": "Mutually exclusive original scientific inputs. Auxiliary constructors stay in their family.",
       "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original authored initialization, without manufacturing a prepared numerical point.",
+          "properties": {
+            "case": {
+              "$ref": "#/$defs/ReplayCaseConstructor",
+              "description": "Exact original analysis constructor and physical source position."
+            },
+            "kind": {
+              "const": "initialization",
+              "type": "string"
+            },
+            "policy": {
+              "$ref": "#/$defs/ModelingInitialization",
+              "description": "Full original stage, continuation and recovery policy."
+            }
+          },
+          "required": [
+            "kind",
+            "case",
+            "policy"
+          ],
+          "type": "object"
+        },
         {
           "additionalProperties": false,
           "description": "Original finite authored sequence.",

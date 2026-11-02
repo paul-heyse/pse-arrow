@@ -3335,7 +3335,9 @@ mod tests {
             DerivedQuantity::ParameterCovariance,
             DerivedQuantity::WaldInterval,
         ] {
-            let fact = completion.product_permission(quantity).unwrap();
+            let fact = completion
+                .product_permission(&crate::workflow::completion::ProductScope::Task, quantity)
+                .unwrap();
             assert!(
                 fact.validity.certified,
                 "independent mathematical validity survives"
@@ -3519,7 +3521,10 @@ mod tests {
         let completion = stored.completion.as_ref().unwrap();
         assert!(!completion.permits_result());
         let product = completion
-            .product_permission(DerivedQuantity::ParameterCovariance)
+            .product_permission(
+                &crate::workflow::completion::ProductScope::Task,
+                DerivedQuantity::ParameterCovariance,
+            )
             .unwrap();
         assert!(product.validity.certified);
         assert!(!product.permits_result());

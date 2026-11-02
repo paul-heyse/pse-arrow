@@ -271,6 +271,13 @@ const REQUIRED_LOCAL_ANALYSIS_MODELING: [ScientificRelation; 15usize] = [
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
+            94u8, 132u8, 155u8, 78u8, 74u8, 33u8, 224u8, 62u8, 131u8, 76u8, 94u8, 36u8,
+            18u8, 33u8, 246u8, 30u8,
+        ]),
+        name: "runtime.propagated_covariances",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
             94u8, 229u8, 194u8, 28u8, 157u8, 162u8, 196u8, 140u8, 163u8, 26u8, 241u8,
             142u8, 158u8, 115u8, 4u8, 54u8,
         ]),
@@ -310,13 +317,6 @@ const REQUIRED_LOCAL_ANALYSIS_MODELING: [ScientificRelation; 15usize] = [
             191u8, 91u8, 213u8, 98u8,
         ]),
         name: "runtime.modeling_reports",
-    },
-    ScientificRelation {
-        id: pse_ids::SemanticId::from_bytes([
-            156u8, 250u8, 14u8, 201u8, 248u8, 30u8, 115u8, 206u8, 244u8, 134u8, 120u8,
-            95u8, 97u8, 103u8, 158u8, 25u8,
-        ]),
-        name: "runtime.propagated_covariances",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
@@ -378,6 +378,13 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
+            94u8, 132u8, 155u8, 78u8, 74u8, 33u8, 224u8, 62u8, 131u8, 76u8, 94u8, 36u8,
+            18u8, 33u8, 246u8, 30u8,
+        ]),
+        name: "runtime.propagated_covariances",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
             117u8, 94u8, 47u8, 185u8, 134u8, 56u8, 220u8, 238u8, 78u8, 164u8, 68u8,
             254u8, 28u8, 182u8, 127u8, 198u8,
         ]),
@@ -410,13 +417,6 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 17usize] = [
             242u8, 49u8, 30u8, 55u8,
         ]),
         name: "runtime.fit_parameters",
-    },
-    ScientificRelation {
-        id: pse_ids::SemanticId::from_bytes([
-            156u8, 250u8, 14u8, 201u8, 248u8, 30u8, 115u8, 206u8, 244u8, 134u8, 120u8,
-            95u8, 97u8, 103u8, 158u8, 25u8,
-        ]),
-        name: "runtime.propagated_covariances",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([

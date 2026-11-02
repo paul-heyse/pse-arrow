@@ -732,7 +732,7 @@ async fn uncertainty(
                 step: 0,
                 quantity,
                 validity: completion
-                    .product_permission(quantity)
+                    .product_permission(&crate::workflow::completion::ProductScope::Task, quantity)
                     .map(|fact| fact.validity.clone())
                     .unwrap_or_else(|| {
                         crate::workflow::local_analysis::record(
@@ -999,7 +999,10 @@ async fn uncertainty(
             .and_then(|solve| solve.evidence.local.as_ref())
             .and_then(|point| point.as_ref().ok());
         let input = if !completion
-            .product_permission(DerivedQuantity::ParameterCovariance)
+            .product_permission(
+                &crate::workflow::completion::ProductScope::Task,
+                DerivedQuantity::ParameterCovariance,
+            )
             .is_some_and(crate::workflow::ProductPermission::permits_result)
         {
             Err(crate::workflow::uncertainty::Upstream {
@@ -1033,21 +1036,33 @@ async fn uncertainty(
             pool,
             cancel,
         )?;
+        let propagation_validity = crate::workflow::local_analysis::record(
+            result.as_ref().map_err(|u| {
+                (
+                    pse_relations::generated::enums::WithheldReason::UpstreamWithheld,
+                    u.to_string(),
+                )
+            }),
+            None,
+            false,
+        );
+        let permission = completion.derive_permission(
+            crate::workflow::ProductScope::Task,
+            DerivedQuantity::PropagatedCovariance,
+            propagation_validity.clone(),
+        );
+        let product_use = pse_model::generated::structures::ScopedPropagationUse {
+            scope: pse_model::generated::enums::ProductUseScope::Task,
+            reference_point: None,
+            decision: permission.decision,
+            validity: propagation_validity.clone(),
+        };
         validity
             .push(local_validity::Row {
                 run_id,
                 step: 0,
                 quantity: DerivedQuantity::PropagatedCovariance,
-                validity: crate::workflow::local_analysis::record(
-                    result.as_ref().map_err(|u| {
-                        (
-                            pse_relations::generated::enums::WithheldReason::UpstreamWithheld,
-                            u.to_string(),
-                        )
-                    }),
-                    None,
-                    false,
-                ),
+                validity: propagation_validity,
             })
             .await
             .map_err(relation)?;
@@ -1061,6 +1076,7 @@ async fn uncertainty(
                             .iter()
                             .map(|(_, observation)| observation.port.unit.as_id())
                             .collect(),
+                        product_use,
                     ),
                 )
                 .await

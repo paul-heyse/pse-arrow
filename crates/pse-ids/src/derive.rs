@@ -564,6 +564,8 @@ frames! {
         DurableModelingRequestV2 => "pse.durable.modeling_request.v2",
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
         DurableModelingRequestV3 => "pse.durable.modeling_request.v3",
+        /// Original authored initialization constructor, exact policy and native settings.
+        DurableInitializationRequestV1 => "pse.durable.initialization_request.v1",
         /// A durable study's request: its definition (Plan 22 O7).
         DurableStudyRequestV1 => "pse.durable.study_request.v1",
         /// Canonical study request including unrestricted submitted numerical settings.

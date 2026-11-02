@@ -112,6 +112,27 @@ fn supplied_members_seal_and_relocate_without_scientific_analysis() {
 }
 
 #[test]
+fn review_pack_rejects_historical_caller_asserted_scientific_interpretation() {
+    let mut selection = serde_json::to_value(PackSelection::default()).unwrap();
+    selection["version"] = serde_json::json!(2);
+    assert!(serde_json::from_value::<PackSelection>(selection).is_err());
+    let mut request = serde_json::to_value(PackExportRequest::default()).unwrap();
+    request["version"] = serde_json::json!(2);
+    assert!(serde_json::from_value::<PackExportRequest>(request).is_err());
+    let root = tempfile::tempdir().unwrap();
+    let index = populated(
+        &root.path().join("pack"),
+        PackSelection::default(),
+        CancellationToken::new(),
+    )
+    .seal()
+    .unwrap();
+    let mut historical = serde_json::to_value(index).unwrap();
+    historical["version"] = serde_json::json!(2);
+    assert!(serde_json::from_value::<PackIndex>(historical).is_err());
+}
+
+#[test]
 fn supplied_query_json_retains_v1_and_accepts_v2_without_unknown_codec_admission() {
     let root = tempfile::tempdir().unwrap();
     for version in [1, 2] {

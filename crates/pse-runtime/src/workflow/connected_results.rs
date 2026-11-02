@@ -272,17 +272,14 @@ impl CanonicalResultReader {
         self.reader.export_ipc(destination).await
     }
     /// Original complete selection coordinates for a portable review member.
-    pub fn pack_selection(
-        &self,
-        usability: super::PackScientificState,
-    ) -> Result<super::PackResultSelection, WorkflowError> {
-        self.reader.pack_selection(usability)
+    pub async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
+        self.reader.pack_selection().await
     }
-    pub(crate) fn validate_pack_selection(
+    pub(crate) async fn validate_pack_selection(
         &self,
         selection: &super::PackResultSelection,
     ) -> Result<(), WorkflowError> {
-        self.reader.validate_pack_selection(selection)
+        self.reader.validate_pack_selection(selection).await
     }
     /// Export the unread protected selection with a finite output allowance and
     /// an independent caller cancellation token. No final file on failure.
@@ -411,17 +408,14 @@ impl SelectedResultReader {
         self.reader.export_ipc(destination).await
     }
     /// Original complete selection coordinates for a portable review member.
-    pub fn pack_selection(
-        &self,
-        usability: super::PackScientificState,
-    ) -> Result<super::PackResultSelection, WorkflowError> {
-        self.reader.pack_selection(usability)
+    pub async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
+        self.reader.pack_selection().await
     }
-    pub(crate) fn validate_pack_selection(
+    pub(crate) async fn validate_pack_selection(
         &self,
         selection: &super::PackResultSelection,
     ) -> Result<(), WorkflowError> {
-        self.reader.validate_pack_selection(selection)
+        self.reader.validate_pack_selection(selection).await
     }
     /// Export the unread protected selection with a finite output allowance and
     /// an independent caller cancellation token. No final file on failure.
@@ -522,6 +516,109 @@ struct ResultReader {
     metadata_owner: Option<MemoryReservation>,
     _selection_owner: MemoryReservation,
 }
+#[derive(Clone, Copy)]
+enum SelectedScientificProduct {
+    Original,
+    Derived(pse_model::generated::enums::DerivedQuantity),
+    Task(pse_model::generated::enums::DerivedQuantity),
+    Propagation,
+    Interval,
+}
+
+fn selected_dual_data(field: Option<&str>, batch: &RecordBatch, row: usize) -> bool {
+    const DUALS: &[&str] = &[
+        "lower_dual",
+        "upper_dual",
+        "dual",
+        "reduced_cost",
+        "stationarity",
+    ];
+    match field {
+        Some(field) => DUALS.contains(&field),
+        // A whole-payload reader also carries any non-null dual values. Its usability
+        // must cover those values even when a downstream inspection projects fields.
+        None => DUALS.iter().any(|name| {
+            batch
+                .column_by_name(name)
+                .is_some_and(|column| !column.is_null(row))
+        }),
+    }
+}
+
+fn same_pack_selection(
+    left: &super::PackResultSelection,
+    right: &super::PackResultSelection,
+) -> bool {
+    left.run == right.run
+        && left.attempt == right.attempt
+        && left.relation == right.relation
+        && left.schema_version == right.schema_version
+        && left.row_start == right.row_start
+        && left.row_end == right.row_end
+        && left.field == right.field
+        && left.terminal_class == right.terminal_class
+        && left.predicate == right.predicate
+        && left.usability == right.usability
+}
+
+fn propagation_product_state(
+    completion: &super::Completion,
+    step: i64,
+    fact: Option<&pse_model::generated::structures::ScopedPropagationUse>,
+) -> super::PackScientificState {
+    use super::{PackScientificState as State, completion::ProductScope};
+    use pse_model::generated::enums::{CandidateUse, DerivedQuantity, ProductUseScope};
+    let Some(fact) = fact else {
+        return State::Unknown;
+    };
+    if !fact.validity.certified
+        || !matches!(
+            fact.decision,
+            CandidateUse::Usable | CandidateUse::QualifiedUnclosed
+        )
+    {
+        return State::Unusable;
+    }
+    match fact.scope {
+        ProductUseScope::Task => {
+            if fact.reference_point.is_some() {
+                return State::Unusable;
+            }
+            match completion
+                .product_permission(&ProductScope::Task, DerivedQuantity::ParameterCovariance)
+            {
+                Some(original) if original.permits_result() => State::Usable,
+                Some(_) => State::Unusable,
+                None => State::Unknown,
+            }
+        }
+        ProductUseScope::Point => {
+            let original = if completion.step_permissions.is_empty() {
+                if step == 0 {
+                    completion.permission.as_ref()
+                } else {
+                    None
+                }
+            } else {
+                completion
+                    .step_permissions
+                    .iter()
+                    .find(|permission| permission.step == Some(step))
+            };
+            let Some(original) = original else {
+                return State::Unknown;
+            };
+            if !original.permits_result() {
+                return State::Unusable;
+            }
+            match (fact.reference_point, original.reference_point) {
+                (Some(actual), Some(expected)) if actual == expected => State::Usable,
+                (Some(_), Some(_)) => State::Unusable,
+                _ => State::Unknown,
+            }
+        }
+    }
+}
 impl ResultReader {
     /// Exact registry schema of the selected scientific relation.
     fn schema(&self) -> SchemaRef {
@@ -550,15 +647,25 @@ impl ResultReader {
         self.exhausted = true;
     }
 
-    fn pack_selection(
-        &self,
-        usability: super::PackScientificState,
-    ) -> Result<super::PackResultSelection, WorkflowError> {
+    async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
+        let activity = self.services.admit_activity()?;
+        activity
+            .scope(async {
+                self.cancel
+                    .until_cancelled(self.pack_selection_inner())
+                    .await
+                    .map_err(pse_engine::EngineError::from)?
+            })
+            .await
+    }
+
+    async fn pack_selection_inner(&self) -> Result<super::PackResultSelection, WorkflowError> {
         let spec = self
             .services
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
+        let usability = self.scientific_usability().await?;
         Ok(super::PackResultSelection {
             run: self.read.run().key.clone(),
             attempt: self.read.attempt().key.clone(),
@@ -583,26 +690,377 @@ impl ResultReader {
             usability,
         })
     }
-    fn validate_pack_selection(
+    async fn validate_pack_selection(
         &self,
         selection: &super::PackResultSelection,
     ) -> Result<(), WorkflowError> {
-        let original = self.pack_selection(selection.usability)?;
-        if original.run != selection.run
-            || original.attempt != selection.attempt
-            || original.relation != selection.relation
-            || original.schema_version != selection.schema_version
-            || original.row_start != selection.row_start
-            || original.row_end != selection.row_end
-            || original.field != selection.field
-            || original.terminal_class != selection.terminal_class
-            || original.predicate != selection.predicate
-        {
+        let original = self.pack_selection().await?;
+        if !same_pack_selection(&original, selection) {
             return Err(contract(
                 "declared review selection differs from protected result coordinates",
             ));
         }
         Ok(())
+    }
+
+    async fn scientific_usability(&self) -> Result<super::PackScientificState, WorkflowError> {
+        use pse_model::generated::enums::DerivedQuantity;
+        use pse_relations::generated::runtime::{
+            modeling_reports, parameter_covariances, parameter_intervals, parametric_sensitivities,
+            profile_points, propagated_covariances, reduced_hessians, solve_constraints,
+            solve_variables,
+        };
+        if [
+            solve_variables::RELATION_ID,
+            solve_constraints::RELATION_ID,
+            modeling_reports::RELATION_ID,
+        ]
+        .contains(&self.relation)
+        {
+            return self
+                .selected_product_usability(SelectedScientificProduct::Original)
+                .await;
+        }
+        let model_quantity = if self.relation == parametric_sensitivities::RELATION_ID {
+            Some(DerivedQuantity::ParametricSensitivity)
+        } else if self.relation == reduced_hessians::RELATION_ID {
+            Some(DerivedQuantity::ReducedHessian)
+        } else {
+            None
+        };
+        if let Some(quantity) = model_quantity {
+            return self
+                .selected_product_usability(SelectedScientificProduct::Derived(quantity))
+                .await;
+        }
+        if self.relation == parameter_intervals::RELATION_ID {
+            return self
+                .selected_product_usability(SelectedScientificProduct::Interval)
+                .await;
+        }
+        if self.relation == propagated_covariances::RELATION_ID {
+            return self
+                .selected_product_usability(SelectedScientificProduct::Propagation)
+                .await;
+        }
+        let quantity = if self.relation == parameter_covariances::RELATION_ID {
+            Some(DerivedQuantity::ParameterCovariance)
+        } else if self.relation == profile_points::RELATION_ID {
+            Some(DerivedQuantity::ProfileInterval)
+        } else {
+            None
+        };
+        if let Some(quantity) = quantity {
+            return self
+                .selected_product_usability(SelectedScientificProduct::Task(quantity))
+                .await;
+        }
+        Ok(super::PackScientificState::Unknown)
+    }
+
+    /// Resolve actual selected step coordinates from protected rows. Caller labels or
+    /// requested scopes cannot claim that a different point supplied this payload.
+    async fn selected_product_usability(
+        &self,
+        product: SelectedScientificProduct,
+    ) -> Result<super::PackScientificState, WorkflowError> {
+        use datafusion::arrow::array::{Array, BooleanArray, Int64Array, StringArray};
+        let Some(stored) = super::durable::result_scientific_completion(
+            self.services.canonical_store()?,
+            &self.services.pool(),
+            &self.read,
+        )
+        .await?
+        else {
+            return Ok(super::PackScientificState::Unknown);
+        };
+        let Some(completion) = &stored.completion else {
+            return Ok(super::PackScientificState::Unknown);
+        };
+        // An unfiltered task covariance's finite row population is already closed and
+        // protected. Its exact range coverage needs no second matrix payload decode.
+        if matches!(
+            product,
+            SelectedScientificProduct::Task(
+                pse_model::generated::enums::DerivedQuantity::ParameterCovariance
+            )
+        ) && self.output.is_none()
+        {
+            let descriptor = self
+                .read
+                .sets()
+                .iter()
+                .find(|set| set.key == self.set)
+                .ok_or_else(|| {
+                    contract("selected covariance relation absent from protected membership")
+                })?;
+            if self.start >= self.end.min(descriptor.row_count) {
+                return Ok(super::PackScientificState::Unknown);
+            }
+            let Some(fact) = completion.product_permission(
+                &super::completion::ProductScope::Task,
+                pse_model::generated::enums::DerivedQuantity::ParameterCovariance,
+            ) else {
+                return Ok(super::PackScientificState::Unknown);
+            };
+            if !fact.permits_result() {
+                return Ok(super::PackScientificState::Unusable);
+            }
+            return Ok(if self.start != 0 || self.end < descriptor.row_count {
+                super::PackScientificState::Partial
+            } else {
+                super::PackScientificState::Usable
+            });
+        }
+        let owner =
+            MemoryConsumer::new("result:product-scope-read").register(&self.services.pool());
+        owner
+            .try_grow(self.set.capacity())
+            .map_err(pse_engine::EngineError::from)?;
+        let mut rows = ResultReader {
+            observation: None,
+            services: self.services.clone(),
+            read: self.read.clone(),
+            snapshot: self.snapshot.clone(),
+            decode: self.decode.clone(),
+            read_owner: self.read_owner.clone(),
+            relation: self.relation,
+            set: self.set.clone(),
+            schema: self.schema.clone(),
+            start: self.start,
+            end: self.end,
+            after: None,
+            snapshot_position: 0,
+            pending: VecDeque::new(),
+            exhausted: self.start == self.end,
+            consumed: false,
+            cancel: self.cancel.clone(),
+            output: self.output.clone(),
+            native_selection: self.native_selection.clone(),
+            page_pruning: None,
+            pruning_position: 0,
+            indexes: BTreeMap::new(),
+            descriptors: BTreeMap::new(),
+            selected_batch: None,
+            metadata_owner: None,
+            _selection_owner: owner,
+        };
+        let mut seen = false;
+        let mut unknown = false;
+        let mut selected_rows = 0u64;
+        while let Some(batch) = rows.next_batch().await? {
+            selected_rows = selected_rows.saturating_add(batch.num_rows() as u64);
+            if let SelectedScientificProduct::Task(quantity) = product {
+                if batch.num_rows() != 0 {
+                    seen = true;
+                    if self.relation
+                        == pse_relations::generated::runtime::profile_points::RELATION_ID
+                    {
+                        let accepted = batch
+                            .column_by_name("accepted")
+                            .and_then(|column| column.as_any().downcast_ref::<BooleanArray>())
+                            .ok_or_else(|| contract("profile point acceptance absent"))?;
+                        if accepted.iter().any(|accepted| accepted != Some(true)) {
+                            return Ok(super::PackScientificState::Unusable);
+                        }
+                    }
+                    match completion
+                        .product_permission(&super::completion::ProductScope::Task, quantity)
+                    {
+                        Some(fact) if !fact.permits_result() => {
+                            return Ok(super::PackScientificState::Unusable);
+                        }
+                        Some(_) => {}
+                        None => unknown = true,
+                    }
+                }
+                continue;
+            }
+            if matches!(product, SelectedScientificProduct::Interval) {
+                use pse_model::generated::enums::{DerivedQuantity, IntervalMethod};
+                let methods = batch
+                    .column_by_name("method")
+                    .and_then(|column| column.as_any().downcast_ref::<StringArray>())
+                    .ok_or_else(|| contract("interval method coordinates absent"))?;
+                for method in methods.iter() {
+                    let quantity = match method {
+                        Some(method) if method == IntervalMethod::Wald.as_str() => {
+                            DerivedQuantity::WaldInterval
+                        }
+                        Some(method) if method == IntervalMethod::ProfileLikelihood.as_str() => {
+                            DerivedQuantity::ProfileInterval
+                        }
+                        _ => return Err(contract("unknown original interval method")),
+                    };
+                    seen = true;
+                    match completion
+                        .product_permission(&super::completion::ProductScope::Task, quantity)
+                    {
+                        Some(fact) if !fact.permits_result() => {
+                            return Ok(super::PackScientificState::Unusable);
+                        }
+                        Some(_) => {}
+                        None => unknown = true,
+                    }
+                }
+                continue;
+            }
+            let steps = batch
+                .column_by_name("step")
+                .and_then(|column| column.as_any().downcast_ref::<Int64Array>())
+                .ok_or_else(|| contract("derived result step coordinates absent"))?;
+            for (row, step) in steps.iter().enumerate() {
+                let Some(step) = step else {
+                    return Err(contract("null derived result step"));
+                };
+                seen = true;
+                if matches!(product, SelectedScientificProduct::Propagation) {
+                    use datafusion::arrow::array::StructArray;
+                    use pse_model::generated::structures::ScopedPropagationUse;
+                    let Some(fact) = batch.column_by_name("product_use") else {
+                        unknown = true;
+                        continue;
+                    };
+                    if fact.is_null(row) {
+                        unknown = true;
+                        continue;
+                    }
+                    // Only the small permission fact is decoded, never the covariance's
+                    // matrix. Prepay its owned detail text before the generated codec copies it.
+                    let structure = fact
+                        .as_any()
+                        .downcast_ref::<StructArray>()
+                        .ok_or_else(|| contract("propagated product fact shape"))?;
+                    let validity = structure
+                        .column_by_name("validity")
+                        .and_then(|value| value.as_any().downcast_ref::<StructArray>())
+                        .ok_or_else(|| contract("propagated product validity shape"))?;
+                    let detail = validity
+                        .column_by_name("detail")
+                        .and_then(|value| value.as_any().downcast_ref::<StringArray>())
+                        .ok_or_else(|| contract("propagated product detail shape"))?;
+                    let allocation = MemoryConsumer::new("result:propagation-permission")
+                        .register(&self.services.pool());
+                    let mut bytes = size_of::<ScopedPropagationUse>()
+                        .saturating_add(256)
+                        .saturating_add(if detail.is_null(row) {
+                            0
+                        } else {
+                            detail.value_length(row) as usize
+                        });
+                    for (fields, name) in [
+                        (structure, "scope"),
+                        (structure, "decision"),
+                        (validity, "reason"),
+                    ] {
+                        let text = fields
+                            .column_by_name(name)
+                            .and_then(|value| value.as_any().downcast_ref::<StringArray>())
+                            .ok_or_else(|| contract("propagated permission enumeration shape"))?;
+                        if !text.is_null(row) {
+                            bytes = bytes.saturating_add(text.value_length(row) as usize);
+                        }
+                    }
+                    allocation
+                        .try_grow(bytes)
+                        .map_err(pse_engine::EngineError::from)?;
+                    let fact = <ScopedPropagationUse as pse_relations::columnar::ArrowValue>::read(
+                        fact.as_ref(),
+                        row,
+                    )
+                    .map_err(super::relation)?;
+                    match propagation_product_state(completion, step, Some(&fact)) {
+                        super::PackScientificState::Usable => {}
+                        super::PackScientificState::Unusable => {
+                            return Ok(super::PackScientificState::Unusable);
+                        }
+                        _ => unknown = true,
+                    }
+                    continue;
+                }
+                if matches!(product, SelectedScientificProduct::Original) {
+                    let permission = if completion.step_permissions.is_empty() {
+                        if step == 0 {
+                            completion.permission.as_ref()
+                        } else {
+                            None
+                        }
+                    } else {
+                        completion
+                            .step_permissions
+                            .iter()
+                            .find(|permission| permission.step == Some(step))
+                    };
+                    match permission {
+                        Some(permission) if !permission.permits_result() => {
+                            return Ok(super::PackScientificState::Unusable);
+                        }
+                        Some(_) => {}
+                        None => unknown = true,
+                    }
+                    // Original candidate permission is not a dual/sensitivity certificate.
+                    if selected_dual_data(
+                        self.output.as_ref().map(|output| output.field.as_str()),
+                        &batch,
+                        row,
+                    ) {
+                        use pse_model::generated::enums::DualQualification;
+                        let qualification = batch
+                            .column_by_name("dual_qualification")
+                            .and_then(|column| column.as_any().downcast_ref::<StringArray>())
+                            .ok_or_else(|| contract("selected dual qualification absent"))?;
+                        if qualification.is_null(row)
+                            || qualification.value(row)
+                                != DualQualification::SensitivityCertified.as_str()
+                        {
+                            return Ok(super::PackScientificState::Unusable);
+                        }
+                    }
+                    continue;
+                }
+                let SelectedScientificProduct::Derived(quantity) = product else {
+                    return Err(contract("selected derived quantity absent"));
+                };
+                let Some(point) = completion
+                    .step_permissions
+                    .iter()
+                    .find(|permission| permission.step == Some(step))
+                    .and_then(|permission| permission.reference_point)
+                else {
+                    return Ok(super::PackScientificState::Unusable);
+                };
+                let scope = super::completion::ProductScope::Point {
+                    step: Some(step),
+                    member: None,
+                    point,
+                };
+                match completion.product_permission(&scope, quantity) {
+                    Some(fact) if !fact.permits_result() => {
+                        return Ok(super::PackScientificState::Unusable);
+                    }
+                    Some(_) => {}
+                    None => unknown = true,
+                }
+            }
+        }
+        if !seen || unknown {
+            return Ok(super::PackScientificState::Unknown);
+        }
+        let full_rows = self
+            .read
+            .sets()
+            .iter()
+            .find(|set| set.key == self.set)
+            .map(|set| set.row_count);
+        Ok(
+            if matches!(product, SelectedScientificProduct::Task(_))
+                && full_rows.is_some_and(|rows| selected_rows < rows)
+            {
+                super::PackScientificState::Partial
+            } else {
+                super::PackScientificState::Usable
+            },
+        )
     }
     /// Publish a local Arrow IPC export only after every selected database read
     /// and final IPC write succeeds. Interrupted staging remains `.incomplete`;
@@ -1154,7 +1612,8 @@ impl RetainedDataServices {
             })
             .await
     }
-    /// Bounded exact-attempt metadata preflight for review publication. It never polls rows.
+    /// Exact-attempt preflight, resolving scientific permission from the protected selected
+    /// rows when required. No caller-supplied label becomes publication authority.
     pub(crate) async fn review_result_selections(
         &self,
         requests: &[super::ReviewScientificSelection],
@@ -1270,7 +1729,7 @@ impl RetainedDataServices {
             } else {
                 (None, None)
             };
-            selected.push(PackResultSelection {
+            let mut expected = PackResultSelection {
                 run: request.run.clone(),
                 attempt: request.attempt.clone(),
                 relation: spec.key.qualified_name(),
@@ -1281,7 +1740,46 @@ impl RetainedDataServices {
                 terminal_class: terminal_class.clone(),
                 predicate,
                 usability: PackScientificState::Unknown,
-            });
+            };
+            let actual = if let Some(output) = &request.output {
+                let (minimum, maximum) = output.bounds()?;
+                let reader = self
+                    .output_results(
+                        &request.run,
+                        &request.attempt,
+                        &request.relation,
+                        output.owner,
+                        &output.field,
+                        &output.partition,
+                        request.row_start,
+                        request.row_end,
+                        minimum,
+                        maximum,
+                        output.missing,
+                        cancel.clone(),
+                    )
+                    .await?;
+                reader.pack_selection().await?
+            } else {
+                let reader = self
+                    .results(
+                        &request.run,
+                        &request.attempt,
+                        &request.relation,
+                        request.row_start,
+                        request.row_end,
+                        cancel.clone(),
+                    )
+                    .await?;
+                reader.pack_selection().await?
+            };
+            expected.usability = actual.usability;
+            if !same_pack_selection(&expected, &actual) {
+                return Err(contract(
+                    "review preflight differs from protected result coordinates",
+                ));
+            }
+            selected.push(actual);
         }
         Ok((selected, reservation))
     }
@@ -2787,12 +3285,18 @@ mod canonical_connected_results_server_unit {
             "continuation selects frozen block metadata before payload acquisition"
         );
         let original_window = continued
-            .pack_selection(PackScientificState::Unknown)
+            .pack_selection()
+            .await
             .unwrap();
         assert_eq!(
             (original_window.row_start, original_window.row_end),
             (0, 65)
         );
+        assert_eq!(original_window.usability, PackScientificState::Unknown);
+        continued.validate_pack_selection(&original_window).await.unwrap();
+        let mut forged_window = original_window.clone();
+        forged_window.usability = PackScientificState::Usable;
+        assert!(continued.validate_pack_selection(&forged_window).await.is_err());
         for coordinate in [63, 64] {
             let batch = continued.next_batch().await.unwrap().unwrap();
             let values = batch
@@ -2867,6 +3371,94 @@ mod canonical_connected_results_server_unit {
     }
 
     #[tokio::test]
+    async fn canonical_task_permission_preflight_exports_actual_science_and_empty_coverage() {
+        private_fixture(false, |store, _science| Box::pin(async move {
+            use pse_model::generated::enums::{CandidateUse, CovarianceApproximation, DerivedQuantity, IntervalEnd, NativeQualification, NativeTermination};
+            use pse_relations::generated::runtime::{parameter_covariances, profile_points};
+            use super::super::{completion::{ProductPermission, ProductScope}, durable::{StoredCompletion, TerminationCause, TerminationDetail}};
+            let runtime = read_owner(store);
+            let store = runtime.canonical_store().unwrap();
+            let pool = runtime.pool();
+            for (key, decision, expected) in [
+                ("usable-task-product", CandidateUse::Usable, PackScientificState::Usable),
+                ("withheld-task-product", CandidateUse::Unusable, PackScientificState::Unusable),
+            ] {
+                let revision = store.edit(&format!("{key}-source"), None, "source", &[]).await.unwrap();
+                store.begin_run(&RunRequest {purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                    admission_study: None, admission_point: None, key: key.into(), revision,
+                    sources: vec![], request: vec![1], source_selection: vec![2], attestation: vec![3]}).await.unwrap();
+                let fence = store.claim_run(key, &format!("{key}-claim"), "worker", Duration::from_secs(60)).await.unwrap();
+                let validation = runtime.validation_context();
+                let mut table = parameter_covariances::Builder::with_registry(runtime.registry(), 1, &validation).unwrap();
+                let parameter = pse_ids::SemanticId::from_bytes([29; 16]);
+                table.push(parameter_covariances::Row {run_id: pse_operations::mint_id(), approximation: CovarianceApproximation::Exact,
+                    parameters: vec![parameter], parameter_units: vec![parameter], parameter_quantities: vec![parameter],
+                    parameter_scales: vec![1.], values: vec![1.]}).unwrap();
+                let acknowledgments = PublicationAcks::new(&pool);
+                super::super::result_projection::store_result_table(store, &fence, parameter_covariances::RELATION_ID,
+                    crate::workflow::ResultCursor::from_checked(table.finish().unwrap()), &pool, &acknowledgments).await.unwrap();
+                let mut profile = profile_points::Builder::with_registry(runtime.registry(), 2, &validation).unwrap();
+                let profile_run = pse_operations::mint_id();
+                for point in 0..2 {
+                    profile.push(profile_points::Row {run_id: profile_run, parameter_id: parameter,
+                        end: IntervalEnd::Lower, point, value: point as f64, seed: None,
+                        qualification: (point == 0).then_some(NativeQualification::Stationary), qualifiers: vec![],
+                        termination: (point == 0).then_some(NativeTermination::Success), callback_terminal_failure: None,
+                        failures: vec![], objective: (point == 0).then_some(0.), statistic: (point == 0).then_some(0.),
+                        accepted: point == 0, detail: None}).unwrap();
+                }
+                super::super::result_projection::store_result_table(store, &fence, profile_points::RELATION_ID,
+                    crate::workflow::ResultCursor::from_checked(profile.finish().unwrap()), &pool, &acknowledgments).await.unwrap();
+                let mut completion = super::super::Completion::default();
+                completion.products.push(ProductPermission {scope: ProductScope::Task, quantity: DerivedQuantity::ParameterCovariance,
+                    validity: super::super::local_analysis::record(Ok(&()), None, false), qualifiers: vec![], decision});
+                completion.products.push(ProductPermission {scope: ProductScope::Task, quantity: DerivedQuantity::ProfileInterval,
+                    validity: super::super::local_analysis::record(Ok(&()), None, false), qualifiers: vec![], decision});
+                let original = StoredCompletion {version: 4, attempt_id: pse_operations::mint_id(), completion: Some(completion),
+                    termination: TerminationDetail {version: pse_model::document::Version,
+                        cause: TerminationCause::Assessment {usable: false, candidate_use: vec![], diagnostics: vec![]},
+                        point: None, retry_failure: None, effect: pse_model::study::EffectState::Absent},
+                    state: pse_model::generated::enums::AttemptState::Partial, progress: super::super::ProgressCoverage::Unknown {}};
+                let bytes = serde_json::to_vec(&original).unwrap();
+                acknowledgments.append(&fence, store.append_result_batch(&fence, "completion", "__completion", 0,
+                    pse_operations::canonical_execution::ResultPayload::new(bytes.clone()).unwrap(), bytes.len() as u64).await.unwrap()).unwrap();
+                acknowledgments.complete(&fence, "__completion").unwrap();
+                let receipt = serde_json::to_vec(&serde_json::json!({"version":1,"batch_count":1,"payload_bytes":bytes.len(),"digest":result_payload_digest(&bytes),"inline":null})).unwrap();
+                let manifest = store.close_acknowledged(&fence, "close", acknowledgments.freeze(&fence).unwrap()).await.unwrap();
+                // SAFETY: this private fixture publishes original producer facts while retaining
+                // partial execution availability and no execution-seed eligibility.
+                unsafe {store.seal_acknowledged(&manifest, "seal", TerminalClass::Partial, &receipt,
+                    pse_operations::canonical_execution::SeedEligibility::Unavailable).await.unwrap();}
+                for (start, end, state) in [(0, u64::MAX, expected), (0, 0, PackScientificState::Unknown), (1, 2, PackScientificState::Unknown)] {
+                    let reader = runtime.results(key, fence.attempt(), "runtime.parameter_covariances", start, end, CancellationToken::new()).await.unwrap();
+                    assert_eq!(reader.pack_selection().await.unwrap().usability, state);
+                }
+                for (start, end, state) in [(0, u64::MAX, PackScientificState::Unusable),
+                    (0, 1, if decision == CandidateUse::Usable {PackScientificState::Partial} else {PackScientificState::Unusable}),
+                    (2, u64::MAX, PackScientificState::Unknown)] {
+                    let reader = runtime.results(key, fence.attempt(), "runtime.profile_points", start, end, CancellationToken::new()).await.unwrap();
+                    assert_eq!(reader.pack_selection().await.unwrap().usability, state,
+                        "an interval fact cannot upgrade a rejected pin or manufacture selected coverage");
+                }
+                let selection = super::super::ReviewScientificSelection {member: "covariance".into(), run: key.into(),
+                    attempt: fence.attempt().into(), relation: "runtime.parameter_covariances".into(), row_start: 0, row_end: u64::MAX, output: None};
+                let (descriptors, _owner) = runtime.review_result_selections(std::slice::from_ref(&selection), &CancellationToken::new()).await.unwrap();
+                assert_eq!(descriptors[0].usability, expected, "preflight resolves original producer permission before publication");
+                let evidence = crate::tooling::frozen_inspection::FrozenEvidenceSet::default();
+                let analysis = crate::tooling::review_analysis::analyze(&evidence,
+                    &crate::tooling::review_analysis::AnalysisRequest::new(pse_diagnostics::observation::OperationId {process_instance: [1,2], sequence: 3}),
+                    &pool, &CancellationToken::new()).unwrap();
+                let directory = tempfile::tempdir().unwrap();
+                let exported = crate::tooling::review_export::export_review_pack(&runtime.0, &directory.path().join("pack"),
+                    &evidence, &analysis, crate::tooling::review_pack::PackExportRequest {scientific_results: vec![selection], ..Default::default()}, CancellationToken::new()).await.unwrap();
+                assert_eq!(exported.publication, crate::tooling::review_pack::PackPublication::Sealed);
+                assert_eq!(exported.members.iter().find(|member| member.selection.id == "covariance").unwrap().selection.result.as_ref().unwrap().usability, expected,
+                    "copy success does not upgrade a withheld producer fact");
+            }
+        })).await;
+    }
+
+    #[tokio::test]
     async fn canonical_empty_demand_has_registry_schema_without_ipc_or_absent_membership() {
         private_fixture(false, |store, _science| Box::pin(async move {
         use super::super::durable::{StoredCompletion, TerminationCause, TerminationDetail};
@@ -2924,7 +3516,7 @@ mod canonical_connected_results_server_unit {
             None
         );
         let original = StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id: pse_operations::mint_id(),
             completion: None,
             termination: TerminationDetail {
@@ -3744,9 +4336,7 @@ mod canonical_connected_results_server_unit {
                     .await
                     .unwrap();
                 let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
-                let selected_coordinates = selected_reader
-                    .pack_selection(PackScientificState::Partial)
-                    .unwrap();
+                let selected_coordinates = selected_reader.pack_selection().await.unwrap();
                 assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
                 assert_eq!(
                     selected_coordinates
@@ -4056,7 +4646,7 @@ mod canonical_connected_results_server_unit {
         let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         let completion = super::super::durable::StoredCompletion {
-            version: 3,
+            version: 4,
             attempt_id: pse_operations::mint_id(),
             completion: None,
             termination: super::super::durable::TerminationDetail {
@@ -4243,7 +4833,8 @@ mod canonical_connected_results_server_unit {
                 .unwrap();
             let protected_borrower = Arc::downgrade(&reader.reader.read);
             let original_selection = reader
-                .pack_selection(PackScientificState::Unusable)
+                .pack_selection()
+                .await
                 .unwrap();
             assert_eq!(original_selection.row_start, 1);
             assert_eq!(original_selection.row_end, 3);
@@ -4299,7 +4890,7 @@ mod canonical_connected_results_server_unit {
             assert_eq!(scientific.availability, PackAvailability::Available);
             assert_eq!(
                 scientific.selection.result.as_ref().unwrap().usability,
-                PackScientificState::Unusable
+                PackScientificState::Unknown
             );
             assert_eq!(
                 scientific.selection.result.as_ref().unwrap().terminal_class,
@@ -4521,7 +5112,8 @@ mod canonical_connected_results_server_unit {
             references: vec![],
             result: Some(
                 broken_reader
-                    .pack_selection(PackScientificState::Unusable)
+                    .pack_selection()
+                    .await
                     .unwrap(),
             ),
             diagnostic_table: None,
@@ -4584,6 +5176,120 @@ mod canonical_connected_results_server_unit {
 #[cfg(test)]
 mod result_selection_unit {
     use super::*;
+    #[test]
+    fn whole_payload_duals_require_their_own_certificate() {
+        use datafusion::arrow::{
+            array::{ArrayRef, Float64Array},
+            datatypes::{DataType, Field, Schema},
+        };
+        let columns: Vec<ArrayRef> = vec![
+            Arc::new(Float64Array::from(vec![1., 2.])),
+            Arc::new(Float64Array::from(vec![Some(0.), None])),
+        ];
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("value", DataType::Float64, false),
+                Field::new("dual", DataType::Float64, true),
+            ])),
+            columns,
+        )
+        .unwrap();
+        assert!(
+            selected_dual_data(None, &batch, 0),
+            "unfiltered inspection still carries an uncertified non-null dual"
+        );
+        assert!(!selected_dual_data(Some("value"), &batch, 0));
+        assert!(selected_dual_data(Some("dual"), &batch, 0));
+        assert!(
+            !selected_dual_data(None, &batch, 1),
+            "absent duals do not erase original primal usability"
+        );
+    }
+
+    #[test]
+    fn lazy_propagation_permission_binds_explicit_scope_and_original_point() {
+        use super::super::{
+            PackScientificState as State,
+            completion::{ProductPermission, ProductScope, ScientificPermission},
+        };
+        use pse_model::generated::{
+            enums::{CandidateUse, DerivedQuantity, ProductUseScope},
+            structures::ScopedPropagationUse,
+        };
+        let point = pse_ids::SemanticId::from_bytes([19; 16]);
+        let validity = super::super::local_analysis::record(Ok(&()), None, false);
+        let mut completion = super::super::Completion::default();
+        completion.step_permissions.push(ScientificPermission {
+            step: Some(2),
+            reference_point: Some(point),
+            requested: 1,
+            observed: 1,
+            report_succeeded: true,
+            decision: CandidateUse::Usable,
+            refusals: vec![],
+            qualifiers: vec![],
+        });
+        let mut fact = ScopedPropagationUse {
+            scope: ProductUseScope::Point,
+            reference_point: Some(point),
+            decision: CandidateUse::Usable,
+            validity: validity.clone(),
+        };
+        assert_eq!(
+            propagation_product_state(&completion, 2, Some(&fact)),
+            State::Usable
+        );
+        assert_eq!(
+            propagation_product_state(&completion, 3, Some(&fact)),
+            State::Unknown
+        );
+        fact.reference_point = Some(pse_ids::SemanticId::from_bytes([20; 16]));
+        assert_eq!(
+            propagation_product_state(&completion, 2, Some(&fact)),
+            State::Unusable
+        );
+        fact.reference_point = Some(point);
+        completion.step_permissions[0].decision = CandidateUse::Unusable;
+        assert_eq!(
+            propagation_product_state(&completion, 2, Some(&fact)),
+            State::Unusable
+        );
+        assert_eq!(
+            propagation_product_state(&completion, 2, None),
+            State::Unknown
+        );
+
+        fact.scope = ProductUseScope::Task;
+        fact.reference_point = None;
+        assert_eq!(
+            propagation_product_state(&completion, 0, Some(&fact)),
+            State::Unknown
+        );
+        completion.products.push(ProductPermission {
+            scope: ProductScope::Task,
+            quantity: DerivedQuantity::ParameterCovariance,
+            validity,
+            qualifiers: vec![],
+            decision: CandidateUse::Usable,
+        });
+        assert_eq!(
+            propagation_product_state(&completion, 0, Some(&fact)),
+            State::Usable
+        );
+        fact.reference_point = Some(point);
+        assert_eq!(
+            propagation_product_state(&completion, 0, Some(&fact)),
+            State::Unusable,
+            "a task fact cannot smuggle a descriptive point into point authority"
+        );
+        fact.reference_point = None;
+        fact.validity.certified = false;
+        assert_eq!(
+            propagation_product_state(&completion, 0, Some(&fact)),
+            State::Unusable
+        );
+    }
+
     fn metadata(rows: usize, columns: usize) -> BlockMetadata {
         BlockMetadata {
             key: "block".into(),

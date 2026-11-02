@@ -13,6 +13,8 @@ pub struct RuntimePropagatedCovariancesRow {
     pub r#run_id: crate::generated::identities::RunId,
     ///step
     pub r#step: i64,
+    ///Producer-owned lazy product fact at the original step/reference point. Earlier immutable completion may remain unavailable; mathematical validity alone never grants original physical permission.
+    pub r#product_use: crate::generated::structures::ScopedPropagationUse,
     ///The fit run whose parameter covariance was propagated: this run for a fit's own predictions.
     pub r#covariance_run_id: Option<crate::generated::identities::RunId>,
     ///covariance_origin
@@ -46,6 +48,7 @@ impl crate::SemanticEq for RuntimePropagatedCovariancesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#run_id, &other.r#run_id)
             && crate::SemanticEq::semantic_eq(&self.r#step, &other.r#step)
+            && crate::SemanticEq::semantic_eq(&self.r#product_use, &other.r#product_use)
             && crate::SemanticEq::semantic_eq(
                 &self.r#covariance_run_id,
                 &other.r#covariance_run_id,
@@ -106,6 +109,8 @@ impl crate::SemanticFrame for RuntimePropagatedCovariancesRow {
         crate::SemanticFrame::frame(&self.r#run_id, hash);
         hash.str(stringify!(r#step));
         crate::SemanticFrame::frame(&self.r#step, hash);
+        hash.str(stringify!(r#product_use));
+        crate::SemanticFrame::frame(&self.r#product_use, hash);
         hash.str(stringify!(r#covariance_run_id));
         crate::SemanticFrame::frame(&self.r#covariance_run_id, hash);
         hash.str(stringify!(r#covariance_origin));
@@ -141,6 +146,7 @@ impl crate::HeapUsage for RuntimePropagatedCovariancesRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#step))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#product_use))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_run_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_origin))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#covariance_label))

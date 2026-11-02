@@ -991,6 +991,52 @@ impl MathService {
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.assemble_functions(prepared, lease, &driver).await
     }
+    /// Selected static incidence, independent of point values and native solver admission.
+    pub async fn analyze_modeling_structure(
+        self: &Arc<Self>,
+        model: ModelingPreparation,
+        scope: SemanticId,
+        states: Arc<
+            pse_columnar::Leased<
+                BTreeMap<SemanticId, pse_compiler::workspace::ModelingVariableState>,
+            >,
+        >,
+        profile: pse_compiler::workspace::Profile,
+        quantities: Arc<pse_quantity::QuantityRegistry>,
+        driver: &crate::CancelSource,
+    ) -> Result<
+        Arc<pse_columnar::Leased<pse_structural::incidence::StructuralAnalysis>>,
+        MathRuntimeError,
+    > {
+        let driver = self.preparation_driver(driver)?;
+        let control = Cancellation::default();
+        let operation = self.job_retained_construction(
+            1,
+            // The library analysis has no complete source-issued peak bound yet.
+            // Prepay the existing opaque-construction allowance instead of charging
+            // it to an unrelated compiler workspace or claiming a zero-byte bound.
+            super::ConstructionEstimate::Opaque(self.policy.worker_bytes),
+            control.clone(),
+            driver.deadline(),
+            move |flag| {
+                let result = model.compiled().analyze_structure(
+                    scope,
+                    &states,
+                    profile,
+                    &quantities,
+                    &flag,
+                )?;
+                let bytes = result.retained_bytes();
+                Ok((result, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let (result, owner) = tokio::select! {
+            result = &mut operation => result?,
+            () = driver.cancelled() => { control.cancel(); let _ = operation.await; return Err(MathRuntimeError::Cancelled); }
+        };
+        Ok(Arc::new(pse_columnar::Leased::new(result, owner)))
+    }
     /// Compile the carried selected observation structure through the compiler and
     /// artifact cache without reconstructing it. Each evaluation binds its own values.
     pub async fn prepare_modeling_observations(

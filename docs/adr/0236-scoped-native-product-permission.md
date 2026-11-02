@@ -41,6 +41,10 @@ Use explicit task or step/member/reference-point scope where required. Compose p
 
 Migrate producers and local/durable/export consumers together. Increment changed completion and pack interpretation versions; unsupported historical unscoped facts cannot default to usable. No automatic stored-data rewrite is authorized.
 
+Completion uses interpretation 3, stored completion 4, and review pack selection/request/index 3. Pack interpretation 2 could contain caller-asserted usability, so a current reader refuses it rather than promoting it merely because its wire fields look familiar.
+
+Lazy covariance propagation attaches its original point, scientific-use decision and mathematical validity to the produced covariance row (relation interpretation 3), while the earlier immutable completion remains unchanged. Protected readback checks this producer fact against the original step/point. This uses the existing covariance result owner rather than a second permission ledger.
+
 ### Compensating controls
 
 Retain unknown/withheld products and diagnostic access. Whole-request decisions remain distinct from independently scoped products. Generated projections follow the generator route.

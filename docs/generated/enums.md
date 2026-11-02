@@ -2557,6 +2557,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `auto` | `` | false |
 | `explicit` | `` | false |
 
+## `ProductUseScope`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `task` | `` | false |
+| `point` | `` | false |
+
 ## `ProjectChangeImpact`
 
 | Member | IDAES name | Deprecated |

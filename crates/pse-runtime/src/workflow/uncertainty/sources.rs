@@ -80,7 +80,10 @@ impl SourceServices {
             .completion
             .as_ref()
             .and_then(|completion| {
-                completion.product_permission(DerivedQuantity::ParameterCovariance)
+                completion.product_permission(
+                    &crate::workflow::completion::ProductScope::Task,
+                    DerivedQuantity::ParameterCovariance,
+                )
             })
             .is_some_and(crate::workflow::ProductPermission::permits_result)
         {

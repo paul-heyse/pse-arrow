@@ -872,7 +872,17 @@ impl PreparedRecycle {
                     .into());
                 }
             }
+            let mut free_tolerances = original_tolerances.variables.iter();
             for variable in structure.variables() {
+                let tolerance = if variable.fixed {
+                    0.0
+                } else {
+                    *free_tolerances.next().ok_or_else(|| {
+                        native::ProblemError::Contract(
+                            "original recycle variable tolerance absent".into(),
+                        )
+                    })?
+                };
                 let value = candidate.scalars.get(&variable.port.id).ok_or_else(|| {
                     native::ProblemError::Contract("incomplete original recycle coordinates".into())
                 })?;
@@ -881,8 +891,7 @@ impl PreparedRecycle {
                         "nonfinite original recycle coordinate",
                     ));
                 }
-                if variable.lower.is_some_and(|lower| *value < lower)
-                    || variable.upper.is_some_and(|upper| *value > upper)
+                if !crate::math::initialization::original_bound_accepts(variable, *value, tolerance)
                 {
                     return Err(pse_math::MathError::OutsideRange {
                         source_id: variable.port.id,

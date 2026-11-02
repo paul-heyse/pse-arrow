@@ -481,7 +481,9 @@ impl RunResult {
         match self.request() {
             super::RunRequest::Horizon(_) => Err(contract("horizon detail was not selected")),
             super::RunRequest::Simulation(_) => self.encode_simulation(projection).await,
-            super::RunRequest::Modeling(_) => self.encode_modeling(projection).await,
+            super::RunRequest::Modeling(_) | super::RunRequest::Initialization(_) => {
+                self.encode_modeling(projection).await
+            }
             super::RunRequest::Fit(_) => self.encode_fit(projection).await,
             #[cfg(feature = "solver-diffsol")]
             super::RunRequest::Shooting { .. } => self.encode_shooting(projection).await,

@@ -2,7 +2,7 @@
 title: "Plan64c: Process authoring and first delivery"
 status: in-progress
 date: 2026-11-02
-adrs: [ADR-0236]
+adrs: [ADR-0236, ADR-0237]
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -17,9 +17,7 @@ doc_topics: [current-work, design, validation]
 
 The first supported interface is a Rust domain-operation surface using existing `ModelingPackage` and workflow/result owners. A graphical application, new language binding or compulsory CLI wrapper is not needed to establish it. Typed declaration editing is the first edit representation; text documents can still be admitted as source, but editing declarations does not promise regenerated authoritative text. Preserve draft diagnostics without claiming an invalid draft can solve.
 
-## Package state
-
-### Execution requirements from 64a
+## Execution requirements from 64a
 
 Consume [64a's operation decisions](64a-scope-and-shared-contracts.md#a03--selected-library-backed-operation-design) at these owners:
 
@@ -35,15 +33,17 @@ C03 preserves Solve versus full Initialization report, including unsuccessful re
 
 C06 completes native journeys and the exact H02/H03 handoff, not matched-reference execution or full A–D acceptance. G08, broader analyses and the collective upgrade retain their owners.
 
+## Package state
+
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| C01 | planned | A02/A03 meaning; B01 selected definitions | Selected source/declaration/instantiated process views and typed edits over existing immutable identities |
-| C02 | planned | C01; RC03 contract slice | Label/numeric/topology edits preserve or invalidate the appropriate artifacts and match clean admitted reconstruction |
-| C03 | planned | B ordinary-input path; admitted initialization/solve | Complete success and intended failure reports survive public native operations and restoration/readback |
-| C04 | planned | Protected result/producer completion contract | Export selection derives exact scientific usability; affected readers/writers migrate together |
-| C05 | planned | RC04; completion and local-analysis contracts | Exposed product applicability and exact governing scope are consistent across native/recorded consumers |
-| C06 | planned | C01–C05 selected behavior; B delivery; H02 matched reference contracts and inputs | Recycle/exchanger native journeys and independent-reference handoff pass complete first-delivery acceptance |
-| C07 | planned | 64a A04 ordinary-interval disposition | Quality-owned tolerance semantics integrated into affected ordinary/conditional/initialization acceptance without relaxing hard domains or fixed specifications |
+| C01 | in-progress | A02/A03 meaning; B01 selected definitions | Selected source/declaration/instantiated process views and typed edits over existing immutable identities |
+| C02 | in-progress | C01; RC03 contract slice | Label/numeric/topology edits preserve or invalidate the appropriate artifacts and match clean admitted reconstruction |
+| C03 | in-progress | B ordinary-input path; admitted initialization/solve | Complete success and intended failure reports survive public native operations and restoration/readback |
+| C04 | in-progress | Protected result/producer completion contract | Export selection derives exact scientific usability; affected readers/writers migrate together |
+| C05 | in-progress | RC04; completion and local-analysis contracts | Exposed product applicability and exact governing scope are consistent across native/recorded consumers |
+| C06 | in-progress | C01–C05 selected behavior; B delivery; H02 matched reference contracts and inputs | Recycle/exchanger native journeys and independent-reference handoff pass complete first-delivery acceptance |
+| C07 | in-progress | 64a A04 ordinary-interval disposition | Quality-owned tolerance semantics integrated into affected ordinary/conditional/initialization acceptance without relaxing hard domains or fixed specifications |
 
 ## C01 — Native inspection and editing
 
@@ -61,7 +61,7 @@ Carry exact consumed evaluator/method dependencies through existing prepared own
 
 ## C03 — Preserve full initialization outcomes
 
-`modeling/declared.rs::execute_declared` currently converts an incomplete initialization report to an input error and returns only the last result on success. The process-facing initialization operation uses `initialize_declared` and returns the full typed report or a stable owned report reference, including stage/attempt evidence, candidate availability, original assessment and restored specification. Keep numerical failure distinct from invalid input or unavailable capability.
+The reviewed `modeling/declared.rs::execute_declared` converted an incomplete initialization report to an input error and returned only the last result on success. The process-facing initialization operation now returns the full typed report, including stage/attempt evidence, candidate availability, original assessment and restored specification. Keep numerical failure distinct from invalid input or unavailable capability. The selected recorded route is direct native canonical execution; persisted study initialization remains explicitly unsupported until its own versioned protocol supplies the actual policy (ADR-0237).
 
 Retain success, failure and partial-evidence meaning through the selected local and recorded route; inspect existing canonical result representation and extend its owner only for actually missing report fields. No second initializer, rollback engine or retry mechanism is permitted. Migrate each process-facing initialization consumer and its meaningful tests together; convenience solve operations may retain their narrower documented contract.
 
@@ -69,7 +69,7 @@ The failure control must reach the intended initialization stage and preserve th
 
 ## C04 — Producer-owned export usability
 
-`connected_results.rs::pack_selection` currently copies caller-supplied usability, and validation reconstructs using that same supplied value. Resolve usability from the exact protected run/attempt/member/coverage permission owner when creating and validating an export selection. A caller may request content or apply stricter eligibility; it cannot strengthen unknown or unusable science.
+The reviewed `connected_results.rs::pack_selection` copied caller-supplied usability, and validation reconstructed using that same supplied value. Resolve usability from the exact protected run/attempt/member/coverage permission owner when creating and validating an export selection. A caller may request content or apply stricter eligibility; it cannot strengthen unknown or unusable science.
 
 Migrate affected pack-selection/export/readback consumers and durable representations together, using the existing decision route if a durable/public contract changes. Preserve schema, field/row/predicate coordinates, source identity, withheld/unknown states and diagnostic-only access. Retain bounded export staging and interruption/no-final-file behavior. Delete the replaced assertion path after all callers move; do not keep a compatibility entry point that accepts an authoritative caller label.
 
@@ -91,7 +91,7 @@ Use the actual recycle-flash and exchanger-costing authored definitions in `pack
 
 Retain exchanger unknown-area/pressure-extrapolation permissions and costing currency/unit conventions; matched arithmetic is not a qualified equipment purchase price. Inspect semantic physical outputs and exact retained readback through explicit local/recorded routes. H's reference construction can overlap after scientific correspondence settles; integrated D closeout needs the completed native side.
 
-**Proposed verification:** revealing owner tests and affected compile checks during implementation; assembled native/reference journeys only when their selected scope is integrated. Preserve independent analytic balance expectations and wrong/missing-output comparator controls. A–D completion is bounded first-delivery acceptance, not P0–P7 equivalence. All production packages remain planned at publication.
+**Proposed verification:** revealing owner tests and affected compile checks during implementation; assembled native/reference journeys only when their selected scope is integrated. Preserve independent analytic balance expectations and wrong/missing-output comparator controls. A–D completion is bounded first-delivery acceptance, not P0–P7 equivalence. The [native/reference correspondence](../../packages/reference/ordinary-delivery/sources.md) owns the exact ordinary input/configuration/output handoff; H02/H03 independently constructs and executes its matched references.
 
 ## C07 — Shared ordinary-interval acceptance
 

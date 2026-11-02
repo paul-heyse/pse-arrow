@@ -107,6 +107,32 @@ impl CompilerWorkspace {
 }
 
 impl PreparedModeling {
+    /// Analyze admitted static case incidence without starts, numerical values or a backend.
+    /// # Errors
+    /// Unsupported integrated derivatives, invalid structural specifications or refused incidence.
+    pub fn analyze_structure(
+        &self,
+        scope: SemanticId,
+        states: &BTreeMap<SemanticId, ModelingVariableState>,
+        profile: Profile,
+        quantities: &QuantityRegistry,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Arc<StructuralAnalysis>> {
+        let bound = self.bound_structure(states)?;
+        let plan = CasePlan::prepare(
+            bound.structure,
+            self.admitted
+                .bodies
+                .iter()
+                .map(|(key, body)| (*key, body.math.clone()))
+                .collect(),
+            quantities,
+            DerivativeOrder::Value,
+            profile.assembly,
+            cancel,
+        )?;
+        structural_plan(scope, &plan, cancel)
+    }
     /// Resolve authored defaults and canonical fixture overrides without a runtime.
     pub fn case_values(&self, case: &ModelingCaseBindings) -> Result<CaseValues> {
         let mut values = CaseValues {

@@ -377,6 +377,17 @@ impl RunResult {
                 })
                 .chain(std::iter::once(error.boundary_diagnostic()))
                 .collect(),
+            Ok(RunReport::Initialization(report)) => report
+                .failure
+                .iter()
+                .cloned()
+                .chain(
+                    report
+                        .attempts
+                        .iter()
+                        .filter_map(|attempt| attempt.diagnostic()),
+                )
+                .collect(),
             Ok(RunReport::Modeling(r)) => r.iter().filter_map(|r| r.diagnostic()).collect(),
             Ok(RunReport::Simulation(r)) => r.diagnostic().into_iter().collect(),
             #[cfg(feature = "solver-diffsol")]
@@ -435,6 +446,15 @@ impl RunResult {
         };
         match self.report() {
             Ok(RunReport::Horizon(_)) => {}
+            Ok(RunReport::Initialization(report)) => {
+                for result in report
+                    .attempts
+                    .iter()
+                    .filter_map(|attempt| attempt.result.as_ref().ok())
+                {
+                    append(&result.completion.accuracy);
+                }
+            }
             Ok(RunReport::Modeling(results)) => {
                 for result in results {
                     append(&result.completion.accuracy);

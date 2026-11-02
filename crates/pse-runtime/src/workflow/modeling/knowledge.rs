@@ -40,7 +40,9 @@ struct Cell<'a> {
     test_only: bool,
 }
 impl ModelingPackage {
-    /// Project admitted cells with an optional exact owner selection. Refuse an oversized
+    /// Project admitted cells with an optional exact authored owner selection. A selected
+    /// dataset includes its keyed records by their original declaration, retaining each
+    /// record's own semantic identity. Refuse an oversized
     /// projection before owned growth; inspection does not authorize a production read.
     pub async fn knowledge(
         &self,
@@ -70,7 +72,7 @@ impl ModelingPackage {
         let view = revision.checked().knowledge();
         let visit = |consumer: &mut dyn FnMut(Cell<'_>) -> Result<(), WorkflowError>| -> Result<(),WorkflowError> {
             let matches = |id| owner.is_none_or(|owner| owner == id);
-            for (id, record) in view.records().filter(|(id, _)| matches(*id)) {
+            for (id, record) in view.records().filter(|(id, record)| matches(*id) || matches(record.origin)) {
                 for (name, value) in &record.values {
                     cancel.checkpoint().map_err(pse_relations::RelationError::from).map_err(relation)?;
                     consumer(Cell { owner:id, row:0, slot:name, record_kind:Some(record.kind), origin:record.origin,

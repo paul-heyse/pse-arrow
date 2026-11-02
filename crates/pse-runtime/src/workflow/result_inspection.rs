@@ -2,10 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded readable observations over the original protected scientific result owner.
 
-use super::{
-    PackResultSelection, PackScientificState, RetainedDataServices, Runtime, WorkflowError,
-    contract,
-};
+use super::{PackResultSelection, RetainedDataServices, Runtime, WorkflowError, contract};
 use datafusion::arrow::{
     array::{
         Array, ArrayRef, BinaryArray, BooleanArray, FixedSizeBinaryArray, Float32Array,
@@ -1022,24 +1019,11 @@ impl RetainedDataServices {
                 {
                     return Ok(refused(ResultInspectionRefusal::ManifestChanged));
                 }
-                use pse_model::generated::enums::DerivedQuantity;
-                use pse_relations::generated::runtime::{parameter_covariances, parameter_intervals, profile_points};
-                let quantities: &[DerivedQuantity] = if spec.id == parameter_covariances::RELATION_ID { &[DerivedQuantity::ParameterCovariance] }
-                    else if spec.id == profile_points::RELATION_ID { &[DerivedQuantity::ProfileInterval] }
-                    else if spec.id == parameter_intervals::RELATION_ID { &[DerivedQuantity::WaldInterval, DerivedQuantity::ProfileInterval] }
-                    else { &[] };
-                let mut usability = PackScientificState::Unknown;
-                for quantity in quantities {
-                    if let Some(permitted) = super::durable::result_product_permission(self.canonical_store()?, &self.pool(), reader.selection(), *quantity).await? {
-                        if !permitted { usability = PackScientificState::Unusable; break; }
-                        usability = PackScientificState::Usable;
-                    }
-                }
-                let selection = reader.pack_selection(usability)?;
+                let selection = reader.pack_selection().await?;
                 if let Some(cursor) = &request.cursor
                     && (cursor.manifest != manifest
                         || cursor.selection.usability != selection.usability
-                        || reader.validate_pack_selection(&cursor.selection).is_err())
+                        || reader.validate_pack_selection(&cursor.selection).await.is_err())
                 {
                     return Ok(refused(ResultInspectionRefusal::CursorChanged));
                 }

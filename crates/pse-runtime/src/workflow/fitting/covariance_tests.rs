@@ -423,7 +423,10 @@ async fn stopped_profile_budget_withholds_product_but_keeps_fit_wald_and_covaria
     }
     let completion = result.completion().unwrap();
     let profile = completion
-        .product_permission(DerivedQuantity::ProfileInterval)
+        .product_permission(
+            &crate::workflow::completion::ProductScope::Task,
+            DerivedQuantity::ProfileInterval,
+        )
         .unwrap();
     assert!(!profile.permits_result() && !profile.validity.certified);
     assert_eq!(
@@ -436,7 +439,7 @@ async fn stopped_profile_budget_withholds_product_but_keeps_fit_wald_and_covaria
     ] {
         assert!(
             completion
-                .product_permission(quantity)
+                .product_permission(&crate::workflow::completion::ProductScope::Task, quantity)
                 .unwrap()
                 .permits_result()
         );
@@ -753,7 +756,10 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         result
             .completion()
             .unwrap()
-            .product_permission(DerivedQuantity::ProfileInterval)
+            .product_permission(
+                &crate::workflow::completion::ProductScope::Task,
+                DerivedQuantity::ProfileInterval
+            )
             .unwrap()
             .permits_result()
     );

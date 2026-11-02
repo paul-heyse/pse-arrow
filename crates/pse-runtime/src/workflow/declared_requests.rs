@@ -124,7 +124,7 @@ impl ModelingPackage {
         preparation: &PreparationSettings,
         settings: SolveSettings,
         cancel: &CancelSource,
-    ) -> Result<ModelingResult, WorkflowError> {
+    ) -> Result<DeclaredAlgebraicOutcome, WorkflowError> {
         self.check_service_bindings(services.preparation())?;
         let execution = self
             .admit_declared_request(services.preparation(), case, preparation, settings, cancel)

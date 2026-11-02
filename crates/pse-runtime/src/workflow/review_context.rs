@@ -582,6 +582,28 @@ impl RunResult {
         )?;
         out.document.failure = self.error().map(ToString::to_string);
         match self.replay_request() {
+            RunRequest::Initialization(initialization) => {
+                if request.steps.iter().any(|step| *step != 0) {
+                    return Err(contract(
+                        "initialization review context selects the original task scope",
+                    ));
+                }
+                out.source(&initialization.source, 0)?;
+                out.settings(&initialization.execution.analysis.solver)?;
+                out.fact(
+                    "/initialization/policy".into(),
+                    "initialization-policy.v1",
+                    initialization.policy()?,
+                )?;
+                out.fact(
+                    "/initialization/constructor".into(),
+                    "replay-case-constructor.v2",
+                    &super::ReplayCaseConstructor::from_analysis(
+                        0,
+                        &initialization.execution.analysis,
+                    )?,
+                )?;
+            }
             RunRequest::Modeling(steps) => {
                 if request.steps.iter().any(|step| *step >= steps.len()) {
                     return Err(contract("review context selected step absent"));

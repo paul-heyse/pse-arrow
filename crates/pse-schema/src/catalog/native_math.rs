@@ -1983,7 +1983,7 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
             column("quantity", T::enumeration("DerivedQuantity")),
             documented(
                 "validity",
-                validity,
+                validity.clone(),
                 "Whether the quantity is certified or why it is withheld (`reason`, with the typed cause in `detail`), whether it is conditional on a discrete assignment, and the verdicts of the KKT point it was read from when the analysis ran: independent active gradients, strict complementarity, second-order sufficiency, the count of weakly active constraints, the 1-norm condition estimate of the normalized KKT matrix and the backward error of a refined backsolve.",
             ),
         ],
@@ -2075,13 +2075,26 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
         ],
         "The reduced Hessian over declared parameters at a certified KKT point (ADR-0118 item 6): the second derivative of the optimal value, read over the parameter pin rows. Its eigen-decomposition is taken in the declared coordinate scales, where it does not depend on the choice of units. The validity is in local_validity.",
     );
-    declare_fit_uncertainty(b);
+    declare_fit_uncertainty(b, validity);
 }
 
 /// A fit's covariance, its intervals, the profile chains behind them and its response
 /// directions (ADR-0118 items 1, 3 and 8; Plan 22 S3). The fit's validity rows are in
 /// `local_validity` at step 0.
-fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
+fn declare_fit_uncertainty(b: &mut RegistryBuilder, local_validity: T) {
+    b.declare_enum(EnumDecl::platform(
+        "ProductUseScope",
+        vec![
+            EnumMember::new(
+                "task",
+                "A fit-owned statistical product under its original task permission.",
+            ),
+            EnumMember::new(
+                "point",
+                "A derived product at the exact original independently assessed point.",
+            ),
+        ],
+    ));
     b.declare_enum(EnumDecl::platform("CovarianceInputOrigin", vec![
         EnumMember::new("qualified_fit", "Complete covariance content and local validity reconciled with an actual fit."),
         EnumMember::new("external", "Explicit caller assumptions with uncertified statistical provenance; mathematical PSD admission is separate."),
@@ -2255,12 +2268,18 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "propagated_covariances",
-        2,
+        3,
         S::Derived,
         &["run_id", "step"],
         vec![
             run_id(),
             column("step", ordinal()),
+            documented("product_use", record(vec![
+                ("scope", T::enumeration("ProductUseScope")),
+                ("reference_point", T::id().optional()),
+                ("decision", T::enumeration("CandidateUse")),
+                ("validity", local_validity),
+            ]).named("ScopedPropagationUse"), "Producer-owned lazy product fact at the original step/reference point. Earlier immutable completion may remain unavailable; mathematical validity alone never grants original physical permission."),
             documented(
                 "covariance_run_id",
                 T::id(),

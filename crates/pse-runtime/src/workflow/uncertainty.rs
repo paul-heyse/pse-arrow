@@ -85,6 +85,7 @@ impl Propagated {
         run_id: RunId,
         step: i64,
         output_units: Vec<SemanticId>,
+        product_use: pse_model::generated::structures::ScopedPropagationUse,
     ) -> pse_relations::generated::runtime::propagated_covariances::Row {
         use pse_relations::generated::enums::CovarianceInputOrigin;
         let (origin, label, assumptions) = match self.origin {
@@ -100,6 +101,7 @@ impl Propagated {
         pse_relations::generated::runtime::propagated_covariances::Row {
             run_id,
             step,
+            product_use,
             covariance_run_id: self.covariance_run,
             covariance_origin: origin,
             covariance_label: label,
@@ -412,7 +414,10 @@ impl RunResult {
                 .completion()
                 .ok()
                 .and_then(|completion| {
-                    completion.product_permission(DerivedQuantity::ParameterCovariance)
+                    completion.product_permission(
+                        &crate::workflow::completion::ProductScope::Task,
+                        DerivedQuantity::ParameterCovariance,
+                    )
                 })
                 .is_some_and(super::ProductPermission::permits_result)
             {

@@ -1534,6 +1534,8 @@ execution ownership. Their selected comparisons do not establish full numerical 
 
 ### 21.1 Native operations, canonical access and protected results
 
+> Proposed decision: [ADR-0237](../../adr/0237-native-initialization-outcomes.md), under authorized Plan64c C03 execution. Native and recorded initialization preserve the full original report and policy-sensitive operation identity through the existing lifecycle/result owners. Plan64c owns implementation and qualification; no last-result projection or separate initializer is selected.
+
 > Proposed decision: [ADR-0236](../../adr/0236-scoped-native-product-permission.md), under authorized Plan64c execution. Completion owns scoped product facts; protected selections derive usability from original producer facts and covered task/step/member/reference-point meaning. Changed document interpretations refuse historical facts lacking required scope rather than strengthening defaults. Plan64c owns implementation and qualification.
 
 > Decisions: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md),

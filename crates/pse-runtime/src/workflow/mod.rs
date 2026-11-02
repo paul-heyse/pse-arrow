@@ -112,7 +112,7 @@ pub use diagnostic_documents::{
 pub(crate) mod diagnostic_rows;
 mod diagnostics;
 mod durable;
-pub use completion::{Completion, ProductPermission, ScientificPermission};
+pub use completion::{Completion, ProductPermission, ProductScope, ScientificPermission};
 pub use durable::{
     AdmittedSeed, Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability,
     SeedReadError, StoredCompletion, TerminationCause, TerminationDetail,
@@ -148,7 +148,9 @@ pub use worker::{PhysicalSource, Processed, WorkerSettings};
 mod declared_requests;
 mod operation_preparation;
 pub use declared_requests::conform_pure_request;
-pub use operation_preparation::{PreparedOperation, RuntimeOperationRequest};
+pub use operation_preparation::{
+    PreparedInitializationOperation, PreparedOperation, RuntimeOperationRequest,
+};
 mod study_demand;
 pub use study_demand::{
     CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
@@ -281,28 +283,34 @@ pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
+pub use modeling::ModelingStructuralAnalysis;
+pub use modeling::scientific_intake;
 pub use modeling::{
-    DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
-    ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
-    ModelingComparisonObservation, ModelingComparisonRequest, ModelingConformanceCheck,
-    ModelingConformancePolicy, ModelingConformanceReport, ModelingDiagnosticPolicy,
-    ModelingDiagnosticPreparation, ModelingDiagnosticSamples, ModelingDiagnostics,
-    ModelingElasticAttempt, ModelingFixtureSelection, ModelingInfeasibilityCertificate,
-    ModelingInitialization, ModelingInitializationAttempt, ModelingInitializationReport,
-    ModelingInitializationStep, ModelingKnowledge, ModelingNonlinearExplanation,
-    ModelingNonlinearPolicy, ModelingObservations, ModelingPackage, ModelingReport, ModelingResult,
-    ModelingSimulation, ModelingSolvePreparation, ModelingSourceMap, ModelingSourceMapDocument,
-    ModelingTrajectory, OwnedDeclarations, PreparationDiscoveryReport, PreparationDiscoveryRequest,
-    PreparationEligibility, PreparationProductKind, ProjectChangeImpact, ProjectComparison,
-    ProjectComparisonSelection, ProjectDocumentComposition, ProjectDocumentSource,
-    ProjectMergeChoice, ProjectMergeConflict, ProjectMergeConflictKind, ProjectMergeIntent,
-    ProjectMergeMode, ProjectMergePreview, ProjectMergeProposal, ProjectMergeResolution,
-    ProjectObjectChange, ProjectSourceDetail, ProjectSourceObject, ResidentPreparation,
-    SimulationSampleAttempt, SimulationSampleObserver, StartSource, conform_pure_documents,
-    with_simulation_sample_wait,
+    DeclaredAlgebraicOutcome, DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop,
+    DiscreteInitialization, ElasticObservation, InitializationOverrides, ModelingAnalysis,
+    ModelingCheck, ModelingComparisonObservation, ModelingComparisonRequest,
+    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
+    ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
+    ModelingDiagnostics, ModelingElasticAttempt, ModelingFixtureSelection,
+    ModelingInfeasibilityCertificate, ModelingInitialization, ModelingInitializationAttempt,
+    ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
+    ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
+    ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
+    ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OwnedDeclarations,
+    PreparationDiscoveryReport, PreparationDiscoveryRequest, PreparationEligibility,
+    PreparationProductKind, ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection,
+    ProjectDocumentComposition, ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict,
+    ProjectMergeConflictKind, ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview,
+    ProjectMergeProposal, ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail,
+    ProjectSourceObject, ResidentPreparation, SimulationSampleAttempt, SimulationSampleObserver,
+    StartSource, conform_pure_documents, with_simulation_sample_wait,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
+pub use modeling::{
+    ModelingRootSourceImpact, ModelingSourceClosure, ModelingSourceImpact,
+    ModelingSourceImpactStatus,
+};
 #[cfg(all(test, feature = "canonical-tests"))]
 mod caller_lifetime_tests;
 #[cfg(test)]

@@ -22,6 +22,28 @@ mod dependencies;
 mod ready;
 pub(super) use dependencies::{Dependencies, Iterations, consumed_inputs};
 
+/// Original free continuous bounds use their physical acceptance tolerance. Fixed and
+/// discrete coordinates retain exact bounds; evaluator domain guards remain independent.
+pub(crate) fn original_bound_accepts(
+    variable: &pse_math::binding::Variable,
+    value: f64,
+    tolerance: f64,
+) -> bool {
+    let tolerance = if variable.fixed || variable.domain.is_discrete() {
+        0.0
+    } else {
+        tolerance
+    };
+    value.is_finite()
+        && tolerance.is_finite()
+        && tolerance >= 0.0
+        && native::quality::interval(
+            value,
+            variable.lower.unwrap_or(f64::NEG_INFINITY),
+            variable.upper.unwrap_or(f64::INFINITY),
+        ) <= tolerance
+}
+
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
 #[derive(Clone, Debug)]
 pub struct PreparedInitialization {
@@ -1762,11 +1784,17 @@ impl Blocks<'_, '_> {
                                 && *value <= row.upper + tolerance
                         },
                     );
+                    let mut free_tolerances = tolerances.variables.iter();
                     let bounds_ok = structure.variables().iter().all(|variable| {
+                        let tolerance = if variable.fixed {
+                            Some(0.0)
+                        } else {
+                            free_tolerances.next().copied()
+                        };
                         values.scalars.get(&variable.port.id).is_some_and(|value| {
-                            value.is_finite()
-                                && variable.lower.is_none_or(|lower| *value >= lower)
-                                && variable.upper.is_none_or(|upper| *value <= upper)
+                            tolerance.is_some_and(|tolerance| {
+                                original_bound_accepts(variable, *value, tolerance)
+                            })
                         })
                     });
                     Ok(rows_ok && bounds_ok)
@@ -2371,6 +2399,43 @@ fn block_candidate<'a>(
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
+    #[test]
+    fn original_bound_acceptance_distinguishes_tolerance_from_fixed_and_discrete_bounds() {
+        use pse_model::generated::enums::ModelingVariableDomain as Domain;
+        let mut variable = pse_math::binding::Variable {
+            port: pse_kernels::Port {
+                id: id(44),
+                quantity: pse_quantity::QuantityTypeId::from_id(id(45)),
+                unit: pse_quantity::UnitId::from_id(id(46)),
+            },
+            fixed: false,
+            domain: Domain::Continuous,
+            lower: Some(1.0),
+            upper: Some(2.0),
+        };
+        let tolerance = 1.0 / 1024.0;
+        let inside = tolerance / 2.0;
+        assert!(original_bound_accepts(&variable, 1.0 - inside, tolerance));
+        assert!(original_bound_accepts(&variable, 2.0 + inside, tolerance));
+        assert!(!original_bound_accepts(
+            &variable,
+            1.0 - 2.0 * tolerance,
+            tolerance
+        ));
+        assert!(!original_bound_accepts(
+            &variable,
+            2.0 + 2.0 * tolerance,
+            tolerance
+        ));
+        assert!(!original_bound_accepts(&variable, f64::NAN, tolerance));
+        assert!(!original_bound_accepts(&variable, f64::INFINITY, tolerance));
+        variable.fixed = true;
+        assert!(!original_bound_accepts(&variable, 1.0 - inside, tolerance));
+        variable.fixed = false;
+        variable.domain = Domain::Integer;
+        assert!(!original_bound_accepts(&variable, 1.0 - inside, tolerance));
+        assert!(original_bound_accepts(&variable, 1.0, tolerance));
+    }
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
     }
