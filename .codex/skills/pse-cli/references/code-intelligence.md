@@ -136,6 +136,10 @@ format-qualified item data when a compact signature omits complex bounds or asso
 A facade can require explicit acquisition of its defining package. A missing artifact is
 unprepared, not an empty API; unresolved references and automatic/blanket impl omissions
 remain visible. Returned APIs do not alone establish ordinary-build applicability.
+`inspect api PACKAGE --export-jsonl NEW_DIR` exports the complete retained artifact's
+declarations, public paths, traits, implementations and type occurrences in one pass.
+The explicit output directory must be new; export acquires nothing and retains its own
+documentation context and coverage limits.
 Rich contracts retain generic binders, associated constraints, attributes and stability facts.
 `pse api PACKAGE --extract-examples` explicitly obtains rustdoc's transformed doctest inputs;
 `inspect api PACKAGE --native-examples FILE` reads that original format-qualified output.
@@ -164,11 +168,15 @@ For dependency questions, distinguish declarations, resolved metadata and compil
 | Question | Capability and boundary |
 |---|---|
 | Why is this package included? | `pse inspect dependency PACKAGE --why` returns shortest metadata inclusion paths. |
+| Which library declarations have observed workspace references? | `inspect dependency-usage ID... --backend native-snapshot` batches exact Cargo IDs in one prepared world. It retains import/type roles, source witnesses, profile ambiguity and missing packages; these are not runtime call counts or proof of unused capability. |
 | Which authored feature links request this member? | `inspect dependency --feature-member VALUE` follows exact authored expansion links. Optionality, default requests and target expressions remain distinct from Cargo's resolved feature union. |
 | Which actual target/host/build units does this selection admit? | `pse inspect dependency-units DEPENDENCY ROOT --lib ...` uses the shared check grammar, including multiple roots, features and negative features. This is compiler-unit context, not compilation, provider readiness, a test population or impact proof. |
 
 Add `--native-world` to dependency-unit inspection to compare actual prepared-world roots,
 features, roles, cfg and edition. Ambiguous/missing correspondences remain explicit.
+For a separately prepared frozen project, pass the same `--project PATH` to the usage query.
+The [library evidence workflow](../../../../docs/dev/library-evidence.md) composes these
+native producers and keeps alternate-project reference metadata separate from API contexts.
 `--metadata-original` retains the separately captured metadata instead of inferring it from units.
 
 For a concrete unresolved API question, `pse probe new NAME --deps PACKAGE` creates an authored

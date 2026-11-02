@@ -72,11 +72,72 @@ pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result
         ))
         .and_then(semantic::Response::into_dependency_usage)
         .map_err(error)?;
+    Ok(output.emit(report(answer))?)
+}
+
+fn report(answer: semantic::DependencyUsageAnswer) -> Envelope<semantic::DependencyUsageAnswer> {
+    let incomplete = !answer.unavailable_package_ids.is_empty() || answer.unmapped_definitions != 0;
     let mut response = Envelope::response(
         "inspect dependency-usage",
         "observed written-token references; not runtime calls or exhaustive capability usage",
         answer,
     );
-    response.observation.completeness = crate::envelope::Completeness::Partial;
-    Ok(output.emit(response)?)
+    response.observation.scope = "selected_native_world_resolved_written_token_references".into();
+    response.observation.limitations = response.payload.limitations.clone();
+    if incomplete {
+        response.observation.completeness = crate::envelope::Completeness::Partial;
+    }
+    response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn answer() -> semantic::DependencyUsageAnswer {
+        semantic::DependencyUsageAnswer {
+            session: semantic::AnalysisContext {
+                backend: "native_snapshot".into(),
+                configuration: semantic::Configuration {
+                    backend: semantic::Backend::NativeSnapshot,
+                    project: "/snapshot".into(),
+                    features: vec![],
+                    no_default_features: false,
+                    target: None,
+                    build_macros: false,
+                    test_context: false,
+                },
+                position_encoding: "utf-8".into(),
+                backend_status: None,
+                preparation: "restricted immutable snapshot".into(),
+            },
+            generation: 1,
+            package_ids: vec!["supplier".into()],
+            unavailable_package_ids: vec![],
+            references: vec![],
+            indexed_files: 1,
+            unmapped_definitions: 0,
+            limitations: vec!["No runtime or exhaustive source-usage proof".into()],
+        }
+    }
+    #[test]
+    fn dependency_usage_delivery_completion_preserves_scope_and_missing_evidence() {
+        let complete = report(answer());
+        assert_eq!(complete.exit_code(), 0);
+        assert!(
+            complete
+                .observation
+                .scope
+                .starts_with("selected_native_world")
+        );
+        assert_eq!(
+            complete.observation.limitations,
+            complete.payload.limitations
+        );
+        let mut missing = answer();
+        missing.unavailable_package_ids.push("missing".into());
+        assert_eq!(report(missing).exit_code(), 1);
+        let mut unmapped = answer();
+        unmapped.unmapped_definitions = 1;
+        assert_eq!(report(unmapped).exit_code(), 1);
+    }
 }

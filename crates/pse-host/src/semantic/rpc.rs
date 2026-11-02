@@ -298,7 +298,20 @@ impl Client {
             | Request::WorkspaceSymbols(_)
             | Request::Graph(_)
             | Request::DependencyUsage { .. } => {
-                let mut conversation = client.run().await.map_err(transport_error)?;
+                // A workspace-wide census intentionally returns many source witnesses.
+                // Keep other operations on the SDK defaults and bound both wire bytes
+                // and decoded element storage for this bulk response explicitly.
+                let options = if matches!(request, Request::DependencyUsage { .. }) {
+                    connectrpc::client::CallOptions::default()
+                        .with_max_message_size(64 * 1024 * 1024)
+                        .with_element_memory_limit(256 * 1024 * 1024)
+                } else {
+                    connectrpc::client::CallOptions::default()
+                };
+                let mut conversation = client
+                    .run_with_options(options)
+                    .await
+                    .map_err(transport_error)?;
                 conversation
                     .send(pb::NativeControl {
                         action: Some(pb::native_control::Action::Start(Box::new(
