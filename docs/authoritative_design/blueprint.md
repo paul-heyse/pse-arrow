@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 339
+revision: 340
 date: 2026-11-02
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 340 | 2026-11-02 | Describe implemented full native initialization outcomes, actual parent projection coordinates, scoped product permission and versioned protected export interpretation (§21.1/§21.5). | Authorized Plan64c execution under proposed ADR-0236/0237; focused verification and remaining native delivery acceptance remain with Plan64c. No ADR status or assembled qualification change. |
 | 339 | 2026-11-02 | Record proposed ADR-0237 full native/recorded initialization outcome and identity extension in §21.1. | Operator-authorized Plan64c C03 execution; Proposed, no qualification or ADR status change. |
 | 338 | 2026-11-02 | Record proposed ADR-0236 scoped product and protected-export interpretation in §21.1. | Operator-authorized Plan64c execution; Proposed, no scientific qualification or ADR status change. |
 | 337 | 2026-11-02 | Reconcile §0 expanded process-delivery target with Plan64 RC01/RC02 and native scientific-reference boundary; finite H01 inventory remains pending. | Operator-authorized Plan64a design/contracts execution; reviewed target only, no production or scientific qualification and no ADR status change. |

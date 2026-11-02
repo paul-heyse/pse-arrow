@@ -3383,7 +3383,7 @@ mod canonical_connected_results_server_unit {
                 ("usable-task-product", CandidateUse::Usable, PackScientificState::Usable),
                 ("withheld-task-product", CandidateUse::Unusable, PackScientificState::Unusable),
             ] {
-                let revision = store.edit(&format!("{key}-source"), None, "source", &[]).await.unwrap();
+                let revision = store.edit(&format!("{key}-source"), None, &format!("{key}-source-operation"), &[]).await.unwrap();
                 store.begin_run(&RunRequest {purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
                     admission_study: None, admission_point: None, key: key.into(), revision,
                     sources: vec![], request: vec![1], source_selection: vec![2], attestation: vec![3]}).await.unwrap();
@@ -3420,14 +3420,14 @@ mod canonical_connected_results_server_unit {
                         point: None, retry_failure: None, effect: pse_model::study::EffectState::Absent},
                     state: pse_model::generated::enums::AttemptState::Partial, progress: super::super::ProgressCoverage::Unknown {}};
                 let bytes = serde_json::to_vec(&original).unwrap();
-                acknowledgments.append(&fence, store.append_result_batch(&fence, "completion", "__completion", 0,
+                acknowledgments.append(&fence, store.append_result_batch(&fence, &format!("{key}-completion"), "__completion", 0,
                     pse_operations::canonical_execution::ResultPayload::new(bytes.clone()).unwrap(), bytes.len() as u64).await.unwrap()).unwrap();
                 acknowledgments.complete(&fence, "__completion").unwrap();
                 let receipt = serde_json::to_vec(&serde_json::json!({"version":1,"batch_count":1,"payload_bytes":bytes.len(),"digest":result_payload_digest(&bytes),"inline":null})).unwrap();
-                let manifest = store.close_acknowledged(&fence, "close", acknowledgments.freeze(&fence).unwrap()).await.unwrap();
+                let manifest = store.close_acknowledged(&fence, &format!("{key}-close"), acknowledgments.freeze(&fence).unwrap()).await.unwrap();
                 // SAFETY: this private fixture publishes original producer facts while retaining
                 // partial execution availability and no execution-seed eligibility.
-                unsafe {store.seal_acknowledged(&manifest, "seal", TerminalClass::Partial, &receipt,
+                unsafe {store.seal_acknowledged(&manifest, &format!("{key}-seal"), TerminalClass::Partial, &receipt,
                     pse_operations::canonical_execution::SeedEligibility::Unavailable).await.unwrap();}
                 for (start, end, state) in [(0, u64::MAX, expected), (0, 0, PackScientificState::Unknown), (1, 2, PackScientificState::Unknown)] {
                     let reader = runtime.results(key, fence.attempt(), "runtime.parameter_covariances", start, end, CancellationToken::new()).await.unwrap();

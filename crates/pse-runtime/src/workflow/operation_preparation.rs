@@ -407,6 +407,16 @@ mod initialization_tests {
             .find(|row| row.name == "selected")
             .unwrap()
             .declaration_id;
+        let parameter_declaration = rows
+            .iter()
+            .find(|row| row.name == "a")
+            .unwrap()
+            .declaration_id;
+        let target_declaration = rows
+            .iter()
+            .find(|row| row.name == "x")
+            .unwrap()
+            .declaration_id;
         let package = runtime
             .modeling_package(rows, crate::workflow::tests::physical())
             .await
@@ -437,8 +447,25 @@ mod initialization_tests {
             )
             .await
             .unwrap();
-        let parameter = model.compiled().model.paths["root.a"];
-        let target = model.compiled().model.paths["root.x"];
+        let symbol = |declaration| {
+            let mut symbols = model
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .filter(|symbol| symbol.lineage.declaration == declaration);
+            let id = symbols
+                .next()
+                .expect("selected declaration has its actual instantiated symbol")
+                .id;
+            assert!(
+                symbols.next().is_none(),
+                "this case has exactly one instance of each selected declaration"
+            );
+            id
+        };
+        let parameter = symbol(parameter_declaration);
+        let target = symbol(target_declaration);
         let operation = package
             .prepare_operation(
                 services.preparation(),
@@ -584,7 +611,7 @@ mod initialization_tests {
     }
     async fn initialization_round_trip(runtime: super::super::Runtime, recorded: bool) {
         let rows = pse_authoring::language::parse(
-            "package p {def D {var x:Scalar; eq e:x==2; annotation report x(\"state\"); stage \"warm\" {override eq e:x==2;} stage \"bad\" {override eq e:x==3;}} test successful fixture {dof -1; route simultaneous; procedure initialize; stages(\"warm\"); fix root.x=2;} {child root:D=D();} test failed fixture {dof -1; route simultaneous; procedure initialize; stages(\"warm\",\"bad\"); fix root.x=2;} {child root:D=D();}}",
+            "package p {def D {var x:Scalar; eq e:x==2; annotation report x(\"state\"); annotation check x(x==2); stage \"warm\" {override eq e:x==2;} stage \"bad\" {override eq e:x==3;}} test successful fixture {dof -1; route simultaneous; procedure initialize; stages(\"warm\"); fix root.x=2;} {child root:D=D();} test failed fixture {dof -1; route simultaneous; procedure initialize; stages(\"warm\",\"bad\"); fix root.x=2;} {child root:D=D();}}",
             pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
         ).unwrap();
         let cases = ["successful", "failed"].map(|name| {
@@ -761,7 +788,34 @@ mod initialization_tests {
             let reports =
                 pse_relations::generated::runtime::modeling_reports::Row::rows(&reports_table)
                     .unwrap();
-            assert_eq!(reports.len(), 2);
+            let parent_run_id = run.run_id;
+            let expected_reports = report
+                .attempts
+                .iter()
+                .enumerate()
+                .flat_map(|(ordinal, attempt)| {
+                    attempt
+                        .result
+                        .as_ref()
+                        .unwrap()
+                        .reports
+                        .iter()
+                        .cloned()
+                        .map(move |mut row| {
+                            row.run_id = parent_run_id;
+                            row.step = ordinal as i64;
+                            row
+                        })
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(reports.len(), expected_reports.len());
+            for expected in &expected_reports {
+                assert_eq!(
+                    reports.iter().filter(|row| *row == expected).count(),
+                    1,
+                    "every actual retained child report projects exactly once at its parent coordinate"
+                );
+            }
             assert!(reports.iter().all(|row| row.run_id == run.run_id));
             assert_eq!(
                 reports
@@ -775,15 +829,37 @@ mod initialization_tests {
             let checks =
                 pse_relations::generated::runtime::modeling_checks::Row::rows(&checks_table)
                     .unwrap();
-            assert!(!checks.is_empty());
-            assert!(checks.iter().all(|row| row.run_id == run.run_id));
-            assert_eq!(
-                checks
+            let expected_checks =
+                report
+                    .attempts
                     .iter()
-                    .map(|row| row.step)
-                    .collect::<std::collections::BTreeSet<_>>(),
-                std::collections::BTreeSet::from([0, 1])
-            );
+                    .enumerate()
+                    .flat_map(|(ordinal, attempt)| {
+                        attempt.result.as_ref().unwrap().checks.iter().cloned().map(
+                            move |mut row| {
+                                row.run_id = parent_run_id;
+                                row.step = ordinal as i64;
+                                row
+                            },
+                        )
+                    })
+                    .collect::<Vec<_>>();
+            assert_eq!(checks.len(), expected_checks.len());
+            for expected in &expected_checks {
+                assert_eq!(
+                    checks.iter().filter(|row| *row == expected).count(),
+                    1,
+                    "stage omission policy cannot drop or reassign an actual retained original check"
+                );
+            }
+            assert!(checks.iter().all(|row| row.run_id == run.run_id));
+            if completed {
+                assert!(!checks.is_empty());
+                assert!(
+                    checks.iter().any(|row| row.step == 1),
+                    "the restored original retains its requested native check"
+                );
+            }
             if !completed {
                 assert!(stored[0].failure_ordinal.is_some());
                 assert!(!findings.is_empty());
@@ -792,6 +868,20 @@ mod initialization_tests {
                 let expected = table.batch().clone();
                 let expected_findings = findings_table.batch().clone();
                 let expected_reports = reports_table.batch().clone();
+                let expected_checks = checks_table.batch().clone();
+                let report_permissions = reports
+                    .iter()
+                    .map(|row| {
+                        let attempt = &report.attempts[row.step as usize];
+                        if attempt.step == super::super::ModelingInitializationStep::Original
+                            && attempt.accepted()
+                        {
+                            super::super::PackScientificState::Usable
+                        } else {
+                            super::super::PackScientificState::Unusable
+                        }
+                    })
+                    .collect::<Vec<_>>();
                 drop(handle);
                 drop(run);
                 let mut reader = runtime
@@ -814,7 +904,7 @@ mod initialization_tests {
                         &attempt_key,
                         "runtime.modeling_reports",
                         0,
-                        2,
+                        expected_reports.num_rows() as u64,
                         cancel.token().clone(),
                     )
                     .await
@@ -828,25 +918,37 @@ mod initialization_tests {
                         .unwrap()
                         .is_none()
                 );
-                for (start, end, usability) in [
-                    (0, 1, super::super::PackScientificState::Unusable),
-                    (
-                        1,
-                        2,
-                        if completed {
-                            super::super::PackScientificState::Usable
-                        } else {
-                            super::super::PackScientificState::Unusable
-                        },
-                    ),
-                ] {
+                if expected_checks.num_rows() > 0 {
+                    let mut checks_reader = runtime
+                        .results(
+                            &run_key,
+                            &attempt_key,
+                            "runtime.modeling_checks",
+                            0,
+                            expected_checks.num_rows() as u64,
+                            cancel.token().clone(),
+                        )
+                        .await
+                        .unwrap();
+                    assert_eq!(
+                        checks_reader
+                            .next_relation_batch()
+                            .await
+                            .unwrap()
+                            .unwrap()
+                            .batch(),
+                        &expected_checks
+                    );
+                    assert!(checks_reader.next_relation_batch().await.unwrap().is_none());
+                }
+                for (index, usability) in report_permissions.into_iter().enumerate() {
                     let reader = runtime
                         .results(
                             &run_key,
                             &attempt_key,
                             "runtime.modeling_reports",
-                            start,
-                            end,
+                            index as u64,
+                            index as u64 + 1,
                             cancel.token().clone(),
                         )
                         .await

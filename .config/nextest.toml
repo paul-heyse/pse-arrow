@@ -61,6 +61,16 @@ filter = 'test(authored_vessel_fitting_preserves_shared_parameters_checks_and_id
 slow-timeout = { period = "300s", terminate-after = 3 }
 
 [[profile.default.overrides]]
+# These consumers own full scientific preparation; recorded cases also own
+# selected server module controllers. Use the existing scientific exclusion budget;
+# pure mechanism tests and unrelated clients retain their parallel execution.
+filter = 'package(pse-runtime) & (test(/^workflow::modeling::ordinary_delivery_tests::/) | test(/^workflow::modeling::source_impact::tests::ordinary_/) | test(ordinary_bt_sources_admit_and_reimport_through_exact_parent_delta) | test(/^workflow::operation_preparation::initialization_tests::/))'
+test-group = "scientific"
+threads-required = 2
+# Original 600-second solves plus explicit source admission/publication work.
+slow-timeout = { period = "300s", terminate-after = 6 }
+
+[[profile.default.overrides]]
 # This original scientific closure has untimed preparation followed by a bounded
 # 1800-second derivative-condition and material-response job on one worker.
 filter = 'test(original_pr_case_derivatives_satisfy_production_basis_conditions)'

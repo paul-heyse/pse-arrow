@@ -36,12 +36,21 @@ impl ModelingPackage {
             .scope(async {
                 let deadline = services.math().preparation_deadline(cancel)?;
                 let scoped = cancel.with_deadline(Some(deadline));
+                // Structural overrides use the same caller-demand binder as ordinary
+                // cases. The compiler resolves materialized observation paths and
+                // expands any remaining finite member demand without numerical values.
+                let mut bindings = analysis.bindings.clone();
+                bindings
+                    .demand
+                    .extend(analysis.case.variables.keys().cloned());
+                bindings.demand.sort();
+                bindings.demand.dedup();
                 let model = self
                     .prepare(
                         services,
                         analysis.root,
                         analysis.instance,
-                        analysis.bindings.clone(),
+                        bindings,
                         analysis.limits,
                         &scoped,
                     )
@@ -162,6 +171,10 @@ mod tests {
         assert_eq!(evidence.analysis.under.rows.len(), 1);
         assert_eq!(evidence.instance, request.instance);
         assert!(evidence.variables.is_empty());
+        assert!(
+            !evidence._model.compiled().model.paths.contains_key("x"),
+            "the scalar is materialized without a caller path observation"
+        );
         let mut specified = request.clone();
         let x = evidence
             ._model
@@ -171,11 +184,9 @@ mod tests {
             .values()
             .find(|symbol| symbol.lineage.path.ends_with(".x"))
             .unwrap()
-            .lineage
-            .path
-            .clone();
+            .id;
         specified.case.variables.insert(
-            x,
+            "x".into(),
             pse_compiler::workspace::ModelingVariableState {
                 fixed: Some(true),
                 ..Default::default()
@@ -191,7 +202,77 @@ mod tests {
             .unwrap();
         assert_eq!(fixed.source_revision, evidence.source_revision);
         assert_eq!(fixed.variables.len(), 1);
+        assert_eq!(fixed.variables.get(&x).unwrap().fixed, Some(true));
+        assert_eq!(fixed._model.compiled().model.paths.get("x"), Some(&x));
         assert_eq!(fixed.analysis.square.columns.len(), 1);
         assert!(fixed.analysis.under.columns.is_empty());
+        assert!(
+            specified.case.values.is_empty() && specified.case.members.is_empty(),
+            "the fixed structural state has no numerical point"
+        );
+    }
+
+    #[tokio::test]
+    async fn structural_case_variables_use_the_existing_nested_indexed_path_binder() {
+        let rows = pse_authoring::language::parse(
+            "package p {entity kind item {} entity item a {} entity item b {} set items:Set<item>={a,b}; def Leaf {param p:Scalar=2; var x[j in items]:Scalar; eq balance:sum(j in items | x[j])==p;} def Root {child leaf:Leaf=Leaf();}}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        ).unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.preparation_services();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let mut request = ModelingAnalysis {
+            root,
+            instance: pse_modeling::specialize::root_instance(root),
+            bindings: Default::default(),
+            limits: Limits::default(),
+            case: Default::default(),
+            order: pse_kernels::DerivativeOrder::Value,
+            compiler: crate::workflow::tests::compiler_profile(),
+            solver: Default::default(),
+            numerical: Default::default(),
+        };
+        request.case.variables.insert(
+            "leaf.x[a]".into(),
+            pse_compiler::workspace::ModelingVariableState {
+                fixed: Some(true),
+                ..Default::default()
+            },
+        );
+        let evidence = package
+            .analyze_structure(&services, &request, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let id = evidence._model.compiled().model.paths["leaf.x[a]"];
+        assert_eq!(evidence.variables.get(&id).unwrap().fixed, Some(true));
+        assert_eq!(evidence.analysis.square.columns.len(), 1);
+        assert!(evidence.analysis.under.columns.is_empty());
+        assert!(request.case.values.is_empty() && request.case.members.is_empty());
+        request.case.variables.clear();
+        request.case.variables.insert(
+            "leaf.p".into(),
+            pse_compiler::workspace::ModelingVariableState {
+                fixed: Some(true),
+                ..Default::default()
+            },
+        );
+        let error = package
+            .analyze_structure(&services, &request, &crate::CancelSource::new())
+            .await
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("requires an outer variable"),
+            "{error}"
+        );
     }
 }

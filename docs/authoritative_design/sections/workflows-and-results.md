@@ -1534,9 +1534,31 @@ execution ownership. Their selected comparisons do not establish full numerical 
 
 ### 21.1 Native operations, canonical access and protected results
 
-> Proposed decision: [ADR-0237](../../adr/0237-native-initialization-outcomes.md), under authorized Plan64c C03 execution. Native and recorded initialization preserve the full original report and policy-sensitive operation identity through the existing lifecycle/result owners. Plan64c owns implementation and qualification; no last-result projection or separate initializer is selected.
+> Decisions: [ADR-0237](../../adr/0237-native-initialization-outcomes.md) and
+> [ADR-0236](../../adr/0236-scoped-native-product-permission.md) remain proposed;
+> implementation is authorized under Plan64c, which owns current qualification.
 
-> Proposed decision: [ADR-0236](../../adr/0236-scoped-native-product-permission.md), under authorized Plan64c execution. Completion owns scoped product facts; protected selections derive usability from original producer facts and covered task/step/member/reference-point meaning. Changed document interpretations refuse historical facts lacking required scope rather than strengthening defaults. Plan64c owns implementation and qualification.
+**Implemented:** generic authored execution returns either its solve result or the full
+initialization report, including unsuccessful stages and restored-original assessment.
+Prepared initialization uses the existing native run and canonical result lifecycle. Its
+identity includes the actual policy and consumed controls. Retained children keep their own
+execution identities; parent result, context, check, report and replay projections use actual
+report ordinals. Accepted auxiliary stages remain diagnostic. The persisted study protocol8
+descriptor does not carry this policy: converting prepared initialization into that descriptor,
+or preparing historical `DeclaredCaseInit`, refuses rather than inventing initialization intent.
+
+Completion owns scientific product facts at their actual task, step or member/reference-point
+scope. A failed sibling cannot revoke an independently accepted point or upgrade its own
+products. Task structural inspection uses compiler-bound incidence and library HK/DM/BTF
+without a numerical candidate; point responses still require their actual accepted point and
+mathematical prerequisites. Structural case-variable paths use the compiler's existing demand
+binder, including nested and indexed members.
+
+Protected selection derives export usability from original producer facts and exact covered
+scope. A caller supplies no authoritative usability label. Unknown or uncertified duals and
+incomplete statistical coverage retain their actual limitations. Lazy covariance propagation
+attaches its governing scope, point, decision and validity when produced, while the earlier
+immutable completion retains its original availability. Version admission is owned by §21.5.
 
 > Decisions: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md),
 > [ADR-0231](../../adr/0231-retained-native-read-currency.md) and
@@ -1558,6 +1580,16 @@ compilation, reuse or specialization. Common `PreparationSettings` carries the c
 profile and expansion policy, including finite conserved class-proof allowance; native and pure
 conformance forward that same policy. Missing required fields refuse. Byte admission and symbolic
 work bounds remain independent (§14.3.2).
+
+Typed declaration edits and scientific intake target an exact immutable parent. The bounded
+FeOS Poling two-species adapter checks the selected artifact's declared hash and produces the
+existing typed `SourceDelta`, retaining original units and interpretation provenance;
+ordinary contextual admission and guarded
+canonical publication remain the authority path. It is a source-specific interpretation,
+not a general importer or a separate scientific catalog. Knowledge projection reports selected
+typed cells, original source roles and exact revision; inspecting an oracle-only cell does not
+authorize production use. Selected-consumer impact compares bounded requested roots and their
+actual positive and negative source-selection premises, without claiming a global reverse index.
 
 Default capability inventory describes each adapter's actually admitted default settings; configured
 queries resolve through that same adapter. Linked-library presence is distinct from model eligibility.
@@ -1710,6 +1742,13 @@ and refuses explicitly. `DiagnosticReport.decode_location` preserves header/body
 category, line/column and structural path. Supplied map keys/variant values are filtered in public
 host views; decode paths do not masquerade as revision-bound authored-source spans. Contextual
 identities, defaults, unknown-key and finite-number rules remain native admission responsibilities.
+
+Under ADR-0236, completion interpretation3, stored completion4 and review pack
+selection/request/index3 retain scoped producer permission. Historical unscoped facts and
+pack interpretation2, which could contain caller-asserted usability, refuse current scientific
+interpretation. The covariance relation's interpretation3 carries lazy propagation use with
+the produced row; protected readback checks it against the original step/point. These changes
+do not rewrite historical storage or grant permission through structural wire compatibility.
 
 Validated setting domains (`Tolerance`, `Fraction`, `PositiveCount`, `FiniteBound`) use nutype;
 `admit_settings` owns cross-field/environment rules. Fixture execution policy remains authored data

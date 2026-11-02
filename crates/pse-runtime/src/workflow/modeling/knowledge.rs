@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded lowering of immutable admitted knowledge through registry-owned schemas.
 use super::*;
-use pse_model::HeapUsage;
 use pse_model::generated::enums::ModelingKnowledgeValueKind as Kind;
 use pse_model::generated::runtime::modeling_knowledge::Row;
 use pse_model::generated::structures::{
@@ -98,17 +97,12 @@ impl ModelingPackage {
             Ok(())
         };
         let mut cells = 0usize;
-        let mut bytes = revision
-            .declarations()
-            .iter()
-            .fold(4096usize, |bytes, row| {
-                bytes.saturating_add(row.owned_bytes().saturating_mul(4))
-            });
-        for (name, _) in view.names() {
-            bytes = bytes.saturating_add(4 * (name.len() + 96));
-        }
+        // The checked revision already retains its declarations and name index under
+        // their original leases. This projection borrows them; its own budget covers
+        // the selected output and scratch, without charging unrelated source twice.
+        let mut bytes = 4096usize;
         if bytes > maximum_bytes {
-            return Err(contract("knowledge metadata exceeds maximum_bytes"));
+            return Err(contract("knowledge projection exceeds maximum_bytes"));
         }
         visit(&mut |cell| {
             cells = cells.saturating_add(1);
@@ -212,6 +206,42 @@ impl ModelingPackage {
         }).await
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn empty_knowledge_projection_respects_its_base_budget() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p {def Empty {}}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let services = runtime.preparation_services();
+        let cancel = crate::CancelSource::new();
+        let error = package
+            .knowledge(&services, None, 1, 1, &cancel.token())
+            .await
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("exceeds maximum_bytes"),
+            "{error}"
+        );
+        let empty = package
+            .knowledge(&services, None, 1, 4096, &cancel.token())
+            .await
+            .unwrap();
+        assert_eq!(empty.table().batch().num_rows(), 0);
+    }
+}
+
 fn empty(kind: Kind) -> Node {
     Node {
         kind,
