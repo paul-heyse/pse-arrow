@@ -9,13 +9,18 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md) | Proposed source-detail, diagnostic/recovery and native scope/settlement corrections; O01–O08 disposition and assembled acceptance owner. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |
 | [40: Simulation diagnostics](40-simulation-performance-diagnostics.md) | Native simulation diagnostics and its independent campaign status. |
 | [32: Workspace content lifecycle](32-workspace-content-lifecycle.md) | Document metadata, retention and native scope interpretation. |
 | [28: Unified simulation substrate](28-surrealdb-unified-substrate.md#current-checkpoint) | Canonical substrate and its independently authorized remaining work. |
+
+[Plan63: Code-intelligence and CLI robustness](63-code-intelligence-cli-robustness.md#outcome)
+is complete. Its coordinator owns O01–O08 disposition, integrated qualification and deliberate
+limits; companions retain source-detail, recovery and native evidence plus the C03 symbol-search
+decision. It remains the highest-numbered series and the current qualification reference.
+Blueprint §21.7 owns enduring contracts and §24.2 the evidence boundary. Retention authorizes no new work.
 
 [Plan60: Engineering code intelligence](60-engineering-code-intelligence.md#outcome) is complete.
 Its coordinator owns integrated acceptance and resolved source/review dispositions; companions
@@ -27,7 +32,7 @@ their owners and triggers; completed records authorize no new work. Blueprint §
 enduring contract and §24.2 the qualification basis.
 
 [Plan62: Code-intelligence capability expansion](62-code-intelligence-capability-expansion.md#outcome)
-is complete and retained as the highest-numbered series and support for subsequent intelligence
+is complete and retained as support for subsequent intelligence
 consumers and proposed ADR-0233/0235. The coordinator owns O01–O13 dispositions and local Linux
 qualification, including corrected affected reruns and the operator-excluded copyright-header
 check. Its four companions retain completed package state and conditional revisit triggers.

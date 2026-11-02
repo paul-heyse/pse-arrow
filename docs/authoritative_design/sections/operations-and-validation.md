@@ -1033,6 +1033,20 @@ and affected reruns; later records do not silently turn an earlier attempt into 
 
 #### 24.2.2 Recorded native engineering-tool evidence
 
+Plan63's selective source detail, typed query recovery and native scope/settlement corrections
+have selected local Linux qualification. The [Plan63 Outcome](../../plans/63-code-intelligence-cli-robustness.md#outcome)
+owns exact commands and composite repairs: 151 host controls, 49 native/shared controls, the
+assembled source/CLI/native/API identities and final six agent journeys passed their selected
+or affected runs. Actual usage-search cancellation, independent managed cancellation/reconnect,
+macro stop and sibling/fresh-query controls retain distinct scopes. Default/no-default workspace
+and native/compiler Clippy, four host feature combinations, generation and governance passed;
+the initially failing copyright-header recipe also passed after its three missing notices were
+repaired. The original hygiene aggregate remains a failed attempt with passing affected children.
+The 3,481-byte two-entry source outline and heavy-source fixture establish bounded output under
+their named conditions, not latency, RSS or a universal size/performance guarantee. Retained
+symbol materialization, plural-range filtering, native alias limitations and restricted graph
+domains stay explicit. This qualifies no new scientific, deployment or other-platform scope.
+
 Plan60's engineering-question consumers have selected local Linux qualification. The
 [Plan60 Outcome](../../plans/60-engineering-code-intelligence.md#outcome) owns exact commands,
 conditions and corrected failures: final affected units 132/132, public interaction/evidence 14/14,

@@ -1,6 +1,8 @@
 ---
 title: "Plan63c: Native query scope and settlement"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Plan63 integrated qualification consumes this package evidence, symbol-search decision and native assurance limits."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/63-code-intelligence-cli-robustness.md
@@ -145,10 +147,109 @@ does not acquire unsupported non-UTF-8 capability through a JSON conversion.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | open | Native context | Accurate readiness and contextual limitation facts |
-| C02 | open | Native query | Scoped reference execution and honest graph evidence |
-| C03 | open | Native search | Explicit implement-or-retain decision and selected acceptance |
-| C04 | open | Native lifetime | Qualified cancellation propagation and actual settlement |
+| C01 | complete | Native context | Typed context causes and independent readiness premises qualified; incomplete domains retain witnesses |
+| C02 | complete | Native query | Same-world scopes, plural editions/groups, roles and graph traversal-scoped references qualified |
+| C03 | complete — retain | Native search | Complete candidate collection retained; adversarial excluded-before-eligible regression passed |
+| C04 | complete | Native lifetime | Actual usage-search, gRPC, parent/deadline, managed cancellation/reconnect and macro drain qualified |
+
+## C03 decision: retain the complete native population
+
+**Implemented:** retain the uncapped native candidate request before source/name/kind filtering.
+The production policy is named `symbol_candidate_limit`; it is independent of the user's
+first-N, exists or count demand. No analyzer family upgrade or vendor extension is selected.
+
+**Interface-checked:** exact 0.0.358 `Analysis::symbol_search` calls
+`symbol_index::world_symbols` before navigation conversion and `.take(limit)`.
+The vendored `world_symbols` builds the selected indexes, then collects every callback match;
+`Query::search` and its `ControlFlow` callback remain crate-private. Merely lowering the IDE
+limit therefore removes neither the index/match population nor the risk of dropping the
+only eligible file after projection. The existing consumer also filters original paths,
+written-name policy and kinds after native navigation.
+
+A narrow ide_db callback extension alone would not alter the published IDE execution path.
+Using it for accepted-result stopping would require an additional IDE bridge or bypassing the
+current high-level cancellable navigation boundary, and moving the consumer's source selection
+and original-source acceptance into that bridge. The self-contained regression demonstrates
+the false-negative hazard; it does not demonstrate an ordinary-query navigation/materialization
+bottleneck that justifies maintaining this additional interface. Retention preserves native
+matching, dependency context, cancellation and all result-demand semantics.
+
+The regression creates 192 excluded declarations followed by one independently selected eligible
+declaration, checks that an early 20-result cap loses it, and checks the production candidate
+policy preserves it. Revisit when an ordinary supported workload demonstrates repeated or
+materialized navigation/projection work dominating the request, or upstream exposes a supported
+same-world accepted-result/scope stream. Any extension must then preserve existing exact/prefix/
+fuzzy/path matching, plural mappings, count/exists/first-N and cancellation controls.
+
+**Tested (2026-11-01):**
+`selected_symbol_population_survives_many_excluded_candidates_before_eligible` passed against
+the actual 0.0.358 native engine on Linux with test context and build/proc-macro preparation
+disabled. The early-20 control loses the independently selected declaration and the production
+uncapped population retains all 193 declarations. This is correctness/work-behavior evidence,
+not a latency or memory improvement measurement.
+
+## Native implementation checkpoint
+
+The occurrence contract distinguishes an absent scope from an explicitly empty scope. Whole-file
+sets lower to `SearchScope::files` using all module-edition interpretations from the selected
+snapshot; one file with one interpretation and range lowers through `file_range`/intersection.
+The pinned public scope API has no range-union constructor. Plural ranges therefore restrict
+native files first and apply the exact original-byte predicate afterward, reporting that fallback
+explicitly. This preserves all interpretations and never narrows semantic resolution context.
+An explicitly selected occurrence file with no active native interpretation refuses with typed
+`InactiveSource`; it cannot produce a complete-looking empty reference population.
+Reference categories and definition grouping remain the pinned native owner's observations.
+In particular, the original-definition search records renamed imports but does not establish
+complete enumeration of every alias-call spelling; scoped range controls use independently
+known original-name occurrences. Shared-module and repeated-macro-argument controls exercise
+plural editions and plural native definition groups without merging their identities.
+
+Graph selector roots are resolved before guarded seed hydration. Reference examination uses
+the traversal domain, separately from output selection. Inactive and outside-world selected
+traversal files retain useful graph witnesses but mark examination incomplete.
+
+Cancellation retains the existing `settle_cpu` parent-token watcher and task cancellation hook.
+New deterministic admission observers are test-only. Actual native reference controls cover
+production gRPC half-close, explicit Cancel, consumer reset and fresh-query reuse, plus a
+native conversation deadline and parent-token propagation. Original cancellation-group,
+cold-symbol, graph and delayed macro-worker controls retain their separate evidence boundaries.
+An additional test-only thread-local tracing subscriber blocks inside upstream
+`FindUsages::search`, reached through the actual `Analysis::find_all_refs` snapshot clones.
+It records the original native `Salsa::Cancelled::Local` result after cancellation, separately
+from the outer token check, then joins the CPU owner and verifies sibling/fresh-query use.
+The admission controls and this in-flight native-result witness establish different boundaries.
+
+## Targeted verification
+
+**Tested (2026-11-01):** the coordinator's native-hir unit invocation
+`01a19a6d-70c5-73e4-83da-f0d888fa955d` passed all 49 selected tests with zero failures
+against the zero baseline. Original JUnit contains 25 `semantic::native` tests, two actual
+native RPC tests and one context-classification test: 28 C controls passed. The other 21
+tests exercised shared wire, public failure/redaction, selection/recovery, graph-adapter and
+stale-interpreter contracts. The runner selected 49 tests and left 831 outside this focused
+selection; its setup testcase is separate from that test count.
+
+The command was `scripts/pse test pse-host --lib --features native-hir` with this selected
+filter expression:
+
+```text
+test(semantic::native::) | test(semantic::rpc::native_contract_tests) | test(semantic::context::tests::native_context_guard) | test(semantic::wire::tests::) | test(semantic::failure_tests::) | test(cli::investigation::recovery_tests) | test(investigation::providers::selection::tests) | test(investigation::rust::graph_adapter::tests) | test(prepared_xtask::tests::passive_open_authenticates_source_and_evidence_without_a_compiler_or_build)
+```
+
+The passed C controls include Unicode aliases/imports, macro-argument mapping, independent
+excluded-file and exact-byte-range witnesses, empty scopes and invalid ranges, plural macro definition
+groups and one shared module under editions2021/2024; scoped graph roles, hidden support and
+seed attribution retain their existing controls. In-flight cancellation reached upstream
+`FindUsages::search` on actual IDE snapshot clones and produced an observed original Salsa local
+cancellation before CPU settlement; a sibling and a fresh query completed. Actual production
+gRPC separately exercised half-close, explicit Cancel, consumer reset and reuse, and the native
+conversation deadline and parent-token tests passed. The existing explicitly extended-world
+test also passed, including delayed proc-macro completion and original product fencing.
+
+**Focused evidence boundary:** this unit/native contract selection is not the assembled CLI
+journey, scope-end static/manual qualification or scientific acceptance. No native source
+repair remained from this targeted run. The retained complete symbol population and explicit
+plural-range fallback are deliberate choices, not measured performance improvements.
 
 ## Verification and handoff
 
@@ -163,3 +264,30 @@ Integrated/static qualification belongs to Q01.
 **Interface-checked:** exact source confirms the missing reference scope, symbol materialization
 boundary and request-local cancellation seam. It does not establish a reproduced cancellation
 defect. No new native preparation, test execution or implementation occurred during authoring.
+
+## Outcome
+
+**Implemented:** C01–C04 are complete, with the C03 retain disposition above. Same-world native
+reference scopes precede result caps, preserve plural editions/definition groups and keep graph
+traversal distinct from output selection. Inactive/outside-world domains retain their correct
+refusal or partial-witness meaning. Existing CPU/macro ownership and cancellation wiring remains
+the production mechanism; stronger assurance required no global watcher or vendor patch.
+
+**Tested (2026-11-01):** the focused 49/49 selection above includes 28 C controls. Q01 additionally
+qualified its ten selected managed/native/interpreter/graph identities by the initial nine passes
+and one repaired authenticated-cancellation rerun. Actual macro stop, sibling survival, fresh
+queries and authenticated reconnect were exercised. Assembled native/API/graph source selection
+passed its affected reruns. Final native/compiler Clippy and all four host feature combinations
+passed with zero warnings/errors. The coordinator Outcome owns the original commands and limits.
+
+Mistakes corrected were admitting Cargo.toml solely because it existed in the VFS, expecting an
+alias-call result the pinned analyzer does not enumerate, and placing a socket inside a prepared
+fixture. An older managed cancellation fixture also needed the established authentic independent
+caller scope; its production detachment guard was preserved. The actual usage-search/Salsa-result
+witness complements rather than replaces admission and transport controls.
+
+Deliberate limits remain explicit: plural original ranges use native file restriction plus exact
+filtering; complete symbol candidates remain materialized before consumer acceptance; alias-call
+enumeration is native-library limited; shared prepared-input changes may classify as SourceChanged.
+No performance, universal completeness, scientific or formal ADR acceptance follows. Blueprint
+§21.7 owns the enduring contracts and §24.2 the selected qualification basis.

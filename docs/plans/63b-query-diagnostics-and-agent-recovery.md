@@ -1,6 +1,8 @@
 ---
 title: "Plan63b: Query diagnostics and agent recovery"
-status: proposed
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Plan63 integrated qualification consumes this package evidence and diagnostic/provenance mechanism account."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/63-code-intelligence-cli-robustness.md
@@ -147,10 +149,10 @@ examples at completion. Unit tests retain focused ownership; these journeys do n
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | implemented; verification pending | Query recovery | Typed effective-key origins retained through execution; passive explain precedes explicit-root preflight and common recovery/schema projection |
-| B02 | implemented; verification pending | Query recovery | Missing roots, observed disappearance, source changes, permission errors and typed native-context reasons retain distinct premises |
-| B03 | in progress | Query recovery | Common command/query recovery projection, original causes and Tree-sitter details migrated; assembled native validation/disclosure controls remain with the coordinator |
-| B04 | in progress | Agent consumption | Schema-backed request/error/source-guard journeys authored in `agent_interaction`; assembled execution and final guidance remain |
+| B01 | complete | Query recovery | Typed origins retained through execution; passive explain, preflight and schema-backed recovery qualified |
+| B02 | complete | Query recovery | Root/race/permission/native context and effective symlink-target controls passed |
+| B03 | complete | Query recovery | Shared redacted failure/recovery projection, exact selector attribution and native validation qualified |
+| B04 | complete | Agent consumption | Actual schema-backed CLI/stream/join/guard/association/graph journeys and guidance delivered |
 
 ## Verification and handoff
 
@@ -188,7 +190,7 @@ replacement, explicit false, missing-root refusal, acquisition disappearance, na
 classification, redaction and typed native recovery. Agent integration journeys are authored for
 schema-backed passive explanation/refusal/replay, stdout query failures versus stderr command
 failures, NDJSON terminal interpretation, source-ID joins, matching direct/guarded inspection,
-and stale/malformed addresses. They await the coordinator's assembled Q campaign.
+and stale/malformed addresses. Their subsequent assembled evidence belongs to Q01 and the Outcome.
 
 **Tested:** the coordinator's `scripts/pse test pse-host --lib -E
 'test(semantic::wire::tests::) | test(source_read::) | test(source_command::batch::) |
@@ -197,10 +199,51 @@ test(investigation::recovery_tests::) | test(envelope::)'` ran 105 selected defa
 104 passed and one native-wire test failed, against the zero-failure target. All 17 selected
 configuration/recovery tests passed, including CLI replay, preflight-to-walk disappearance,
 raw-path redaction and consistent command/query facts. Provider-selection/acquisition tests
-were omitted by that filter and remain required. The original combined run is invocation
+were omitted by that initial filter. The original combined run is invocation
 `01a19a5d-d0cf-7112-812b-617aa4b22fa8`; its sole failure belongs to the native wire's non-UTF8
 query fixture. Earlier compile attempts were blocked by concurrent native constructor/generation
 migrations and supply no test credit. No assembled acceptance claim follows.
 
-Next: execute the omitted provider tests, settle native wire controls, then integrate B04's
-native/association journeys and guidance with the single Q campaign.
+The final 151-control selection includes the omitted providers and corrected wire cases;
+the assembled B04 journeys and guidance subsequently completed in Q01.
+
+The accepted P2 follow-up replaces runtime operand-prefix attribution with an internal boxed
+selector identity and explicit answer/traversal role. The public recovery shape does not gain
+that internal context: Serde and schema projection omit it, and the CLI consumes it while
+looking up the exact contributing request location. Unknown or ambiguous contributors remain
+unknown, including broader module-support selectors that differ from the answer selection.
+Prepared graph, nomination and global-search paths now share canonicalization and typed failure
+annotation. Ordinary provider return boundaries and module-support diagnostics preserve existing
+selector context; retained refinement diagnostics use the same projection as diagnostic events.
+Deterministic controls cover separate/overlapping roots, preflight-to-traversal disappearance,
+stable-provider failures and derived support scope. The final crossing migration passed the
+coordinator's 151-control selection; the earlier 49/49 native/robustness pass retains its own scope.
+
+## Outcome
+
+**Implemented:** B01–B04 are complete. Effective-key origins remain attached to the resolved
+request through execution. Passive explain precedes preflight; initial missing effective roots,
+later disappearance, permissions and native context failures retain distinct facts. Exact
+selector/role attribution replaces path-prefix guessing, and derived/ambiguous origins remain
+unknown. Both explicit-root rechecks and preflight follow symlink targets, so dangling file links
+refuse before Begin rather than becoming no-match. Recursive traversal retains its separate policy.
+
+Public native-failure payloads and nested cancellation failures share contextual path/message
+redaction with recovery records. Optional recovery is boxed centrally, retaining its public
+Serde/schema shape and avoiding diagnostic growth in unrelated consumers. Command stderr,
+query stdout diagnostics, NDJSON terminal interpretation and original Tree-sitter metadata keep
+their established owners. Agent examples use actual parser/schema exports and original guards.
+
+**Tested (2026-11-01):** the final coordinator host selection passed 151/151; the actual
+`pse test pse-host:agent_interaction` run passed 6/6, including dangling/valid file links,
+passive explanation, input origin, literal recovery replay, both streams, source-ID joins and
+stale/malformed expansion. Root/target disappearance and overlapping traversal origins have
+independent deterministic controls. Association and empty-text graph evidence passed their
+affected public reruns; the coordinator Outcome owns commands, captures and static qualification.
+
+Mistakes corrected include losing traversal origins at provider crossings, cloning native
+failure operands without disclosure, and checking a symlink object without proving its effective
+target existed. The repairs extend existing resolution, diagnostics and selector owners; no
+second path resolver or human-message classification was added. Safe passive advice is withheld
+when original arguments require redaction or cannot be represented faithfully. Unknown native
+causes and unavailable document interpretations do not gain invented correction actions.

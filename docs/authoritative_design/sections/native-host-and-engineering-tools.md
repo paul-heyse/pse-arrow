@@ -205,8 +205,8 @@ witnesses. Missing or incompletely examined facts stay unknown, including under 
 Source detail is execution demand, separate from payload field projection and record allowance.
 Ordinary outlines request navigation only. Explicit `facts` detail constructs interpreted
 documentation, attribute and literal facts for the selected declarations; `mapped` additionally
-constructs decoded-to-source mappings. Unrequested mappings are absent, while an explicitly
-requested empty mapping remains an empty collection. Detail coverage records selected original
+constructs decoded-to-source mappings. Unrequested mappings serialize as `null`; an explicitly
+requested mapping with no entries is `[]`. Detail coverage records selected original
 byte ranges and whether file-level facts were included. Declaration inspection defaults to
 facts; raw source ranges default to navigation. Continuations bind the selected detail mode as
 well as original bytes. Source search and association consumers request their needed facts from

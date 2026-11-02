@@ -1,6 +1,8 @@
 ---
 title: "Plan63a: Demand-driven source evidence"
-status: in-progress
+status: complete
+doc_retention: while-dependent
+doc_retention_reason: "Plan63 integrated qualification consumes this package evidence and source-detail mechanism account."
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/63-code-intelligence-cli-robustness.md
@@ -10,6 +12,9 @@ adrs: [ADR-0235]
 ---
 
 # Demand-driven source evidence
+
+The completed implementation and selected qualification are recorded in the Outcome below;
+the [coordinator Outcome](63-code-intelligence-cli-robustness.md#outcome) owns integrated evidence.
 
 ## Purpose and baseline
 
@@ -120,9 +125,9 @@ large selected values. Document the changed default and explicit expansion in B0
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | implemented | Source evidence | Demand, parser/schema and consumers implemented; selected unit controls passed |
-| A02 | implemented | Source evidence | Selective construction and ownership implemented; selected unit controls passed |
-| A03 | in progress | Source evidence | Unit controls passed; combined CLI/schema controls authored for Q01 |
+| A01 | complete | Source evidence | Demand, parser/schema and consumers implemented; unit and actual CLI controls passed |
+| A02 | complete | Source evidence | Selective construction, ownership and original ranges qualified |
+| A03 | complete | Source evidence | Source-size, schema, projection and mapped batch controls passed in Q01 |
 
 ### Execution checkpoint — 2026-11-01
 
@@ -143,11 +148,12 @@ Batch counting uses navigation demand and passes the requested detail into each 
 
 Unit controls use test-local construction observations for omitted facts and mappings, independently
 specified escaped/Unicode values, file/nested ownership, continuation detail, public schemas and
-large selected values. CLI controls are authored in `source_addressing` and `investigation_evidence`;
-assembled execution and static/manual checks remain Q01 obligations. The coordinator's combined
+large selected values. CLI controls were authored in `source_addressing` and `investigation_evidence`;
+assembled execution and static/manual checks were left to Q01, now completed below. The initial combined
 unit run exercised 49 source-reader, source-query, batch, documentation and detail-parser controls
 with zero failures against the zero target. Its enclosing 105-test run retained one unrelated
-wire-test failure for the coordinator to repair. No assembled or performance qualification is claimed.
+wire-test failure for the coordinator to repair. That checkpoint supplied no assembled or
+performance qualification; the Outcome records subsequent assembled evidence.
 
 ## Verification and handoff
 
@@ -164,3 +170,26 @@ Integrated/static checks belong to Q01, not every package.
 Authoring supplied no implementation or new test execution; the execution checkpoint above
 records the current local state. B01/B03 supply shared failure projection
 if new detail refusals need it; A01 does not wait for the entire recovery companion.
+
+## Outcome
+
+**Implemented:** A01–A03 are complete. Navigation, facts and mapped demand share the original
+parsed source and exact guards; eager whole-file interpretation/mapping was removed from
+ordinary navigation and selected consumers. Unrequested mappings are `null`, requested empty
+mappings are `[]`, and coverage distinguishes unrequested detail from absent facts. Source
+commands, batch inspection, search/association consumers, schemas and guidance use this contract.
+
+**Tested (2026-11-01):** 49 focused A controls passed within the original combined selection.
+The final coordinator host selection passed 151/151, including these source owners. Public
+`source_addressing` (6/6) and `source_commands` (5/5) exercised cold reads, original Git/raw-path
+bytes, cursors, actual schemas, default/explicit detail, projections, full selected mappings
+and mapped batches. The heavy-source byte bound passed. Association evidence also passed its
+affected rerun after correcting an expectation that cleared text must serialize as an empty
+string; the actual contract omits it. Q01 owns exact commands, composite results and measurement.
+
+A mistake made and corrected was a new test requesting nested `--fields outline.facts` despite
+the existing literal top-level field contract. It now selects `outline` and independently checks
+mapping demand, omitted source payload and mandatory provenance. No nested-field compatibility
+path was introduced. Default navigation and complete selected literal mappings are deliberate
+behavior choices; latency/allocation improvements remain unmeasured. Enduring meaning is in
+blueprint §21.7 and the pse-cli/environment guides.

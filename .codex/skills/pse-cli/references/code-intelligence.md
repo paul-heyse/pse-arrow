@@ -87,6 +87,7 @@ written bytes will settle the question. These reads also work outside a pse-arro
 For an outline continuation, pass `payload.page.next_cursor` unchanged as `--cursor`; changed
 working bytes refuse. Keep the same `--detail` on continuation. `detail_coverage` describes
 selected fact ranges and file-level inclusion; omitted detail does not establish absent facts.
+Unrequested fact mappings are `null`; a requested empty mapping is `[]`.
 `--fields` projects output independently of detail demand. Source parsing has an explicit
 edition/language policy rather than an
 inferred build context. A syntax match is a written candidate even when names are spelled alike;
