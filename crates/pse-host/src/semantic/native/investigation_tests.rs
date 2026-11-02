@@ -5,6 +5,371 @@ use super::tests::{fixture, query};
 use super::*;
 
 #[tokio::test]
+async fn occurrence_scope_preserves_plural_macro_definition_groups() {
+    let (root, configuration, file) = fixture();
+    let source = "macro_rules! both { ($name:ident) => { mod first { pub fn $name(){} fn caller(){$name();} } mod second { pub fn $name(){} fn caller(){$name();} } }; }\nboth!(shared);\n";
+    std::fs::write(&file, source).unwrap();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    let selected = query(&file, "shared", Kind::Refs);
+    let original = engine
+        .start_query(selected.clone(), CancellationToken::new())
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    let original: Vec<ReferenceFact> = serde_json::from_value(
+        original
+            .sections
+            .iter()
+            .find(|section| section.category == "native_reference_roles")
+            .unwrap()
+            .evidence
+            .clone(),
+    )
+    .unwrap();
+    let original_groups = original
+        .iter()
+        .map(|reference| reference.entity)
+        .collect::<BTreeSet<_>>();
+    assert!(
+        original_groups.len() >= 2,
+        "one authored macro argument must nominate the two independent native module definitions: {original:?}"
+    );
+    let mut selected = selected;
+    selected.occurrence_scope = Some(vec![super::super::OccurrenceFile {
+        file: file.clone(),
+        range: None,
+    }]);
+    let answer = engine
+        .start_query(selected, CancellationToken::new())
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    let references: Vec<ReferenceFact> = serde_json::from_value(
+        answer
+            .sections
+            .iter()
+            .find(|section| section.category == "native_reference_roles")
+            .unwrap()
+            .evidence
+            .clone(),
+    )
+    .unwrap();
+    let groups = references
+        .iter()
+        .map(|reference| reference.entity)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        groups, original_groups,
+        "native definition groups must survive scoping: {references:?}"
+    );
+    assert_eq!(references.len(), original.len());
+}
+
+#[tokio::test]
+async fn occurrence_scope_retains_every_edition_of_a_shared_module_file() {
+    let (root, configuration, file) = fixture();
+    std::fs::write(
+        root.path().join("Cargo.toml"),
+        "[workspace]\nmembers=['old','new']\nresolver='3'\n",
+    )
+    .unwrap();
+    for (name, edition) in [("old", "2021"), ("new", "2024")] {
+        std::fs::create_dir(root.path().join(name)).unwrap();
+        std::fs::write(root.path().join(name).join("Cargo.toml"), format!("[package]\nname='{name}'\nversion='0.0.0'\nedition='{edition}'\n[lib]\npath='../src/lib.rs'\n")).unwrap();
+    }
+    std::fs::write(root.path().join("Cargo.lock"), "version=4\n[[package]]\nname='new'\nversion='0.0.0'\n[[package]]\nname='old'\nversion='0.0.0'\n").unwrap();
+    std::fs::write(&file, "pub fn target() {}\nfn caller(){target();}\n").unwrap();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    {
+        let world = engine.world.lock().unwrap();
+        ra_ap_hir::attach_db_allow_change(&world.db, || {
+            let selected = scope::Occurrences::prepare(
+                &world.db,
+                &world.files,
+                &world.digests,
+                Some(&[super::super::OccurrenceFile {
+                    file: file.clone(),
+                    range: None,
+                }]),
+            )
+            .unwrap();
+            let lowered = selected
+                .native
+                .unwrap()
+                .into_iter()
+                .map(|(id, _)| id.edition(&world.db))
+                .collect::<BTreeSet<_>>();
+            assert_eq!(
+                lowered,
+                BTreeSet::from([
+                    native_ra_syntax::Edition::Edition2021,
+                    native_ra_syntax::Edition::Edition2024
+                ])
+            );
+        });
+    }
+    let mut selected = query(&file, "target()", Kind::Refs);
+    selected.occurrence_scope = Some(vec![super::super::OccurrenceFile {
+        file: file.clone(),
+        range: None,
+    }]);
+    let answer = engine
+        .start_query(selected, CancellationToken::new())
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    let call = std::fs::read_to_string(&file)
+        .unwrap()
+        .rfind("target()")
+        .unwrap();
+    assert!(answer.observed.relationships.iter().any(|fact| matches!(&fact.location, super::super::FactLocation::Bytes { path, start, .. } if path == &file && *start == call)), "{answer:?}");
+}
+
+#[tokio::test]
+async fn selected_symbol_population_survives_many_excluded_candidates_before_eligible() {
+    let (root, configuration, file) = fixture();
+    std::fs::write(&file, "mod excluded; mod eligible;\n").unwrap();
+    let excluded = root.path().join("src/excluded.rs");
+    let eligible = root.path().join("src/eligible.rs");
+    let population = (0..192)
+        .map(|n| format!("pub fn candidate{n:03}() {{}}\n"))
+        .collect::<String>();
+    std::fs::write(&excluded, population).unwrap();
+    std::fs::write(&eligible, "pub fn candidatezzz() {}\n").unwrap();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    let request = |limit| WorkspaceQuery {
+        query: "candidate".into(),
+        matching: super::super::NativeNameMode::Prefix,
+        limit,
+        include_dependencies: false,
+        if_generation: Some(1),
+    };
+    let early = engine
+        .start_symbols(request(20), CancellationToken::new())
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(early.observed.iter().all(|symbol| !matches!(&symbol.location, Some(super::super::FactLocation::Bytes { path, .. }) if path == &eligible)), "fixture must expose the false-negative early-cap hazard");
+    let full = engine
+        .start_symbols(
+            request(crate::investigation::rust::symbol_candidate_limit()),
+            CancellationToken::new(),
+        )
+        .settle()
+        .await
+        .unwrap()
+        .unwrap();
+    let selected = full.observed.iter().filter(|symbol| matches!(&symbol.location, Some(super::super::FactLocation::Bytes { path, .. }) if path == &eligible)).collect::<Vec<_>>();
+    assert_eq!(
+        selected.len(),
+        1,
+        "consumer candidate policy must preserve the independently selected eligible file"
+    );
+    assert_eq!(selected[0].name, "candidatezzz");
+    assert_eq!(full.observed.len(), 193);
+}
+
+#[tokio::test]
+async fn occurrence_scope_preserves_alias_macro_unicode_roles_and_exact_ranges() {
+    use crate::semantic::OccurrenceFile;
+    let (root, configuration, file) = fixture();
+    let main = "pub fn στόχος() {}\n#[macro_export] macro_rules! invoke { ($f:path) => { $f() }; }\nmod keep; mod excluded;\n";
+    let keep = root.path().join("src/keep.rs");
+    let excluded = root.path().join("src/excluded.rs");
+    let included_source = "use crate::στόχος as alias;\nfn caller(){alias();crate::στόχος();crate::invoke!(crate::στόχος);}\n";
+    std::fs::write(&file, main).unwrap();
+    std::fs::write(&keep, included_source).unwrap();
+    std::fs::write(&excluded, "fn caller(){crate::στόχος();}\n").unwrap();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    let run = |scope| {
+        let mut selected = query(&file, "στόχος", Kind::Refs);
+        selected.occurrence_scope = scope;
+        engine.start_query(selected, CancellationToken::new())
+    };
+    let all = run(None).settle().await.unwrap().unwrap();
+    assert!(all.observed.relationships.iter().any(|fact| matches!(&fact.location, super::super::FactLocation::Bytes { path, .. } if path == &excluded)));
+    let answer = run(Some(vec![OccurrenceFile {
+        file: keep.clone(),
+        range: None,
+    }]))
+    .settle()
+    .await
+    .unwrap()
+    .unwrap();
+    let references: Vec<ReferenceFact> = serde_json::from_value(
+        answer
+            .sections
+            .iter()
+            .find(|section| section.category == "native_reference_roles")
+            .unwrap()
+            .evidence
+            .clone(),
+    )
+    .unwrap();
+    assert!(!references.is_empty());
+    assert!(
+        references
+            .iter()
+            .all(|reference| reference.location.path == keep)
+    );
+    assert!(references.iter().any(|reference| reference.import));
+    let expected = included_source.rfind("στόχος").unwrap();
+    assert!(
+        references
+            .iter()
+            .any(|reference| reference.location.start == expected),
+        "macro argument reference must retain original Unicode token: {references:?}"
+    );
+    // The native owner records the renamed import; it does not promise to
+    // follow every alias spelling from an original-definition query. Select a
+    // known original-name occurrence independently for exact range acceptance.
+    let direct = included_source.find("στόχος();").unwrap();
+    let range = direct..direct + "στόχος".len();
+    let ranged = run(Some(vec![OccurrenceFile {
+        file: keep.clone(),
+        range: Some(range.clone()),
+    }]))
+    .settle()
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(ranged.observed.relationships.len(), 1, "{ranged:?}");
+    assert!(
+        matches!(&ranged.observed.relationships[0].location, super::super::FactLocation::Bytes { path, start, end } if path == &keep && *start == range.start && *end == range.end)
+    );
+    let plural = run(Some(vec![
+        OccurrenceFile {
+            file: keep.clone(),
+            range: Some(range),
+        },
+        OccurrenceFile {
+            file: excluded.clone(),
+            range: Some(0..std::fs::read_to_string(&excluded).unwrap().len()),
+        },
+    ]))
+    .settle()
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(plural.observed.relationships.len(), 2, "{plural:?}");
+    assert!(
+        plural
+            .limitations
+            .iter()
+            .any(|limitation| limitation.contains("range-union"))
+    );
+    let empty = run(Some(Vec::new())).settle().await.unwrap().unwrap();
+    assert!(empty.observed.relationships.is_empty());
+    let invalid = run(Some(vec![OccurrenceFile {
+        file: keep,
+        range: Some(expected + 1..expected + 2),
+    }]))
+    .settle()
+    .await
+    .unwrap();
+    assert!(
+        matches!(invalid, Err(Error::InvalidRequest(_))),
+        "{invalid:?}"
+    );
+}
+
+#[tokio::test]
+async fn inactive_and_outside_world_sources_preserve_typed_context() {
+    let (root, configuration, file) = fixture();
+    std::fs::write(&file, "#[cfg(test)] mod inactive;\npub fn ready() {}\n").unwrap();
+    let inactive = root.path().join("src/inactive.rs");
+    let outside_directory = tempfile::tempdir().unwrap();
+    let outside = outside_directory.path().join("loose.rs");
+    for path in [&inactive, &outside] {
+        std::fs::write(path, "pub fn target() {}\n").unwrap();
+    }
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    for (path, reason) in [
+        (&inactive, super::super::FailureReason::InactiveSource),
+        (&outside, super::super::FailureReason::OutsidePreparedWorld),
+    ] {
+        let error = engine
+            .start_query(query(path, "target", Kind::Refs), CancellationToken::new())
+            .settle()
+            .await
+            .unwrap()
+            .unwrap_err();
+        let failure = super::super::Failure::from_error(&error);
+        assert_eq!(failure.context.unwrap().reason, reason, "{error:?}");
+    }
+    // A current active entity with an inactive requested occurrence file cannot
+    // produce a complete-looking no-match. Classify the selector independently.
+    let mut selected = query(&file, "ready", Kind::Refs);
+    selected.occurrence_scope = Some(vec![super::super::OccurrenceFile {
+        file: inactive.clone(),
+        range: None,
+    }]);
+    let error = engine
+        .start_query(selected, CancellationToken::new())
+        .settle()
+        .await
+        .unwrap()
+        .unwrap_err();
+    let failure = super::super::Failure::from_error(&error);
+    let context = failure.context.unwrap();
+    assert_eq!(context.reason, super::super::FailureReason::InactiveSource);
+    assert_eq!(context.operation, "reference_scope");
+    assert_eq!(context.operand.unwrap().to_path_buf(), inactive);
+}
+
+#[tokio::test]
+async fn parent_token_cancellation_reaches_actual_native_reference_owner_and_drains() {
+    let (root, configuration, file) = fixture();
+    let engine = Engine::start(root.path(), configuration).unwrap();
+    let parent = CancellationToken::new();
+    let token = parent.child_token();
+    let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let task = engine.start_query_observed(
+        query(&file, "original()->", Kind::Refs),
+        token.clone(),
+        move |_| {
+            entered_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            None
+        },
+    );
+    entered_rx.await.unwrap();
+    let mut sibling = engine.start_query(
+        query(&file, "original()->", Kind::Refs),
+        CancellationToken::new(),
+    );
+    parent.cancel();
+    let settle = super::super::rpc::settle_cpu(task, &token);
+    tokio::pin!(settle);
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(10), &mut settle)
+            .await
+            .is_err(),
+        "cancellation cannot claim drain while actual native CPU owner is blocked"
+    );
+    release_tx.send(()).unwrap();
+    assert!(matches!(settle.await, Err(Error::Cancelled)));
+    assert!(sibling.settle().await.unwrap().is_ok());
+    assert!(
+        engine
+            .start_query(
+                query(&file, "original()->", Kind::Refs),
+                CancellationToken::new()
+            )
+            .settle()
+            .await
+            .unwrap()
+            .is_ok()
+    );
+    assert_eq!(engine.active.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn bounded_native_observation_preserves_relevance_incompleteness() {
     let (root, configuration, file) = fixture();
     std::fs::write(&file, "pub fn selected() {}\nfn first(){selected();}\nfn second(){selected();}\nfn third(){selected();}\n").unwrap();

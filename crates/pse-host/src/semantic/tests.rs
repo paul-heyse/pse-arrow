@@ -63,8 +63,7 @@ fn compact_native_sections_and_workspace_answers_round_trip_without_invented_fac
 }
 
 #[cfg(feature = "native-hir")]
-#[tokio::test]
-async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session() {
+async fn native_snapshot_authenticated_cancellation_journey() {
     use tokio_util::sync::CancellationToken;
     let project = tempfile::tempdir().unwrap();
     std::fs::create_dir(project.path().join("src")).unwrap();
@@ -125,6 +124,7 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
     let offset = text.find("n=0u32").unwrap();
     let prefix = &text[..offset];
     let query = Query {
+        occurrence_scope: None,
         kind: Kind::Refs,
         file: file.clone(),
         line: prefix.bytes().filter(|byte| *byte == b'\n').count() + 1,
@@ -176,6 +176,7 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
                 &environment,
                 &record,
                 &Request::Query(Query {
+                    occurrence_scope: None,
                     kind: Kind::Explain,
                     file,
                     line: 1,
@@ -245,6 +246,31 @@ async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_
         "a reconnect must authenticate before HTTP/2 bytes"
     );
     std::fs::remove_file(socket).unwrap();
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_snapshot_authenticated_cancellation_entry() {
+    let Some(gate) = std::env::var_os("PSE_NATIVE_AUTHENTICATED_CANCELLATION_GATE") else {
+        return;
+    };
+    let gate = PathBuf::from(gate);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    while !gate.exists() {
+        assert!(tokio::time::Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    native_snapshot_authenticated_cancellation_journey().await;
+}
+
+#[cfg(feature = "native-hir")]
+#[tokio::test]
+async fn native_snapshot_authenticated_cancel_settles_one_request_and_preserves_the_session() {
+    independent_cli(
+        "semantic::tests::native_snapshot_authenticated_cancellation_entry",
+        "PSE_NATIVE_AUTHENTICATED_CANCELLATION_GATE",
+    )
+    .await;
 }
 
 fn checkout() -> PathBuf {
@@ -342,6 +368,7 @@ async fn extended_native_managed_macro_journey() {
     std::fs::write(flag, "expand slowly").unwrap();
     let offset = source.find("expanded();").unwrap();
     let query = Request::Query(Query {
+        occurrence_scope: None,
         kind: Kind::Explain,
         file,
         line: 1,

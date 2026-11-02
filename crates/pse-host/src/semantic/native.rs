@@ -27,6 +27,9 @@ use tokio_util::sync::CancellationToken;
 
 const BACKEND: &str = "ra_ap_hir/0.0.358;ra_ap_ide/0.0.358;immutable_snapshot";
 mod actions;
+#[cfg(test)]
+#[path = "native/cancellation_tests.rs"]
+mod cancellation_tests;
 mod candidates;
 mod doc_links;
 mod graph;
@@ -36,9 +39,31 @@ mod investigation;
 #[path = "native/investigation_tests.rs"]
 mod investigation_tests;
 mod runnables;
+mod scope;
 
 // Immutable native worlds never reload; a new world gets a new session owner.
 const SNAPSHOT_GENERATION: u64 = 1;
+
+fn context_failure(
+    reason: super::FailureReason,
+    operation: &str,
+    path: Option<&Path>,
+    message: impl Into<String>,
+) -> Error {
+    let mut failure = super::Failure::from_error(&Error::Unavailable(message.into()));
+    failure.context = Some(super::FailureContext {
+        reason,
+        operation: operation.into(),
+        operand: path.map(|path| crate::investigation::NativePath::from(path.to_owned())),
+    });
+    if matches!(
+        reason,
+        super::FailureReason::SourceChanged | super::FailureReason::ConfigurationChanged
+    ) {
+        failure.state = super::FailureState::Stale;
+    }
+    Error::Refusal(Box::new(failure))
+}
 
 fn preparation_target(configuration: &Configuration) -> Result<String> {
     let explicit_target =
@@ -145,8 +170,13 @@ struct QuerySnapshot<'a> {
     packages: &'a [super::NativePackageContext],
     runnable_targets: &'a [super::RunnableTargetFact],
 }
+#[cfg(test)]
+type QueryObserver =
+    Box<dyn FnOnce(&CancellationToken) -> Option<tracing::dispatcher::DefaultGuard> + Send>;
 /// Native workers clone the immutable database, never share `Semantics` across threads.
 pub(super) struct Engine {
+    #[cfg(test)]
+    query_observer: Mutex<Option<QueryObserver>>,
     world: Arc<Mutex<World>>,
     context: Arc<Context>,
     configuration: Configuration,
@@ -591,6 +621,8 @@ impl Engine {
         context.seal()?;
         context.check()?;
         Ok(Self {
+            #[cfg(test)]
+            query_observer: Mutex::new(None),
             world: Arc::new(Mutex::new(World {
                 db,
                 files,
@@ -660,6 +692,40 @@ impl Engine {
         query: Query,
         token: CancellationToken,
     ) -> CpuTask<Result<super::Answer>> {
+        #[cfg(test)]
+        let observer = self.query_observer.lock().unwrap().take();
+        self.start_query_observed(query, token, move |_token| {
+            #[cfg(test)]
+            if let Some(observer) = observer {
+                return observer(_token);
+            }
+            None
+        })
+    }
+    #[cfg(test)]
+    pub(super) fn observe_next_query(
+        &self,
+        observer: impl FnOnce(&CancellationToken) + Send + 'static,
+    ) {
+        *self.query_observer.lock().unwrap() = Some(Box::new(move |token| {
+            observer(token);
+            None
+        }));
+    }
+    #[cfg(test)]
+    fn observe_next_query_dispatch(&self, dispatch: tracing::Dispatch) {
+        *self.query_observer.lock().unwrap() = Some(Box::new(move |_| {
+            Some(tracing::dispatcher::set_default(&dispatch))
+        }));
+    }
+    fn start_query_observed(
+        &self,
+        query: Query,
+        token: CancellationToken,
+        entered: impl FnOnce(&CancellationToken) -> Option<tracing::dispatcher::DefaultGuard>
+        + Send
+        + 'static,
+    ) -> CpuTask<Result<super::Answer>> {
         let inputs = self
             .world
             .lock()
@@ -693,6 +759,7 @@ impl Engine {
             active.fetch_add(1, Ordering::SeqCst);
             let _active = Active(active);
             context.check()?;
+            let _dispatch = entered(&token);
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
@@ -912,7 +979,13 @@ impl Engine {
 
 fn native_result<T>(result: std::result::Result<T, salsa::Cancelled>) -> Result<T> {
     result.map_err(|cause| match cause {
-        salsa::Cancelled::Local => Error::Cancelled,
+        salsa::Cancelled::Local => {
+            tracing::trace!(
+                native_cancellation = "request_group",
+                "native query observed request-local cancellation"
+            );
+            Error::Cancelled
+        }
         salsa::Cancelled::PendingWrite => Error::Stale,
         _ => Error::Protocol(format!(
             "native computation failed independently of requested cancellation: {cause:?}"
@@ -1123,17 +1196,38 @@ fn query_world(
     }
     let source = crate::source_read::SourceRequest::Working { path: file.clone() }.acquire()?;
     let digest = source.identity().source_sha256();
+    if !files.contains_key(&file) {
+        return Err(context_failure(
+            super::FailureReason::OutsidePreparedWorld,
+            "native_query",
+            Some(&file),
+            "selected source is outside the explicitly loaded snapshot",
+        ));
+    }
     if digests.get(&file).is_none_or(|expected| expected != digest)
         || query
             .if_source
             .as_ref()
             .is_some_and(|expected| expected != digest)
     {
-        return Err(Error::Stale);
+        return Err(context_failure(
+            super::FailureReason::SourceChanged,
+            "native_query",
+            Some(&file),
+            "selected source differs from the prepared snapshot or source guard",
+        ));
     }
     let id = *files.get(&file).ok_or_else(|| {
         Error::Unavailable("selected source is outside the explicitly loaded snapshot".into())
     })?;
+    if Semantics::new(db).file_to_module_defs(id).next().is_none() {
+        return Err(context_failure(
+            super::FailureReason::InactiveSource,
+            "native_query",
+            Some(&file),
+            "selected source has no active module in this prepared native context",
+        ));
+    }
     let offset = crate::source_read::byte_offset(source.text(), query.line, query.column)?;
     let position = ra_ap_ide::FilePosition {
         file_id: id,
@@ -1148,6 +1242,12 @@ fn query_world(
     let mut omitted_relationships = BTreeMap::new();
     let mut linked_paths = BTreeSet::new();
     let mut proposal = None;
+    let mut scope_limitations = Vec::new();
+    if query.occurrence_scope.is_some() && !matches!(query.kind, Kind::Refs) {
+        return Err(Error::InvalidRequest(
+            "occurrence scope is supported only for references".into(),
+        ));
+    }
     match query.kind {
         Kind::Explain | Kind::Body | Kind::Layout | Kind::Candidates => {
             let want_layout = matches!(query.kind, Kind::Layout);
@@ -1155,8 +1255,11 @@ fn query_world(
             let sema = Semantics::new(db);
             let mut modules = sema.file_to_module_defs(id);
             let module = modules.next().ok_or_else(|| {
-                Error::Unavailable(
-                    "typed snapshot source is inactive in the selected native context".into(),
+                context_failure(
+                    super::FailureReason::InactiveSource,
+                    "native_query",
+                    Some(&file),
+                    "typed snapshot source is inactive in the selected native context",
                 )
             })?;
             if modules.next().is_some() {
@@ -1709,11 +1812,14 @@ fn query_world(
             });
         }
         Kind::Refs => {
+            let occurrence_scope =
+                scope::Occurrences::prepare(db, files, digests, query.occurrence_scope.as_deref())?;
+            scope_limitations.extend(occurrence_scope.limitations.iter().cloned());
             let analysis = ra_ap_ide::AnalysisHost::with_database(db.clone()).analysis();
             let mut fixture = ra_ap_ide::RaFixtureConfig::default();
             fixture.disable_ra_fixture = true;
             let config = ra_ap_ide::FindAllRefsConfig {
-                search_scope: None,
+                search_scope: occurrence_scope.native.clone(),
                 ra_fixture: fixture,
                 exclude_imports: false,
                 exclude_tests: false,
@@ -1726,6 +1832,9 @@ fn query_world(
                     for (range, category) in usages {
                         if token.is_cancelled() {
                             return Err(Error::Cancelled);
+                        }
+                        if !occurrence_scope.contains(paths, id, range) {
+                            continue;
                         }
                         total += 1;
                         if references.len() >= query.limit {
@@ -2066,7 +2175,7 @@ fn query_world(
         "Native type display is presentation only. Equality/coercion fields use actual HIR types and unknown components remain unproven; arbitrary blanket-trait applicability and rustc acceptance are not established.".into(),
         "This is the selected analyzer Cargo context, not an admitted exact rustc compiler-unit identity; typed explain refuses inactive or ambiguous native module contexts.".into(),
         "Macro/generated origin can be unavailable/non-unique; no fallback range grants source-edit authority. Reference roles describe static native uses, not runtime reachability.".into(),
-    ]})
+    ].into_iter().chain(scope_limitations).collect()})
 }
 
 #[derive(Debug, clap::Parser)]
@@ -2153,11 +2262,11 @@ pub fn entry() -> std::process::ExitCode {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     const SOURCE: &str = "trait Act { fn same(&self)->u32; }\nstruct A;\nstruct B;\nimpl Act for A { fn same(&self)->u32 { 1 } }\nimpl Act for B { fn same(&self)->u32 { 2 } }\nfn generic<T: Act>(value:T) { let _ = value.same(); }\nfn operations() { let mut a=A; let b=B; let _=a.same(); let _=b.same(); let _: &A = &mut a; let mut n=1; n=2; let _=n; }\npub fn original()->u32 { 7 }\npub use original as facade;\nfn indirect(){let _=facade();}\nmod api { pub fn unused(){} fn hidden(){} fn internal_destination(){} }\nmod consumer { pub fn destination(){} pub fn unused(){} }\nfn standard(){let values=std::vec::Vec::<u32>::new();let optional=Some(7u32);let _=values.len();let _=optional.is_some();}\n";
 
-    pub(super) fn fixture() -> (tempfile::TempDir, Configuration, PathBuf) {
+    pub(in crate::semantic) fn fixture() -> (tempfile::TempDir, Configuration, PathBuf) {
         let root = tempfile::tempdir().unwrap();
         std::fs::create_dir(root.path().join("src")).unwrap();
         std::fs::write(root.path().join("Cargo.toml"),"[package]\nname='native-analysis-control'\nversion='0.0.0'\nedition='2024'\n[workspace]\n").unwrap();
@@ -2189,7 +2298,7 @@ mod tests {
         };
         (root, config, file)
     }
-    pub(super) fn query(file: &Path, needle: &str, kind: Kind) -> Query {
+    pub(in crate::semantic) fn query(file: &Path, needle: &str, kind: Kind) -> Query {
         let text = std::fs::read_to_string(file).unwrap();
         let offset = text.find(needle).unwrap();
         let prefix = &text[..offset];
@@ -2203,6 +2312,7 @@ mod tests {
             if_candidate: None,
             limit: 100,
             end_line: None,
+            occurrence_scope: None,
         }
     }
     async fn answer(engine: &Engine, query: Query) -> Value {
@@ -2760,7 +2870,7 @@ mod tests {
         assert!(
             matches!(
                 engine.package_context(&package.package_id),
-                Err(Error::Stale)
+                Err(Error::Refusal(failure)) if failure.context.as_ref().is_some_and(|context| context.reason == super::super::FailureReason::ConfigurationChanged)
             ),
             "mutating a transitive dependency manifest invalidates the captured world"
         );
@@ -3056,7 +3166,7 @@ mod tests {
                 .settle()
                 .await
                 .unwrap(),
-            Err(Error::Stale)
+            Err(Error::Refusal(failure)) if failure.context.as_ref().is_some_and(|context| context.reason == super::super::FailureReason::SourceChanged)
         ));
         assert!(!engine.status().unwrap().context_current);
         let mut macros = configuration;
@@ -3344,7 +3454,9 @@ fn candidates(value:Pair) { value.extension(); value.blanket(); }
             .unwrap()
             .clone();
         std::fs::write(product, "pub fn generated_item()->u32 {8}").unwrap();
-        assert!(matches!(engine.context.check(), Err(Error::Stale)));
+        assert!(
+            matches!(engine.context.check(), Err(Error::Refusal(failure)) if failure.context.as_ref().is_some_and(|context| context.reason == super::super::FailureReason::SourceChanged))
+        );
         drop(engine);
         let engine = Engine::start(checkout, configuration.clone()).unwrap();
         let dylib = engine
@@ -3364,7 +3476,7 @@ fn candidates(value:Pair) { value.extension(); value.blanket(); }
             .clone();
         std::fs::remove_file(dylib).unwrap();
         assert!(
-            matches!(engine.context.check(), Err(Error::Stale)),
+            matches!(engine.context.check(), Err(Error::Refusal(failure)) if failure.context.as_ref().is_some_and(|context| matches!(context.reason, super::super::FailureReason::SourceChanged | super::super::FailureReason::ConfigurationChanged))),
             "a missing dylib must invalidate the actual prepared world"
         );
         drop(engine);

@@ -214,7 +214,7 @@ impl Resolved {
             }
             for path in &selector.paths {
                 let operand = absolute(root, path);
-                if let Err(source) = std::fs::symlink_metadata(&operand) {
+                if let Err(source) = std::fs::metadata(&operand) {
                     let mut failure = super::SourceFailure::new(
                         super::SourceOperation::SelectRoot,
                         operand,
@@ -438,6 +438,46 @@ fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Err
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explicit_symlink_preflight_checks_the_effective_target() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let link = root.path().join("selected.rs");
+        let target = root.path().join("target.rs");
+        symlink("target.rs", &link).unwrap();
+        // Explanation resolves input without observing or acquiring the selected target.
+        let resolved = explain(
+            root.path(),
+            None,
+            None,
+            None,
+            serde_json::json!({"sources":{"paths":["selected.rs"]}}),
+        )
+        .unwrap();
+        let Error::SourcePath(failure) = resolved.preflight(root.path()).unwrap_err() else {
+            panic!("lost target selection cause")
+        };
+        assert_eq!(
+            failure.recovery.cause,
+            crate::envelope::RecoveryCause::MissingRoot
+        );
+        assert_eq!(failure.recovery.operand.unwrap().to_path_buf(), link);
+        std::fs::write(&target, "fn target() {}\n").unwrap();
+        resolved.preflight(root.path()).unwrap();
+        let source = crate::source_read::SourceRequest::Working { path: link.clone() };
+        let acquired = super::super::providers::acquire(root.path(), &source).unwrap();
+        assert_eq!(acquired.bytes, b"fn target() {}\n");
+        std::fs::remove_file(&target).unwrap();
+        assert!(std::fs::symlink_metadata(&link).is_ok());
+        let error = super::super::providers::acquire(root.path(), &source).unwrap_err();
+        assert_eq!(error.disposition(), super::super::FailureDisposition::Stale);
+        let recovery = error.query_error_record().unwrap().recovery.unwrap();
+        assert_eq!(
+            recovery.cause,
+            crate::envelope::RecoveryCause::SourceDisappeared
+        );
+        assert_eq!(recovery.operand.unwrap().to_path_buf(), link);
+    }
     #[test]
     fn missing_request_root_retains_origin_and_passive_resolution() {
         let root = tempfile::tempdir().unwrap();

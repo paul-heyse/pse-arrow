@@ -202,6 +202,25 @@ providers own matching, syntax, semantic/API/compiler facts and bounded relation
 Same-node/entity conjunction requires a common candidate/context; file conjunction can use different
 witnesses. Missing or incompletely examined facts stay unknown, including under negation.
 
+Source detail is execution demand, separate from payload field projection and record allowance.
+Ordinary outlines request navigation only. Explicit `facts` detail constructs interpreted
+documentation, attribute and literal facts for the selected declarations; `mapped` additionally
+constructs decoded-to-source mappings. Unrequested mappings are absent, while an explicitly
+requested empty mapping remains an empty collection. Detail coverage records selected original
+byte ranges and whether file-level facts were included. Declaration inspection defaults to
+facts; raw source ranges default to navigation. Continuations bind the selected detail mode as
+well as original bytes. Source search and association consumers request their needed facts from
+the same parsed source instead of extracting every file fact before filtering.
+
+Resolved query input retains contributing provider/file origins separately from selected scope
+identity. Explain is passive and precedes explicit-root preflight. Missing working roots refuse
+before query Begin; later disappearance, source changes, permissions, unavailable contexts and
+unsupported facts retain their original premises. Command failures and in-query diagnostics
+share optional typed recovery facts: operation, native operand, input origin, cause and a safe
+next action where one is useful. These fields remain subject to disclosure/redaction policy.
+Command failures use stderr; admitted query failures use stdout diagnostics and terminal summary.
+An empty top-level failure array alone does not establish a successful query.
+
 #### 21.7.5 Cross-context relationships and guarded comparisons
 
 > Decision: ADR-0235 (proposed Plan60a relationship-contract extension).
@@ -218,7 +237,7 @@ the existing parser and address authority. Invalid presentation choices are chec
 providers where the selected schema establishes their domain. Structured validation correction
 extends the existing diagnostic envelope with origin-owned disclosure/completeness facts;
 unknown peers remain unknown, and ordinary correction never restores redacted selectors from
-raw diagnostics. Native wire changes are authored/generated and fenced by protocol7. Existing
+raw diagnostics. Native wire changes are authored/generated and fenced by protocol8. Existing
 preparation, cancellation and settlement owners remain authoritative. The
 [Plan60 Outcome](../../plans/60-engineering-code-intelligence.md#outcome) owns selected delivery
 and qualification; conditional indexing/compiler/schema/remote branches remain dormant.
@@ -339,6 +358,22 @@ Explicit native preparation selects whether build scripts/proc macros participat
 extended inputs use the original correctness generation and refuse when unavailable. The live LSP retains its distinct supported context and operations. Native SSR
 capture/range search is not claimed where the selected public API supplies only matched text.
 G11's isolated evidence establishes feasibility; G12 and P02 own production and assembled acceptance.
+
+Reference occurrence scope is distinct from the semantic context required to resolve the entity.
+Absent scope means unrestricted occurrences; an explicit empty scope means none. Whole-file sets
+lower to the native search scope using all active edition interpretations in the selected world.
+A representable single range lowers natively. Multiple original ranges restrict native files
+first and filter exact original coordinates afterward, with the remaining examination work
+reported explicitly. Inactive selected files refuse rather than establish a complete negative.
+Graph reference examination follows traversal scope independently of output scope; inactive or
+outside-world traversal files retain useful witnesses but make examination incomplete.
+
+Symbol discovery retains the complete native candidate population before original-file/name/kind
+filtering. The pinned IDE materializes matches before its result cap, and the private index
+callback is not a supported accepted-result stream. An early result cap would lose eligible
+candidates behind excluded ones. Revisit a library extension when an ordinary supported workload
+demonstrates dominating navigation/projection work or upstream supplies a suitable same-world
+scope/accepted-result stream. Retention makes no bounded-work or performance claim.
 
 **Implemented realization (Plan59 K–M).** Working selection uses the native ignore walker and
 grep matcher/searcher pipeline; index/revision selection retains Git object identity. Native

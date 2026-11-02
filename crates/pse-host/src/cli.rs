@@ -1898,6 +1898,14 @@ pub fn main(kind: BinKind) -> ExitCode {
         Err(error) => {
             if !raw_protocol {
                 let invalid_request = match &error {
+                    HostError::Investigation(crate::investigation::Error::SourcePath(failure))
+                        if matches!(
+                            failure.recovery.cause,
+                            envelope::RecoveryCause::MissingRoot
+                        ) =>
+                    {
+                        true
+                    }
                     HostError::Io(error) => error.kind() == io::ErrorKind::InvalidInput,
                     HostError::Investigation(error) => matches!(
                         error,
@@ -2413,6 +2421,7 @@ mod tests {
                     source: source_identity.clone(),
                     range: selection.range.clone(),
                 },
+                detail_coverage: outline.detail_coverage.clone(),
                 backend: outline.backend,
                 rust_edition: outline.rust_edition,
                 parse_issues: outline.parse_issues,

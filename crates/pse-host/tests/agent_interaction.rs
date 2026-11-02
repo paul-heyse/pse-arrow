@@ -194,6 +194,7 @@ fn request_relative_root_refusal_keeps_origin_and_executable_passive_recovery() 
     );
 }
 
+#[cfg(test)]
 fn validate_schema(root: &Path, command: &str, response: &Value) {
     let output = pse(root).args(["schema", command]).output().unwrap();
     assert!(output.status.success(), "{output:?}");
@@ -289,7 +290,7 @@ fn source_ids_and_guarded_expansion_keep_source_identity_and_freshness() {
         .find(|source| source["id"] == row["source"])
         .unwrap();
     assert_eq!(selected["path"], "input.rs");
-    assert_eq!(row["context"], "");
+    assert!(row.get("context").is_none());
     let address = row["reference"]["address"].as_str().unwrap();
     let guarded = pse(root.path())
         .args(["inspect", "--result", address])
@@ -347,4 +348,61 @@ fn source_ids_and_guarded_expansion_keep_source_identity_and_freshness() {
             .unwrap()
             .contains("changed")
     );
+}
+
+#[test]
+fn dangling_explicit_file_links_refuse_before_begin_and_valid_links_search() {
+    use std::os::unix::fs::symlink;
+    let root = tempfile::tempdir().unwrap();
+    let link = root.path().join("selected.rs");
+    let target = root.path().join("target.rs");
+    symlink("target.rs", &link).unwrap();
+    let request = root.path().join("query.json");
+    std::fs::write(&request, r#"{"sources":{"paths":["selected.rs"]},"predicate":{"kind":"text","patterns":["needle"],"literal":true}}"#).unwrap();
+    let explained = pse(root.path())
+        .args(["search", "--request", "query.json", "--explain"])
+        .output()
+        .unwrap();
+    assert!(explained.status.success(), "{explained:?}");
+    let explained: Value = serde_json::from_slice(&explained.stdout).unwrap();
+    validate_schema(root.path(), "search explain", &explained);
+    assert_eq!(
+        explained["payload"]["request"]["sources"]["paths"][0],
+        link.to_str().unwrap()
+    );
+    for populated in [false, true] {
+        if populated {
+            std::fs::write(&target, "fn needle() {}\n").unwrap();
+            for order in ["arrival", "deterministic"] {
+                let found = pse(root.path())
+                    .args(["search", "--request", "query.json", "--order", order])
+                    .output()
+                    .unwrap();
+                assert!(found.status.success(), "{found:?}");
+                let found: Value = serde_json::from_slice(&found.stdout).unwrap();
+                validate_schema(root.path(), "search", &found);
+                assert_eq!(found["payload"]["results"].as_array().unwrap().len(), 1);
+                assert_eq!(found["payload"]["sources"][0]["path"], "selected.rs");
+            }
+            std::fs::remove_file(&target).unwrap();
+        }
+        // Each new command has no prior target observation: this is a selection refusal,
+        // including when another command previously observed the link's valid target.
+        let refused = pse(root.path())
+            .args(["search", "--request", "query.json", "--format", "ndjson"])
+            .output()
+            .unwrap();
+        assert!(!refused.status.success(), "{refused:?}");
+        assert!(
+            refused.stdout.is_empty(),
+            "dangling target must refuse before Begin: {refused:?}"
+        );
+        let refused: Value = serde_json::from_slice(&refused.stderr).unwrap();
+        let recovery = &refused["failures"][0]["recovery"];
+        assert_eq!(recovery["cause"], "missing_root");
+        assert_eq!(recovery["operation"], "select_root");
+        assert_eq!(recovery["operand"], link.to_str().unwrap());
+        assert_eq!(recovery["origin"]["provider"], "request file");
+        assert_eq!(recovery["origin"]["source"], request.to_str().unwrap());
+    }
 }

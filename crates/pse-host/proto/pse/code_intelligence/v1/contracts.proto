@@ -157,6 +157,13 @@ message Failure {
   State state = 6;
   NativeCancellationObservation observed_cancellation = 7;
   ValidationDisclosure validation_disclosure = 8;
+  NativeFailureContext context = 9;
+}
+message NativeFailureContext {
+  enum Reason { TOOL_UNAVAILABLE = 0; SESSION_UNAVAILABLE = 1; CONFIGURATION_CHANGED = 2; SOURCE_CHANGED = 3; OUTSIDE_PREPARED_WORLD = 4; INACTIVE_SOURCE = 5; ORIGINAL_MAPPING_UNAVAILABLE = 6; UNSUPPORTED_FACT = 7; PROVIDER_FAILED = 8; }
+  optional Reason reason = 1 [(buf.validate.field).required = true];
+  string operation = 2 [(buf.validate.field).string.min_len = 1];
+  optional bytes operand = 3;
 }
 // Origin-owned disclosure facts accompany canonical buf.validate.Violations details.
 // Absence never establishes completeness or reverses upstream redaction.
@@ -213,6 +220,7 @@ message NativeQuery {
   optional string if_candidate = 6;
   uint64 limit = 7 [(buf.validate.field).uint64.gte = 1];
   optional uint64 end_line = 8;
+  NativeOccurrenceScope occurrence_scope = 9;
   oneof kind {
     option (buf.validate.oneof).required = true;
     google.protobuf.Empty explain = 10;
@@ -242,6 +250,13 @@ message NativeQuery {
   }
 }
 message NativeImportTarget { bytes file = 1; uint64 byte_start = 2; uint64 byte_end = 3; string source_sha256 = 4; }
+message NativeOccurrenceScope { repeated NativeOccurrenceFile files = 1; }
+message NativeOccurrenceFile {
+  option (buf.validate.message).cel = { id: "occurrence.range" message: "occurrence bounds must be paired and ordered" expression: "has(this.byte_start) == has(this.byte_end) && (!has(this.byte_start) || this.byte_start <= this.byte_end)" };
+  bytes file = 1 [(buf.validate.field).bytes.min_len = 1];
+  optional uint64 byte_start = 2;
+  optional uint64 byte_end = 3;
+}
 message NativeWorkspaceQuery {
   string query = 1;
   enum Matching { FUZZY_MATCH = 0; EXACT_MATCH = 1; PREFIX_MATCH = 2; }

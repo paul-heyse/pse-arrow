@@ -612,6 +612,21 @@ pub fn propose(
 fn environment() -> crate::environment::Environment {
     std::env::vars_os().collect()
 }
+fn native_session_unavailable(root: &Path) -> Error {
+    let mut failure = crate::semantic::Failure::from_error(&crate::semantic::Error::Unavailable(
+        "explicitly prepare the native analyzer session".into(),
+    ));
+    failure.context = Some(crate::semantic::FailureContext {
+        reason: crate::semantic::FailureReason::SessionUnavailable,
+        operation: "native_query".into(),
+        operand: Some(root.to_owned().into()),
+    });
+    crate::semantic::Error::Refusal(Box::new(failure)).into()
+}
+/// File/kind filtering happens after native navigation; an early provider cap is unsound.
+pub(crate) fn symbol_candidate_limit() -> usize {
+    usize::MAX
+}
 fn authored(root: &Path, source: &SourceText) -> Result<(), Error> {
     if let Some(reason) =
         crate::agent_hooks::protected(root, source.identity().path()).map_err(native)?
@@ -700,15 +715,18 @@ pub async fn global_search(
             let env = environment();
             let record = crate::semantic::load(root, &env)
                 .map_err(Error::from)?
-                .ok_or_else(|| {
-                    Error::Unavailable("explicitly prepare the native analyzer session".into())
-                })?;
+                .ok_or_else(|| native_session_unavailable(root))?;
             let project = &record.configuration.project;
-            let selector = providers::Selection::for_prepared_context(project, &request.sources)?;
-            let selected = providers::select_prepared_context(project, &request.sources, token)?
-                .into_iter()
-                .map(|source| source.path().canonicalize().map_err(Error::from))
-                .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
+            let selector = providers::Selection::for_prepared_context(project, &request.sources)
+                .map_err(|error| error.with_selection(&request.sources, SelectionRole::Answer))?;
+            let selected = providers::select_prepared_paths(
+                project,
+                &request.sources,
+                SelectionRole::Answer,
+                token,
+            )?
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>();
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
@@ -723,7 +741,7 @@ pub async fn global_search(
                             crate::semantic::NativeNameMode::Fuzzy
                         }
                     },
-                    limit: usize::MAX,
+                    limit: symbol_candidate_limit(),
                     include_dependencies: request.sources.include_dependencies,
                     if_generation: None,
                 });
@@ -960,9 +978,7 @@ async fn semantic_query(
     let env = environment();
     let record = crate::semantic::load(root, &env)
         .map_err(Error::from)?
-        .ok_or_else(|| {
-            Error::Unavailable("explicitly prepare the native analyzer session".into())
-        })?;
+        .ok_or_else(|| native_session_unavailable(root))?;
     if session_invocation
         .as_ref()
         .is_some_and(|expected| expected != record.invocation.as_str())
@@ -982,6 +998,7 @@ async fn semantic_query(
         .transpose()
         .map_err(|_| Error::Invalid("invalid semantic generation".into()))?;
     let query = crate::semantic::Query {
+        occurrence_scope: None,
         kind,
         file: path.to_path_buf(),
         line: *line,

@@ -76,7 +76,7 @@ written bytes will settle the question. These reads also work outside a pse-arro
 |---|---|
 | Where is a declaration or document section? | `pse inspect outline FILE --budget 20` reads nested Rust declarations or Markdown headings without Cargo, cfg evaluation or macro expansion. Multiple files are supported; use one file for a continuation. |
 | What exactly surrounds this location? | `pse inspect declaration FILE --at-line N --at-column N` returns the enclosing declaration/section. `--range-start` / `--range-end` select a half-open UTF-8 byte range. Line/column coordinates are one-based Unicode scalars. |
-| What does this written literal, documentation or attribute mean? | Outline/declaration facts retain original spelling, interpreted values and escape mappings. Syntax matches carry their enclosing declaration, receiver, ordered arguments and owner-matched documentation/attributes; these remain source facts, without cfg or type inference. |
+| What does this written literal, documentation or attribute mean? | Use `--detail facts` for selected interpreted values or `--detail mapped` for decoded-to-source mappings. Outlines default to navigation; declarations default to facts, raw ranges to navigation. Syntax matches carry their enclosing declaration, receiver, ordered arguments and owner-matched documentation/attributes; these remain source facts, without cfg or type inference. |
 | What was staged or committed? | Add `--index` for the raw staged blob or `--revision REF` for a resolved committed blob. This avoids checkout changes and distinguishes Git bytes from current working bytes. |
 | Which written shapes match a refactor? | `pse search syntax 'call($ARG)' --path FILE` returns structural candidates with captures and exact source identity. Rust is the current structural language. |
 | Which matches occur in the intended context? | Native rule requests express ancestor/descendant/sibling/field constraints and repeated captures. Strictness selects matching policy. Syntax previews also retain native `--inside`, `--has`, `--exclude`, `--strictness` and `--capture` input controls. |
@@ -85,7 +85,10 @@ written bytes will settle the question. These reads also work outside a pse-arro
 | What changed, and which tests might matter? | `pse inspect changes` separates Git layers and declared source/generated owners. `pse inspect affected` supplies conservative test reach. Use these to narrow investigation, then select real tests; reach is not test success. |
 
 For an outline continuation, pass `payload.page.next_cursor` unchanged as `--cursor`; changed
-working bytes refuse. Source parsing has an explicit edition/language policy rather than an
+working bytes refuse. Keep the same `--detail` on continuation. `detail_coverage` describes
+selected fact ranges and file-level inclusion; omitted detail does not establish absent facts.
+`--fields` projects output independently of detail demand. Source parsing has an explicit
+edition/language policy rather than an
 inferred build context. A syntax match is a written candidate even when names are spelled alike;
 it does not establish resolved identity or active cfg membership. Semantic refinement explicitly
 selects a prepared provider; unavailable information never silently becomes syntax evidence.
@@ -94,6 +97,20 @@ Allowances count nested declarations or matches. Review total/omitted and contin
 before concluding a search is complete. `--fields` can hide payload detail while mandatory
 `providers` still records exact source generation and parser context. Read the selected
 declaration or capture rather than dumping a large file solely to locate it.
+
+For query correction, start with `search --request FILE --explain`: it shows resolved operands
+and their contributing input origins without filesystem preflight or provider preparation.
+Request-file paths are relative to that file. Missing explicit roots refuse before Begin and
+may return a safe passive-explain recovery action. Execute returned argv unchanged when useful;
+do not reconstruct hidden/redacted values. A later disappearance or stale prepared world has
+different premises and may require a different action.
+
+Consume both output streams. Command refusals appear on stderr; admitted-query failures appear
+as stdout diagnostics. In JSON inspect `payload.summary` and `payload.diagnostics` even when
+top-level `failures` is empty. In NDJSON consume diagnostic records and require terminal coverage.
+Join each result's `source` with `payload.sources[].id`. Empty projected context text can coexist
+with valid source/relationship evidence. Direct `inspect --source` reads current selected bytes;
+`inspect --result` guards the original source/context and refuses stale evidence.
 
 ## Resolved Rust context and edit proposals
 

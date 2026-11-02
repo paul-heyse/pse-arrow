@@ -35,6 +35,22 @@ impl SourceOperation {
         }
     }
 }
+/// The selected source role is known by its execution owner, independently of path overlap.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SelectionRole {
+    /// Sources from which ordinary answer rows are selected.
+    Answer,
+    /// Sources admitting relationship seeds and supporting traversal nodes.
+    Traversal,
+}
+/// Request-local selector identity retained until its contributing origin is projected.
+#[derive(Clone, Debug)]
+pub struct SelectionContext {
+    /// The operation's source-selection role.
+    pub role: SelectionRole,
+    /// The actual selector used by that owner; paths are already resolved.
+    pub selector: SourceSelector,
+}
 /// Filesystem cause retained alongside its domain premise and available correction.
 #[derive(Debug, thiserror::Error)]
 #[error("{operation}: {source}", operation = .recovery.operation)]
@@ -67,6 +83,7 @@ impl SourceFailure {
                 operation: operation.as_str().into(),
                 operand: Some(operand.into()),
                 origin: None,
+                selection: None,
                 cause,
                 next: None,
             },
@@ -143,6 +160,18 @@ pub enum FailureDisposition {
     Failed,
 }
 impl Error {
+    /// Attach the actual selected operand domain before public diagnostic projection.
+    pub fn with_selection(mut self, selector: &SourceSelector, role: SelectionRole) -> Self {
+        if let Self::SourcePath(failure) = &mut self
+            && failure.recovery.selection.is_none()
+        {
+            failure.recovery.selection = Some(Box::new(SelectionContext {
+                role,
+                selector: selector.clone(),
+            }));
+        }
+        self
+    }
     /// Project owner facts consistently for command failures and in-query diagnostics.
     pub fn record(
         &self,
@@ -161,7 +190,7 @@ impl Error {
             Self::SourcePath(failure) => Some(failure.recovery.clone()),
             Self::Semantic(error) => match error.as_ref() {
                 crate::semantic::Error::Refusal(failure) => failure.context.as_ref().map(|context| crate::envelope::RecoveryRecord {
-                    operation: context.operation.clone(), operand: context.operand.clone(), origin: None,
+                    operation: context.operation.clone(), operand: context.operand.clone(), origin: None, selection: None,
                     cause: crate::envelope::RecoveryCause::Native(context.reason),
                     next: match (context.reason, context.operation.as_str(), context.operand.as_ref()) {
                         (crate::semantic::FailureReason::SessionUnavailable, "native_query", Some(root)) => root.to_path_buf().to_str().map(|root| crate::envelope::NextAction::Command {
@@ -175,7 +204,7 @@ impl Error {
             },
             _ => None,
         };
-        record.recovery = recovery.map(|recovery| recovery.redacted(policy));
+        record.recovery = recovery.map(|recovery| Box::new(recovery.redacted(policy)));
         record
     }
     /// Retain native query-construction and source recovery metadata in query events.
@@ -230,8 +259,8 @@ impl Error {
     pub fn native_refusal(&self) -> Option<crate::semantic::Failure> {
         match self {
             Self::Semantic(error) => match error.as_ref() {
-                crate::semantic::Error::Refusal(failure) => Some(failure.as_ref().clone()),
-                crate::semantic::Error::CancelledObserved { .. } => {
+                crate::semantic::Error::Refusal(_)
+                | crate::semantic::Error::CancelledObserved { .. } => {
                     Some(crate::semantic::Failure::from_error(error))
                 }
                 _ => None,
@@ -283,6 +312,26 @@ pse_diagnostics::impl_diagnostic! {Error,
 #[cfg(test)]
 mod recovery_tests {
     use super::*;
+    #[test]
+    fn outer_answer_boundary_preserves_an_existing_derived_selector() {
+        let derived = SourceSelector::default();
+        let answer = SourceSelector {
+            paths: vec!["answers".into()],
+            ..Default::default()
+        };
+        let error = Error::SourcePath(Box::new(SourceFailure::new(
+            SourceOperation::ReadSource,
+            "support.rs".into(),
+            std::io::Error::from(std::io::ErrorKind::NotFound),
+            true,
+        )))
+        .with_selection(&derived, SelectionRole::Answer)
+        .with_selection(&answer, SelectionRole::Answer);
+        let Error::SourcePath(failure) = error else {
+            panic!("lost source failure")
+        };
+        assert_eq!(failure.recovery.selection.unwrap().selector, derived);
+    }
     #[test]
     fn native_path_operands_are_redacted_before_public_projection() {
         use std::os::unix::ffi::OsStringExt as _;

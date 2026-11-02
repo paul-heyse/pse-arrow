@@ -392,10 +392,16 @@ native owners rather than create another backlog. Reading a schema or corpus sta
 For exact written source, use `scripts/pse inspect outline FILE --budget 20` and pass the returned
 `payload.page.next_cursor` unchanged with `--cursor`. The allowance counts nested declarations,
 including entries inside modules and impls. A continuation refuses changed working bytes.
+Outlines default to navigation only. Add `--detail facts` for selected interpreted source facts
+or `--detail mapped` for their decoded-to-source mappings; continuations also bind this detail
+selection. `--fields` only projects the response and does not request source construction.
 `scripts/pse inspect declaration FILE --at-line 12 --at-column 7` selects the enclosing declaration using
 one-based Unicode scalar coordinates; `--range-start` and `--range-end` select a half-open
 UTF-8 byte range. `--index` reads the raw staged blob and `--revision REF` resolves a committed
 blob without checkout. These reads need neither a prepared analyzer nor a pse-arrow checkout.
+Declarations default to `facts`; raw ranges default to navigation. Inspect `detail_coverage`
+before treating omitted facts as absent, and request `mapped` only when exact escape/source
+correspondence matters.
 
 Use `scripts/pse search --path FILE syntax 'call($ARG)'` for written structural
 candidates. Search defaults to the first twenty arrivals; `--all`, `--count` and stable
@@ -403,6 +409,12 @@ continuation are explicit demands. Native AST rules and Tree-sitter queries keep
 original subtrees in typed JSON requests. Scoped Boolean clauses distinguish line, file,
 node and entity predicates; an unavailable refinement remains unknown rather than false.
 `scripts/pse search --explain` shows merged request/configuration provenance without searching.
+Request-file paths remain relative to that file. Explain works even when an explicit root is
+missing; execution refuses that root before query Begin, with its resolved operand and input
+origin. Where safe, the returned recovery action replays the original inputs as passive explain.
+Read command failures from stderr and admitted query diagnostics from stdout. In JSON, inspect
+`payload.summary` and `payload.diagnostics` as well as top-level failures; in NDJSON, require the
+terminal record and consume its completeness/failure fields.
 `--result-fields`, `--group-by`, `--limit` and `--budget` select independent result detail,
 returned-witness grouping, answer demand and display allowance. NDJSON delivers whole live
 records followed by the coverage summary; absent finality means incomplete delivery.

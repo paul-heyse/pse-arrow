@@ -1,6 +1,34 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+#[test]
+fn stable_provider_failure_retains_the_actual_answer_selector() {
+    let root = tempfile::tempdir().unwrap();
+    let request = Request {
+        sources: SourceSelector {
+            paths: vec![root.path().join("disappeared")],
+            ..Default::default()
+        },
+        answer: AnswerDemand {
+            order: ResultOrder::Stable,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let error = run(
+        root.path(),
+        &request,
+        &CancellationToken::new(),
+        &mut |_| Ok(()),
+    )
+    .unwrap_err();
+    let Error::SourcePath(failure) = error else {
+        panic!("lost source cause")
+    };
+    let selection = failure.recovery.selection.unwrap();
+    assert_eq!(selection.role, SelectionRole::Answer);
+    assert_eq!(selection.selector, request.sources);
+}
 use std::{fs, path::PathBuf, process::Command};
 use tokio_util::sync::CancellationToken;
 
@@ -239,7 +267,8 @@ fn prepared_semantic_selection_never_acquires_current_cargo_metadata() {
     let selection = Selection::for_prepared_context(root.path(), &selector).unwrap();
     assert_eq!(selection.dependency_roots().count(), 0);
     let sources =
-        select_prepared_context(root.path(), &selector, &CancellationToken::new()).unwrap();
+        selection::select_prepared_context(root.path(), &selector, &CancellationToken::new())
+            .unwrap();
     assert_eq!(sources.len(), 2);
 }
 #[test]

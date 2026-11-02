@@ -62,6 +62,19 @@ impl RedactionPolicy {
                 text.replace(secret, &format!("<redacted:{name}>"))
             })
     }
+    /// Preserve exact native bytes unless disclosure requires a redacted display path.
+    pub(crate) fn redact_path(
+        &self,
+        value: crate::investigation::NativePath,
+    ) -> crate::investigation::NativePath {
+        let text = value.to_path_buf().to_string_lossy().into_owned();
+        let redacted = self.redact(&text);
+        if text == redacted {
+            value
+        } else {
+            crate::investigation::NativePath::Utf8(redacted)
+        }
+    }
 }
 /// A source label resolved through the source's native span reader.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
@@ -206,6 +219,10 @@ pub struct RecoveryRecord {
     pub operand: Option<crate::investigation::NativePath>,
     /// Effective input's contributing provider, when known.
     pub origin: Option<crate::investigation::config::InputOrigin>,
+    /// Internal selector identity consumed before public attribution; never serialized.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub selection: Option<Box<crate::investigation::SelectionContext>>,
     /// Cause independent of rendered text and raw operating-system numbers.
     pub cause: RecoveryCause,
     /// Advice only; never automatically executed.
@@ -214,20 +231,11 @@ pub struct RecoveryRecord {
 impl RecoveryRecord {
     /// Apply the original disclosure before downstream consumers can use a correction.
     pub fn redacted(mut self, policy: &RedactionPolicy) -> Self {
-        let path = |value: crate::investigation::NativePath| {
-            let text = value.to_path_buf().to_string_lossy().into_owned();
-            let redacted = policy.redact(&text);
-            if text == redacted {
-                value
-            } else {
-                crate::investigation::NativePath::Utf8(redacted)
-            }
-        };
         self.operation = policy.redact(&self.operation);
-        self.operand = self.operand.map(path);
+        self.operand = self.operand.map(|path| policy.redact_path(path));
         self.origin = self.origin.map(|mut origin| {
             origin.provider = policy.redact(&origin.provider);
-            origin.source = origin.source.map(path);
+            origin.source = origin.source.map(|path| policy.redact_path(path));
             origin
         });
         self.next = self.next.and_then(|action| match action {
@@ -303,7 +311,7 @@ pub struct ErrorRecord {
     pub parser_context: BTreeMap<String, String>,
     /// Optional recovery facts from the owner that knows the failed operation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery: Option<RecoveryRecord>,
+    pub recovery: Option<Box<RecoveryRecord>>,
 }
 impl ErrorRecord {
     /// Capture a typed native diagnostic without flattening its aggregate structure.
@@ -460,6 +468,7 @@ mod recovery_tests {
                 provider: "request file".into(),
                 source: Some(NativePath::Utf8("/tmp/secret/request.json".into())),
             }),
+            selection: None,
             cause: RecoveryCause::MissingRoot,
             next: Some(super::super::NextAction::Command {
                 argv: vec![
@@ -484,6 +493,7 @@ mod recovery_tests {
             operation: "read_source".into(),
             operand: Some(raw.clone()),
             origin: None,
+            selection: None,
             cause: RecoveryCause::InputOutput,
             next: None,
         }

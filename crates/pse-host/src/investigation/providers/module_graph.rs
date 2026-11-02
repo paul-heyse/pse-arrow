@@ -58,7 +58,8 @@ impl ModuleGraph {
                     .to_string(),
             };
         }
-        let sources = selection::select_prepared_context(root, &universe, token)?;
+        let sources = selection::select_prepared_context(root, &universe, token)
+            .map_err(|error| error.with_selection(&universe, SelectionRole::Answer))?;
         let available = sources
             .iter()
             .map(|source| {
@@ -73,6 +74,7 @@ impl ModuleGraph {
         let mut loader = Loader {
             root,
             kind: &universe.kind,
+            selector: &universe,
             token,
             available: &available,
             graph: &mut graph,
@@ -87,7 +89,8 @@ impl ModuleGraph {
             if token.is_cancelled() {
                 return Err(Error::Cancelled);
             }
-            let input = selection::acquire_cancellable(root, source, token)?;
+            let input = selection::acquire_cancellable(root, source, token)
+                .map_err(|error| error.with_selection(&universe, SelectionRole::Answer))?;
             let manifest: toml::Value = toml::from_str(
                 std::str::from_utf8(&input.bytes)
                     .map_err(|error| Error::Invalid(error.to_string()))?,
@@ -256,6 +259,7 @@ impl ModuleGraph {
 struct Loader<'a> {
     root: &'a Path,
     kind: &'a SourceKind,
+    selector: &'a SourceSelector,
     token: &'a CancellationToken,
     available: &'a BTreeSet<PathBuf>,
     graph: &'a mut ModuleGraph,
@@ -284,6 +288,13 @@ impl Loader<'_> {
             detail: None,
         });
     }
+    fn issue_error(&mut self, target: &str, message: String, error: &Error) {
+        self.issue(target, message);
+        if let Some(diagnostic) = self.graph.diagnostics.last_mut() {
+            diagnostic.phase = error.phase();
+            diagnostic.detail = error.query_error_record();
+        }
+    }
     fn acquire(&self, path: &Path) -> Result<ProviderInput, Error> {
         let source = match self.kind {
             SourceKind::Working => SourceRequest::Working {
@@ -300,6 +311,7 @@ impl Loader<'_> {
             },
         };
         selection::acquire_cancellable(self.root, &source, self.token)
+            .map_err(|error| error.with_selection(self.selector, SelectionRole::Answer))
     }
     fn file(
         &mut self,
@@ -327,9 +339,10 @@ impl Loader<'_> {
             Ok(input) => input,
             Err(Error::Cancelled) => return Err(Error::Cancelled),
             Err(error) => {
-                self.issue(
+                self.issue_error(
                     &context.target,
                     format!("module source {path:?} unavailable: {error}"),
+                    &error,
                 );
                 return Ok(());
             }
@@ -519,6 +532,53 @@ fn normalize(path: &Path) -> PathBuf {
 mod tests {
     use super::*;
     use std::{fs, process::Command};
+    #[test]
+    fn disappearing_module_support_retains_typed_detail_and_derived_selection() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("support.rs");
+        fs::write(&path, "mod support {}\n").unwrap();
+        let available = BTreeSet::from([PathBuf::from("support.rs")]);
+        fs::remove_file(&path).unwrap();
+        let universe = SourceSelector::default();
+        let token = CancellationToken::new();
+        let mut graph = ModuleGraph::default();
+        let mut loader = Loader {
+            root: root.path(),
+            kind: &universe.kind,
+            selector: &universe,
+            token: &token,
+            available: &available,
+            graph: &mut graph,
+            stack: Vec::new(),
+        };
+        loader
+            .file(
+                PathBuf::from("support.rs"),
+                WrittenModuleContext {
+                    modules: vec![],
+                    target: "fixture:lib".into(),
+                    conditional: false,
+                },
+                true,
+            )
+            .unwrap();
+        let diagnostic = &graph.diagnostics[0];
+        assert_eq!(diagnostic.phase, DiagnosticPhase::Context);
+        let recovery = diagnostic
+            .detail
+            .as_ref()
+            .unwrap()
+            .recovery
+            .as_ref()
+            .unwrap();
+        assert_eq!(
+            recovery.cause,
+            crate::envelope::RecoveryCause::SourceDisappeared
+        );
+        assert_eq!(recovery.operand.as_ref().unwrap().to_path_buf(), path);
+        assert_eq!(recovery.selection.as_ref().unwrap().selector, universe);
+        assert!(recovery.origin.is_none());
+    }
     #[test]
     fn raw_module_names_use_real_paths_and_unrelated_targets_do_not_poison_narrow_queries() {
         let root = tempfile::tempdir().unwrap();

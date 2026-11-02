@@ -27,7 +27,7 @@ pub struct Report {
     pub document: Option<crate::ownership::document::AssociationExport>,
     /// Authored citations nominated from lossless Rust doc facts or Markdown syntax.
     pub citations: Vec<Association>,
-    /// Original documentation/comment/literal facts, including decoded-to-source mappings.
+    /// Original documentation/comment/literal facts; unrequested mappings remain absent.
     pub documentation: Vec<crate::source_read::SourceFact>,
     /// Optional explicitly selected native intra-document Rust symbol resolution.
     pub native: Option<crate::semantic::Answer>,

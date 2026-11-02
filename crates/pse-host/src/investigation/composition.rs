@@ -120,16 +120,12 @@ fn nomination_scope_in_project(
     let project = project.canonicalize()?;
     // Dependency membership is already established by the verified native nomination.
     // Reuse its prepared scope policy without observing fresh Cargo metadata.
-    let policy = providers::Selection::for_prepared_context(&project, selector)?;
-    let selected = providers::select_prepared_context(&project, selector, token)?
-        .into_iter()
-        .map(|source| {
-            project
-                .join(source.path())
-                .canonicalize()
-                .map_err(Error::from)
-        })
-        .collect::<Result<BTreeSet<_>, _>>()?;
+    let policy = providers::Selection::for_prepared_context(&project, selector)
+        .map_err(|error| error.with_selection(selector, SelectionRole::Answer))?;
+    let selected =
+        providers::select_prepared_paths(&project, selector, SelectionRole::Answer, token)?
+            .into_iter()
+            .collect();
     Ok(NominationScope {
         project,
         selector: selector.clone(),
@@ -1738,6 +1734,7 @@ mod tests {
             ),
         ] {
             let original = crate::semantic::Failure {
+                context: None,
                 state,
                 phase: crate::semantic::FailurePhase::Provider,
                 message: "native owner refusal".into(),
@@ -1773,6 +1770,7 @@ mod tests {
         }
         let error = Error::Semantic(Box::new(crate::semantic::Error::Refusal(Box::new(
             crate::semantic::Failure {
+                context: None,
                 state: crate::semantic::FailureState::Unavailable,
                 phase: crate::semantic::FailurePhase::Context,
                 message: "selected backend could not prove enrichment".into(),

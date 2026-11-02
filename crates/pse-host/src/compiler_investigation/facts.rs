@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
 //! Presentation of owned, pinned compiler observations; never a textual MIR parser.
 use super::{artifact, invalid};
 use crate::{

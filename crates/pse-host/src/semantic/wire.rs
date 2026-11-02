@@ -19,6 +19,12 @@ use std::{
 fn malformed(field: &str) -> Error {
     Error::Schema(format!("invalid native wire field: {field}"))
 }
+fn checked_outgoing<T: protovalidate_buffa::Validate>(value: T) -> Result<T> {
+    value
+        .validate()
+        .map_err(|error| Error::Validator(format!("outgoing native contract: {error}")))?;
+    Ok(value)
+}
 fn required<T>(value: Option<T>, field: &str) -> Result<T> {
     value.ok_or_else(|| malformed(field))
 }
@@ -169,6 +175,22 @@ pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
             if_candidate: value.if_candidate.clone(),
             limit: number(value.limit),
             end_line: value.end_line.map(number),
+            occurrence_scope: value
+                .occurrence_scope
+                .as_ref()
+                .map(|files| pb::NativeOccurrenceScope {
+                    files: files
+                        .iter()
+                        .map(|entry| pb::NativeOccurrenceFile {
+                            file: path(&entry.file),
+                            byte_start: entry.range.as_ref().map(|range| number(range.start)),
+                            byte_end: entry.range.as_ref().map(|range| number(range.end)),
+                            ..Default::default()
+                        })
+                        .collect(),
+                    ..Default::default()
+                })
+                .into(),
             kind: Some(match &value.kind {
                 Kind::Body => K::Body(Default::default()),
                 Kind::Origins { kind } => K::Origins(investigation::origin_to_pb(*kind).into()),
@@ -239,7 +261,7 @@ pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
             return Err(malformed("Run.operation requires query or workspace"));
         }
     };
-    Ok(pb::NativeRequest {
+    checked_outgoing(pb::NativeRequest {
         operation: Some(operation),
         ..Default::default()
     })
@@ -250,7 +272,7 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
         pb::native_request::Operation::Graph(value) => {
             Request::Graph(graph::query_from_pb(*value)?)
         }
-        pb::native_request::Operation::Query(value) => {
+        pb::native_request::Operation::Query(mut value) => {
             if value.file.is_empty() || value.line == 0 || value.column == 0 || value.limit == 0 {
                 return Err(malformed("query coordinates/file/limit"));
             }
@@ -318,6 +340,30 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
                     },
                 },
                 file: from_path(value.file),
+                occurrence_scope: value
+                    .occurrence_scope
+                    .take()
+                    .map(|scope| {
+                        scope
+                            .files
+                            .into_iter()
+                            .map(|entry| {
+                                let range = match (entry.byte_start, entry.byte_end) {
+                                    (None, None) => None,
+                                    (Some(start), Some(end)) if start <= end => Some(
+                                        size(start, "occurrence.start")?
+                                            ..size(end, "occurrence.end")?,
+                                    ),
+                                    _ => return Err(malformed("occurrence.range")),
+                                };
+                                Ok(OccurrenceFile {
+                                    file: from_path(entry.file),
+                                    range,
+                                })
+                            })
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .transpose()?,
                 line: size(value.line, "query.line")?,
                 column: size(value.column, "query.column")?,
                 if_source: value.if_source,
@@ -1782,8 +1828,74 @@ pub(super) fn workspace_from_pb(mut value: pb::NativeWorkspaceAnswer) -> Result<
             .collect::<Result<_>>()?,
     })
 }
+fn failure_context_to_pb(value: FailureContext) -> pb::NativeFailureContext {
+    pb::NativeFailureContext {
+        reason: Some(
+            match value.reason {
+                FailureReason::ToolUnavailable => {
+                    pb::native_failure_context::Reason::ToolUnavailable
+                }
+                FailureReason::SessionUnavailable => {
+                    pb::native_failure_context::Reason::SessionUnavailable
+                }
+                FailureReason::ConfigurationChanged => {
+                    pb::native_failure_context::Reason::ConfigurationChanged
+                }
+                FailureReason::SourceChanged => pb::native_failure_context::Reason::SourceChanged,
+                FailureReason::OutsidePreparedWorld => {
+                    pb::native_failure_context::Reason::OutsidePreparedWorld
+                }
+                FailureReason::InactiveSource => pb::native_failure_context::Reason::InactiveSource,
+                FailureReason::OriginalMappingUnavailable => {
+                    pb::native_failure_context::Reason::OriginalMappingUnavailable
+                }
+                FailureReason::UnsupportedFact => {
+                    pb::native_failure_context::Reason::UnsupportedFact
+                }
+                FailureReason::ProviderFailed => pb::native_failure_context::Reason::ProviderFailed,
+            }
+            .into(),
+        ),
+        operation: value.operation,
+        operand: value.operand.map(|p| path(&p.to_path_buf())),
+        ..Default::default()
+    }
+}
+fn failure_context_from_pb(value: pb::NativeFailureContext) -> Result<FailureContext> {
+    if value.operation.is_empty() {
+        return Err(malformed("failure.context.operation"));
+    }
+    Ok(FailureContext {
+        reason: match value
+            .reason
+            .and_then(|value| value.as_known())
+            .ok_or_else(|| malformed("failure.context.reason"))?
+        {
+            pb::native_failure_context::Reason::ToolUnavailable => FailureReason::ToolUnavailable,
+            pb::native_failure_context::Reason::SessionUnavailable => {
+                FailureReason::SessionUnavailable
+            }
+            pb::native_failure_context::Reason::ConfigurationChanged => {
+                FailureReason::ConfigurationChanged
+            }
+            pb::native_failure_context::Reason::SourceChanged => FailureReason::SourceChanged,
+            pb::native_failure_context::Reason::OutsidePreparedWorld => {
+                FailureReason::OutsidePreparedWorld
+            }
+            pb::native_failure_context::Reason::InactiveSource => FailureReason::InactiveSource,
+            pb::native_failure_context::Reason::OriginalMappingUnavailable => {
+                FailureReason::OriginalMappingUnavailable
+            }
+            pb::native_failure_context::Reason::UnsupportedFact => FailureReason::UnsupportedFact,
+            pb::native_failure_context::Reason::ProviderFailed => FailureReason::ProviderFailed,
+        },
+        operation: value.operation,
+        operand: value.operand.map(|p| from_path(p).into()),
+    })
+}
 pub(super) fn failure_to_pb(value: Failure) -> Result<pb::Failure> {
-    Ok(pb::Failure {
+    checked_outgoing(pb::Failure {
+        context: value.context.map(failure_context_to_pb).into(),
         state: match value.state {
             FailureState::Unavailable => pb::failure::State::Unavailable,
             FailureState::Unsupported => pb::failure::State::Unsupported,
@@ -1820,6 +1932,11 @@ pub(super) fn failure_to_pb(value: Failure) -> Result<pb::Failure> {
 }
 pub(super) fn failure_from_pb(mut value: pb::Failure) -> Result<Failure> {
     Ok(Failure {
+        context: value
+            .context
+            .take()
+            .map(failure_context_from_pb)
+            .transpose()?,
         state: match value
             .state
             .as_known()
@@ -2125,6 +2242,7 @@ mod tests {
         ];
         for kind in operations {
             let request = Request::Query(Query {
+                occurrence_scope: None,
                 kind,
                 file: raw_path(),
                 line: 17,
@@ -2331,6 +2449,97 @@ mod tests {
     }
 
     #[test]
+    fn contextual_failures_and_occurrence_scopes_preserve_native_meaning() {
+        let failure = Failure {
+            context: Some(FailureContext {
+                reason: FailureReason::OutsidePreparedWorld,
+                operation: "reference_scope".into(),
+                operand: Some(raw_path().into()),
+            }),
+            state: FailureState::Unavailable,
+            phase: FailurePhase::Context,
+            message: "outside prepared world".into(),
+            backend_code: None,
+            backend_data: None,
+            observed_cancellation: None,
+            validation: None,
+        };
+        let expected = serde_json::to_value(&failure).unwrap();
+        let wire = failure_to_pb(failure).unwrap();
+        assert_eq!(
+            serde_json::to_value(failure_from_pb(wire.clone()).unwrap()).unwrap(),
+            expected
+        );
+        let mut missing = wire.clone();
+        missing.context.as_option_mut().unwrap().reason = None;
+        assert!(failure_from_pb(missing).is_err());
+        let mut invalid = wire;
+        invalid.context.as_option_mut().unwrap().reason = Some(999.into());
+        assert!(failure_from_pb(invalid).is_err());
+        for scope in [
+            None,
+            Some(vec![]),
+            Some(vec![OccurrenceFile {
+                file: raw_path(),
+                range: Some(2..9),
+            }]),
+        ] {
+            let request = Request::Query(Query {
+                kind: Kind::Refs,
+                file: raw_path(),
+                line: 1,
+                column: 1,
+                if_source: None,
+                if_generation: Some(3),
+                if_candidate: None,
+                limit: 5,
+                end_line: None,
+                occurrence_scope: scope,
+            });
+            let wire = request_to_pb(&request).unwrap();
+            let restored = request_from_pb(wire.clone()).unwrap();
+            let Request::Query(restored_query) = &restored else {
+                panic!("query expected")
+            };
+            assert_eq!(restored_query.file, raw_path());
+            let Request::Query(original_query) = &request else {
+                panic!("query expected")
+            };
+            assert_eq!(
+                restored_query.occurrence_scope.is_some(),
+                original_query.occurrence_scope.is_some()
+            );
+            if let Some(files) = &restored_query.occurrence_scope {
+                assert_eq!(
+                    files.len(),
+                    original_query.occurrence_scope.as_ref().unwrap().len()
+                );
+                for file in files {
+                    assert_eq!(file.file, raw_path());
+                    assert_eq!(file.range, Some(2..9));
+                }
+            }
+            assert_eq!(request_to_pb(&restored).unwrap(), wire);
+        }
+        let invalid = Request::Query(Query {
+            kind: Kind::Refs,
+            file: raw_path(),
+            line: 1,
+            column: 1,
+            if_source: None,
+            if_generation: None,
+            if_candidate: None,
+            limit: 1,
+            end_line: None,
+            occurrence_scope: Some(vec![OccurrenceFile {
+                file: raw_path(),
+                range: Some(std::ops::Range { start: 9, end: 2 }),
+            }]),
+        });
+        assert!(request_to_pb(&invalid).is_err());
+    }
+
+    #[test]
     fn source_origins_and_backend_refusals_keep_their_original_boundaries() {
         let git_dir = crate::repository::GitName::new(b"/original/\xff.git");
         for origin in [
@@ -2362,6 +2571,7 @@ mod tests {
             FailureState::Failed,
         ] {
             let failure = Failure {
+                context: None,
                 state,
                 phase: FailurePhase::Provider,
                 message: "original native refusal".into(),
@@ -2406,6 +2616,7 @@ mod tests {
                 for original in [
                     OriginalOutcome::Succeeded,
                     OriginalOutcome::Failed(Box::new(Failure {
+                        context: None,
                         state: FailureState::Stale,
                         phase: FailurePhase::Context,
                         message: "original changed source".into(),
@@ -2416,6 +2627,7 @@ mod tests {
                     })),
                 ] {
                     let failure = Failure {
+                        context: None,
                         state: FailureState::Cancelled,
                         phase,
                         message: "cancellation observed".into(),

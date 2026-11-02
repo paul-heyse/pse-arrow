@@ -488,6 +488,7 @@ mod tests {
     fn query() -> GraphQuery {
         GraphQuery {
             seeds: vec![Query {
+                occurrence_scope: None,
                 kind: Kind::Explain,
                 file: "/fixture/lib.rs".into(),
                 line: 1,

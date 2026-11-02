@@ -476,6 +476,7 @@ pub(in crate::cli) fn query(
         if_candidate: subject.if_candidate,
         limit: output.presentation.budget.unwrap_or(12),
         end_line: subject.end_line,
+        occurrence_scope: None,
     });
     let value = super::super::runtime()?.block_on(async {
         let cancellation = tokio_util::sync::CancellationToken::new();

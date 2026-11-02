@@ -607,7 +607,7 @@ fn visit_selected(
     match &selector.kind {
         SourceKind::Working => {
             for path in &selector.paths {
-                if let Err(error) = fs::symlink_metadata(root.join(path))
+                if let Err(error) = fs::metadata(root.join(path))
                     && !emit(Err(Error::SourcePath(Box::new(SourceFailure::new(
                         SourceOperation::SelectRoot,
                         root.join(path),
@@ -736,9 +736,107 @@ pub(crate) fn select_prepared_context(
     Ok(sources)
 }
 
+/// Canonical selected paths retain the exact prepared selector and its role on failure.
+pub(crate) fn select_prepared_paths(
+    root: &Path,
+    selector: &SourceSelector,
+    role: SelectionRole,
+    token: &CancellationToken,
+) -> Result<Vec<PathBuf>, Error> {
+    select_prepared_context(root, selector, token)
+        .map_err(|error| error.with_selection(selector, role))?
+        .into_iter()
+        .map(|source| {
+            let path = root.join(source.path());
+            path.canonicalize().map_err(|source| {
+                Error::SourcePath(Box::new(SourceFailure::new(
+                    SourceOperation::ObserveSource,
+                    path,
+                    source,
+                    true,
+                )))
+                .with_selection(selector, role)
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn removed_symlink_targets_are_reported_by_both_working_root_rechecks() {
+        use std::os::unix::fs::symlink;
+        let root = tempfile::tempdir().unwrap();
+        let link = root.path().join("selected.rs");
+        let target = root.path().join("target.rs");
+        fs::write(&target, "fn target() {}\n").unwrap();
+        symlink("target.rs", &link).unwrap();
+        let resolved = config::explain(
+            root.path(),
+            None,
+            None,
+            None,
+            serde_json::json!({"sources":{"paths":["selected.rs"]}}),
+        )
+        .unwrap();
+        resolved.preflight(root.path()).unwrap();
+        fs::remove_file(&target).unwrap();
+        let token = CancellationToken::new();
+        let error = select_prepared_paths(
+            root.path(),
+            &resolved.request.sources,
+            SelectionRole::Answer,
+            &token,
+        )
+        .unwrap_err();
+        let Error::SourcePath(failure) = error else {
+            panic!("lost prepared-selection source cause")
+        };
+        assert_eq!(failure.source.kind(), std::io::ErrorKind::NotFound);
+        assert_eq!(failure.recovery.operand.unwrap().to_path_buf(), link);
+        let mut events = Vec::new();
+        let summary = super::super::run(root.path(), &resolved.request, &token, &mut |event| {
+            events.push(event);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(summary.failures, 1);
+        let recovery = events
+            .iter()
+            .find_map(|event| match event {
+                Event::Diagnostic {
+                    detail: Some(detail),
+                    ..
+                } => detail.recovery.as_ref(),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(recovery.operand.as_ref().unwrap().to_path_buf(), link);
+        assert_eq!(
+            recovery.selection.as_ref().unwrap().selector,
+            resolved.request.sources
+        );
+    }
+    #[test]
+    fn selected_path_failure_retains_the_actual_graph_selection_role() {
+        let root = tempfile::tempdir().unwrap();
+        let selector = SourceSelector {
+            paths: vec![root.path().join("disappeared")],
+            ..Default::default()
+        };
+        for role in [SelectionRole::Traversal, SelectionRole::Answer] {
+            let error =
+                select_prepared_paths(root.path(), &selector, role, &CancellationToken::new())
+                    .unwrap_err();
+            let Error::SourcePath(failure) = error else {
+                panic!("lost source cause")
+            };
+            let selection = failure.recovery.selection.unwrap();
+            assert_eq!(selection.role, role);
+            assert_eq!(selection.selector, selector);
+        }
+    }
     #[test]
     fn acquisition_retains_observed_disappearance_and_permission_causes() {
         let root = tempfile::tempdir().unwrap();

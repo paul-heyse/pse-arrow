@@ -5411,6 +5411,16 @@ Options:
   -C <checkout>
 
 
+      --detail <DETAIL>
+          Construct navigation, interpreted facts, or facts with decoded character mappings
+
+          Possible values:
+          - navigation: Declaration navigation only; facts and decoded mappings are not constructed
+          - facts:      Selected original facts and interpreted values, without character mappings
+          - mapped:     Selected facts with available decoded-character correspondence
+
+          [default: navigation]
+
       --cursor <CURSOR>
 
 
@@ -5426,17 +5436,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --index
-          Read the raw staging-index blob rather than working bytes
-
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
-      --revision <REVISION>
-          Read a committed blob; resolve the revision before returning its identity
+      --index
+          Read the raw staging-index blob rather than working bytes
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --revision <REVISION>
+          Read a committed blob; resolve the revision before returning its identity
 
       --language <LANGUAGE>
           Override the .rs/.md/.markdown filename inference
@@ -5476,11 +5486,13 @@ Options:
   -C <checkout>
 
 
-      --item <ITEM>
+      --detail <DETAIL>
+          Interpretation demand; declarations default to facts, exact ranges to navigation
 
-
-      --at-byte <AT_BYTE>
-
+          Possible values:
+          - navigation: Declaration navigation only; facts and decoded mappings are not constructed
+          - facts:      Selected original facts and interpreted values, without character mappings
+          - mapped:     Selected facts with available decoded-character correspondence
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -5494,17 +5506,23 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --at-line <AT_LINE>
+      --item <ITEM>
+
+
+      --at-byte <AT_BYTE>
 
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
-      --at-column <AT_COLUMN>
+      --at-line <AT_LINE>
 
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --at-column <AT_COLUMN>
+
 
       --range-start <RANGE_START>
 

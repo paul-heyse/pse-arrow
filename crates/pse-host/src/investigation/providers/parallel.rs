@@ -28,13 +28,14 @@ pub(super) fn run(
     let selection = Selection::new(root, &request.sources)?;
     let mut initial = Summary::default();
     for path in &request.sources.paths {
-        if let Err(error) = std::fs::symlink_metadata(root.join(path)) {
+        if let Err(error) = std::fs::metadata(root.join(path)) {
             let error = Error::SourcePath(Box::new(SourceFailure::new(
                 SourceOperation::SelectRoot,
                 root.join(path),
                 error,
                 false,
-            )));
+            )))
+            .with_selection(&request.sources, SelectionRole::Answer);
             emit(Event::Diagnostic {
                 phase: error.phase(),
                 code: "search.input".into(),
@@ -105,7 +106,8 @@ pub(super) fn run(
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
-                    let error = selection::traversal_error(error);
+                    let error = selection::traversal_error(error)
+                        .with_selection(&request.sources, SelectionRole::Answer);
                     let published = match emit.lock() {
                         Ok(mut output) => output(Event::Diagnostic {
                             phase: error.phase(),

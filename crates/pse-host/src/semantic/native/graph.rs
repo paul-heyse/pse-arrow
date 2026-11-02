@@ -1090,7 +1090,12 @@ pub(super) fn query(
         .into_iter()
         .filter(|path| {
             path.extension().is_some_and(|extension| extension == "rs")
-                || snapshot.files.contains_key(path)
+                || snapshot.files.get(path).is_some_and(|id| {
+                    Semantics::new(snapshot.db)
+                        .file_to_module_defs(*id)
+                        .next()
+                        .is_some()
+                })
         })
         .collect::<BTreeSet<_>>();
     let output = query
@@ -1216,11 +1221,19 @@ pub(super) fn query(
             }
         };
         let (declaration, name) = catalog.declaration_at(&sema, &original).ok_or_else(|| {
-            Error::Unavailable("relationship seed has no unique mapped native declaration".into())
+            context_failure(
+                super::super::FailureReason::OriginalMappingUnavailable,
+                "relationship_seed",
+                Some(&original.path),
+                "relationship seed has no unique mapped native declaration",
+            )
         })?;
         let node = catalog.node(declaration, name, true).ok_or_else(|| {
-            Error::Unavailable(
-                "relationship seed declaration is outside original snapshot custody".into(),
+            context_failure(
+                super::super::FailureReason::OriginalMappingUnavailable,
+                "relationship_seed",
+                Some(&original.path),
+                "relationship seed declaration is outside original snapshot custody",
             )
         })?;
         if !domain.contains(&catalog.nodes[node].location.path) {
@@ -1236,14 +1249,15 @@ pub(super) fn query(
     let sema = Semantics::new(catalog.snapshot.db);
     let mut active_domain = BTreeSet::new();
     for path in domain {
-        let file = catalog.snapshot.files.get(&path).ok_or_else(|| {
-            Error::Unavailable(format!(
-                "traversal source is outside the prepared native snapshot: {path:?}"
-            ))
-        })?;
+        let Some(file) = catalog.snapshot.files.get(&path) else {
+            catalog.unknown(&format!(
+                "selected traversal source is outside the prepared native snapshot: {path:?}"
+            ));
+            continue;
+        };
         let mut interpretations = sema.file_to_module_defs(*file);
         if interpretations.next().is_none() {
-            catalog.limitations.insert(format!("selected source has no active module in this prepared world and is outside the native traversal domain: {path:?}"));
+            catalog.unknown(&format!("selected source has no active module in this prepared world and is outside the native traversal domain: {path:?}"));
             continue;
         }
         if interpretations.next().is_some() {
@@ -1354,6 +1368,15 @@ pub(super) fn query(
                         if_candidate: None,
                         limit: query.max_edges.saturating_add(1),
                         end_line: None,
+                        occurrence_scope: matches!(relation, Relationship::References).then(|| {
+                            domain
+                                .iter()
+                                .map(|file| super::super::OccurrenceFile {
+                                    file: file.clone(),
+                                    range: None,
+                                })
+                                .collect()
+                        }),
                     },
                     token,
                 )?;

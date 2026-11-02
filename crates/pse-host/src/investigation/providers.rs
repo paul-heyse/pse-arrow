@@ -12,7 +12,7 @@ mod tests;
 
 pub use module_graph::{ModuleGraph, WrittenModuleContext};
 pub(crate) use selection::Selection;
-pub(crate) use selection::select_prepared_context;
+pub(crate) use selection::select_prepared_paths;
 pub use selection::{ProviderInput, acquire, select};
 pub use structured::{history, history_arguments, inspect, structured};
 
@@ -26,6 +26,16 @@ use tokio_util::sync::CancellationToken;
 
 /// Execute selected providers. The caller owns begin/terminal framing and physical settlement.
 pub fn run(
+    root: &Path,
+    request: &Request,
+    token: &CancellationToken,
+    emit: &mut (dyn FnMut(Event) -> Result<(), Error> + Send),
+) -> Result<Summary, Error> {
+    run_selected(root, request, token, emit)
+        .map_err(|error| error.with_selection(&request.sources, SelectionRole::Answer))
+}
+
+fn run_selected(
     root: &Path,
     request: &Request,
     token: &CancellationToken,
@@ -208,12 +218,24 @@ impl State<'_> {
     fn failure_error(&mut self, source: Option<String>, error: &Error) -> Result<(), Error> {
         self.summary.failures += 1;
         self.summary.complete = false;
+        let mut detail = error.query_error_record();
+        if matches!(error, Error::SourcePath(_))
+            && let Some(recovery) = detail
+                .as_mut()
+                .and_then(|detail| detail.recovery.as_deref_mut())
+            && recovery.selection.is_none()
+        {
+            recovery.selection = Some(Box::new(SelectionContext {
+                role: SelectionRole::Answer,
+                selector: self.request.sources.clone(),
+            }));
+        }
         (self.emit)(Event::Diagnostic {
             phase: error.phase(),
             code: "search.provider".into(),
             message: error.to_string(),
             source,
-            detail: error.query_error_record(),
+            detail,
         })
     }
     fn failure_detail(
@@ -306,9 +328,7 @@ fn process(
                 detail: None,
             });
         }
-        Err(error) => {
-            return state.failure_detail(None, error.to_string(), error.query_error_record());
-        }
+        Err(error) => return state.failure_error(None, &error),
     };
     if !results.complete && !results.limited {
         state.summary.complete = false;

@@ -20,6 +20,10 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument as _;
 
+#[cfg(all(test, feature = "native-hir"))]
+#[path = "native/rpc_tests.rs"]
+mod native_contract_tests;
+
 /// Identity comes from the kernel at accept, never from RPC metadata.
 #[derive(Clone, Debug)]
 pub(crate) struct PeerContext {
@@ -795,7 +799,7 @@ impl ServiceEngine {
         }
     }
 }
-async fn settle_cpu<T>(
+pub(super) async fn settle_cpu<T>(
     mut task: crate::source_command::batch::CpuTask<Result<T>>,
     token: &CancellationToken,
 ) -> Result<T> {

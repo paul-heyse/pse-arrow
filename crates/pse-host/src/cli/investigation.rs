@@ -827,19 +827,36 @@ fn explain_action(
 }
 
 /// Called only after the same resolved request's successful execution preflight.
-fn recover_diagnostic(event: &mut query::Event, root: &Path, resolved: &query::config::Resolved) {
-    let query::Event::Diagnostic {
-        phase,
-        message,
-        detail,
-        ..
-    } = event
-    else {
-        return;
+fn recover_diagnostic(event: &mut query::Event, resolved: &query::config::Resolved) {
+    let (phase, message, detail) = match event {
+        query::Event::Diagnostic {
+            phase,
+            message,
+            detail,
+            ..
+        } => (phase, message, detail),
+        query::Event::Result(row) => {
+            let Some(diagnostic) = row
+                .refinement
+                .as_mut()
+                .and_then(|refinement| refinement.diagnostic.as_mut())
+            else {
+                return;
+            };
+            (
+                &mut diagnostic.phase,
+                &mut diagnostic.message,
+                &mut diagnostic.detail,
+            )
+        }
+        _ => return,
     };
     let policy = crate::envelope::RedactionPolicy::from_environment();
     *message = policy.redact(message);
-    let Some(recovery) = detail.as_mut().and_then(|detail| detail.recovery.as_mut()) else {
+    let Some(recovery) = detail
+        .as_mut()
+        .and_then(|detail| detail.recovery.as_deref_mut())
+    else {
         return;
     };
     // A provider's later root recheck has a stronger premise here: the root existed
@@ -848,111 +865,64 @@ fn recover_diagnostic(event: &mut query::Event, root: &Path, resolved: &query::c
         recovery.cause = crate::envelope::RecoveryCause::SourceDisappeared;
         *phase = query::DiagnosticPhase::Context;
     }
-    if recovery.origin.is_none()
-        && let Some(operand) = &recovery.operand
-    {
-        let operand = operand.to_path_buf();
-        if resolved
-            .request
-            .sources
-            .paths
-            .iter()
-            .any(|path| operand.starts_with(root.join(path)))
-        {
-            recovery.origin = resolved.origins.get("sources.paths").cloned();
-        }
+    let selection = recovery.selection.take();
+    if recovery.origin.is_none() {
+        recovery.origin = selection.and_then(|selection| selection_origin(resolved, &selection));
     }
     *recovery = recovery.clone().redacted(&policy);
 }
 
-#[cfg(test)]
-mod recovery_tests {
-    use super::*;
-    #[test]
-    fn explain_recovery_keeps_explicit_overrides_and_literal_boundaries() {
-        let arguments = [
-            "/bin/pse-host",
-            "-C",
-            "/tmp/selected root",
-            "search",
-            "--request",
-            "input/request.json",
-            "--path",
-            "override root",
-            "--fields",
-            "results",
-            "text",
-            "--",
-            "--literal-pattern",
-        ];
-        let Some(crate::envelope::NextAction::Command { argv, .. }) =
-            explain_action(arguments.map(std::ffi::OsString::from))
-        else {
-            panic!("safe replay absent")
-        };
-        assert_eq!(
-            argv,
-            [
-                "pse",
-                "-C",
-                "/tmp/selected root",
-                "search",
-                "--request",
-                "input/request.json",
-                "--path",
-                "override root",
-                "text",
-                "--explain",
-                "--",
-                "--literal-pattern"
-            ]
-        );
+fn selection_origin(
+    resolved: &query::config::Resolved,
+    selection: &query::SelectionContext,
+) -> Option<query::config::InputOrigin> {
+    if selection.role == query::SelectionRole::Answer {
+        return (selection.selector == resolved.request.sources)
+            .then(|| resolved.origin("sources.paths").cloned())
+            .flatten();
     }
-    #[test]
-    fn roots_disappearing_after_preflight_keep_the_observed_premise() {
-        let root = tempfile::tempdir().unwrap();
-        let path = root.path().join("selected");
-        std::fs::create_dir(&path).unwrap();
-        let resolved = query::config::explain(
-            root.path(),
-            None,
-            None,
-            None,
-            json!({"sources":{"paths":["selected"]}}),
-        )
-        .unwrap();
-        resolved.preflight(root.path()).unwrap();
-        std::fs::remove_dir(&path).unwrap();
-        let error = query::Error::SourcePath(Box::new(query::SourceFailure::new(
-            query::SourceOperation::SelectRoot,
-            path,
-            std::io::Error::from(std::io::ErrorKind::NotFound),
-            false,
-        )));
-        let mut event = query::Event::Diagnostic {
-            phase: error.phase(),
-            code: "search.input".into(),
-            message: error.to_string(),
-            source: None,
-            detail: error.query_error_record(),
-        };
-        recover_diagnostic(&mut event, root.path(), &resolved);
-        let query::Event::Diagnostic {
-            phase,
-            detail: Some(detail),
-            ..
-        } = event
-        else {
-            panic!("lost diagnostic")
-        };
-        assert_eq!(phase, query::DiagnosticPhase::Context);
-        let recovery = detail.recovery.unwrap();
-        assert_eq!(
-            recovery.cause,
-            crate::envelope::RecoveryCause::SourceDisappeared
-        );
-        assert_eq!(recovery.origin.unwrap().provider, "explicit CLI values");
+    fn traversal_keys(
+        predicate: &query::Predicate,
+        key: &str,
+        selector: &query::SourceSelector,
+        keys: &mut Vec<String>,
+    ) {
+        match predicate {
+            query::Predicate::Related { traversal, .. } if traversal == selector => {
+                keys.push(format!("{key}.traversal.paths"))
+            }
+            query::Predicate::Refine { candidates, .. } => {
+                traversal_keys(candidates, &format!("{key}.candidates"), selector, keys)
+            }
+            query::Predicate::All { clauses, .. } | query::Predicate::Any { clauses, .. } => {
+                for clause in clauses {
+                    traversal_keys(clause, &format!("{key}.clauses"), selector, keys);
+                }
+            }
+            query::Predicate::Not { clause, .. } => {
+                traversal_keys(clause, &format!("{key}.clause"), selector, keys)
+            }
+            _ => {}
+        }
     }
+    let mut keys = Vec::new();
+    traversal_keys(
+        &resolved.request.predicate,
+        "predicate",
+        &selection.selector,
+        &mut keys,
+    );
+    let mut origins = keys.iter().map(|key| resolved.origin(key));
+    let origin = origins.next()??;
+    // Equal selectors can occur at several request locations. Retain a known shared
+    // contributor; different or unknown contributors cannot be disambiguated by paths.
+    origins
+        .all(|candidate| {
+            candidate.is_some_and(|candidate| {
+                candidate.provider == origin.provider && candidate.source == origin.source
+            })
+        })
+        .then(|| origin.clone())
 }
 
 fn execute(
@@ -986,7 +956,7 @@ fn execute(
     );
     progress.set_message("searching selected sources");
     let mut emit = |mut event: query::Event| -> Result<(), query::Error> {
-        recover_diagnostic(&mut event, &root, &resolved);
+        recover_diagnostic(&mut event, &resolved);
         if let query::Event::Progress {
             examined_files,
             examined_bytes,
@@ -1053,23 +1023,23 @@ fn execute(
         request: Box::new(request.clone()),
     })?;
     let performed = if query::composition::required(&request.predicate) {
-        query::composition::run(&root, &request, &token, &mut emit, &handle)
+        query::composition::run(&root, request, &token, &mut emit, &handle)
     } else {
         match &request.predicate {
             query::Predicate::Schema(schema) => {
-                crate::schema::search::run(&root, &request, schema, &token, &mut emit)
+                crate::schema::search::run(&root, request, schema, &token, &mut emit)
             }
             query::Predicate::Api(_)
             | query::Predicate::Symbol(query::SymbolQuery {
                 provider: query::DiscoveryProvider::Semantic | query::DiscoveryProvider::Api,
                 ..
             }) => handle.block_on(query::rust::global_search(
-                &root, &request, &token, &mut emit,
+                &root, request, &token, &mut emit,
             )),
             query::Predicate::History(history) => handle.block_on(query::providers::history(
-                &root, &request, history, &token, &mut emit,
+                &root, request, history, &token, &mut emit,
             )),
-            _ => query::providers::run(&root, &request, &token, &mut emit),
+            _ => query::providers::run(&root, request, &token, &mut emit),
         }
     };
     let summary = match performed {
@@ -1713,4 +1683,242 @@ pub(super) fn propose(
             crate::envelope::DetailView::default(),
         )
         .map_err(HostError::from)
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    #[test]
+    fn explain_recovery_keeps_explicit_overrides_and_literal_boundaries() {
+        let arguments = [
+            "/bin/pse-host",
+            "-C",
+            "/tmp/selected root",
+            "search",
+            "--request",
+            "input/request.json",
+            "--path",
+            "override root",
+            "--fields",
+            "results",
+            "text",
+            "--",
+            "--literal-pattern",
+        ];
+        let Some(crate::envelope::NextAction::Command { argv, .. }) =
+            explain_action(arguments.map(std::ffi::OsString::from))
+        else {
+            panic!("safe replay absent")
+        };
+        assert_eq!(
+            argv,
+            [
+                "pse",
+                "-C",
+                "/tmp/selected root",
+                "search",
+                "--request",
+                "input/request.json",
+                "--path",
+                "override root",
+                "text",
+                "--explain",
+                "--",
+                "--literal-pattern"
+            ]
+        );
+    }
+    #[test]
+    fn roots_disappearing_after_preflight_keep_the_observed_premise() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("selected");
+        std::fs::create_dir(&path).unwrap();
+        let resolved = query::config::explain(
+            root.path(),
+            None,
+            None,
+            None,
+            json!({"sources":{"paths":["selected"]}}),
+        )
+        .unwrap();
+        resolved.preflight(root.path()).unwrap();
+        std::fs::remove_dir(&path).unwrap();
+        let error = query::Error::SourcePath(Box::new(query::SourceFailure::new(
+            query::SourceOperation::SelectRoot,
+            path,
+            std::io::Error::from(std::io::ErrorKind::NotFound),
+            false,
+        )))
+        .with_selection(&resolved.request.sources, query::SelectionRole::Answer);
+        let mut event = query::Event::Diagnostic {
+            phase: error.phase(),
+            code: "search.input".into(),
+            message: error.to_string(),
+            source: None,
+            detail: error.query_error_record(),
+        };
+        recover_diagnostic(&mut event, &resolved);
+        let query::Event::Diagnostic {
+            phase,
+            detail: Some(detail),
+            ..
+        } = event
+        else {
+            panic!("lost diagnostic")
+        };
+        assert_eq!(phase, query::DiagnosticPhase::Context);
+        let recovery = detail.recovery.unwrap();
+        assert_eq!(
+            recovery.cause,
+            crate::envelope::RecoveryCause::SourceDisappeared
+        );
+        assert_eq!(recovery.origin.unwrap().provider, "explicit CLI values");
+    }
+    #[test]
+    fn traversal_disappearance_keeps_its_origin_with_separate_or_overlapping_answer_roots() {
+        for overlap in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let answer = root.path().join("answers");
+            let traversal = if overlap {
+                answer.join("support")
+            } else {
+                root.path().join("support")
+            };
+            std::fs::create_dir_all(&answer).unwrap();
+            std::fs::create_dir_all(&traversal).unwrap();
+            let seed = query::ResultReference::new(query::Locator::Source {
+                path: root.path().join("seed.rs").into(),
+                source: query::SourceKind::Working,
+                range: None,
+                guard: None,
+            });
+            let config = root.path().join("queries.json");
+            std::fs::write(&config, serde_json::to_vec(&json!({"defaults":{"predicate":{
+                "kind":"related", "seeds":[seed], "relations":["uses"], "traversal":{"paths":[traversal]}
+            }}})).unwrap()).unwrap();
+            let resolved = query::config::explain(
+                root.path(),
+                Some(&config),
+                None,
+                None,
+                json!({"sources":{"paths":[answer]}}),
+            )
+            .unwrap();
+            resolved.preflight(root.path()).unwrap();
+            std::fs::remove_dir(&traversal).unwrap();
+            let query::Predicate::Related {
+                traversal: selector,
+                ..
+            } = &resolved.request.predicate
+            else {
+                panic!("lost traversal")
+            };
+            let error = query::providers::select_prepared_paths(
+                root.path(),
+                selector,
+                query::SelectionRole::Traversal,
+                &CancellationToken::new(),
+            )
+            .unwrap_err();
+            let mut row: query::SearchResult = serde_json::from_value(
+                json!({"source":"candidate","kind":"structural","range":null,"reference":null}),
+            )
+            .unwrap();
+            row.refinement = Some(query::RefinementFact {
+                truth: query::Truth::Unknown,
+                diagnostic: Some(query::QueryDiagnostic {
+                    phase: error.phase(),
+                    code: "search.refinement_unknown".into(),
+                    message: error.to_string(),
+                    source: None,
+                    detail: error.query_error_record(),
+                }),
+                native: None,
+                evidence: None,
+            });
+            let mut refined = query::Event::Result(Box::new(row));
+            recover_diagnostic(&mut refined, &resolved);
+            let query::Event::Result(row) = refined else {
+                panic!("lost candidate")
+            };
+            let refined_origin = row
+                .refinement
+                .unwrap()
+                .diagnostic
+                .unwrap()
+                .detail
+                .unwrap()
+                .recovery
+                .unwrap()
+                .origin
+                .unwrap();
+            assert_eq!(refined_origin.provider, "repository defaults");
+            assert_eq!(refined_origin.source.unwrap().to_path_buf(), config);
+            let mut event = query::Event::Diagnostic {
+                phase: error.phase(),
+                code: "search.input".into(),
+                message: error.to_string(),
+                source: None,
+                detail: error.query_error_record(),
+            };
+            recover_diagnostic(&mut event, &resolved);
+            let query::Event::Diagnostic {
+                phase,
+                detail: Some(detail),
+                ..
+            } = event
+            else {
+                panic!("lost diagnostic")
+            };
+            assert_eq!(phase, query::DiagnosticPhase::Context);
+            let recovery = detail.recovery.as_ref().unwrap();
+            assert_eq!(recovery.operand.as_ref().unwrap().to_path_buf(), traversal);
+            assert_eq!(
+                recovery.cause,
+                crate::envelope::RecoveryCause::SourceDisappeared
+            );
+            let origin = recovery.origin.as_ref().unwrap();
+            assert_eq!(origin.provider, "repository defaults");
+            assert_eq!(origin.source.as_ref().unwrap().to_path_buf(), config);
+            assert_eq!(
+                resolved.origins["sources.paths"].provider,
+                "explicit CLI values"
+            );
+            assert!(recovery.selection.is_none());
+            assert!(
+                serde_json::to_value(&detail).unwrap()["recovery"]
+                    .get("selection")
+                    .is_none()
+            );
+        }
+    }
+    #[test]
+    fn unknown_traversal_contributors_do_not_inherit_an_answer_origin() {
+        let root = tempfile::tempdir().unwrap();
+        let seed = query::ResultReference::new(query::Locator::Source {
+            path: root.path().join("seed.rs").into(),
+            source: query::SourceKind::Working,
+            range: None,
+            guard: None,
+        });
+        let related = json!({"kind":"related","seeds":[seed],"relations":["uses"],"traversal":{"paths":["same"]}});
+        let resolved = query::config::explain(root.path(), None, None, None, json!({"sources":{"paths":["same"]},"predicate":{"kind":"any","within":"file","clauses":[related.clone(),related]}})).unwrap();
+        let query::Predicate::Any { clauses, .. } = &resolved.request.predicate else {
+            panic!("lost clauses")
+        };
+        let query::Predicate::Related { traversal, .. } = &clauses[0] else {
+            panic!("lost traversal")
+        };
+        let selection = query::SelectionContext {
+            role: query::SelectionRole::Traversal,
+            selector: traversal.clone(),
+        };
+        let mut unresolved = resolved.clone();
+        unresolved.origins.remove("predicate.clauses");
+        assert!(selection_origin(&unresolved, &selection).is_none());
+        assert_eq!(
+            selection_origin(&resolved, &selection).unwrap().provider,
+            "explicit CLI values"
+        );
+    }
 }

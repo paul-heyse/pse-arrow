@@ -45,6 +45,7 @@ pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) ->
         .map_err(|error| match error {
             lspf::ClientError::Cancelled => Error::Cancelled,
             lspf::ClientError::Remote(error) => Error::Refusal(Box::new(super::Failure {
+                context: None,
                 phase: super::FailurePhase::Provider,
                 observed_cancellation: None,
                 validation: None,
@@ -1210,6 +1211,7 @@ mod tests {
         let records = json!([{"label":"first","position":{"line":1,"character":2}},{"label":"second","position":{"line":1,"character":4}}]);
         let discovery = section("selected_inlay_annotations", records.clone(), 2);
         let query = Query {
+            occurrence_scope: None,
             kind: Kind::Hint { index: 0 },
             file: PathBuf::new(),
             line: 2,
@@ -1268,6 +1270,7 @@ mod tests {
         let line = original.lines().nth(4).unwrap();
         let column = line[..line.find(".same").unwrap() + 1].chars().count() + 1;
         let query = |kind| Query {
+            occurrence_scope: None,
             kind,
             file: file.clone(),
             line: 5,

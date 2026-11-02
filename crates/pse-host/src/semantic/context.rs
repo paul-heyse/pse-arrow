@@ -110,23 +110,39 @@ impl Context {
         Ok(context)
     }
     pub(super) fn check(&self) -> Result<()> {
-        if let Some(sources) = &self.snapshot_sources {
-            sources.lock().map_err(super::engine::protocol)?.check()?;
-        }
         self.configuration_watch
             .lock()
             .map_err(super::engine::protocol)?
-            .check()?;
+            .check()
+            .map_err(|error| {
+                stale_context(error, super::FailureReason::ConfigurationChanged, None)
+            })?;
         for (path, original) in &self.manifests {
             if super::engine::file_digest(path)? != *original {
-                return Err(Error::Stale);
+                return Err(stale_context(
+                    Error::Stale,
+                    super::FailureReason::ConfigurationChanged,
+                    Some(path),
+                ));
             }
+        }
+        // Snapshot input custody also includes manifests. Configuration gets
+        // first classification rather than mislabeling a manifest edit as source.
+        if let Some(sources) = &self.snapshot_sources {
+            sources
+                .lock()
+                .map_err(super::engine::protocol)?
+                .check()
+                .map_err(|error| stale_context(error, super::FailureReason::SourceChanged, None))?;
         }
         if let Some(preparation) = &self.preparation {
             preparation
                 .lock()
                 .map_err(super::engine::protocol)?
-                .check()?;
+                .check()
+                .map_err(|error| {
+                    stale_context(error, super::FailureReason::ConfigurationChanged, None)
+                })?;
         }
         Ok(())
     }
@@ -147,6 +163,19 @@ impl Context {
         }
         self.check()
     }
+}
+
+fn stale_context(error: Error, reason: super::FailureReason, path: Option<&Path>) -> Error {
+    if !matches!(error, Error::Stale) {
+        return error;
+    }
+    let mut failure = super::Failure::from_error(&error);
+    failure.context = Some(super::FailureContext {
+        reason,
+        operation: "native_context_guard".into(),
+        operand: path.map(|path| path.to_owned().into()),
+    });
+    Error::Refusal(Box::new(failure))
 }
 
 struct ConfigurationWatch {
@@ -457,6 +486,42 @@ impl Preparation {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn native_context_guard_keeps_source_and_configuration_changes_distinct() {
+        let scratch = tempfile::tempdir().unwrap();
+        let source = scratch.path().join("source.rs");
+        let config = scratch.path().join("Cargo.toml");
+        std::fs::write(&source, "fn original() {}\n").unwrap();
+        std::fs::write(&config, "original").unwrap();
+        let capture = || Context {
+            manifests: BTreeMap::new(),
+            configuration_watch: Mutex::new(
+                ConfigurationWatch::capture(&BTreeSet::from([config.clone()])).unwrap(),
+            ),
+            preparation: None,
+            snapshot_sources: Some(Mutex::new(
+                ConfigurationWatch::capture(&BTreeSet::from([source.clone()])).unwrap(),
+            )),
+        };
+        let first = capture();
+        std::fs::write(&source, "fn changed() {}\n").unwrap();
+        let error = first.check().unwrap_err();
+        let failure = super::super::Failure::from_error(&error);
+        assert!(matches!(failure.state, super::super::FailureState::Stale));
+        assert_eq!(
+            failure.context.unwrap().reason,
+            super::super::FailureReason::SourceChanged
+        );
+        let second = capture();
+        std::fs::write(&config, "changed").unwrap();
+        let failure = super::super::Failure::from_error(&second.check().unwrap_err());
+        assert!(matches!(failure.state, super::super::FailureState::Stale));
+        assert_eq!(
+            failure.context.unwrap().reason,
+            super::super::FailureReason::ConfigurationChanged
+        );
+    }
 
     #[test]
     fn effective_configuration_watch_retains_transient_edits_and_absent_path_creation() {

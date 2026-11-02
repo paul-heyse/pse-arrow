@@ -43,18 +43,6 @@ pub struct GraphEvaluation {
     pub evidence: RelationshipEvidence,
 }
 
-/// Select paths against the already prepared project without refreshing Cargo metadata.
-fn paths(
-    root: &Path,
-    selector: &SourceSelector,
-    token: &CancellationToken,
-) -> Result<Vec<std::path::PathBuf>, Error> {
-    providers::select_prepared_context(root, selector, token)?
-        .into_iter()
-        .map(|source| root.join(source.path()).canonicalize().map_err(Error::from))
-        .collect()
-}
-
 /// Resolve all guarded seeds, then run exactly one native worker and immutable snapshot.
 pub async fn graph_with_context(
     root: &Path,
@@ -71,10 +59,18 @@ pub async fn graph_with_context(
         ));
     }
     let env = environment();
-    let record = crate::semantic::load(root, &env)?.ok_or_else(|| {
-        Error::Unavailable("explicitly prepare the native analyzer session".into())
-    })?;
+    let record =
+        crate::semantic::load(root, &env)?.ok_or_else(|| native_session_unavailable(root))?;
     let project = record.configuration.project.canonicalize()?;
+    // Resolve and validate explicit selectors before guarded seed hydration.
+    let traversal_paths = providers::select_prepared_paths(
+        &project,
+        intent.traversal,
+        SelectionRole::Traversal,
+        token,
+    )?;
+    let output_paths =
+        providers::select_prepared_paths(&project, intent.output, SelectionRole::Answer, token)?;
     let mut seeds = Vec::with_capacity(intent.seeds.len());
     let mut guarded_generation = None;
     for seed in intent.seeds {
@@ -125,14 +121,15 @@ pub async fn graph_with_context(
             if_candidate: candidate_fingerprint,
             limit: intent.max_nodes,
             end_line: None,
+            occurrence_scope: None,
         });
     }
     let request = crate::semantic::Request::Graph(crate::semantic::GraphQuery {
         seeds,
         relations: intent.relations.to_vec(),
         direction: intent.direction,
-        traversal_paths: paths(&project, intent.traversal, token)?,
-        output_paths: paths(&project, intent.output, token)?,
+        traversal_paths,
+        output_paths,
         depth: intent.depth,
         max_nodes: intent.max_nodes,
         max_edges: intent.max_edges,

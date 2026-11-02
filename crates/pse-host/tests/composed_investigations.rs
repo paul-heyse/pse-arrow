@@ -488,6 +488,18 @@ fn t04_multi_seed_graph_entry() {
         "{human}"
     );
 
+    let mut unprojected = request.clone();
+    unprojected.presentation.fields.clear();
+    let full = fixture.search(&unprojected);
+    assert!(full["payload"]["results"][0].get("context").is_none());
+    assert!(!full["payload"]["sources"].as_array().unwrap().is_empty());
+    assert!(
+        !full["payload"]["summary"]["relationships"][0]["nodes"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
     let mut enum_query = fixture.request(Predicate::Related {
         seeds: vec![fixture.source_at("src/hidden.rs", "Envelope")],
         relations: vec![Relationship::FieldType],
@@ -561,8 +573,19 @@ fn t04_multi_seed_graph_entry() {
     fixture.stop();
 }
 
+#[tokio::test]
+async fn acquired_api_requires_the_original_transitive_feature_world_not_only_its_own_package() {
+    independent_cli(
+        "t07_transitive_feature_world_entry",
+        "PSE_COMPOSED_TRANSITIVE_GATE",
+    )
+    .await;
+}
 #[test]
-fn acquired_api_requires_the_original_transitive_feature_world_not_only_its_own_package() {
+fn t07_transitive_feature_world_entry() {
+    if !entry_gate("PSE_COMPOSED_TRANSITIVE_GATE") {
+        return;
+    }
     let fixture = Fixture::new();
     let acquired = tempfile::tempdir().unwrap();
     let dependency = acquired.path().join("vendor/dependency");
@@ -1341,8 +1364,20 @@ pub fn uses(subject: &Subject, outer: &Outer) { subject.provided(); outer.inheri
     fixture.stop();
 }
 
+#[tokio::test]
+async fn acquired_dependency_aliases_unused_imports_privacy_and_two_native_contexts_preserve_authority()
+ {
+    independent_cli(
+        "t08_dependency_contexts_entry",
+        "PSE_COMPOSED_DEPENDENCY_GATE",
+    )
+    .await;
+}
 #[test]
-fn acquired_dependency_aliases_unused_imports_privacy_and_two_native_contexts_preserve_authority() {
+fn t08_dependency_contexts_entry() {
+    if !entry_gate("PSE_COMPOSED_DEPENDENCY_GATE") {
+        return;
+    }
     let fixture = Fixture::new();
     let dependency = fixture.project.path().join("vendor/dependency");
     std::fs::create_dir_all(dependency.join("src")).unwrap();

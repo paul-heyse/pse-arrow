@@ -646,6 +646,18 @@ fn associations_read_comment_and_literal_doc_attribute_citations_from_original_f
             "{response}"
         );
         assert_eq!(report["owning_plan"]["status"], "not_declared");
+        assert!(report["source"].get("context").is_none());
+        assert!(report["source"]["reference"]["address"].is_string());
+        let output = pse(root.path())
+            .args(["schema", "inspect associations"])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        let advertised: Value = serde_json::from_slice(&output.stdout).unwrap();
+        jsonschema::validator_for(&advertised)
+            .unwrap()
+            .validate(&response)
+            .unwrap();
         assert!(
             report["documentation"]
                 .as_array()

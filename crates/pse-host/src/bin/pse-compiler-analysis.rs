@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
 //! Explicit compiler-stage wrapper. Ordinary host construction never links these crates.
 #![feature(rustc_private)]
 extern crate rustc_driver;

@@ -33,7 +33,7 @@ pub use service::{
 use std::path::PathBuf;
 
 /// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 7;
+pub const SESSION_PROTOCOL_VERSION: u32 = 8;
 
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
@@ -248,6 +248,18 @@ pub struct Query {
     pub limit: usize,
     /// Optional inclusive final line for selected range annotations.
     pub end_line: Option<usize>,
+    /// Selected occurrence domain; None leaves native visibility scope unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occurrence_scope: Option<Vec<OccurrenceFile>>,
+}
+/// One same-world occurrence file with an optional contiguous UTF-8 byte range.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OccurrenceFile {
+    /// Original file, resolved within the prepared world.
+    pub file: PathBuf,
+    /// None selects the entire file.
+    pub range: Option<std::ops::Range<usize>>,
 }
 /// Supported backend operations, distinct from server-free syntax queries.
 #[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum, JsonSchema)]
@@ -528,6 +540,9 @@ impl Response {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, thiserror::Error)]
 #[error("{message}")]
 pub struct Failure {
+    /// Native-owned contextual classification, independent of opaque backend evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<FailureContext>,
     /// Owner-classified refusal, never inferred by parsing hover/debug text.
     pub state: FailureState,
     /// Meaningful failure boundary, independent of native outcome state.
@@ -543,6 +558,39 @@ pub struct Failure {
     /// Schema-addressed correction derived from canonical details and origin disclosure.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub validation: Option<Box<crate::envelope::ValidationCorrection>>,
+}
+/// Typed native prerequisite or context failure.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct FailureContext {
+    /// Original classification.
+    pub reason: FailureReason,
+    /// Operation that established the failure.
+    pub operation: String,
+    /// Original operand where known.
+    pub operand: Option<crate::investigation::NativePath>,
+}
+/// Context meaning supplied by its actual native owner.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureReason {
+    /// Prepared tool is absent.
+    ToolUnavailable,
+    /// Selected session is absent or drained.
+    SessionUnavailable,
+    /// Prepared configuration changed.
+    ConfigurationChanged,
+    /// Original source changed.
+    SourceChanged,
+    /// File is outside the prepared world.
+    OutsidePreparedWorld,
+    /// File has no active module.
+    InactiveSource,
+    /// No precise original mapping exists.
+    OriginalMappingUnavailable,
+    /// Selected fact is unsupported.
+    UnsupportedFact,
+    /// Native provider failed.
+    ProviderFailed,
 }
 /// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
@@ -581,8 +629,11 @@ pub enum FailurePhase {
 impl Failure {
     /// Preserve selected typed error categories at the serialization boundary.
     pub fn from_error(error: &Error) -> Self {
+        Self::from_error_with_policy(error, &crate::envelope::RedactionPolicy::from_environment())
+    }
+    fn from_error_with_policy(error: &Error, policy: &crate::envelope::RedactionPolicy) -> Self {
         if let Error::Refusal(failure) = error {
-            return failure.as_ref().clone();
+            return failure.as_ref().clone().redacted(policy);
         }
         let state = match error {
             Error::Stale => FailureState::Stale,
@@ -602,9 +653,9 @@ impl Failure {
         };
         Self {
             state,
+            context: None,
             phase,
-            message: crate::envelope::RedactionPolicy::from_environment()
-                .redact(&error.to_string()),
+            message: error.to_string(),
             backend_code: None,
             backend_data: None,
             validation: None,
@@ -619,6 +670,20 @@ impl Failure {
                 _ => None,
             },
         }
+        .redacted(policy)
+    }
+    fn redacted(mut self, policy: &crate::envelope::RedactionPolicy) -> Self {
+        self.message = policy.redact(&self.message);
+        if let Some(context) = &mut self.context {
+            context.operation = policy.redact(&context.operation);
+            context.operand = context.operand.take().map(|path| policy.redact_path(path));
+        }
+        if let Some(observed) = &mut self.observed_cancellation
+            && let OriginalOutcome::Failed(original) = &mut observed.original
+        {
+            **original = original.as_ref().clone().redacted(policy);
+        }
+        self
     }
 }
 /// Original native settlement, independent of response delivery.
@@ -721,6 +786,7 @@ impl Error {
     /// Unsupported producer operation, distinct from missing explicit preparation.
     pub(super) fn unsupported(message: impl Into<String>) -> Self {
         Self::Refusal(Box::new(Failure {
+            context: None,
             state: FailureState::Unsupported,
             phase: FailurePhase::Provider,
             message: message.into(),
@@ -736,8 +802,56 @@ impl Error {
 mod failure_tests {
     use super::*;
     #[test]
+    fn contextual_refusals_and_nested_cancellation_apply_native_path_disclosure() {
+        use std::os::unix::ffi::OsStringExt as _;
+        let marker = "test-disclosure-marker";
+        let policy = crate::envelope::RedactionPolicy::new([("TEST_SECRET".into(), marker.into())]);
+        for path in [
+            PathBuf::from(format!("/selected/{marker}.rs")),
+            PathBuf::from(std::ffi::OsString::from_vec(
+                format!("/selected/{marker}")
+                    .into_bytes()
+                    .into_iter()
+                    .chain([0xff])
+                    .collect(),
+            )),
+        ] {
+            let original = Failure {
+                context: Some(FailureContext {
+                    reason: FailureReason::SourceChanged,
+                    operation: "source_guard".into(),
+                    operand: Some(path.into()),
+                }),
+                state: FailureState::Stale,
+                phase: FailurePhase::Context,
+                message: format!("source changed: {marker}"),
+                backend_code: None,
+                backend_data: None,
+                observed_cancellation: None,
+                validation: None,
+            };
+            let refusal = Error::Refusal(Box::new(original.clone()));
+            let disclosed = Failure::from_error_with_policy(&refusal, &policy);
+            let encoded = serde_json::to_string(&disclosed).unwrap();
+            assert!(!encoded.contains(marker), "{encoded}");
+            assert!(encoded.contains("<redacted:TEST_SECRET>"));
+            let wire = wire::failure_to_pb(disclosed).unwrap();
+            let encoded = serde_json::to_string(&wire::failure_from_pb(wire).unwrap()).unwrap();
+            assert!(!encoded.contains(marker));
+            let cancelled = Error::CancelledObserved {
+                completion: Settlement::CpuSettled,
+                original: OriginalOutcome::Failed(Box::new(original)),
+            };
+            let encoded =
+                serde_json::to_string(&Failure::from_error_with_policy(&cancelled, &policy))
+                    .unwrap();
+            assert!(!encoded.contains(marker), "{encoded}");
+        }
+    }
+    #[test]
     fn cancellation_diagnostic_keeps_settlement_and_original_failure_typed() {
         let original = Failure {
+            context: None,
             state: FailureState::Stale,
             phase: FailurePhase::Context,
             message: "original source changed".into(),

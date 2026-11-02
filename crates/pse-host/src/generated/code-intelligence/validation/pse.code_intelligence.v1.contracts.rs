@@ -4695,6 +4695,32 @@ impl ::protovalidate_buffa::Validate for Failure {
                     );
             }
         }
+        if let Some(inner) = self.context.as_option() {
+            if let Err(sub) = inner.validate() {
+                violations
+                    .extend(
+                        sub
+                            .violations
+                            .into_iter()
+                            .map(|mut v| {
+                                v.field
+                                    .elements
+                                    .insert(
+                                        0,
+                                        ::protovalidate_buffa::FieldPathElement {
+                                            field_number: Some(9i32),
+                                            field_name: Some(::std::borrow::Cow::Borrowed("context")),
+                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                            key_type: None,
+                                            value_type: None,
+                                            subscript: None,
+                                        },
+                                    );
+                                v
+                            }),
+                    );
+            }
+        }
         if let Some(index) = violations
             .iter()
             .position(|v| v.rule_id == "__cel_runtime_error__")
@@ -4810,6 +4836,224 @@ impl ::protovalidate_buffa::Validate for __buffa::view::FailureView<'_> {
                             }),
                     );
             }
+        }
+        if let Some(inner) = self.context.as_option() {
+            if let Err(sub) = inner.validate() {
+                violations
+                    .extend(
+                        sub
+                            .violations
+                            .into_iter()
+                            .map(|mut v| {
+                                v.field
+                                    .elements
+                                    .insert(
+                                        0,
+                                        ::protovalidate_buffa::FieldPathElement {
+                                            field_number: Some(9i32),
+                                            field_name: Some(::std::borrow::Cow::Borrowed("context")),
+                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                            key_type: None,
+                                            value_type: None,
+                                            subscript: None,
+                                        },
+                                    );
+                                v
+                            }),
+                    );
+            }
+        }
+        if let Some(index) = violations
+            .iter()
+            .position(|v| v.rule_id == "__cel_runtime_error__")
+        {
+            let v = violations.swap_remove(index);
+            return ::core::result::Result::Err(::protovalidate_buffa::ValidationError {
+                runtime_error: ::core::option::Option::Some(v.message.into_owned()),
+                ..::core::default::Default::default()
+            });
+        }
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(::protovalidate_buffa::ValidationError {
+                violations,
+                ..::core::default::Default::default()
+            })
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    unused_mut,
+    unused_variables,
+    unused_parens,
+    dead_code,
+    unreachable_patterns,
+    reason = "protovalidate-buffa generated validators — codegen emits uniform scaffolding regardless of which rules apply"
+)]
+impl ::protovalidate_buffa::Validate for NativeFailureContext {
+    fn validate(
+        &self,
+    ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
+        let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        if self.reason.is_none() {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(1i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("reason")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Enum), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(25i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("required"),
+                    message: ::std::borrow::Cow::Borrowed("value is required"),
+                    for_key: false,
+                });
+        }
+        if self.reason.is_some() {}
+        if self.operation.chars().count() < 1usize {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(2i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("operation")), field_type :
+                            Some(::protovalidate_buffa::FieldType::String), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(14i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Message), key_type :
+                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(2i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("string.min_len"),
+                    message: ::std::borrow::Cow::Owned(
+                        ::std::format!(
+                            "value length must be at least {} characters", 1usize
+                        ),
+                    ),
+                    for_key: false,
+                });
+        }
+        if let Some(index) = violations
+            .iter()
+            .position(|v| v.rule_id == "__cel_runtime_error__")
+        {
+            let v = violations.swap_remove(index);
+            return ::core::result::Result::Err(::protovalidate_buffa::ValidationError {
+                runtime_error: ::core::option::Option::Some(v.message.into_owned()),
+                ..::core::default::Default::default()
+            });
+        }
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(::protovalidate_buffa::ValidationError {
+                violations,
+                ..::core::default::Default::default()
+            })
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    unused_mut,
+    unused_variables,
+    unused_parens,
+    dead_code,
+    unreachable_patterns,
+    reason = "protovalidate-buffa generated validators — codegen emits uniform scaffolding regardless of which rules apply"
+)]
+impl ::protovalidate_buffa::Validate for __buffa::view::NativeFailureContextView<'_> {
+    fn validate(
+        &self,
+    ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
+        let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        if self.reason.is_none() {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(1i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("reason")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Enum), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(25i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("required")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Bool), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("required"),
+                    message: ::std::borrow::Cow::Borrowed("value is required"),
+                    for_key: false,
+                });
+        }
+        if self.reason.is_some() {}
+        if self.operation.chars().count() < 1usize {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(2i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("operation")), field_type :
+                            Some(::protovalidate_buffa::FieldType::String), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(14i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("string")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Message), key_type :
+                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(2i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("string.min_len"),
+                    message: ::std::borrow::Cow::Owned(
+                        ::std::format!(
+                            "value length must be at least {} characters", 1usize
+                        ),
+                    ),
+                    for_key: false,
+                });
         }
         if let Some(index) = violations
             .iter()
@@ -6061,6 +6305,34 @@ impl ::protovalidate_buffa::Validate for NativeQuery {
                     for_key: false,
                 });
         }
+        if let Some(inner) = self.occurrence_scope.as_option() {
+            if let Err(sub) = inner.validate() {
+                violations
+                    .extend(
+                        sub
+                            .violations
+                            .into_iter()
+                            .map(|mut v| {
+                                v.field
+                                    .elements
+                                    .insert(
+                                        0,
+                                        ::protovalidate_buffa::FieldPathElement {
+                                            field_number: Some(9i32),
+                                            field_name: Some(
+                                                ::std::borrow::Cow::Borrowed("occurrence_scope"),
+                                            ),
+                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                            key_type: None,
+                                            value_type: None,
+                                            subscript: None,
+                                        },
+                                    );
+                                v
+                            }),
+                    );
+            }
+        }
         match &self.kind {
             Some(__buffa::oneof::native_query::Kind::Importable(v)) => {
                 if let Err(sub) = v.validate() {
@@ -6337,6 +6609,34 @@ impl ::protovalidate_buffa::Validate for __buffa::view::NativeQueryView<'_> {
                     for_key: false,
                 });
         }
+        if let Some(inner) = self.occurrence_scope.as_option() {
+            if let Err(sub) = inner.validate() {
+                violations
+                    .extend(
+                        sub
+                            .violations
+                            .into_iter()
+                            .map(|mut v| {
+                                v.field
+                                    .elements
+                                    .insert(
+                                        0,
+                                        ::protovalidate_buffa::FieldPathElement {
+                                            field_number: Some(9i32),
+                                            field_name: Some(
+                                                ::std::borrow::Cow::Borrowed("occurrence_scope"),
+                                            ),
+                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                            key_type: None,
+                                            value_type: None,
+                                            subscript: None,
+                                        },
+                                    );
+                                v
+                            }),
+                    );
+            }
+        }
         match &self.kind {
             Some(__buffa::view::oneof::native_query::Kind::Importable(v)) => {
                 if let Err(sub) = v.validate() {
@@ -6512,6 +6812,428 @@ impl ::protovalidate_buffa::Validate for __buffa::view::NativeImportTargetView<'
         &self,
     ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
         let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        if let Some(index) = violations
+            .iter()
+            .position(|v| v.rule_id == "__cel_runtime_error__")
+        {
+            let v = violations.swap_remove(index);
+            return ::core::result::Result::Err(::protovalidate_buffa::ValidationError {
+                runtime_error: ::core::option::Option::Some(v.message.into_owned()),
+                ..::core::default::Default::default()
+            });
+        }
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(::protovalidate_buffa::ValidationError {
+                violations,
+                ..::core::default::Default::default()
+            })
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    unused_mut,
+    unused_variables,
+    unused_parens,
+    dead_code,
+    unreachable_patterns,
+    reason = "protovalidate-buffa generated validators — codegen emits uniform scaffolding regardless of which rules apply"
+)]
+impl ::protovalidate_buffa::Validate for NativeOccurrenceScope {
+    fn validate(
+        &self,
+    ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
+        let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        for (idx, elem) in self.files.iter().enumerate() {
+            if let Err(sub) = elem.validate() {
+                violations
+                    .extend(
+                        sub
+                            .violations
+                            .into_iter()
+                            .map(|mut v| {
+                                v.field
+                                    .elements
+                                    .insert(
+                                        0,
+                                        ::protovalidate_buffa::FieldPathElement {
+                                            field_number: Some(1i32),
+                                            field_name: Some(::std::borrow::Cow::Borrowed("files")),
+                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                            key_type: None,
+                                            value_type: None,
+                                            subscript: Some(
+                                                ::protovalidate_buffa::Subscript::Index(idx as u64),
+                                            ),
+                                        },
+                                    );
+                                v
+                            }),
+                    );
+            }
+        }
+        if let Some(index) = violations
+            .iter()
+            .position(|v| v.rule_id == "__cel_runtime_error__")
+        {
+            let v = violations.swap_remove(index);
+            return ::core::result::Result::Err(::protovalidate_buffa::ValidationError {
+                runtime_error: ::core::option::Option::Some(v.message.into_owned()),
+                ..::core::default::Default::default()
+            });
+        }
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(::protovalidate_buffa::ValidationError {
+                violations,
+                ..::core::default::Default::default()
+            })
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    unused_mut,
+    unused_variables,
+    unused_parens,
+    dead_code,
+    unreachable_patterns,
+    reason = "protovalidate-buffa generated validators — codegen emits uniform scaffolding regardless of which rules apply"
+)]
+impl ::protovalidate_buffa::Validate for __buffa::view::NativeOccurrenceScopeView<'_> {
+    fn validate(
+        &self,
+    ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
+        let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        for (idx, elem) in self.files.iter().enumerate() {
+            if let Err(sub) = elem.validate() {
+                violations
+                    .extend(
+                        sub
+                            .violations
+                            .into_iter()
+                            .map(|mut v| {
+                                v.field
+                                    .elements
+                                    .insert(
+                                        0,
+                                        ::protovalidate_buffa::FieldPathElement {
+                                            field_number: Some(1i32),
+                                            field_name: Some(::std::borrow::Cow::Borrowed("files")),
+                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                            key_type: None,
+                                            value_type: None,
+                                            subscript: Some(
+                                                ::protovalidate_buffa::Subscript::Index(idx as u64),
+                                            ),
+                                        },
+                                    );
+                                v
+                            }),
+                    );
+            }
+        }
+        if let Some(index) = violations
+            .iter()
+            .position(|v| v.rule_id == "__cel_runtime_error__")
+        {
+            let v = violations.swap_remove(index);
+            return ::core::result::Result::Err(::protovalidate_buffa::ValidationError {
+                runtime_error: ::core::option::Option::Some(v.message.into_owned()),
+                ..::core::default::Default::default()
+            });
+        }
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(::protovalidate_buffa::ValidationError {
+                violations,
+                ..::core::default::Default::default()
+            })
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    unused_mut,
+    unused_variables,
+    unused_parens,
+    dead_code,
+    unreachable_patterns,
+    reason = "protovalidate-buffa generated validators — codegen emits uniform scaffolding regardless of which rules apply"
+)]
+impl ::protovalidate_buffa::Validate for NativeOccurrenceFile {
+    fn validate(
+        &self,
+    ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
+        let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        if self.file.len() < 1usize {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(1i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("file")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(15i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Message), key_type :
+                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(2i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("bytes.min_len"),
+                    message: ::std::borrow::Cow::Owned(
+                        ::std::format!(
+                            "value length must be at least {} bytes (got {})", 1usize,
+                            self.file.len()
+                        ),
+                    ),
+                    for_key: false,
+                });
+        }
+        {
+            let __cel_evaluation_error = ::core::cell::Cell::new(None::<&'static str>);
+            let __cel_violation_start = violations.len();
+            {
+                if !({
+                    let __outer = __cel_evaluation_error.take();
+                    let __left = ((self.byte_start.is_some())
+                        == (self.byte_end.is_some()));
+                    let __left_error = __cel_evaluation_error.take();
+                    let (__result, __error) = if __left_error.is_none()
+                        && __left == false
+                    {
+                        (__left, None)
+                    } else {
+                        let __right = {
+                            let __outer = __cel_evaluation_error.take();
+                            let __left = (!(self.byte_start.is_some()));
+                            let __left_error = __cel_evaluation_error.take();
+                            let (__result, __error) = if __left_error.is_none()
+                                && __left == true
+                            {
+                                (__left, None)
+                            } else {
+                                let __right = ((self
+                                    .byte_start
+                                    .map_or(
+                                        0u64,
+                                        ::protovalidate_buffa::cel::CelScalar::cel_uint,
+                                    ))
+                                    <= (self
+                                        .byte_end
+                                        .map_or(
+                                            0u64,
+                                            ::protovalidate_buffa::cel::CelScalar::cel_uint,
+                                        )));
+                                let __right_error = __cel_evaluation_error.take();
+                                if __right_error.is_none() && __right == true {
+                                    (__right, None)
+                                } else {
+                                    (__right, __left_error.or(__right_error))
+                                }
+                            };
+                            __cel_evaluation_error.set(__outer.or(__error));
+                            __result
+                        };
+                        let __right_error = __cel_evaluation_error.take();
+                        if __right_error.is_none() && __right == false {
+                            (__right, None)
+                        } else {
+                            (__right, __left_error.or(__right_error))
+                        }
+                    };
+                    __cel_evaluation_error.set(__outer.or(__error));
+                    __result
+                }) {
+                    violations
+                        .push(::protovalidate_buffa::Violation {
+                            field: ::protovalidate_buffa::FieldPath::default(),
+                            rule: ::protovalidate_buffa::FieldPath::default(),
+                            rule_id: ::std::borrow::Cow::Borrowed("occurrence.range"),
+                            message: ::std::borrow::Cow::Borrowed(
+                                "occurrence bounds must be paired and ordered",
+                            ),
+                            for_key: false,
+                        });
+                }
+            }
+            if let Some(reason) = __cel_evaluation_error.get() {
+                violations.truncate(__cel_violation_start);
+                violations
+                    .push(::protovalidate_buffa::Violation {
+                        field: ::protovalidate_buffa::FieldPath::default(),
+                        rule: ::protovalidate_buffa::FieldPath::default(),
+                        rule_id: ::std::borrow::Cow::Borrowed("__cel_runtime_error__"),
+                        message: ::std::borrow::Cow::Borrowed(reason),
+                        for_key: false,
+                    });
+            }
+        }
+        if let Some(index) = violations
+            .iter()
+            .position(|v| v.rule_id == "__cel_runtime_error__")
+        {
+            let v = violations.swap_remove(index);
+            return ::core::result::Result::Err(::protovalidate_buffa::ValidationError {
+                runtime_error: ::core::option::Option::Some(v.message.into_owned()),
+                ..::core::default::Default::default()
+            });
+        }
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(::protovalidate_buffa::ValidationError {
+                violations,
+                ..::core::default::Default::default()
+            })
+        }
+    }
+}
+#[allow(
+    clippy::all,
+    unused_mut,
+    unused_variables,
+    unused_parens,
+    dead_code,
+    unreachable_patterns,
+    reason = "protovalidate-buffa generated validators — codegen emits uniform scaffolding regardless of which rules apply"
+)]
+impl ::protovalidate_buffa::Validate for __buffa::view::NativeOccurrenceFileView<'_> {
+    fn validate(
+        &self,
+    ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
+        let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
+        if self.file.len() < 1usize {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(1i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("file")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Bytes), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(15i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("bytes")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Message), key_type :
+                            None, value_type : None, subscript : None, },
+                            ::protovalidate_buffa::FieldPathElement { field_number :
+                            Some(2i32), field_name :
+                            Some(::std::borrow::Cow::Borrowed("min_len")), field_type :
+                            Some(::protovalidate_buffa::FieldType::Uint64), key_type :
+                            None, value_type : None, subscript : None, },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("bytes.min_len"),
+                    message: ::std::borrow::Cow::Owned(
+                        ::std::format!(
+                            "value length must be at least {} bytes (got {})", 1usize,
+                            self.file.len()
+                        ),
+                    ),
+                    for_key: false,
+                });
+        }
+        {
+            let __cel_evaluation_error = ::core::cell::Cell::new(None::<&'static str>);
+            let __cel_violation_start = violations.len();
+            {
+                if !({
+                    let __outer = __cel_evaluation_error.take();
+                    let __left = ((self.byte_start.is_some())
+                        == (self.byte_end.is_some()));
+                    let __left_error = __cel_evaluation_error.take();
+                    let (__result, __error) = if __left_error.is_none()
+                        && __left == false
+                    {
+                        (__left, None)
+                    } else {
+                        let __right = {
+                            let __outer = __cel_evaluation_error.take();
+                            let __left = (!(self.byte_start.is_some()));
+                            let __left_error = __cel_evaluation_error.take();
+                            let (__result, __error) = if __left_error.is_none()
+                                && __left == true
+                            {
+                                (__left, None)
+                            } else {
+                                let __right = ((self
+                                    .byte_start
+                                    .map_or(
+                                        0u64,
+                                        ::protovalidate_buffa::cel::CelScalar::cel_uint,
+                                    ))
+                                    <= (self
+                                        .byte_end
+                                        .map_or(
+                                            0u64,
+                                            ::protovalidate_buffa::cel::CelScalar::cel_uint,
+                                        )));
+                                let __right_error = __cel_evaluation_error.take();
+                                if __right_error.is_none() && __right == true {
+                                    (__right, None)
+                                } else {
+                                    (__right, __left_error.or(__right_error))
+                                }
+                            };
+                            __cel_evaluation_error.set(__outer.or(__error));
+                            __result
+                        };
+                        let __right_error = __cel_evaluation_error.take();
+                        if __right_error.is_none() && __right == false {
+                            (__right, None)
+                        } else {
+                            (__right, __left_error.or(__right_error))
+                        }
+                    };
+                    __cel_evaluation_error.set(__outer.or(__error));
+                    __result
+                }) {
+                    violations
+                        .push(::protovalidate_buffa::Violation {
+                            field: ::protovalidate_buffa::FieldPath::default(),
+                            rule: ::protovalidate_buffa::FieldPath::default(),
+                            rule_id: ::std::borrow::Cow::Borrowed("occurrence.range"),
+                            message: ::std::borrow::Cow::Borrowed(
+                                "occurrence bounds must be paired and ordered",
+                            ),
+                            for_key: false,
+                        });
+                }
+            }
+            if let Some(reason) = __cel_evaluation_error.get() {
+                violations.truncate(__cel_violation_start);
+                violations
+                    .push(::protovalidate_buffa::Violation {
+                        field: ::protovalidate_buffa::FieldPath::default(),
+                        rule: ::protovalidate_buffa::FieldPath::default(),
+                        rule_id: ::std::borrow::Cow::Borrowed("__cel_runtime_error__"),
+                        message: ::std::borrow::Cow::Borrowed(reason),
+                        for_key: false,
+                    });
+            }
+        }
         if let Some(index) = violations
             .iter()
             .position(|v| v.rule_id == "__cel_runtime_error__")

@@ -69,6 +69,7 @@ pub mod __buffa {
         reg.register_json_any(super::__API_DEFINITION_JSON_ANY);
         reg.register_json_any(super::__PREDICATE_FACT_JSON_ANY);
         reg.register_json_any(super::__FAILURE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_FAILURE_CONTEXT_JSON_ANY);
         reg.register_json_any(super::__VALIDATION_DISCLOSURE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_CANCELLATION_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__OBSERVATION_JSON_ANY);
@@ -77,6 +78,8 @@ pub mod __buffa {
         reg.register_json_any(super::__EVENT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_IMPORT_TARGET_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_OCCURRENCE_SCOPE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_OCCURRENCE_FILE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_WORKSPACE_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_GRAPH_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_REQUEST_JSON_ANY);
@@ -185,6 +188,7 @@ pub mod __buffa {
         reg.register_text_any(super::__API_DEFINITION_TEXT_ANY);
         reg.register_text_any(super::__PREDICATE_FACT_TEXT_ANY);
         reg.register_text_any(super::__FAILURE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_FAILURE_CONTEXT_TEXT_ANY);
         reg.register_text_any(super::__VALIDATION_DISCLOSURE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_CANCELLATION_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__OBSERVATION_TEXT_ANY);
@@ -193,6 +197,8 @@ pub mod __buffa {
         reg.register_text_any(super::__EVENT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_IMPORT_TARGET_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_OCCURRENCE_SCOPE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_OCCURRENCE_FILE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_WORKSPACE_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_GRAPH_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_REQUEST_TEXT_ANY);
@@ -440,6 +446,10 @@ pub use self::__buffa::view::FailureView;
 #[doc(inline)]
 pub use self::__buffa::view::FailureOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::NativeFailureContextView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeFailureContextOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::ValidationDisclosureView;
 #[doc(inline)]
 pub use self::__buffa::view::ValidationDisclosureOwnedView;
@@ -471,6 +481,14 @@ pub use self::__buffa::view::NativeQueryOwnedView;
 pub use self::__buffa::view::NativeImportTargetView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeImportTargetOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOccurrenceScopeView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOccurrenceScopeOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOccurrenceFileView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeOccurrenceFileOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeWorkspaceQueryView;
 #[doc(inline)]

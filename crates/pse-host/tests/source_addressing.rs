@@ -199,13 +199,7 @@ fn explicit_outline_detail_and_projection_remain_independent_in_single_and_batch
     let projected = value(
         pse(root.path())
             .args([
-                "inspect",
-                "outline",
-                "first.rs",
-                "--detail",
-                "mapped",
-                "--fields",
-                "outline.facts",
+                "inspect", "outline", "first.rs", "--detail", "mapped", "--fields", "outline",
             ])
             .output()
             .unwrap(),
@@ -214,17 +208,12 @@ fn explicit_outline_detail_and_projection_remain_independent_in_single_and_batch
         projected["payload"]["outline"]["facts"],
         mapped["payload"]["outline"]["facts"]
     );
-    assert!(projected["payload"]["outline"].get("entries").is_none());
+    assert!(projected["payload"].get("source").is_none());
+    assert_eq!(projected["payload"].as_object().unwrap().len(), 1);
     assert_eq!(projected["providers"], mapped["providers"]);
     let navigation = value(
         pse(root.path())
-            .args([
-                "inspect",
-                "outline",
-                "first.rs",
-                "--fields",
-                "outline.facts",
-            ])
+            .args(["inspect", "outline", "first.rs", "--fields", "outline"])
             .output()
             .unwrap(),
     );
