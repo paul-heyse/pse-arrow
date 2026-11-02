@@ -912,23 +912,23 @@ impl Engine {
                 return Err(Error::Cancelled);
             }
             let (db, _cancellation, files, paths, digests) = inputs?;
+            // StaticIndex attaches its own Analysis database clone internally.
+            // An outer attachment to `db` would forbid that different database.
             let answer = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
                 || {
-                    ra_ap_hir::attach_db_allow_change(&db, || {
-                        dependency_usage::query(
-                            QuerySnapshot {
-                                db: &db,
-                                files: &files,
-                                paths: &paths,
-                                digests: &digests,
-                                packages: &packages,
-                                runnable_targets: &runnable_targets,
-                            },
-                            session,
-                            package_ids,
-                            &token,
-                        )
-                    })
+                    dependency_usage::query(
+                        QuerySnapshot {
+                            db: &db,
+                            files: &files,
+                            paths: &paths,
+                            digests: &digests,
+                            packages: &packages,
+                            runnable_targets: &runnable_targets,
+                        },
+                        session,
+                        package_ids,
+                        &token,
+                    )
                 },
             )))??;
             context.check()?;
