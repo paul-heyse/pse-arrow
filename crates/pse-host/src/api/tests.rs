@@ -3,6 +3,53 @@
 use super::*;
 
 #[test]
+fn api_extraction_keeps_checkout_compilers_outside_project() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let mut original: Environment = std::env::vars_os().collect();
+    for key in ["RUSTUP_TOOLCHAIN", "RUSTC", "RUSTDOC"] {
+        original.remove(OsStr::new(key));
+    }
+    let selected = extraction_environment(root, &original).unwrap();
+    for (key, executable) in [("RUSTC", "rustc"), ("RUSTDOC", "rustdoc")] {
+        let expected = Command::new("rustup")
+            .args(["which", executable])
+            .current_dir(root)
+            .env_clear()
+            .envs(&original)
+            .output()
+            .unwrap();
+        assert!(expected.status.success());
+        let physical = PathBuf::from(std::str::from_utf8(&expected.stdout).unwrap().trim())
+            .canonicalize()
+            .unwrap();
+        assert_eq!(
+            Path::new(&selected[OsStr::new(key)])
+                .canonicalize()
+                .unwrap(),
+            physical
+        );
+        let output = Command::new(&selected[OsStr::new(key)])
+            .arg("-vV")
+            .current_dir(outside.path())
+            .env_clear()
+            .envs(&selected)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(
+            String::from_utf8(output.stdout)
+                .unwrap()
+                .contains("nightly")
+        );
+    }
+    assert!(!selected.contains_key(OsStr::new("RUSTUP_TOOLCHAIN")));
+}
+
+#[test]
 fn format_preflight_refuses_new_version_before_version_specific_shape() {
     let error =
         decode(br#"{"format_version":999,"index":"deliberately incompatible"}"#).unwrap_err();
@@ -342,11 +389,15 @@ fn extraction_removes_reexec_transport_from_both_context_and_actual_compiler_inp
         ("DIRENV_DIFF".into(), "activation-bookkeeping".into()),
         ("DIRENV_WATCHES".into(), "selection-observation".into()),
         ("_".into(), "per-shell-last-command".into()),
-        ("PATH".into(), "/authored/compiler/path".into()),
+        ("PATH".into(), std::env::var_os("PATH").unwrap()),
         ("RUSTFLAGS".into(), "--cfg meaningful".into()),
         ("CUSTOM_BUILD_INPUT".into(), "authored".into()),
     ]);
-    let actual = extraction_environment(&original).unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    let actual = extraction_environment(root, &original).unwrap();
     assert!(!actual.contains_key(OsStr::new("PSE_HOST_REEXEC")));
     assert!(!actual.contains_key(OsStr::new("_")));
     assert!(!actual.contains_key(OsStr::new("CODEX_TOOL_CALL_ID")));

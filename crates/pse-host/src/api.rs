@@ -494,10 +494,14 @@ fn dependency_source_evidence(
     }
     Ok(sources)
 }
-fn extraction_environment(environment: &Environment) -> Result<Environment, ApiError> {
+fn extraction_environment(
+    root: &Path,
+    environment: &Environment,
+) -> Result<Environment, ApiError> {
     let mut selected = crate::correctness::standalone_adapter_environment(
         &crate::environment::preparation_inputs(environment),
     )?;
+    selected = crate::correctness::compiler_environment(root, &selected)?;
     selected.insert(
         "CARGO".into(),
         crate::correctness::real_cargo_in(&selected)?,
@@ -680,7 +684,7 @@ pub(crate) fn prepare_mode(
     environment: &Environment,
     doctests: bool,
 ) -> Result<Acquisition, ApiError> {
-    let environment = extraction_environment(environment)?;
+    let environment = extraction_environment(root, environment)?;
     let Observation {
         mut context,
         files,
@@ -919,7 +923,7 @@ pub fn locate(
     target: Option<&str>,
     environment: &Environment,
 ) -> Result<Selection, ApiError> {
-    let environment = extraction_environment(environment)?;
+    let environment = extraction_environment(root, environment)?;
     let Observation { context, .. } =
         observed_context(root, store, snapshot, query, target, &environment)?;
     let directory = store.join("api").join(context.key()?);

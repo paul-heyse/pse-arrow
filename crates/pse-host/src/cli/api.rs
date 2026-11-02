@@ -416,6 +416,11 @@ fn perform(
     .map_err(error)?;
     let mut providers = vec![provider(&selected.context, selected.artifact.as_ref())?];
     let Some(mut artifact) = selected.artifact else {
+        if arguments.export_jsonl.is_some() {
+            return Err(error(api::ApiError::Invalid(
+                "API export requires a prepared artifact; explicitly acquire it with api PACKAGE --prepare".into(),
+            )));
+        }
         if arguments.cursor.is_some() {
             return Err(error(api::ApiError::Invalid("API continuation source/context is unavailable; restart against the current context or select retained original evidence".into())));
         }

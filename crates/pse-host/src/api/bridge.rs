@@ -83,7 +83,7 @@ impl SourceBridge {
         let native = (*native).clone();
         verify_dependency_profiles(closure, &native)?;
         let dependency_sources = verify_dependency_sources(&artifact.context, &native)?;
-        let environment = super::extraction_environment(environment)?;
+        let environment = super::extraction_environment(&root, environment)?;
         if !artifact
             .context
             .source
@@ -228,7 +228,7 @@ impl SourceBridge {
         if artifact.sha256 != self.artifact.sha256 || artifact.context != self.artifact.context {
             return Err(invalid("API artifact/context changed during refinement"));
         }
-        let environment = super::extraction_environment(environment)?;
+        let environment = super::extraction_environment(&self.root, environment)?;
         if !self
             .artifact
             .context

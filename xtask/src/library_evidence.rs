@@ -24,6 +24,9 @@ pub(crate) struct Args {
     /// Optional frozen project for reference evidence; API evidence keeps this checkout's context.
     #[arg(long)]
     reference_project: Option<PathBuf>,
+    /// Reuse an explicitly selected original reference response, retaining its original scope.
+    #[arg(long, conflicts_with_all = ["features", "target", "no_default_features", "test_context", "build_macros"])]
+    reference_capture: Option<PathBuf>,
     /// Explicitly prepare the native analysis tool. Prepare the reusable session separately.
     #[arg(long)]
     prepare: bool,
@@ -57,10 +60,11 @@ struct Step {
     stdout: String,
     stderr: String,
     spawn_error: Option<String>,
+    evidence_error: Option<String>,
 }
 impl Step {
     fn passed(&self) -> bool {
-        self.exit_code == Some(0) && self.spawn_error.is_none()
+        self.exit_code == Some(0) && self.spawn_error.is_none() && self.evidence_error.is_none()
     }
 }
 fn capture(root: &Path, output: &Path, name: &str, arguments: Vec<String>) -> Result<Step> {
@@ -86,6 +90,100 @@ fn capture(root: &Path, output: &Path, name: &str, arguments: Vec<String>) -> Re
         stdout,
         stderr,
         spawn_error,
+        evidence_error: None,
+    })
+}
+
+fn validate_export(directory: &Path, package: &str) -> Result<()> {
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(directory.join("manifest.json"))?)?;
+    ensure!(
+        manifest["version"] == 1 && manifest["package_id"].as_str() == Some(package),
+        "export manifest package/version does not match the requested artifact"
+    );
+    let tables = manifest["tables"]
+        .as_object()
+        .context("export manifest has no tables")?;
+    ensure!(!tables.is_empty(), "export manifest contains no tables");
+    for table in tables.values() {
+        let file = table["file"].as_str().context("export table has no file")?;
+        ensure!(
+            Path::new(file).components().count() == 1 && directory.join(file).is_file(),
+            "export table file is missing or outside its bundle"
+        );
+    }
+    Ok(())
+}
+
+fn retain_reference_capture(
+    root: &Path,
+    output: &Path,
+    capture: &Path,
+    project: &Path,
+    packages: &BTreeSet<String>,
+) -> Result<Step> {
+    let bytes = fs::read(root.join(capture))?;
+    let original: serde_json::Value = serde_json::from_slice(&bytes)?;
+    ensure!(
+        original["version"] == 1
+            && original["record"] == "response"
+            && original["command"] == "inspect dependency-usage"
+            && original["outcome"] == "success",
+        "reference capture is not a successful dependency-usage response"
+    );
+    ensure!(
+        original["observation"]["completeness"] == "complete",
+        "reference capture has incomplete requested observations"
+    );
+    ensure!(
+        original["observation"]["scope"]
+            == "selected_native_world_resolved_written_token_references"
+            && original["view"]["truncated"] == false
+            && original["view"]["omitted_records"] == 0
+            && original["view"]["omitted_fields"]
+                .as_array()
+                .is_some_and(Vec::is_empty)
+            && original["view"]["fields"].is_null(),
+        "reference capture must retain the full unprojected native reference view"
+    );
+    let configuration = &original["payload"]["session"]["configuration"];
+    let captured_project = configuration["project"]
+        .as_str()
+        .context("capture has no original project")?;
+    ensure!(
+        Path::new(captured_project).canonicalize()? == project.canonicalize()?,
+        "reference capture belongs to a different project"
+    );
+    ensure!(
+        configuration["backend"] == "native_snapshot",
+        "reference capture is not native evidence"
+    );
+    ensure!(
+        original["payload"]["references"].is_array()
+            && original["payload"]["unmapped_definitions"] == 0
+            && original["payload"]["unavailable_package_ids"]
+                .as_array()
+                .is_some_and(Vec::is_empty),
+        "reference capture lacks complete delivered observations"
+    );
+    let captured: BTreeSet<String> =
+        serde_json::from_value(original["payload"]["package_ids"].clone())?;
+    ensure!(
+        &captured == packages,
+        "reference capture package selection differs; select the original family scope"
+    );
+    fs::write(output.join("references.json"), &bytes)?;
+    fs::write(output.join("references.stderr"), b"")?;
+    Ok(Step {
+        arguments: vec![
+            "retain-original-reference-capture".into(),
+            root.join(capture).display().to_string(),
+        ],
+        exit_code: Some(0),
+        stdout: "references.json".into(),
+        stderr: "references.stderr".into(),
+        spawn_error: None,
+        evidence_error: None,
     })
 }
 fn context(args: &Args) -> Vec<String> {
@@ -239,10 +337,20 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
             vec!["tools".into(), "prepare".into(), "native-analysis".into()],
         )?);
     }
-    let mut usage = vec!["inspect".into(), "dependency-usage".into()];
-    usage.extend(reference_packages.iter().cloned());
-    usage.extend(context(&args));
-    steps.push(capture(root, &output, "references", usage)?);
+    if let Some(original) = &args.reference_capture {
+        steps.push(retain_reference_capture(
+            root,
+            &output,
+            original,
+            &root.join(args.reference_project.as_deref().unwrap_or(root)),
+            &reference_packages,
+        )?);
+    } else {
+        let mut usage = vec!["inspect".into(), "dependency-usage".into()];
+        usage.extend(reference_packages.iter().cloned());
+        usage.extend(context(&args));
+        steps.push(capture(root, &output, "references", usage)?);
+    }
     for (index, id) in selected.keys().enumerate() {
         steps.push(capture(
             root,
@@ -275,10 +383,18 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         if let Some(target) = &args.target {
             command.extend(["--target".into(), target.clone()]);
         }
-        steps.push(capture(root, &output, &format!("export-{index}"), command)?);
+        let mut exported = capture(root, &output, &format!("export-{index}"), command)?;
+        if exported.passed() {
+            exported.evidence_error = validate_export(&output.join(format!("api-{index}")), id)
+                .err()
+                .map(|error| error.to_string());
+        }
+        steps.push(exported);
     }
     let failed = steps.iter().filter(|step| !step.passed()).count();
-    let manifest = serde_json::json!({"version":1,"families":family_packages,"packages":selected,"reference_families":reference_families,"reference_packages":reference_packages,"steps":steps,"failed_steps":failed,"capture_complete":failed == 0,"semantic_context":context(&args),"coverage":"Capture completion describes command success only. Consult each original response for missing packages, incomplete references and profile ambiguity. API and reference package populations retain separate metadata and contexts; an alternate reference project is not automatically equated with this checkout's API context. References are not calls or proof of runtime use. API exports do not establish ordinary-build availability."});
+    let references = serde_json::from_slice(&fs::read(output.join("references.json"))?)
+        .unwrap_or(serde_json::Value::Null);
+    let manifest = serde_json::json!({"version":1,"families":family_packages,"packages":selected,"reference_families":reference_families,"reference_packages":reference_packages,"reference_capture":args.reference_capture,"steps":steps,"failed_steps":failed,"capture_complete":failed == 0,"reference_context":references.pointer("/payload/session"),"requested_native_arguments":args.reference_capture.is_none().then(||context(&args)),"coverage":"Capture completion describes requested evidence delivery only. A selected original reference capture retains its own configuration and historical observations; it is not revalidated against current source. Consult each response for missing packages, incomplete references and profile ambiguity. API and reference populations retain separate metadata and contexts. References are not runtime calls. API exports do not establish ordinary-build availability."});
     fs::write(
         output.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest)?,
@@ -287,8 +403,9 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         "# Library evidence\n\n{} packages; {failed} failed steps (target: zero).\n\nRead [manifest.json](manifest.json) for exact package identities, contexts and capture paths.\nReferences are observations in one selected world, not an exhaustive usage or call census.\n\n",
         selected.len()
     );
-    let references = serde_json::from_slice(&fs::read(output.join("references.json"))?)
-        .unwrap_or(serde_json::Value::Null);
+    if args.reference_capture.is_some() {
+        report.push_str("Original reference capture reused with its historical context; current source was not revalidated.\n\n");
+    }
     report.push_str(&reference_summary(&references));
     for family in chosen {
         report.push_str(&format!("## {family}\n\n"));
@@ -311,6 +428,83 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn successful_command_without_export_tables_is_not_evidence() {
+        let directory = tempfile::tempdir().unwrap();
+        assert!(validate_export(directory.path(), "selected").is_err());
+        let manifest = serde_json::json!({"version":1,"package_id":"selected","tables":{"declarations":{"file":"declarations.jsonl"}}});
+        fs::write(
+            directory.path().join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        assert!(validate_export(directory.path(), "selected").is_err());
+        fs::write(directory.path().join("declarations.jsonl"), b"{}\n").unwrap();
+        validate_export(directory.path(), "selected").unwrap();
+        assert!(validate_export(directory.path(), "other").is_err());
+        let step = Step {
+            arguments: vec![],
+            exit_code: Some(0),
+            stdout: String::new(),
+            stderr: String::new(),
+            spawn_error: None,
+            evidence_error: Some("missing export".into()),
+        };
+        assert!(!step.passed());
+    }
+    #[test]
+    fn retained_response_preserves_bytes_and_rejects_scope_changes() {
+        let directory = tempfile::tempdir().unwrap();
+        let project = directory.path().join("project");
+        let other_project = directory.path().join("other");
+        let output = directory.path().join("output");
+        for path in [&project, &other_project, &output] {
+            fs::create_dir(path).unwrap();
+        }
+        let mut original = serde_json::json!({"version":1,"record":"response","command":"inspect dependency-usage","outcome":"success","observation":{"completeness":"complete","scope":"selected_native_world_resolved_written_token_references"},"view":{"fields":null,"omitted_fields":[],"omitted_records":0,"truncated":false},"payload":{"session":{"configuration":{"project":project,"backend":"native_snapshot"}},"package_ids":["selected"],"references":[],"unmapped_definitions":0,"unavailable_package_ids":[]}});
+        let capture = directory.path().join("original.json");
+        let bytes = serde_json::to_vec_pretty(&original).unwrap();
+        fs::write(&capture, &bytes).unwrap();
+        let packages = BTreeSet::from(["selected".into()]);
+        let step =
+            retain_reference_capture(directory.path(), &output, &capture, &project, &packages)
+                .unwrap();
+        assert!(step.passed());
+        assert_eq!(fs::read(output.join("references.json")).unwrap(), bytes);
+        assert!(
+            retain_reference_capture(
+                directory.path(),
+                &output,
+                &capture,
+                &other_project,
+                &packages
+            )
+            .is_err()
+        );
+        assert!(
+            retain_reference_capture(
+                directory.path(),
+                &output,
+                &capture,
+                &project,
+                &BTreeSet::new()
+            )
+            .is_err()
+        );
+        original["view"]["truncated"] = true.into();
+        fs::write(&capture, serde_json::to_vec(&original).unwrap()).unwrap();
+        assert!(
+            retain_reference_capture(directory.path(), &output, &capture, &project, &packages)
+                .is_err()
+        );
+        original["view"]["truncated"] = false.into();
+        original["observation"]["completeness"] = "partial".into();
+        fs::write(&capture, serde_json::to_vec(&original).unwrap()).unwrap();
+        assert!(
+            retain_reference_capture(directory.path(), &output, &capture, &project, &packages)
+                .is_err()
+        );
+    }
     #[test]
     fn family_patterns_do_not_confuse_facade_and_companion() {
         assert!(package_matches(&["arrow-*".into()], "arrow-array").unwrap());

@@ -23,6 +23,13 @@ source revision. `reference-metadata.json` and `reference_packages` retain that 
 population; the API metadata and artifacts still belong to the owning checkout. The bundle
 does not silently equate path-package identities or build contexts across those projects.
 
+To acquire or refresh API exports without repeating an expensive census, pass
+`--reference-capture /path/to/original/references.json` with its original
+`--reference-project`. The response must be a successful, complete native dependency-usage
+capture for exactly the selected packages and project. Its bytes and original session context
+are retained; current source is not revalidated. Semantic context flags cannot accompany
+this option. No running analyzer session is needed for this explicit reuse.
+
 For example, after reviewing the requested effects:
 
 ```bash
@@ -40,7 +47,8 @@ bounded navigation and an alphabetical sample of declaration labels. Labels and 
 are observations, not importance rankings or capability recommendations.
 
 Independent package operations continue after individual failures. A partial bundle remains
-available and the command returns nonzero. `capture_complete` means commands succeeded;
+available and the command returns nonzero. `capture_complete` means commands succeeded and
+each export produced its requested package manifest and table files;
 read each response's coverage before interpreting absence, ambiguous profiles, documentation
 availability, or runtime use. Keep original failures rather than replacing them with empty
 success. Re-run into another output directory after correcting prerequisites.

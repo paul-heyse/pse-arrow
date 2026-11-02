@@ -62,6 +62,9 @@ For changing checkouts, the [operating guide](../../dev/library-evidence.md) des
 `--reference-project SNAPSHOT`: it reuses a separately prepared frozen project and retains
 its metadata independently of the API acquisition context. Record the source revision and
 preserve cross-project identity uncertainty rather than treating copied paths as equivalence.
+The same guide describes explicit `--reference-capture` reuse of a full original response
+when acquiring API artifacts later. That retains historical observations and their original
+context; it does not silently refresh the census against current source.
 
 Read `manifest.json` and `README.md` first. The bundle retains selection and metadata,
 reference observations and per-package API tables. Individual failed operations remain in
