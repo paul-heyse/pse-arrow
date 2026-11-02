@@ -183,6 +183,7 @@ pub(super) struct Engine {
     configuration: Configuration,
     active: Arc<AtomicUsize>,
     packages: Arc<Vec<super::NativePackageContext>>,
+    workspace_member_ids: Arc<BTreeSet<String>>,
     runnable_targets: Arc<Vec<super::RunnableTargetFact>>,
     package_issue: Option<String>,
     actual_target: String,
@@ -367,6 +368,7 @@ impl Engine {
             }
         }
         let mut package_models = Vec::new();
+        let mut workspace_member_ids = BTreeSet::new();
         let mut runnable_targets = Vec::new();
         let package_issue;
         if let ra_ap_project_model::ProjectWorkspaceKind::Cargo { cargo, error, .. } =
@@ -375,6 +377,9 @@ impl Engine {
             package_issue = error.as_ref().map(ToString::to_string);
             for package in cargo.packages() {
                 let package = &cargo[package];
+                if package.is_member {
+                    workspace_member_ids.insert(package.id.to_string());
+                }
                 for target_id in &package.targets {
                     let library = &cargo[*target_id];
                     runnable_targets.push(super::RunnableTargetFact {
@@ -635,6 +640,7 @@ impl Engine {
             configuration,
             active: Arc::new(AtomicUsize::new(0)),
             packages: Arc::new(packages),
+            workspace_member_ids: Arc::new(workspace_member_ids),
             runnable_targets: Arc::new(runnable_targets),
             package_issue,
             actual_target: target,
@@ -897,6 +903,7 @@ impl Engine {
         let session = self.analysis_context();
         let active = self.active.clone();
         let packages = self.packages.clone();
+        let workspace_member_ids = self.workspace_member_ids.clone();
         let runnable_targets = self.runnable_targets.clone();
         let task = spawn_cpu(token, move |token| {
             struct Active(Arc<AtomicUsize>);
@@ -912,23 +919,24 @@ impl Engine {
                 return Err(Error::Cancelled);
             }
             let (db, _cancellation, files, paths, digests) = inputs?;
-            // StaticIndex attaches its own Analysis database clone internally.
-            // An outer attachment to `db` would forbid that different database.
             let answer = native_result(salsa::Cancelled::catch(std::panic::AssertUnwindSafe(
                 || {
-                    dependency_usage::query(
-                        QuerySnapshot {
-                            db: &db,
-                            files: &files,
-                            paths: &paths,
-                            digests: &digests,
-                            packages: &packages,
-                            runnable_targets: &runnable_targets,
-                        },
-                        session,
-                        package_ids,
-                        &token,
-                    )
+                    ra_ap_hir::attach_db_allow_change(&db, || {
+                        dependency_usage::query(
+                            QuerySnapshot {
+                                db: &db,
+                                files: &files,
+                                paths: &paths,
+                                digests: &digests,
+                                packages: &packages,
+                                runnable_targets: &runnable_targets,
+                            },
+                            session,
+                            package_ids,
+                            &workspace_member_ids,
+                            &token,
+                        )
+                    })
                 },
             )))??;
             context.check()?;

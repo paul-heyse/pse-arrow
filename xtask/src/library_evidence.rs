@@ -213,12 +213,22 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         serde_json::to_vec_pretty(reference_metadata)?,
     )?;
     let mut reference_packages = BTreeSet::new();
+    let mut reference_families = BTreeMap::new();
     for family in &chosen {
+        let mut ids = Vec::new();
         for package in &reference_metadata.packages {
             if package_matches(&selection.families[family].packages, package.name.as_str())? {
-                reference_packages.insert(package.id.to_string());
+                let id = package.id.to_string();
+                reference_packages.insert(id.clone());
+                ids.push(id);
             }
         }
+        ensure!(
+            !ids.is_empty(),
+            "family {family} matches no packages in the reference project; no reference census was run"
+        );
+        ids.sort();
+        reference_families.insert(family.clone(), ids);
     }
     let mut steps = Vec::new();
     if args.prepare {
@@ -268,7 +278,7 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         steps.push(capture(root, &output, &format!("export-{index}"), command)?);
     }
     let failed = steps.iter().filter(|step| !step.passed()).count();
-    let manifest = serde_json::json!({"version":1,"families":family_packages,"packages":selected,"reference_packages":reference_packages,"steps":steps,"failed_steps":failed,"capture_complete":failed == 0,"semantic_context":context(&args),"coverage":"Capture completion describes command success only. Consult each original response for missing packages, incomplete references and profile ambiguity. API and reference package populations retain separate metadata and contexts; an alternate reference project is not automatically equated with this checkout's API context. References are not calls or proof of runtime use. API exports do not establish ordinary-build availability."});
+    let manifest = serde_json::json!({"version":1,"families":family_packages,"packages":selected,"reference_families":reference_families,"reference_packages":reference_packages,"steps":steps,"failed_steps":failed,"capture_complete":failed == 0,"semantic_context":context(&args),"coverage":"Capture completion describes command success only. Consult each original response for missing packages, incomplete references and profile ambiguity. API and reference package populations retain separate metadata and contexts; an alternate reference project is not automatically equated with this checkout's API context. References are not calls or proof of runtime use. API exports do not establish ordinary-build availability."});
     fs::write(
         output.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest)?,
