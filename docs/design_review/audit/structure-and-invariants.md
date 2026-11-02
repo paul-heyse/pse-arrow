@@ -87,6 +87,17 @@ specific transactional premise, not a general absence of transition enforcement.
 
 **AP-02, AP-04, AP-05, AP-06, DP-02, DP-19, DP-21, PS-10. Revalidated and extended.**
 
+**Scoped extension, 2026-11-02, source `03765c22e`. Interface-checked.**
+`workflow/modeling/declared.rs::execute_declared` receives a complete initialization report,
+but on `!report.completed` converts `report.failure` to debug text inside `contract(...)`.
+The returned `WorkflowError::Input` does not carry the report's staged attempt evidence.
+`initialize_declared` returns the full `ModelingInitializationReport`, so initialization
+diagnostics are implemented; choosing the convenience executor for the failed-initialization
+journey loses information already owned by that implementation. This is a concrete additional
+crossing under DA-039, not a claim that every initialization interface loses reports. The
+imported first-delivery brief correctly selects the full-report interface. No failing process
+journey was executed. See the [scoped scientific-target refresh](process-simulator-target.md).
+
 Three concrete crossings lose diagnostic meaning:
 
 - `workflow/mod.rs::contract` always constructs `WorkflowError::Input`. In `workflow/worker.rs`,

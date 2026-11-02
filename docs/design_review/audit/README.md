@@ -7,6 +7,13 @@ owning plans retain their separate responsibilities.
 
 ## Whole-system refresh — 2026-11-01
 
+**Subsequent scoped refresh — 2026-11-02:** the
+[process-simulator target account](process-simulator-target.md) rechecks applicable scientific
+and composition diagnoses at `03765c22e` for the new holistic target review. It adds one
+initialization-report crossing under DA-039, preserves existing finding homes and distinguishes
+new scientific target breadth from supported-behavior defects. The broader baseline below
+and the separate test-account baseline are not silently advanced.
+
 **Interface-checked.** Three new source diagnoses were found:
 
 | Identity | Diagnosis | Primary home |
