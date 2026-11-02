@@ -5,7 +5,6 @@ use super::*;
 use crate::semantic::{DependencyReference, DependencyUsageAnswer, NativeLibraryProfile};
 use ra_ap_hir::Crate;
 use ra_ap_ide::{TryToNav as _, UpmappingResult};
-use ra_ap_ide_db::base_db::SourceDatabase as _;
 use ra_ap_ide_db::defs::{Definition, IdentClass};
 use std::collections::{HashMap, HashSet};
 
