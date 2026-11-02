@@ -48,6 +48,7 @@ lcov.info
 !/.codex/skills/plan-completion-audit/
 !/.codex/skills/plan-improvement-review/
 !/.codex/skills/leverage-codebase-audit/
+!/.codex/skills/leverage-library-discovery/
 !/.codex/skills/leverage-library-assessment/
 !/.codex/skills/leverage-opportunity-review/
 !/.codex/skills/design-review-process-simulator/
@@ -69,6 +70,7 @@ lcov.info
 !/.claude/skills/plan-completion-audit/
 !/.claude/skills/plan-improvement-review/
 !/.claude/skills/leverage-codebase-audit/
+!/.claude/skills/leverage-library-discovery/
 !/.claude/skills/leverage-library-assessment/
 !/.claude/skills/leverage-opportunity-review/
 !/.claude/skills/design-review-process-simulator/
@@ -90,6 +92,7 @@ lcov.info
 !/.agents/skills/plan-completion-audit/
 !/.agents/skills/plan-improvement-review/
 !/.agents/skills/leverage-codebase-audit/
+!/.agents/skills/leverage-library-discovery/
 !/.agents/skills/leverage-library-assessment/
 !/.agents/skills/leverage-opportunity-review/
 !/.agents/skills/design-review-process-simulator/

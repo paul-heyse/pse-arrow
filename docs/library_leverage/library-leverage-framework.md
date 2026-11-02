@@ -1,7 +1,7 @@
 # Library leverage framework
 
-**Implemented guidance · edition 0.2, adapted for pse-arrow.** Three repository
-skills implement this workflow. Discovery and design-quality benefits remain Proposed; no
+**Implemented guidance · edition 0.3, adapted for pse-arrow.** Three assessment skills and an
+optional library-led discovery entry implement this workflow. Discovery and design-quality benefits remain Proposed; no
 codebase or library assessment is established by installation.
 
 ## Purpose and design judgment
@@ -11,17 +11,19 @@ a codebase, investigate their applicability and recommend the best realization o
 opportunity. Improvement can mean simpler ownership, fewer independent decisions, less generic
 machinery, better execution, stronger guarantees or a valuable new capability.
 
-The normal screening point is the codebase. Start from responsibilities, complete operations,
-credible changes and intended workflows. Use those observations to focus library research.
-Broad library overviews orient that research; a second, focused collection preserves the
-resulting capability analysis without cataloguing everything each library might displace.
+Codebase-led inquiry starts from responsibilities, complete operations, credible changes and
+intended workflows. An optional library-led inquiry starts from broad capability knowledge,
+repository objectives and observed usage to shortlist promising research. Neither entry is a
+prerequisite to the other. Broad library overviews remain repository-agnostic; concise contextual
+briefings live in the existing library collection and link to selective technical analysis.
 
-Keep three distinct skills. They answer different questions, support useful agent assignments
+Keep the three assessment skills distinct. They answer different questions, support useful agent assignments
 and maintain accounts with different lifecycles. Investigation can iterate across their boundaries;
 the distinction concerns responsibility for the resulting judgment, not a fixed tool sequence.
 
 | Stage and skill | Main judgment | Owns | Leaves for later |
 | --- | --- | --- | --- |
+| Optional `leverage-library-discovery` | Which capability families merit investigation here? | Condensed contextual briefings, usage interpretation and proposed research priorities | Concrete opportunity evidence, applicability and comparative choice |
 | 1. `leverage-codebase-audit` | A concrete responsibility or activity is worth investigating for library leverage | Current codebase opportunities, their evidence, preservation constraints and coverage | Whether a candidate capability fits, and which option is best |
 | 2. `leverage-library-assessment` | Particular library capabilities could address an opportunity under stated conditions | Reusable library opportunity types and context-specific applicability assessments | Comparative selection of the best complete option |
 | 3. `leverage-opportunity-review` | A particular realization is preferable here, or a decision remains unsettled | Comparative reasoning, recommended target, interactions and decisive unknowns | Accepted implementation scope, detailed work packages and execution status |
@@ -54,10 +56,11 @@ total machinery. Source lines, dependency counts, novelty and altitude are suppo
 not measures of success. A small native operation can remove a large burden; a broad framework
 adoption can introduce one.
 
-## Five concepts, three collections
+## Concepts and existing collections
 
 | Concept | Meaning | Primary home |
 | --- | --- | --- |
+| Library briefing | Concise contextual current usage and research shortlist, before detailed opportunity evidence | `libraries/<library>/briefing.md` |
 | Leverage pattern | A generally recognizable opportunity shape, from the base framework or assessment discoveries | Base `patterns.md`; additional patterns in output `assessment-patterns.md` |
 | Codebase opportunity | A concrete occurrence or related footprint worth investigating | `codebase/` |
 | Library opportunity type | A reusable account of a focused capability, needs it can serve, mechanisms and limits | `libraries/<library>/` |
@@ -93,7 +96,7 @@ Keep one primary definition in that output and cite it from opportunities, libra
 applicability assessments and reviews. Each collection's entry page routes readers to it. The
 discovering skill coordinates publication in the same pass, under the host's write-ownership
 rules; read-only contributors return proposed text for the coordinator. This shared output
-supports the three stages and needs no fourth skill or assessment collection.
+supports the three assessment stages and needs no separate pattern-maintenance skill or collection.
 
 Use new or refined patterns to reconsider the affected observations, research questions and
 candidate capabilities within the inquiry. Follow the actual significance into adjacent work
@@ -120,6 +123,7 @@ maintenance choice, not a prerequisite for using an additional pattern.
   leverage-codebase-audit/
     SKILL.md
     references/tells.md                   optional search cues
+  leverage-library-discovery/SKILL.md     optional library-led briefing
   leverage-library-assessment/SKILL.md
   leverage-opportunity-review/SKILL.md
 .agents/skills -> ../.codex/skills        existing Codex discovery route
@@ -139,6 +143,7 @@ docs/library_leverage/
     README.md                             researched libraries, type routes, coverage
     <library>/
       README.md                           focused type index and version coverage
+      briefing.md                         optional contextual usage and research shortlist
       <opportunity-type>.md                reusable capability analysis
       applicability.md                    current contextual matches, when large enough
   reviews/                                comparative judgment account
@@ -158,7 +163,7 @@ skill package. Its definitions are maintained once; collection indexes expose a 
 than carrying their own copies. Until an assessment discovers a useful addition, no empty
 pattern account or invented pattern is required.
 
-The three skills link to shared guidance under `references/` in this collection. Keep that
+The skills link to shared guidance under `references/` in this collection. Keep that
 guidance authored once. Tracked skill directories are allowlisted in `.gitignore` and use the
 existing shared discovery route. The active native-solver-libraries exception remains selected;
 other central library-specific skills remain inactive references.
@@ -178,6 +183,12 @@ requirement. Identify unsettled interpretations. Library names are useful resear
 being prerequisites for identifying an opportunity or binding adoption choices.
 
 ### Library assessment account
+
+Optional discovery briefings summarize usage and proposed priorities from library capabilities
+and general repository objectives. They need no prior opportunity. Keep their inspected baseline
+and evidence limits distinct from applicability; no reference match establishes fit or adoption.
+The [discovery guide](references/discovery-and-evidence.md) owns evidence interpretation and
+local collection commands. Briefings link to reusable technical accounts rather than duplicating them.
 
 Research focused capability families in response to codebase opportunity questions. Use the
 existing overviews for awareness, then Context7 and current primary documentation, tagged source,

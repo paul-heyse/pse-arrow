@@ -22,6 +22,11 @@ patterns belong in docs/library_leverage/assessment-patterns.md, created with th
 
 ## Establish the research question
 
+The optional [library discovery skill](../leverage-library-discovery/SKILL.md) maintains
+condensed usage and research-priority briefings. A shortlist is a research lead, not established
+local applicability. A focused reusable technical account can be developed from such a question
+without inventing a codebase match; contextual applicability still needs a concrete opportunity.
+
 Read the [repository framework](../../../docs/library_leverage/library-leverage-framework.md) and the
 [shared language](../../../docs/library_leverage/references/shared-language.md). Start from the selected codebase opportunities,
 their baselines and constraints, and the existing library assessment account. Use the relevant
@@ -41,6 +46,12 @@ the entire library. A substantial assessment can cover several related types; de
 need and consequential uncertainty.
 
 ## Research mechanisms and conditions
+
+Use the [technical contract research guide](../../../docs/library_leverage/references/technical-contracts.md)
+when implementation requirements, effects or lifecycle semantics could change the judgment.
+Generated API exports provide declarations and relationships, not behavioral guarantees. Read
+the relevant composition and implementation paths selectively; keep reusable technical depth
+in type pages and link to it from briefings instead of duplicating it.
 
 Use Context7 as the first documentation lookup, then primary documentation, release information,
 tagged source, installed implementation or upstream tests where consequential details remain.

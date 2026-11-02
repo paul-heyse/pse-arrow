@@ -23,6 +23,11 @@ in docs/library_leverage/assessment-patterns.md, created with the first useful a
 
 ## Establish scope and the current account
 
+A [library-led briefing](../leverage-library-discovery/SKILL.md) can nominate promising
+capabilities before this inquiry. Treat its usage evidence and priorities as leads, then establish
+the concrete responsibility and footprint here. Do not turn every shortlisted feature into a
+`CBO`, restrict discovery to that shortlist, or require a briefing for ordinary audit work.
+
 Read the [repository framework](../../../docs/library_leverage/library-leverage-framework.md), [shared language](../../../docs/library_leverage/references/shared-language.md) and
 bound opportunity-pattern framework at
 [Codebase opportunity patterns](../../../docs/library_leverage/patterns.md). Read the current codebase collection if one

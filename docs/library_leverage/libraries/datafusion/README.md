@@ -1,5 +1,10 @@
 # Apache DataFusion (pruning, memory, caches, nested plans)
 
+For the 2026-11-02 library-led usage synthesis and research shortlist, read the
+[DataFusion/Arrow briefing](briefing.md). Its new
+[conservative-pruning contract](pruning-contract.md) adds focused reusable technical depth;
+it does not refresh the applicability conclusions below.
+
 Realizations considered: installed `datafusion` 55.1.0 family (`datafusion-pruning`,
 `datafusion-common`, `datafusion-execution`, `datafusion-physical-plan`,
 `datafusion-functions-nested`, `datafusion-sql` 55.1.0); 55.2.0 (installed in the registry, still on

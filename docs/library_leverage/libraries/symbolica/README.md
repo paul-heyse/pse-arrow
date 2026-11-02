@@ -1,5 +1,10 @@
 # Symbolica
 
+Read the [library-led briefing](briefing.md) for the 2026-11-02 current-use synthesis,
+maintained-supplier distinction and research priorities. The
+[evaluator contract](evaluator-contract.md) adds reusable technical depth; it does not refresh
+the older applicability judgments below.
+
 Realizations considered: installed `symbolica` 3.0.1 (crates.io, released 2026-09-29; the newest
 crates.io release on 2026-10-27); unreleased development on `symbolica-dev/symbolica` `main` at
 `bfb481cdc` (2026-10-26, 108 commits after tag `v3.0.1`); unreleased `community` branch at

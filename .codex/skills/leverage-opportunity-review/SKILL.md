@@ -22,6 +22,11 @@ docs/library_leverage/assessment-patterns.md, created with the first useful addi
 
 ## Establish the decision and inputs
 
+Library-led [discovery briefings](../leverage-library-discovery/SKILL.md) can broaden candidate
+awareness and point to usage evidence or deeper technical accounts. Their priorities are hypotheses,
+not comparative conclusions or an admission list. Challenge their premises alongside other inputs;
+neither a briefing nor a complete library inventory is a prerequisite to a focused review.
+
 Read the [repository framework](../../../docs/library_leverage/library-leverage-framework.md), [shared language](../../../docs/library_leverage/references/shared-language.md),
 selected opportunities, relevant library types and contextual assessments, and the current review
 account. Establish the source state, consumed publication revisions and library realizations

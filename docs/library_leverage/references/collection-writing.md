@@ -1,5 +1,9 @@
 # Writing the living collections
 
+For optional library-led briefings, use the [discovery and evidence guide](discovery-and-evidence.md).
+For selected implementation-level type research, use the [technical contract guide](technical-contracts.md).
+Briefings own contextual usage and research hypotheses; reusable types own technical knowledge.
+
 Use coherent explanations, representative evidence and stable references. The following content
 leads make accounts useful to their consumers; they are not mandatory headings, tables or fields.
 Depth follows the decision. All examples below are hypothetical and establish no current finding

@@ -428,6 +428,12 @@ awareness. Deliberate leverage inquiries use the [library-leverage framework](do
 `leverage-codebase-audit` identifies concrete opportunities, `leverage-library-assessment`
 researches focused capability applicability and accumulates reusable types, and
 `leverage-opportunity-review` compares complete options and develops bounded recommendations.
+The optional `leverage-library-discovery` entry starts from general repository objectives,
+library capabilities and usage evidence to maintain concise contextual briefings before a
+detailed codebase opportunity exists. Its shortlist contains research hypotheses; it does not
+create CBOs or select adoption. Broad extraction supports discovery, while selected implementation
+contracts are researched through the existing assessment skill. See the
+[discovery and evidence guide](docs/library_leverage/references/discovery-and-evidence.md).
 Use relevant base patterns and patterns collected in assessment outputs on the same footing;
 all three stages can discover or refine useful additional framings. Retain useful types and
 output patterns after their current matches retire; promotion into base guidance is manual.

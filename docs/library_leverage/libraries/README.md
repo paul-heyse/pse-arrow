@@ -1,5 +1,21 @@
 # Library applicability assessments
 
+## Library-led briefings
+
+The optional [discovery skill](../../../.codex/skills/leverage-library-discovery/SKILL.md)
+maintains concise current-usage accounts and proposed research priorities, including before a
+concrete codebase opportunity exists. The initial pilots are
+[DataFusion/Arrow](datafusion/briefing.md), [Tokio](tokio/briefing.md), and
+[Symbolica](symbolica/briefing.md). Their baselines and coverage are separate from the older
+applicability assessments below. A shortlist does not establish fit or authorize adoption.
+
+Reusable technical types can be researched without a current match. Contextual applicability
+still connects them to a concrete opportunity. Follow the
+[technical research guide](../references/technical-contracts.md) for selected implementation
+details rather than treating a broad API inventory as a behavioral contract.
+
+## Applicability account
+
 **Account state: first assessment with integrated comparative reassessment, 2026-10-27.** This collection is maintained by the
 [library assessment skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/leverage-library-assessment/SKILL.md).
 For each [codebase opportunity](../codebase/README.md) it records which library or native-system
