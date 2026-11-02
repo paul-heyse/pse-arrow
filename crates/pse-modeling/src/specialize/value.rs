@@ -505,8 +505,9 @@ impl<'a, 'b> Evaluator<'a, 'b> {
                 };
                 evaluator.field("binding.expression", 0, self.package.types.get(&id))
             }
-            _ => Err(invalid(
+            _ => Err(crate::invalid_reason(
                 id,
+                crate::ModelingContractReason::StaticValueRequired,
                 format!(
                     "runtime value {name} ({}) cannot select model structure",
                     row.value.kind.as_str()

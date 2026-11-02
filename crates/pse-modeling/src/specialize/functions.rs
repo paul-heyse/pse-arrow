@@ -11,6 +11,31 @@ use crate::resolved::{
     },
 };
 use std::sync::Arc;
+
+/// Add argument context only to the producer's actual nonstatic-value refusal.
+/// Source/provenance and execution failures keep their original typed cause and witness.
+pub(super) fn static_value_context(
+    error: ModelingError,
+    context: impl FnOnce() -> String,
+) -> ModelingError {
+    match error {
+        ModelingError::Located { span, name, cause } => ModelingError::Located {
+            span,
+            name,
+            cause: Box::new(static_value_context(*cause, context)),
+        },
+        ModelingError::Contract {
+            declaration,
+            reason: crate::ModelingContractReason::StaticValueRequired,
+            message,
+        } => ModelingError::Contract {
+            declaration,
+            reason: crate::ModelingContractReason::StaticValueRequired,
+            message: format!("{}: {message}", context()),
+        },
+        other => other,
+    }
+}
 /// Generated callers pass actual admitted values directly to the one selector algorithm.
 #[derive(Clone, Debug)]
 pub(super) enum PreparedArgument {
@@ -687,19 +712,19 @@ impl Engine<'_, '_> {
                             chain.last().copied().unwrap_or(function),
                             env,
                             expr,
-                            Some(ty))
+                            Some(ty),
+                        )
                         .map_err(|e| match ty {
                             // ADR-0123 Outcome 2: a `Ref` is static at specialization.
-                            Type::Entity(_) => invalid(
-                                at,
+                            Type::Entity(_) => static_value_context(e, || {
                                 format!(
-                                    "Ref argument {name} of {} must be static at specialization: {e}",
+                                    "Ref argument {name} of {} must be static at specialization",
                                     self.p
                                         .declarations
                                         .get(&function)
                                         .map_or("a function", |row| row.name.as_str())
-                                ),
-                            ),
+                                )
+                            }),
                             _ => e,
                         })?
                     };
@@ -1205,5 +1230,82 @@ impl PartialEq for IndexedSelection {
                 .all(|((left, a), (right, b))| {
                     left == right && a.reference == b.reference && a.inspection == b.inspection
                 })
+    }
+}
+
+#[cfg(test)]
+mod static_error_tests {
+    use super::*;
+
+    #[test]
+    fn static_argument_context_preserves_typed_causes_and_source_locations() {
+        let source = SemanticId::from_bytes([9; 16]);
+        let root = SemanticId::from_bytes([10; 16]);
+        for error in [
+            ModelingError::TestOnly {
+                declaration: source,
+                root,
+                data: "original oracle row".into(),
+            },
+            ModelingError::Budget("original finite allowance".into()),
+            ModelingError::Cancelled,
+            crate::invalid_reason(
+                source,
+                crate::ModelingContractReason::UnknownMember,
+                "original source member",
+            ),
+            invalid(source, "original unclassified contract"),
+        ] {
+            for original in [
+                error.clone(),
+                ModelingError::Located {
+                    span: pse_authoring::SourceSpan::new(SemanticId::NIL.into(), 3, 8),
+                    name: "original argument".into(),
+                    cause: Box::new(error),
+                },
+            ] {
+                let actual = static_value_context(original.clone(), || {
+                    panic!("nonstatic context must not be fabricated")
+                });
+                assert_eq!(actual, original);
+                assert_eq!(
+                    actual.boundary_diagnostic().sources,
+                    original.boundary_diagnostic().sources
+                );
+            }
+        }
+        let error = ModelingError::Located {
+            span: pse_authoring::SourceSpan::new(SemanticId::NIL.into(), 3, 8),
+            name: "runtime coordinate".into(),
+            cause: Box::new(crate::invalid_reason(
+                source,
+                crate::ModelingContractReason::StaticValueRequired,
+                "runtime value x cannot select model structure",
+            )),
+        };
+        let contextualized = static_value_context(error.clone(), || {
+            "Ref argument s must be static at specialization".into()
+        });
+        assert!(
+            contextualized
+                .to_string()
+                .contains("Ref argument s must be static at specialization: runtime value x")
+        );
+        let ModelingError::Located { span, name, cause } = contextualized else {
+            panic!("original location required");
+        };
+        let ModelingError::Located {
+            span: original_span,
+            name: original_name,
+            ..
+        } = error
+        else {
+            unreachable!();
+        };
+        assert_eq!(span, original_span);
+        assert_eq!(name, original_name);
+        assert!(
+            matches!(*cause, ModelingError::Contract { declaration, reason: crate::ModelingContractReason::StaticValueRequired, .. } if declaration == source)
+        );
     }
 }

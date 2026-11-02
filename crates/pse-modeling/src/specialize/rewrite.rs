@@ -739,11 +739,10 @@ impl Engine<'_, '_> {
                         };
                         let value =
                             self.eval_ast_with(at, &env, value, Some(&ty))
-                                .map_err(|e| {
-                                    invalid(
-                                        at,
-                                        format!("{name} must be static at specialization: {e}"),
-                                    )
+                                .map_err(|error| {
+                                    super::functions::static_value_context(error, || {
+                                        format!("{name} must be static at specialization")
+                                    })
                                 })?;
                         self.lexical.remove(name);
                         self.lexical_references.remove(name);

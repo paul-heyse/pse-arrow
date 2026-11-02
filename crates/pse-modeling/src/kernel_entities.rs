@@ -691,6 +691,48 @@ fn non_static_ref_is_refused() {
     }
 }
 
+#[test]
+fn oracle_ref_arguments_and_structural_lets_preserve_provenance_refusals() {
+    let oracle = DISPATCH.replacen("package p {", "package p {entity kind source provenance {} enum role {given, oracle facets(test_only)} entity source s {}", 1)
+        .replace("provenance(s, role.given)", "provenance(s, role.oracle)");
+    for call in ["through(form[b], x)", "s.cp(x) where s = form[a]"] {
+        let package = admitted(&oracle.replace("STATIC", call)).unwrap();
+        let root = package.names["p.Root"];
+        let error = specialize(
+            &package,
+            root,
+            InstanceId::from_bytes([7; 16]),
+            &Bindings::default(),
+            Limits::default(),
+        )
+        .expect_err(call);
+        let mut cause = &error;
+        while let ModelingError::Located { cause: inner, .. } = cause {
+            cause = inner;
+        }
+        let ModelingError::TestOnly {
+            declaration,
+            root: refused_root,
+            data,
+        } = cause
+        else {
+            panic!("{call} must retain its typed provenance refusal: {error:?}");
+        };
+        assert_eq!(*refused_root, root.as_id());
+        assert!(
+            data.contains("oracle") && data.contains("supplied by d"),
+            "{data}"
+        );
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::ModelingProvenance
+        );
+        assert!(diagnostic.sources.contains(declaration));
+        assert!(diagnostic.sources.contains(&root.as_id()));
+    }
+}
+
 /// A constant is a typed declaration whose value is a cell, admitted in canonical units and
 /// read as immutable package data.
 #[test]

@@ -53,6 +53,8 @@ pub enum ModelingContractReason {
     UnknownMember,
     /// A contextual reference needs a member path rather than an arbitrary expression.
     ContextualMemberPathRequired,
+    /// Runtime data cannot choose a structural value during specialization.
+    StaticValueRequired,
     /// A member occurrence supplies the wrong number of coordinates.
     MemberIndexArity,
     /// A coordinate is outside the member's admitted finite membership.
@@ -80,6 +82,7 @@ impl ModelingContractReason {
             Self::UnknownContextualDeclaration => "unknown_contextual_declaration",
             Self::UnknownMember => "unknown_member",
             Self::ContextualMemberPathRequired => "contextual_member_path_required",
+            Self::StaticValueRequired => "static_value_required",
             Self::MemberIndexArity => "member_index_arity",
             Self::CoordinateOutsideMembership => "coordinate_outside_membership",
             Self::ContinuousCoordinateRequired => "continuous_coordinate_required",
