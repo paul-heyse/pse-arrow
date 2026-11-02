@@ -2019,6 +2019,9 @@ impl CheckedPackage {
         if !self.declarations.contains_key(&root) {
             return Err(invalid(root, "selected root absent"));
         }
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("modeling.source_projections", "projections", 1);
+        }
         let mut selected = BTreeSet::new();
         let mut pending = vec![root];
         pending.extend(

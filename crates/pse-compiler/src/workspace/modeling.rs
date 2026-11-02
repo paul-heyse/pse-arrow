@@ -520,14 +520,13 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
 
     fn function_fragment(
         &self,
-        input: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentInput>,
+        selection: pse_modeling::check::StaticPackageSelection,
+        recipe: Arc<pse_modeling::specialize::function_fragments::FunctionFragmentRecipe>,
     ) -> std::result::Result<
         Arc<pse_modeling::specialize::function_fragments::FunctionFragment>,
         pse_modeling::ModelingError,
     > {
-        let (_, recipe) = input.parts();
-        let package = select_package(self.db, self.parent, input.selection().clone())
-            .map_err(fragment_error)?;
+        let package = select_package(self.db, self.parent, selection).map_err(fragment_error)?;
         let key = FunctionFragmentKey::new(self.db, package, recipe);
         function_fragment(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,

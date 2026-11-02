@@ -13,6 +13,192 @@ fn rows(text: &str) -> Vec<Declaration> {
     )
     .unwrap()
 }
+
+#[test]
+fn repeated_function_calls_do_not_rematerialize_static_source_packages() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let projections = |calls: usize| {
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("repeated-function-source-projections");
+        let context = operation.context();
+        let entered = context.enter();
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        let expression = std::iter::repeat_n("law(x)", calls)
+            .collect::<Vec<_>>()
+            .join("+");
+        let declarations = rows(&format!(
+            "package p {{fn law(x:Scalar)->Scalar=2*x; def Root {{var x:Scalar; eq e:{expression}==1;}}}}"
+        ));
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let law = declarations
+            .iter()
+            .find(|row| row.name == "law")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let actual = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let projections = snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "modeling.source_projections")
+            .map_or(0, |metric| match metric.cumulative {
+                Value::Count(count) => count,
+                ref other => panic!("{other:?}"),
+            });
+        drop(entered);
+        // The direct fallback consumes the same original source and static policy.
+        let direct = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        // Tracked calls share a function arena entry; the pure fallback may retain
+        // several copies of the same function product. Compare source/physical
+        // metadata and execute the original equations instead of comparing slots.
+        assert_eq!(actual.symbols, direct.symbols);
+        assert_eq!(actual.equations, direct.equations);
+        assert_eq!(actual.source_declarations, direct.source_declarations);
+        assert_eq!(actual.equations.len(), 1);
+        let x = actual
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == "Root.x")
+            .unwrap();
+        let first_selection = actual.resolved.functions.iter().next().unwrap();
+        let function = first_selection.product.as_ref();
+        assert_eq!(function.declaration, law);
+        assert_eq!(function.signature, [x.ty.clone()]);
+        assert_eq!(function.result, x.ty);
+        for selection in actual
+            .resolved
+            .functions
+            .iter()
+            .chain(direct.resolved.functions.iter())
+        {
+            assert_eq!(selection.formals, first_selection.formals);
+            let product = selection.product.as_ref();
+            assert_eq!(product.identity, function.identity);
+            assert_eq!(product.declaration, function.declaration);
+            assert_eq!(product.signature, function.signature);
+            assert_eq!(product.result, function.result);
+            assert_eq!(product.arguments, function.arguments);
+            assert_eq!(product.physical_operation, function.physical_operation);
+            assert_eq!(product.selections, function.selections);
+        }
+        pse_math::initialize().unwrap();
+        for model in [actual.as_ref(), &direct] {
+            use pse_modeling::resolved::{RegionOutput, RegionRequest};
+            let contracts = model.function_contracts(revision.checked());
+            let context = contracts.context();
+            let equation = &model.equations[0];
+            let region = model
+                .prepare_region(
+                    RegionRequest {
+                        outputs: &[RegionOutput::RelationResidual(
+                            model.equation_roots[&equation.id],
+                        )],
+                        validity: &[],
+                    },
+                    &context,
+                )
+                .unwrap();
+            assert_eq!(region.inputs.len(), 1);
+            assert_eq!(region.bindings[0].actual, x.id);
+            let providers = crate::typed_math::prepare_selected_providers(
+                &region.syntax,
+                &region.support,
+                &mut |name| {
+                    workspace
+                        .inputs
+                        .providers
+                        .get(name)
+                        .cloned()
+                        .ok_or_else(|| {
+                            MathError::Contract(format!("unexpected fixture provider {name}"))
+                        })
+                },
+                &BTreeMap::new(),
+                &context,
+            )
+            .unwrap();
+            let mut physical = FramedHasher::new(pse_ids::Frame::MathPhysicalPremisesV1);
+            region.support.frame(&mut physical);
+            providers.frame(&mut physical);
+            let cancel = Arc::new(AtomicBool::new(false));
+            let body = crate::typed_math::Request {
+                definition: equation.lineage.declaration.as_id(),
+                syntax: &region.syntax,
+                inputs: &region.inputs,
+                support: &region.support,
+                providers: &providers,
+                physical: physical.finish_hash(),
+                structure: region.syntax.identity().unwrap(),
+                limits: BodyLimits::default(),
+            }
+            .admit(context.quantities, context.preconditions, &cancel)
+            .unwrap();
+            let executable = body
+                .math()
+                .compile(
+                    &[0],
+                    &[0],
+                    DerivativeOrder::First,
+                    Default::default(),
+                    Default::default(),
+                    &pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::default(),
+                        None,
+                    ),
+                )
+                .unwrap();
+            let mut evaluator = executable.worker();
+            for value in [-4., 0., 0.125, 1.] {
+                let result = evaluator
+                    .evaluate(
+                        &[value],
+                        DerivativeOrder::First,
+                        &mut pse_kernels::ProviderBindings::new(),
+                        &cancel,
+                    )
+                    .unwrap();
+                assert_eq!(result.values, [2. * calls as f64 * value - 1.]);
+                assert_eq!(result.jacobian, [2. * calls as f64]);
+            }
+        }
+        projections
+    };
+    let first = projections(1);
+    assert!(
+        first > 0,
+        "the actual checked source projection owner must be observed"
+    );
+    assert_eq!(
+        projections(8),
+        first,
+        "repeated calls must reuse tracked exact parent/selector packages before cloning source records"
+    );
+}
 fn prepare(
     workspace: &mut CompilerWorkspace,
     root: DeclarationId,

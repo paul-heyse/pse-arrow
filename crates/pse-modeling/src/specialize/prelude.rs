@@ -68,6 +68,16 @@ impl PreludePremises {
                 conditional.insert(id, children);
             }
         }
+        let selection = Self::selection(bindings);
+        Ok(Self {
+            package: Arc::new(selection.select(package)?),
+            selection,
+            members,
+            conditional,
+        })
+    }
+    /// Capture the exact static request before its owner materializes a package.
+    pub(super) fn selection(bindings: &PreludeBindings) -> crate::check::StaticPackageSelection {
         fn dependencies(value: &Value, out: &mut Vec<DeclarationId>) {
             match value {
                 Value::Function(id) => out.push(*id),
@@ -116,13 +126,7 @@ impl PreludePremises {
         {
             dependencies(value, &mut additional);
         }
-        let selection = crate::check::StaticPackageSelection::static_scope(definition, additional);
-        Ok(Self {
-            package: Arc::new(selection.select(package)?),
-            selection,
-            members,
-            conditional,
-        })
+        crate::check::StaticPackageSelection::static_scope(bindings.definition, additional)
     }
     /// Conservative owned extent under the workspace's finite retained-input policy.
     pub fn retained_bytes(&self) -> usize {
@@ -229,7 +233,8 @@ pub trait Fragments {
     /// Derive a local typed function body under its exact finite and physical premises.
     fn function_fragment(
         &self,
-        input: Arc<function_fragments::FunctionFragmentInput>,
+        selection: crate::check::StaticPackageSelection,
+        recipe: Arc<function_fragments::FunctionFragmentRecipe>,
     ) -> Result<Arc<function_fragments::FunctionFragment>>;
     /// Derive from entity-local premises and exact bindings.
     fn instance_prelude(

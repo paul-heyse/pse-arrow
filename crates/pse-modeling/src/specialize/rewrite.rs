@@ -740,7 +740,7 @@ impl Engine<'_, '_> {
                         let value =
                             self.eval_ast_with(at, &env, value, Some(&ty))
                                 .map_err(|error| {
-                                    super::functions::static_value_context(error, || {
+                                    functions::static_value_context(error, || {
                                         format!("{name} must be static at specialization")
                                     })
                                 })?;

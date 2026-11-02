@@ -778,47 +778,44 @@ impl Engine<'_, '_> {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let premises = prelude::PreludePremises::select(
-            self.p,
-            &prelude::PreludeBindings {
-                definition: function,
-                root: self.root,
-                fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
-                arguments: statics.clone(),
-                scope: Environment::from([(
-                    "fragment.selection-records".into(),
-                    Value::Set(selected_records),
-                )]),
-                inherited: Environment::new(),
-                facts: Environment::new(),
-                members: self.limits.members,
-            },
-        )?;
-        let input = Arc::new(function_fragments::FunctionFragmentInput {
-            package: premises.package,
-            selection: premises.selection,
-            recipe: Arc::new(function_fragments::FunctionFragmentRecipe {
-                function,
-                instance,
-                contract,
-                formals,
-                lexical,
-                indexed,
-                lexical_references,
-                permissions,
-                substitution,
-                statics,
-                argument_layouts,
-                selections: selection_receipts,
-                root: self.root,
-                fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
-                limits: self.limits,
-                function_stack: self.function_stack.clone(),
-            }),
+        let selection = prelude::PreludePremises::selection(&prelude::PreludeBindings {
+            definition: function,
+            root: self.root,
+            fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
+            arguments: statics.clone(),
+            scope: Environment::from([(
+                "fragment.selection-records".into(),
+                Value::Set(selected_records),
+            )]),
+            inherited: Environment::new(),
+            facts: Environment::new(),
+            members: self.limits.members,
+        });
+        let recipe = Arc::new(function_fragments::FunctionFragmentRecipe {
+            function,
+            instance,
+            contract,
+            formals,
+            lexical,
+            indexed,
+            lexical_references,
+            permissions,
+            substitution,
+            statics,
+            argument_layouts,
+            selections: selection_receipts,
+            root: self.root,
+            fixture: matches!(self.reader, crate::provenance::Reader::Fixture),
+            limits: self.limits,
+            function_stack: self.function_stack.clone(),
         });
         let fragment = if let Some(fragments) = self.fragments {
-            fragments.function_fragment(input)?
+            fragments.function_fragment(selection, recipe)?
         } else {
+            let input = function_fragments::FunctionFragmentInput::from_parts(
+                Arc::new(selection.select(self.p)?),
+                recipe,
+            );
             Arc::new(function_fragments::derive(
                 &input,
                 None,
