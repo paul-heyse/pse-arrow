@@ -1,9 +1,14 @@
 # Symbolica: discovery briefing
 
 Inspected 2026-11-02 at source `7a2f73342`, including the concurrent working tree.
-Current-use statements are **Interface-checked** representative reads, not a generated census
-or a refresh of every older applicability conclusion. Research priorities are **Proposed**.
+Current-use explanations are **Interface-checked** representative reads; the later census
+does not refresh every older applicability conclusion. Research priorities are **Proposed**.
 No scientific execution or performance measurement was run.
+
+The later [pilot census](../../pilot-evidence.md) observed 1,629 resolved references in the
+frozen `ad69066e7` source. It confirms the existing `evaluator_multiple` and
+`export_instructions` integration. This path-overridden supplier retains a different package
+identity from upstream; reference and API acquisition contexts remain separately qualified.
 
 ## Capability territory and current usage
 
@@ -40,7 +45,7 @@ separately; upstream documentation does not describe every local addition or num
 
 ## Next evidence and handoff
 
-Generate `symbolica` family evidence from the exact path-overridden supplier and selected native
+Refresh `symbolica` family evidence from the exact path-overridden supplier and selected native
 world. Verify source identity before joining it to public upstream documentation. A fresh reader
 should explain which exported evaluator transformations can alter expression shape and why the
 bounded root overload cannot be inferred from version number alone. Preserve existing opportunity

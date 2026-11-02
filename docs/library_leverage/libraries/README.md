@@ -8,6 +8,8 @@ concrete codebase opportunity exists. The initial pilots are
 [DataFusion/Arrow](datafusion/briefing.md), [Tokio](tokio/briefing.md), and
 [Symbolica](symbolica/briefing.md). Their baselines and coverage are separate from the older
 applicability assessments below. A shortlist does not establish fit or authorize adoption.
+The [pilot evidence account](../pilot-evidence.md) records the generated reference/API scope,
+retention and limits separately from those research judgments.
 
 Reusable technical types can be researched without a current match. Contextual applicability
 still connects them to a concrete opportunity. Follow the

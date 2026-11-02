@@ -1,8 +1,14 @@
 # Tokio family: discovery briefing
 
 Inspected 2026-11-02 at source `7a2f73342`, including the concurrent working tree.
-Current-use statements are **Interface-checked** representative reads, not a generated census.
+Current-use explanations are **Interface-checked** representative reads; the later census
+has its own baseline and does not refresh applicability.
 Priorities are **Proposed**; no runtime or performance qualification was run.
+
+The later [pilot census](../../pilot-evidence.md) observed 7,526 resolved references in the
+frozen `ad69066e7` source. `TaskTracker` already appears in canonical result-release tracking,
+while cancellation and spawning have multiple owners. Imports and types are included;
+these counts establish neither runtime frequency nor whole-configuration coverage.
 
 ## Capability territory and current usage
 
@@ -10,6 +16,7 @@ Priorities are **Proposed**; no runtime or performance qualification was run.
 | --- | --- |
 | Runtime, tasks and blocking work | [Semantic workers](../../../../crates/pse-host/src/semantic/workers.rs) retain a `JoinSet`, reap failures, stop admission and drain retained work. Task settlement already has an explicit local owner. |
 | Cancellation and lifecycle utilities | The same owner uses `CancellationToken`; cancel-on-drop requests cancellation independently of retained-worker drain. Existing use is broader than a stop flag. |
+| Release tracking | [Canonical result releases](../../../../crates/pse-operations/src/canonical_results.rs) already retain `TaskTrackerToken`s across release work and close/wait on the tracker. Investigate further reuse rather than first adoption. |
 | Synchronization and channels | Mutexes, channels and readiness notifications can compose admission and delivery; their complete local population was not assessed in this pass. |
 | I/O, processes, codecs and streams | Tokio and companion utilities cover asynchronous I/O and adaptation. They do not by themselves establish descendant-process settlement or native CPU cancellation. |
 | Time and testing | Timers and test-time control can make selected async behavior easier to exercise. Their suitability depends on the actual operation clock and runtime requirements. |
@@ -20,7 +27,8 @@ for example, `TaskTracker` is supplied by `tokio-util` with its `rt` feature.
 
 ## Research priorities
 
-1. **Compare tracker-based drain with existing task ownership.** `TaskTracker` is promising when
+1. **Compare further tracker reuse with existing task ownership.** Canonical release tracking
+   already uses it. `TaskTracker` is promising when
    completion tracking is needed without retaining every result. Preserve the explicit admission
    boundary and failure collection now carried by `Workers`: tracker `close()` does not forbid
    spawning, and tracker completion does not deliver task results. The next question is whether
@@ -42,7 +50,7 @@ remain eligible for deeper research when a workflow supplies the question.
 
 ## Next evidence and handoff
 
-Generate the `tokio` family evidence in the selected production and test worlds, then interpret
+Refresh the `tokio` family evidence in the selected production and test worlds, then interpret
 resolved references through representative owners. A fresh reader should explain why
 `CancellationToken::cancel`, `TaskTracker::close`, and actual drain are three different events.
 Priorities enter detailed opportunity/applicability/review only when that scope is selected.

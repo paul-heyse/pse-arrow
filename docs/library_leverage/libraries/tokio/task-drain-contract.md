@@ -10,6 +10,12 @@ new tasks from being spawned**. The application needs its own admission rule if 
 exclude new work. Calling `close()` on an empty tracker while another party may still submit
 work is therefore not proof that the system has settled.
 
+`TaskTracker::token()` also lets a caller retain tracking manually. The returned guard counts
+as live work until dropped, so tracking need not coincide with spawning an async task. The
+caller must retain that guard through the actual operation it represents; dropping it early
+cannot establish external effect settlement. This is useful for release and cleanup owners
+whose work already has a separate execution mechanism.
+
 `CancellationToken::cancel()` requests cooperative cancellation. A worker must observe it and
 settle its effects. The token is not an error/result collector, and cancellation does not wait
 for task completion. A useful composition is: stop admission under the owner's synchronization,

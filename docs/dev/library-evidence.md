@@ -53,6 +53,10 @@ read each response's coverage before interpreting absence, ambiguous profiles, d
 availability, or runtime use. Keep original failures rather than replacing them with empty
 success. Re-run into another output directory after correcting prerequisites.
 
+Native bulk responses have a bounded transport allowance. If a selected family population
+exceeds it, retain the failure and split the family/context selection; do not interpret the
+missing response as zero use. Cold semantic loading and source attribution can also be costly.
+
 The [discovery workflow](../library_leverage/README.md) interprets these facts alongside
 the comprehensive overviews, primary documentation and representative local source. It
 owns the concise briefing and potential-value hypotheses. Existing library assessments

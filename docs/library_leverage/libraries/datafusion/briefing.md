@@ -1,9 +1,14 @@
 # DataFusion and Arrow: discovery briefing
 
 Inspected 2026-11-02 at source `7a2f73342`, including the concurrent working tree.
-Current-use statements below are **Interface-checked** from representative source reads,
-not a generated census or refreshed applicability assessment. Research priorities are
+Current-use explanations are **Interface-checked** from representative source reads;
+the later census has its own baseline and does not refresh applicability. Research priorities are
 **Proposed**. Product integration, performance and scientific qualification were not run.
+
+The later [pilot census](../../pilot-evidence.md) observed 59,490 resolved references for this
+family in the frozen `ad69066e7` source, including `PruningPredicateBuilder`, `prune` and
+`MemoryReservation::try_grow` witnesses. These include generated code, imports and type uses;
+counts do not measure importance, runtime frequency or whole-configuration coverage.
 
 ## Capability territory and current usage
 
@@ -44,7 +49,7 @@ upgrade-dependent functionality must be labeled separately from the pinned local
 
 ## Next evidence and handoff
 
-Generate the `datafusion-arrow` evidence family, inspect facade-to-definition joins and read
-representative witnesses. A fresh reader should be able to locate the defining pruning crate
+Refresh the `datafusion-arrow` evidence family when its inspected source changes; inspect
+facade-to-definition joins and read representative witnesses. A fresh reader should locate the defining pruning crate
 and explain why pruning cannot replace residual filtering. A concrete local footprint can
 then enter the existing audit/applicability/review routes; this briefing creates no new CBOs.

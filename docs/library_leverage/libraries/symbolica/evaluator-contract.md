@@ -2,7 +2,8 @@
 
 Reusable type: `symbolica/optimized-evaluator-boundaries`.
 Research date 2026-11-02. **Interface-checked** against Symbolica 3.0.1 source and numerical
-evaluation documentation. No new compile, numerical or timing probe was run.
+evaluation documentation, including the maintained source variant identified below.
+No evaluator execution or timing probe was run.
 
 `Atom::evaluator_multiple` builds one evaluator from several expressions. Joint optimization
 can share common subexpressions across outputs. The evaluator is an execution representation:
@@ -33,6 +34,17 @@ A useful comparison is two related outputs optimized jointly versus independentl
 shared work, retained lifetime and numerical policy together. A revealing countercase is a
 consumer that needs authored branch/obligation identity; an optimized program may omit that
 identity even though it evaluates the same mathematical expression.
+
+For the inspected maintained 3.0.1 supplier, the acquired surface adds two useful integration
+details. `Atom::evaluator_multiple` returns an `EvaluatorBuilder`; the public-path record retains
+its `AtomCore` import requirement. Preparation completes separately through fallible `build()`;
+preserve its `EvaluationError`. Exported exact constants can contain placeholders identified
+by `constant_functions`: resolve their symbolic definitions at the target precision before
+using those slots. Match non-inlined function calls to `sub_evaluators` by symbol and tags,
+recursively; unmatched calls remain external. These are source-variant conditions, not guarantees
+inferred from the upstream version number. See the [maintained instruction source](../../../../vendor/symbolica/src/evaluate/instruction.rs)
+and [pilot API evidence](../../pilot-evidence.md#api-facts). Numeric rustdoc item IDs are local
+to that artifact and are not stable capability identities.
 
 Sources: [numerical evaluation guide](https://symbolica.io/docs/numerical_evaluation),
 [3.0.1 evaluation API](https://docs.rs/symbolica/3.0.1/symbolica/evaluate/index.html),
