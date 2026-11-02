@@ -76,7 +76,7 @@ pub fn run(
         }
         match source {
             Ok(source) => process(root, &source, &mut state)?,
-            Err(error) => state.failure(None, error.to_string())?,
+            Err(error) => state.failure_error(None, &error)?,
         }
         (state.emit)(Event::Progress {
             examined_files: state.summary.examined_files,
@@ -205,6 +205,17 @@ impl State<'_> {
     fn failure(&mut self, source: Option<String>, message: String) -> Result<(), Error> {
         self.failure_detail(source, message, None)
     }
+    fn failure_error(&mut self, source: Option<String>, error: &Error) -> Result<(), Error> {
+        self.summary.failures += 1;
+        self.summary.complete = false;
+        (self.emit)(Event::Diagnostic {
+            phase: error.phase(),
+            code: "search.provider".into(),
+            message: error.to_string(),
+            source,
+            detail: error.query_error_record(),
+        })
+    }
     fn failure_detail(
         &mut self,
         source: Option<String>,
@@ -248,7 +259,7 @@ fn process(
     if matches!(state.request.predicate, Predicate::Files) {
         let input = match selection::observe(root, source) {
             Ok(input) => input,
-            Err(error) => return state.failure(None, error.to_string()),
+            Err(error) => return state.failure_error(None, &error),
         };
         let id = state.source(&input.path, &input.source, "source_name")?;
         let mut row = record(&input, None, "file", input.path.display().to_string());
@@ -258,8 +269,8 @@ fn process(
     }
     if let Predicate::Text(query) = &state.request.predicate {
         return match lexical::scan(root, source, query, state) {
-            Err(Error::Io(error)) if !state.token.is_cancelled() => {
-                state.failure(None, error.to_string())
+            Err(error @ (Error::Io(_) | Error::SourcePath(_))) if !state.token.is_cancelled() => {
+                state.failure_error(None, &error)
             }
             other => other,
         };
@@ -267,7 +278,7 @@ fn process(
     let input = match selection::acquire_cancellable(root, source, state.token) {
         Ok(input) => input,
         Err(Error::Cancelled) if state.token.is_cancelled() => return Ok(()),
-        Err(error) => return state.failure(None, error.to_string()),
+        Err(error) => return state.failure_error(None, &error),
     };
     state.summary.examined_bytes += input.bytes.len() as u64;
     let predicate = &state.request.predicate;

@@ -147,10 +147,10 @@ examples at completion. Unit tests retain focused ownership; these journeys do n
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | open | Query recovery | Resolution/provenance and first diagnostic declaration/consumer slice |
-| B02 | open | Query recovery | Distinct selection/acquisition/context causes |
-| B03 | open | Query recovery | Consistent safe failure/validation projections |
-| B04 | open | Agent consumption | Executed schema-backed journeys and maintained guidance |
+| B01 | implemented; verification pending | Query recovery | Typed effective-key origins retained through execution; passive explain precedes explicit-root preflight and common recovery/schema projection |
+| B02 | implemented; verification pending | Query recovery | Missing roots, observed disappearance, source changes, permission errors and typed native-context reasons retain distinct premises |
+| B03 | in progress | Query recovery | Common command/query recovery projection, original causes and Tree-sitter details migrated; assembled native validation/disclosure controls remain with the coordinator |
+| B04 | in progress | Agent consumption | Schema-backed request/error/source-guard journeys authored in `agent_interaction`; assembled execution and final guidance remain |
 
 ## Verification and handoff
 
@@ -163,3 +163,44 @@ requests in fixtures; do not depend on the review's temporary files or mutable s
 Latest upstream documentation is orientation; exact release behavior remains the implementation
 basis. No new tests or product changes were executed during authoring. B01 can start alongside
 A01; B04 finishes only after the selected A/B/C behavior and schemas work.
+
+## Execution checkpoint — 2026-11-01
+
+The maintainer authorized the full series after authoring. The source/public recovery slice now
+retains Figment provider/file metadata as typed origins on the effective request; array origins
+belong to their whole replacement values, and the selected scope name remains in `request.scope`
+instead of replacing its contributing origin. Named scopes participate in tagged-alternative
+reset alongside defaults, saved queries, request files and explicit overrides.
+
+Execution preserves that resolved object. Explain returns before filesystem preflight; ordinary
+execution checks explicit working answer/traversal roots before Begin or native seed lifting.
+Missing roots expose the resolved native operand, contributing input, original filesystem cause
+and a safe passive-explain action. Replay retains literal original arguments and query overrides,
+removes the Report-only envelope field projection, and withholds advice if an argument needs
+redaction or cannot be represented as Unicode argv. Source metadata/read/walk owners preserve
+observed disappearance, source change and permission causes rather than flattening those
+crossings. Command and query diagnostics share optional recovery facts; existing Tree-sitter
+parser metadata remains source-owned. Native context reasons come from C/root's existing
+semantic Failure owner, with preparation advice limited to a known missing native query session.
+
+Focused tests are authored for origin/base preservation, whole-array attribution, scope alternative
+replacement, explicit false, missing-root refusal, acquisition disappearance, native permission
+classification, redaction and typed native recovery. Agent integration journeys are authored for
+schema-backed passive explanation/refusal/replay, stdout query failures versus stderr command
+failures, NDJSON terminal interpretation, source-ID joins, matching direct/guarded inspection,
+and stale/malformed addresses. They await the coordinator's assembled Q campaign.
+
+**Tested:** the coordinator's `scripts/pse test pse-host --lib -E
+'test(semantic::wire::tests::) | test(source_read::) | test(source_command::batch::) |
+test(source_query::) | test(detail_tests::) | test(investigation::config::) |
+test(investigation::recovery_tests::) | test(envelope::)'` ran 105 selected default-feature tests:
+104 passed and one native-wire test failed, against the zero-failure target. All 17 selected
+configuration/recovery tests passed, including CLI replay, preflight-to-walk disappearance,
+raw-path redaction and consistent command/query facts. Provider-selection/acquisition tests
+were omitted by that filter and remain required. The original combined run is invocation
+`01a19a5d-d0cf-7112-812b-617aa4b22fa8`; its sole failure belongs to the native wire's non-UTF8
+query fixture. Earlier compile attempts were blocked by concurrent native constructor/generation
+migrations and supply no test credit. No assembled acceptance claim follows.
+
+Next: execute the omitted provider tests, settle native wire controls, then integrate B04's
+native/association journeys and guidance with the single Q campaign.

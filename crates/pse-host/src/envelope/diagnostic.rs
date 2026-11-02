@@ -197,6 +197,79 @@ impl FactsRecord {
         }
     }
 }
+/// Owner-supplied context and safe recovery advice for a classified refusal.
+#[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
+pub struct RecoveryRecord {
+    /// The owner-classified operation that failed.
+    pub operation: String,
+    /// Safe resolved operand, when known.
+    pub operand: Option<crate::investigation::NativePath>,
+    /// Effective input's contributing provider, when known.
+    pub origin: Option<crate::investigation::config::InputOrigin>,
+    /// Cause independent of rendered text and raw operating-system numbers.
+    pub cause: RecoveryCause,
+    /// Advice only; never automatically executed.
+    pub next: Option<super::NextAction>,
+}
+impl RecoveryRecord {
+    /// Apply the original disclosure before downstream consumers can use a correction.
+    pub fn redacted(mut self, policy: &RedactionPolicy) -> Self {
+        let path = |value: crate::investigation::NativePath| {
+            let text = value.to_path_buf().to_string_lossy().into_owned();
+            let redacted = policy.redact(&text);
+            if text == redacted {
+                value
+            } else {
+                crate::investigation::NativePath::Utf8(redacted)
+            }
+        };
+        self.operation = policy.redact(&self.operation);
+        self.operand = self.operand.map(path);
+        self.origin = self.origin.map(|mut origin| {
+            origin.provider = policy.redact(&origin.provider);
+            origin.source = origin.source.map(path);
+            origin
+        });
+        self.next = self.next.and_then(|action| match action {
+            super::NextAction::Command { argv, reason }
+                if argv.iter().all(|arg| policy.redact(arg) == *arg) =>
+            {
+                Some(super::NextAction::Command {
+                    argv,
+                    reason: policy.redact(&reason),
+                })
+            }
+            super::NextAction::ReadArtifact { location, reason }
+                if policy.redact(&location) == location =>
+            {
+                Some(super::NextAction::ReadArtifact {
+                    location,
+                    reason: policy.redact(&reason),
+                })
+            }
+            _ => None,
+        });
+        self
+    }
+}
+/// Source and prepared-context causes retain their different premises.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryCause {
+    /// An explicitly selected working root was absent before execution.
+    MissingRoot,
+    /// An observed source disappeared before acquisition finished.
+    SourceDisappeared,
+    /// Access was denied by the filesystem.
+    PermissionDenied,
+    /// The observed source changed during acquisition.
+    SourceChanged,
+    /// Another native filesystem failure, without guessing its domain meaning.
+    InputOutput,
+    /// Prepared-world owner supplied its specific reason.
+    Native(crate::semantic::FailureReason),
+}
+
 /// Owned versioned projection. Independent relationships preserve every occurrence.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 pub struct ErrorRecord {
@@ -228,6 +301,9 @@ pub struct ErrorRecord {
     pub labels: Vec<LabelRecord>,
     /// Parser's structured ErrorKind/context rather than only its rendered string.
     pub parser_context: BTreeMap<String, String>,
+    /// Optional recovery facts from the owner that knows the failed operation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<RecoveryRecord>,
 }
 impl ErrorRecord {
     /// Capture a typed native diagnostic without flattening its aggregate structure.
@@ -251,6 +327,9 @@ impl ErrorRecord {
     }
     /// Recover a source-owned presentation cause without interpreting its display string.
     pub fn from_host(error: &crate::HostError, policy: &RedactionPolicy) -> Self {
+        if let crate::HostError::Investigation(error) = error {
+            return error.record(policy);
+        }
         if let crate::HostError::Io(error) = error
             && let Some(original) = super::PresentationError::from_io(error)
         {
@@ -337,6 +416,7 @@ impl ErrorRecord {
                 .unwrap_or_default(),
             labels,
             parser_context: BTreeMap::new(),
+            recovery: None,
         }
     }
     /// Convert clap's native context into the common structured diagnostic record.
@@ -362,6 +442,52 @@ impl ErrorRecord {
                     }),
                 )
                 .collect(),
+            recovery: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    #[test]
+    fn recovery_redaction_withholds_unsafe_actions_and_preserves_safe_native_paths() {
+        use crate::investigation::{NativePath, config::InputOrigin};
+        let value = RecoveryRecord {
+            operation: "select_root".into(),
+            operand: Some(NativePath::Utf8("/tmp/secret/root".into())),
+            origin: Some(InputOrigin {
+                provider: "request file".into(),
+                source: Some(NativePath::Utf8("/tmp/secret/request.json".into())),
+            }),
+            cause: RecoveryCause::MissingRoot,
+            next: Some(super::super::NextAction::Command {
+                argv: vec![
+                    "pse".into(),
+                    "search".into(),
+                    "--path".into(),
+                    "secret".into(),
+                    "--explain".into(),
+                ],
+                reason: "read".into(),
+            }),
+        }
+        .redacted(&RedactionPolicy::new([("TOKEN".into(), "secret".into())]));
+        assert!(value.next.is_none());
+        let json = serde_json::to_string(&value).unwrap();
+        assert!(!json.contains("secret"));
+        assert!(json.contains("redacted:TOKEN"));
+        let raw = NativePath::Raw {
+            unix: b"/tmp/\xff".to_vec(),
+        };
+        let value = RecoveryRecord {
+            operation: "read_source".into(),
+            operand: Some(raw.clone()),
+            origin: None,
+            cause: RecoveryCause::InputOutput,
+            next: None,
+        }
+        .redacted(&RedactionPolicy::default());
+        assert_eq!(value.operand.unwrap(), raw);
     }
 }

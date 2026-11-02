@@ -4,7 +4,7 @@
 mod diagnostic;
 mod presentation;
 mod validation;
-pub use diagnostic::{ErrorRecord, RedactionPolicy};
+pub use diagnostic::{ErrorRecord, RecoveryCause, RecoveryRecord, RedactionPolicy};
 pub use presentation::{OutputFormat, Presentation, PresentationError, schema, write};
 use schemars::JsonSchema;
 use serde::Serialize;

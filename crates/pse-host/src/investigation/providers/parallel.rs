@@ -29,12 +29,18 @@ pub(super) fn run(
     let mut initial = Summary::default();
     for path in &request.sources.paths {
         if let Err(error) = std::fs::symlink_metadata(root.join(path)) {
+            let error = Error::SourcePath(Box::new(SourceFailure::new(
+                SourceOperation::SelectRoot,
+                root.join(path),
+                error,
+                false,
+            )));
             emit(Event::Diagnostic {
-                phase: DiagnosticPhase::Context,
+                phase: error.phase(),
                 code: "search.input".into(),
-                message: format!("explicit source {path:?}: {error}"),
+                message: error.to_string(),
                 source: None,
-                detail: None,
+                detail: error.query_error_record(),
             })?;
             initial.failures += 1;
             initial.complete = false;
@@ -99,13 +105,14 @@ pub(super) fn run(
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
+                    let error = selection::traversal_error(error);
                     let published = match emit.lock() {
                         Ok(mut output) => output(Event::Diagnostic {
-                            phase: DiagnosticPhase::Context,
+                            phase: error.phase(),
                             code: "search.traversal".into(),
                             message: error.to_string(),
                             source: None,
-                            detail: None,
+                            detail: error.query_error_record(),
                         }),
                         Err(_) => Err(Error::Unavailable("search writer owner panicked".into())),
                     };

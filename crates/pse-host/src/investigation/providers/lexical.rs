@@ -131,7 +131,14 @@ pub(super) fn scan(
         };
         if matches!(request, SourceRequest::Working { .. }) {
             let reader = CheckedReader {
-                inner: File::open(&path)?,
+                inner: File::open(&path).map_err(|source| {
+                    Error::SourcePath(Box::new(SourceFailure::new(
+                        SourceOperation::ReadSource,
+                        path.clone(),
+                        source,
+                        true,
+                    )))
+                })?,
                 token: token.clone(),
                 read: read.clone(),
             };
@@ -149,7 +156,13 @@ pub(super) fn scan(
     if let Err(error) = result
         && !token.is_cancelled()
     {
-        state.failure(None, error.to_string())?;
+        let error = Error::SourcePath(Box::new(SourceFailure::new(
+            SourceOperation::ReadSource,
+            path.clone(),
+            error,
+            true,
+        )));
+        state.failure_error(None, &error)?;
     }
     let mut after = if matches!(request, SourceRequest::Working { .. }) {
         Some(super::selection::guard(&path)?)
@@ -162,10 +175,14 @@ pub(super) fn scan(
     if matches!(request, SourceRequest::Working { .. }) && after.as_ref() != input.guard.as_ref() {
         state.summary.unknown += 1;
         state.summary.complete = false;
-        state.failure(
-            None,
-            format!("source changed while scanning: {:?}", input.path),
-        )?;
+        let mut failure = SourceFailure::new(
+            SourceOperation::ReadSource,
+            path,
+            io::Error::other("source changed while scanning"),
+            true,
+        );
+        failure.recovery.cause = crate::envelope::RecoveryCause::SourceChanged;
+        state.failure_error(None, &Error::SourcePath(Box::new(failure)))?;
     }
     Ok(())
 }

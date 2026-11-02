@@ -718,9 +718,13 @@ pub(super) fn search(
     let mut resolved = options.resolve(&root)?;
     if let Some(budget) = output.presentation.budget {
         resolved.request.presentation.budget = Some(budget);
-        resolved
-            .origins
-            .insert("presentation.budget".into(), "explicit CLI --budget".into());
+        resolved.origins.insert(
+            "presentation.budget".into(),
+            query::config::InputOrigin {
+                provider: "explicit CLI --budget".into(),
+                source: None,
+            },
+        );
     }
     resolved.request.validate()?;
     if explain {
@@ -737,7 +741,8 @@ pub(super) fn search(
             .map_err(HostError::from);
     }
     output.validate_for::<query::Report>("search")?;
-    let request = resolved.request;
+    resolved.explain_action = explain_action(std::env::args_os());
+    resolved.preflight(&root)?;
     let rt = super::runtime()?;
     let handle = rt.handle().clone();
     let cancellation = CancellationToken::new();
@@ -751,7 +756,7 @@ pub(super) fn search(
     let mut task = crate::source_command::batch::spawn_cpu(task_token, move |token| {
         execute(
             root,
-            request,
+            resolved,
             output,
             token,
             handle,
@@ -776,14 +781,189 @@ pub(super) fn search(
     result.map_err(HostError::from)
 }
 
+fn explain_action(
+    arguments: impl IntoIterator<Item = std::ffi::OsString>,
+) -> Option<crate::envelope::NextAction> {
+    let mut argv = arguments
+        .into_iter()
+        .map(|argument| argument.into_string().ok())
+        .collect::<Option<Vec<_>>>()?;
+    // Literal argument boundaries preserve all explicit selections, including false/default
+    // values inside request files. A secret-bearing replay is withheld in its entirety.
+    *argv.first_mut()? = "pse".into();
+    // Envelope field names belong to Report, not Resolved. Keep query/result selection
+    // flags, but request a complete explanation rather than replaying that output projection.
+    let mut index = 1;
+    while index < argv.len() && argv[index] != "--" {
+        if argv[index] == "--fields" {
+            argv.remove(index);
+            if index < argv.len() {
+                argv.remove(index);
+            }
+        } else if argv[index].starts_with("--fields=") {
+            argv.remove(index);
+        } else {
+            index += 1;
+        }
+    }
+    let delimiter = argv
+        .iter()
+        .position(|argument| argument == "--")
+        .unwrap_or(argv.len());
+    argv.insert(delimiter, "--explain".into());
+    let policy = crate::envelope::RedactionPolicy::from_environment();
+    if argv
+        .iter()
+        .any(|argument| policy.redact(argument) != *argument)
+    {
+        return None;
+    }
+    Some(crate::envelope::NextAction::Command {
+        argv,
+        reason:
+            "inspect the same effective request and contributing inputs without starting providers"
+                .into(),
+    })
+}
+
+/// Called only after the same resolved request's successful execution preflight.
+fn recover_diagnostic(event: &mut query::Event, root: &Path, resolved: &query::config::Resolved) {
+    let query::Event::Diagnostic {
+        phase,
+        message,
+        detail,
+        ..
+    } = event
+    else {
+        return;
+    };
+    let policy = crate::envelope::RedactionPolicy::from_environment();
+    *message = policy.redact(message);
+    let Some(recovery) = detail.as_mut().and_then(|detail| detail.recovery.as_mut()) else {
+        return;
+    };
+    // A provider's later root recheck has a stronger premise here: the root existed
+    // before Begin. Preserve that observed premise instead of blaming the request.
+    if recovery.cause == crate::envelope::RecoveryCause::MissingRoot {
+        recovery.cause = crate::envelope::RecoveryCause::SourceDisappeared;
+        *phase = query::DiagnosticPhase::Context;
+    }
+    if recovery.origin.is_none()
+        && let Some(operand) = &recovery.operand
+    {
+        let operand = operand.to_path_buf();
+        if resolved
+            .request
+            .sources
+            .paths
+            .iter()
+            .any(|path| operand.starts_with(root.join(path)))
+        {
+            recovery.origin = resolved.origins.get("sources.paths").cloned();
+        }
+    }
+    *recovery = recovery.clone().redacted(&policy);
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    #[test]
+    fn explain_recovery_keeps_explicit_overrides_and_literal_boundaries() {
+        let arguments = [
+            "/bin/pse-host",
+            "-C",
+            "/tmp/selected root",
+            "search",
+            "--request",
+            "input/request.json",
+            "--path",
+            "override root",
+            "--fields",
+            "results",
+            "text",
+            "--",
+            "--literal-pattern",
+        ];
+        let Some(crate::envelope::NextAction::Command { argv, .. }) =
+            explain_action(arguments.map(std::ffi::OsString::from))
+        else {
+            panic!("safe replay absent")
+        };
+        assert_eq!(
+            argv,
+            [
+                "pse",
+                "-C",
+                "/tmp/selected root",
+                "search",
+                "--request",
+                "input/request.json",
+                "--path",
+                "override root",
+                "text",
+                "--explain",
+                "--",
+                "--literal-pattern"
+            ]
+        );
+    }
+    #[test]
+    fn roots_disappearing_after_preflight_keep_the_observed_premise() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("selected");
+        std::fs::create_dir(&path).unwrap();
+        let resolved = query::config::explain(
+            root.path(),
+            None,
+            None,
+            None,
+            json!({"sources":{"paths":["selected"]}}),
+        )
+        .unwrap();
+        resolved.preflight(root.path()).unwrap();
+        std::fs::remove_dir(&path).unwrap();
+        let error = query::Error::SourcePath(Box::new(query::SourceFailure::new(
+            query::SourceOperation::SelectRoot,
+            path,
+            std::io::Error::from(std::io::ErrorKind::NotFound),
+            false,
+        )));
+        let mut event = query::Event::Diagnostic {
+            phase: error.phase(),
+            code: "search.input".into(),
+            message: error.to_string(),
+            source: None,
+            detail: error.query_error_record(),
+        };
+        recover_diagnostic(&mut event, root.path(), &resolved);
+        let query::Event::Diagnostic {
+            phase,
+            detail: Some(detail),
+            ..
+        } = event
+        else {
+            panic!("lost diagnostic")
+        };
+        assert_eq!(phase, query::DiagnosticPhase::Context);
+        let recovery = detail.recovery.unwrap();
+        assert_eq!(
+            recovery.cause,
+            crate::envelope::RecoveryCause::SourceDisappeared
+        );
+        assert_eq!(recovery.origin.unwrap().provider, "explicit CLI values");
+    }
+}
+
 fn execute(
     root: PathBuf,
-    request: query::Request,
+    resolved: query::config::Resolved,
     output: OutputOptions,
     token: CancellationToken,
     handle: tokio::runtime::Handle,
     frames: delivery::Frames,
 ) -> Result<i32, query::Error> {
+    let request = &resolved.request;
     let streaming = output.format == OutputFormat::Ndjson;
     let mut writer = query::stream::StreamWriter::new(frames, token.clone());
     let mut report = query::Report::default();
@@ -806,6 +986,7 @@ fn execute(
     );
     progress.set_message("searching selected sources");
     let mut emit = |mut event: query::Event| -> Result<(), query::Error> {
+        recover_diagnostic(&mut event, &root, &resolved);
         if let query::Event::Progress {
             examined_files,
             examined_bytes,

@@ -48,11 +48,28 @@ pub(super) fn acquire_cancellable(
         SourceRequest::Working { path } => {
             let path = root.join(path);
             let before = guard(&path)?;
-            let bytes = read_cancellable(fs::File::open(&path)?, token)?;
+            let source_error = |source| {
+                Error::SourcePath(Box::new(SourceFailure::new(
+                    SourceOperation::ReadSource,
+                    path.clone(),
+                    source,
+                    true,
+                )))
+            };
+            let mut file = fs::File::open(&path).map_err(source_error)?;
+            let bytes = read_cancellable(&mut file, token).map_err(|error| match error {
+                Error::Io(source) => source_error(source),
+                other => other,
+            })?;
             if guard(&path)? != before {
-                return Err(Error::Stale(format!(
-                    "source changed during read: {path:?}"
-                )));
+                let mut failure = SourceFailure::new(
+                    SourceOperation::ReadSource,
+                    path.clone(),
+                    std::io::Error::other("source changed during read"),
+                    true,
+                );
+                failure.recovery.cause = crate::envelope::RecoveryCause::SourceChanged;
+                return Err(Error::SourcePath(Box::new(failure)));
             }
             (bytes, SourceKind::Working, Some(before))
         }
@@ -197,7 +214,14 @@ pub(super) fn observe(root: &Path, source: &SourceRequest) -> Result<ProviderInp
 }
 
 pub(super) fn guard(path: &Path) -> Result<SourceGuard, Error> {
-    let metadata = fs::metadata(path)?;
+    let metadata = fs::metadata(path).map_err(|source| {
+        Error::SourcePath(Box::new(SourceFailure::new(
+            SourceOperation::ObserveSource,
+            path.to_owned(),
+            source,
+            true,
+        )))
+    })?;
     let modified_nanos = metadata
         .modified()
         .ok()
@@ -211,6 +235,32 @@ pub(super) fn guard(path: &Path) -> Result<SourceGuard, Error> {
         root: None,
         git_blob: None,
     })
+}
+
+/// Keep the walker's own path and IO classification without parsing its rendered message.
+pub(super) fn traversal_error(error: ignore::Error) -> Error {
+    fn operand(error: &ignore::Error) -> Option<PathBuf> {
+        match error {
+            ignore::Error::WithPath { path, .. } => Some(path.clone()),
+            ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => {
+                operand(err)
+            }
+            ignore::Error::Partial(errors) if errors.len() == 1 => operand(&errors[0]),
+            _ => None,
+        }
+    }
+    let operand = operand(&error);
+    let kind = error
+        .io_error()
+        .map_or(std::io::ErrorKind::Other, std::io::Error::kind);
+    let mut failure = SourceFailure::new(
+        SourceOperation::TraverseSources,
+        PathBuf::new(),
+        std::io::Error::new(kind, error),
+        false,
+    );
+    failure.recovery.operand = operand.map(NativePath::from);
+    Error::SourcePath(Box::new(failure))
 }
 
 fn git_paths(root: &Path, kind: &SourceKind) -> Result<Vec<PathBuf>, Error> {
@@ -368,7 +418,7 @@ impl Selection {
                             .unwrap_or(entry.path())
                             .to_path_buf())),
                         Ok(_) => None,
-                        Err(error) => Some(Err(Error::Io(std::io::Error::other(error)))),
+                        Err(error) => Some(Err(traversal_error(error))),
                     })
                     .collect::<Result<Vec<_>, _>>()?,
                 _ => git_paths(root, &selector.kind)?
@@ -383,7 +433,14 @@ impl Selection {
             );
             for path in manifests {
                 let bytes = match &selector.kind {
-                    SourceKind::Working => fs::read(root.join(&path))?,
+                    SourceKind::Working => fs::read(root.join(&path)).map_err(|source| {
+                        Error::SourcePath(Box::new(SourceFailure::new(
+                            SourceOperation::ReadSource,
+                            root.join(&path),
+                            source,
+                            true,
+                        )))
+                    })?,
                     SourceKind::Index => {
                         crate::repository::source::read(root, &path, None)
                             .map_err(|e| Error::Io(std::io::Error::other(e)))?
@@ -551,7 +608,12 @@ fn visit_selected(
         SourceKind::Working => {
             for path in &selector.paths {
                 if let Err(error) = fs::symlink_metadata(root.join(path))
-                    && !emit(Err(Error::Io(error)))?
+                    && !emit(Err(Error::SourcePath(Box::new(SourceFailure::new(
+                        SourceOperation::SelectRoot,
+                        root.join(path),
+                        error,
+                        false,
+                    )))))?
                 {
                     return Ok(());
                 }
@@ -597,7 +659,7 @@ fn visit_selected(
                 let entry = match entry {
                     Ok(e) => e,
                     Err(e) => {
-                        if !emit(Err(Error::Io(std::io::Error::other(e))))? {
+                        if !emit(Err(traversal_error(e)))? {
                             break;
                         }
                         continue;
@@ -677,6 +739,60 @@ pub(crate) fn select_prepared_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn acquisition_retains_observed_disappearance_and_permission_causes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("observed.rs");
+        fs::write(&path, "fn observed() {}\n").unwrap();
+        let source = SourceRequest::Working { path: path.clone() };
+        observe(root.path(), &source).unwrap();
+        fs::remove_file(&path).unwrap();
+        let error = acquire(root.path(), &source).unwrap_err();
+        assert_eq!(error.disposition(), FailureDisposition::Stale);
+        let record = error.query_error_record().unwrap();
+        let recovery = record.recovery.unwrap();
+        assert_eq!(
+            recovery.cause,
+            crate::envelope::RecoveryCause::SourceDisappeared
+        );
+        assert_eq!(recovery.operand.unwrap().to_path_buf(), path);
+        // Permission classification uses the actual filesystem error kind, independent of
+        // root-user access privileges and platform-specific rendered OS prose.
+        let failure = SourceFailure::new(
+            SourceOperation::ReadSource,
+            path,
+            std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+            true,
+        );
+        assert_eq!(
+            failure.recovery.cause,
+            crate::envelope::RecoveryCause::PermissionDenied
+        );
+    }
+    #[test]
+    fn traversal_retains_known_operand_and_native_permission_source() {
+        let error = traversal_error(ignore::Error::WithDepth {
+            depth: 2,
+            err: Box::new(ignore::Error::WithPath {
+                path: PathBuf::from("restricted/directory"),
+                err: Box::new(ignore::Error::Io(std::io::Error::from(
+                    std::io::ErrorKind::PermissionDenied,
+                ))),
+            }),
+        });
+        let record = error.query_error_record().unwrap();
+        let recovery = record.recovery.unwrap();
+        assert_eq!(recovery.operation, "traverse_sources");
+        assert_eq!(
+            recovery.operand.unwrap().to_path_buf(),
+            PathBuf::from("restricted/directory")
+        );
+        assert_eq!(
+            recovery.cause,
+            crate::envelope::RecoveryCause::PermissionDenied
+        );
+        assert!(!record.causes.is_empty());
+    }
     #[test]
     fn whole_source_acquisition_checks_cancellation_between_native_reads() {
         struct CancelOnRead {

@@ -23,15 +23,26 @@ struct Configuration {
     queries: BTreeMap<String, Map<String, Value>>,
     scopes: BTreeMap<String, Map<String, Value>>,
 }
+/// The provider that supplied an effective value, before typed extraction loses its tag.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct InputOrigin {
+    /// Configuration layer identity, distinct from a selected saved-scope name.
+    pub provider: String,
+    /// Original contributing file, preserving native path bytes.
+    pub source: Option<NativePath>,
+}
 /// Explain effective values and the actual contributing configuration sources.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct Resolved {
     /// The validated effective request used by execution.
     pub request: Request,
     /// Native source provenance for effective top-level keys.
-    pub origins: BTreeMap<String, String>,
+    pub origins: BTreeMap<String, InputOrigin>,
     /// Actual files consumed, without claiming they are immutable evidence.
     pub files: Vec<PathBuf>,
+    /// Original safe CLI replay, retained only for execution recovery.
+    #[serde(skip)]
+    pub explain_action: Option<crate::envelope::NextAction>,
 }
 
 /// Resolve only explicitly supplied CLI values over saved input and typed defaults.
@@ -113,7 +124,7 @@ pub fn explain(
         .or_else(|| defaults.get("scope"))
         .and_then(Value::as_str)
         .map(str::to_owned);
-    let scope_layer = if let Some(name) = &scope {
+    let mut scope_layer = if let Some(name) = &scope {
         let selector = Value::Object(
             file_config
                 .scopes
@@ -131,6 +142,7 @@ pub fn explain(
     // would accidentally construct a hybrid predicate or revision source.
     reset_changed_alternatives(&mut [
         &mut defaults,
+        &mut scope_layer,
         &mut named,
         &mut request_value,
         &mut overrides,
@@ -164,26 +176,85 @@ pub fn explain(
         if let Some(metadata) = figment.find_metadata(&key) {
             origins.insert(
                 key,
-                format!(
-                    "{}{}",
-                    metadata.name,
-                    metadata
+                InputOrigin {
+                    provider: metadata.name.to_string(),
+                    source: metadata
                         .source
                         .as_ref()
-                        .map(|source| format!(" ({source})"))
-                        .unwrap_or_default()
-                ),
+                        .and_then(figment::Source::file_path)
+                        .map(|path| NativePath::from(path.to_path_buf())),
+                },
             );
         }
-    }
-    if let Some(scope) = scope {
-        origins.insert("scope".into(), scope);
     }
     Ok(Resolved {
         request: effective,
         origins,
         files,
+        explain_action: None,
     })
+}
+
+impl Resolved {
+    /// Array entries share their whole replacement value's contributing provider.
+    pub fn origin(&self, key: &str) -> Option<&InputOrigin> {
+        let mut key = key;
+        loop {
+            if let Some(origin) = self.origins.get(key) {
+                return Some(origin);
+            }
+            key = key.rsplit_once('.')?.0;
+        }
+    }
+    /// Reject invalid explicit working roots before any provider or semantic seed work.
+    pub fn preflight(&self, root: &Path) -> Result<(), Error> {
+        let check = |selector: &super::SourceSelector, key: &str| -> Result<(), Error> {
+            if selector.kind != super::SourceKind::Working {
+                return Ok(());
+            }
+            for path in &selector.paths {
+                let operand = absolute(root, path);
+                if let Err(source) = std::fs::symlink_metadata(&operand) {
+                    let mut failure = super::SourceFailure::new(
+                        super::SourceOperation::SelectRoot,
+                        operand,
+                        source,
+                        false,
+                    );
+                    failure.recovery.origin = self.origin(key).cloned();
+                    failure.recovery.next = self.explain_action.clone();
+                    return Err(Error::SourcePath(Box::new(failure)));
+                }
+            }
+            Ok(())
+        };
+        check(&self.request.sources, "sources.paths")?;
+        fn predicates(
+            value: &super::Predicate,
+            key: &str,
+            check: &impl Fn(&super::SourceSelector, &str) -> Result<(), Error>,
+        ) -> Result<(), Error> {
+            match value {
+                super::Predicate::Related { traversal, .. } => {
+                    check(traversal, &format!("{key}.traversal.paths"))
+                }
+                super::Predicate::Refine { candidates, .. } => {
+                    predicates(candidates, &format!("{key}.candidates"), check)
+                }
+                super::Predicate::All { clauses, .. } | super::Predicate::Any { clauses, .. } => {
+                    for clause in clauses {
+                        predicates(clause, &format!("{key}.clauses"), check)?;
+                    }
+                    Ok(())
+                }
+                super::Predicate::Not { clause, .. } => {
+                    predicates(clause, &format!("{key}.clause"), check)
+                }
+                _ => Ok(()),
+            }
+        }
+        predicates(&self.request.predicate, "predicate", &check)
+    }
 }
 
 fn provenance_keys(value: &Value, prefix: &str, keys: &mut Vec<String>) {
@@ -368,6 +439,88 @@ fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Err
 mod tests {
     use super::*;
     #[test]
+    fn missing_request_root_retains_origin_and_passive_resolution() {
+        let root = tempfile::tempdir().unwrap();
+        let nested = root.path().join("input");
+        std::fs::create_dir(&nested).unwrap();
+        let request = nested.join("request.json");
+        std::fs::write(&request, r#"{"sources":{"paths":["missing"]}}"#).unwrap();
+        // Resolution/explanation succeeds; preflight is a separate execution-only step.
+        let mut resolved = explain(
+            root.path(),
+            None,
+            None,
+            Some(&request),
+            serde_json::json!({}),
+        )
+        .unwrap();
+        resolved.explain_action = Some(crate::envelope::NextAction::Command {
+            argv: vec![
+                "pse".into(),
+                "search".into(),
+                "--request".into(),
+                request.to_str().unwrap().into(),
+                "--explain".into(),
+            ],
+            reason: "inspect inputs".into(),
+        });
+        let Error::SourcePath(error) = resolved.preflight(root.path()).unwrap_err() else {
+            panic!("lost selection cause")
+        };
+        assert_eq!(
+            error.recovery.cause,
+            crate::envelope::RecoveryCause::MissingRoot
+        );
+        assert_eq!(
+            error.recovery.operand.unwrap().to_path_buf(),
+            nested.join("missing")
+        );
+        let origin = error.recovery.origin.unwrap();
+        assert_eq!(origin.provider, "request file");
+        assert_eq!(origin.source.unwrap().to_path_buf(), request);
+        assert!(error.recovery.next.is_some());
+        let absolute = root.path().join("absolute-missing");
+        let resolved = explain(
+            root.path(),
+            None,
+            None,
+            None,
+            serde_json::json!({"sources":{"paths":[absolute]}}),
+        )
+        .unwrap();
+        assert_eq!(resolved.request.sources.paths, vec![absolute]);
+        assert_eq!(
+            resolved.origins["sources.paths"].provider,
+            "explicit CLI values"
+        );
+    }
+    #[test]
+    fn named_scope_identity_and_kind_reset_are_independent_of_origin() {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("queries.json");
+        std::fs::write(&config, r#"{"scopes":{"old":{"kind":{"kind":"revision","revision":"obsolete"},"paths":["old"]}},"defaults":{"scope":"old"}}"#).unwrap();
+        let resolved = explain(root.path(), Some(&config), None, None, serde_json::json!({"sources":{"kind":{"kind":"working"},"paths":["new"],"include_hidden":false}})).unwrap();
+        assert_eq!(resolved.request.scope.as_deref(), Some("old"));
+        assert_eq!(resolved.origins["scope"].provider, "repository defaults");
+        assert_eq!(
+            resolved.request.sources.kind,
+            super::super::SourceKind::Working
+        );
+        assert_eq!(
+            resolved.request.sources.paths,
+            vec![root.path().join("new")]
+        );
+        assert_eq!(
+            resolved.origins["sources.paths"].provider,
+            "explicit CLI values"
+        );
+        assert!(!resolved.request.sources.include_hidden);
+        assert_eq!(
+            resolved.origins["sources.include_hidden"].provider,
+            "explicit CLI values"
+        );
+    }
+    #[test]
     fn schema_descriptors_resolve_at_request_config_and_override_origins() {
         let root = tempfile::tempdir().unwrap();
         let nested = root.path().join("nested");
@@ -511,8 +664,14 @@ mod tests {
         assert_eq!(traversal.paths, vec![root.path().join("src")]);
         assert_eq!(traversal.types, vec!["rust"]);
         assert!(traversal.include_hidden);
-        assert!(resolved.origins["predicate.seeds"].contains("explicit CLI values"));
-        assert!(resolved.origins["predicate.traversal.paths"].contains("repository defaults"));
+        assert_eq!(
+            resolved.origins["predicate.seeds"].provider,
+            "explicit CLI values"
+        );
+        assert_eq!(
+            resolved.origins["predicate.traversal.paths"].provider,
+            "repository defaults"
+        );
     }
     #[test]
     fn nested_relationship_domain_tag_switch_replaces_the_original_alternative() {
@@ -576,10 +735,22 @@ mod tests {
         )
         .unwrap();
         assert!(!resolved.request.sources.include_hidden);
-        assert!(resolved.origins["sources.include_hidden"].contains("explicit CLI values"));
-        assert!(resolved.origins["predicate.literal"].contains("explicit CLI values"));
-        assert!(resolved.origins["predicate.patterns"].contains("repository defaults"));
-        assert!(resolved.origins["presentation.context"].contains("repository defaults"));
+        assert_eq!(
+            resolved.origins["sources.include_hidden"].provider,
+            "explicit CLI values"
+        );
+        assert_eq!(
+            resolved.origins["predicate.literal"].provider,
+            "explicit CLI values"
+        );
+        assert_eq!(
+            resolved.origins["predicate.patterns"].provider,
+            "repository defaults"
+        );
+        assert_eq!(
+            resolved.origins["presentation.context"].provider,
+            "repository defaults"
+        );
     }
     #[test]
     fn request_relative_paths_and_scopes_resolve_at_their_own_source() {
