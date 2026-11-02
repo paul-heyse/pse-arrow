@@ -6,6 +6,11 @@ title: "Process simulator design"
 
 The Notion design collection is organized here for repository-based design and implementation planning. Start with the focused handoff, then follow the relevant contracts and detailed references. Source links and original decision/version records are preserved.
 
+The [holistic target design review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md)
+assesses this package against current source and the selected design standard. Its proposed
+amendments, alternatives, scientific-library evidence and rule impacts are input to subsequent
+plan creation; the review does not itself adopt changes or establish scientific qualification.
+
 ## Start here
 
 1. [Planning handoff for GPT-6.1 Sol](planning-handoff.md) — the outcome to scope, settled direction, first delivery, consequential questions and expected planning output.
