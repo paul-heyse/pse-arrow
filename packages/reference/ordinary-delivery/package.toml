@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "b337d5eae52d4ee69c80e7e63623236f"
+name = "pse.ordinary-delivery"
+version = "1.0.0"
+kind = "reference"
+id_policy = "named"
+dependencies = [
+  { package_id = "01a0ee3cf88675089ed360b096500f6e", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "c90a89ffdd9e409a9a0b9420405598a5", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d34232814d24a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d34246c100803", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d342c9a291d90", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d3434898d76b7", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f14331d9760dbe4d343cdceec631", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+
+  { package_id = "01a0f12be021704f9c94b091c341dfc3", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0f12be021704f9c94b0903d83ca1a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0e1461e93764398a669e208f425e7", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "12104e13f2494492ba75de08955299a6", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0e169482c760bbd985b849a06417d", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "b27409be5572b8712e47db271fae28cd", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+  { package_id = "01a0ef5e3bc973bb9bcd6df429506c6a", version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } },
+]
+doc = "Ordinary process delivery over explicit published BT source selections; changed parameters retain separate reference correspondence."

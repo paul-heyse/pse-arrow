@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+package ordinary_bt {
+use chemistry @"1.0.0";
+use chem @"1.0.0";
+use properties @"1.0.0";
+use correlations @"1.0.0";
+use compatibility @"1.0.0";
+use provenance @"1.0.0";
+use references @"1.0.0";
+use constants @"1.0.0";
+use cubic @"1.0.0";
+use interactions @"1.0.0";
+use peng_robinson @"1.0.0";
+use equilibrium @"1.0.0";
+use pr_equilibrium @"1.0.0";
+use ideal_caloric_state @"1.0.0";
+use perry7_data @"1.0.0";
+
+entity provenance.software_release chemicals_source {title="Chemicals scientific data collection",version="e79047588b30cfabc564c79fb26d760c746877d7",locator="https://github.com/CalebBell/chemicals/tree/e79047588b30cfabc564c79fb26d760c746877d7"}
+entity provenance.release_artifact wagner_source {title="Poling Wagner 2.5,5 vapor-pressure parameters",release=chemicals_source,locator="chemicals/Vapor Pressure/Wagner Collection Poling.tsv; sha256=97fecbd70c931065cddc32b3f41e51bd69bc20199d11a1d006de668a29e9c0e5"}
+entity provenance.release_artifact critical_source {title="Yaws critical-property collection",release=chemicals_source,locator="chemicals/Critical Properties/Yaws Collection.tsv; sha256=8e9cce88b781b13a380c4d21ff86c4fd57d63592ffe3c40a88721fee2614bb64"}
+entity provenance.release_artifact latent_source {title="CRC Handbook vaporization enthalpy at298.15K",release=chemicals_source,locator="chemicals/Phase Change/CRC Handbook Heat of Vaporization.tsv; sha256=3167c400fc9581f2e3c82a6581c8b7959e53d6565945042c0dc9c2c54592cf69"}
+entity provenance.source conventions {title="Native ordinary BT convention: zero ideal-gas enthalpy and entropy at298.15K; liquid enthalpy offset from sourced vaporization enthalpy; explicit predictive-zero unlike interaction, not measured interaction data"}
+entity properties.parameterization pressure_fit {title="Poling Wagner2.5,5 fit",source=wagner_source}
+entity properties.parameterization critical_fit {title="Yaws critical values",source=critical_source}
+entity properties.parameterization vapor_fit {title="FeOS0.10.1 Poling DIPPR100 ideal-gas Cp",source=references.poling2000}
+set aromatics:Set<chemistry.species>={chem.benzene,chem.toluene};
+
+// This is the2.5,5 Wagner form. The existing rpp4_wagner3,6 form is not reused
+// with these coefficients. Fitted Tc/Pc remain distinct from EOS critical data.
+entity kind wagner25 extends properties.vapor_pressure_set {
+attribute a:Scalar;
+attribute b:Scalar;
+attribute c:Scalar;
+attribute d:Scalar;
+attribute tc:TemperatureScale;
+attribute pc:Pressure;
+psat=wagner25_psat;
+}
+fn wagner25_psat(T:Temperature,s:wagner25)->Pressure applicability(s.applicability(T,s)) valid(T/s.tc>0 and T/s.tc<1)=s.pc*exp((s.a*tau+s.b*tau^(3/2)+s.c*tau^(5/2)+s.d*tau^5)/(1-tau)) where tau=1-T/s.tc;
+dataset vapor_pressure:wagner25 bind(property=properties.vapor_pressure,phase_type=compatibility.PhaseType.liquidPhase,parameterization=pressure_fit,source=wagner_source,dependencies={},conventions={}) provenance(wagner_source,provenance.Role.published) {
+[chem.benzene]=[278.68{K},562.16{K},-7.01433,1.55256,-1.8479,-3.713,562.16{K},4898000{Pa}];
+[chem.toluene]=[178.18{K},591.8{K},-7.316,1.59425,-1.93165,-3.7222,591.8{K},4106000{Pa}];
+}
+// Original FeOS units are retained; ordinary quantity admission normalizes kmol.
+//298.15–450K is the selected consuming interval, not a new empirical validity proof.
+entity kind feos_poling_cp extends correlations.dippr100 { override applicability=feos_unknown; }
+applicability feos_unknown(T:Temperature,s:properties.temperature_correlation) owner feos_poling_cp scope data evidence s.source unknown("The selected FeOS Poling artifact supplies no empirical validity interval");
+dataset bt_vapor_caloric:feos_poling_cp bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.vaporPhase,parameterization=vapor_fit,source=references.poling2000,dependencies={},conventions={},minimum_temperature=298.15{K},maximum_temperature=450{K}) provenance(references.poling2000,provenance.Role.published,lineage(source references.feos_poling2000_json)) {
+[chem.benzene]=[29524.656757062152{J/(kmol*K)},-51.41663683065963{J/(kmol*K^2)},1.1943725550977127{J/(kmol*K^3)},-0.001646845610777612{J/(kmol*K^4)},0.0000006846128519787377{J/(kmol*K^5)}];
+[chem.toluene]=[32143.71248178042{J/(kmol*K)},29.582857995389222{J/(kmol*K^2)},1.1104796272805464{J/(kmol*K^3)},-0.0015513955799212127{J/(kmol*K^4)},0.0000006393821753359841{J/(kmol*K^5)}];
+}
+dataset critical:cubic.critical_point bind(property=cubic.critical_parameters,parameterization=critical_fit,source=critical_source,dependencies={},conventions={}) provenance(critical_source,provenance.Role.published) {
+[chem.benzene]=[562.05{K},4895000{Pa},0.21];
+[chem.toluene]=[591.75{K},4108000{Pa},0.264];
+}
+table latent[j:chemistry.species]:DeltaH complete_over(j in aromatics);
+dataset vaporization:latent provenance(latent_source,provenance.Role.published) {[chem.benzene]=[33830{J/mol}];[chem.toluene]=[38010{J/mol}];}
+
+entity properties.property_package eos {admitted=eos_admitted}
+entity properties.predictive_rule zero_unlike {source=conventions,family=cubic.binary_interaction,dependencies={},output=interactions.predictive_zero}
+entity properties.selection_context eos_admitted {roots={cubic.critical_point[chem.benzene,cubic.critical_parameters,critical_fit],cubic.critical_point[chem.toluene,cubic.critical_parameters,critical_fit]},subjects=aromatics,models={cubic.critical_parameters,cubic.binary_interaction},rules={zero_unlike}}
+dataset eos_selection:properties.pure_selection provenance(critical_source,provenance.Role.published) {[eos,chem.benzene,cubic.critical_parameters]=[cubic.critical_point[chem.benzene,cubic.critical_parameters,critical_fit]];[eos,chem.toluene,cubic.critical_parameters]=[cubic.critical_point[chem.toluene,cubic.critical_parameters,critical_fit]];}
+dataset eos_self:interactions.self_rule provenance(conventions,provenance.Role.published) {[eos,cubic.binary_interaction]=[interactions.zero_self];}
+dataset eos_pairs:interactions.symmetric_selection provenance(conventions,provenance.Role.published) {[eos,cubic.binary_interaction,chem.benzene,chem.toluene]=[missing,zero_unlike];}
+dataset eos_law:interactions.pair_law provenance(conventions,provenance.Role.published) {[eos,cubic.binary_interaction]=[interactions.pair_parameter];}
+fn potential(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=peng_robinson.potential(T,V,n,members,eos,cubic.pr);
+fn psat(T:Temperature,j:chemistry.species)->Pressure=wagner25_psat(T,wagner25[j,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,pressure_fit]);
+fn vapor_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=constants.standard_enthalpy_datum+properties.caloric_dh(feos_poling_cp[j,properties.heat_capacity,compatibility.PhaseType.vaporPhase,vapor_fit],298.15{K},T);
+fn gas_s(T:Temperature,j:chemistry.species)->MolarEntropy=constants.standard_entropy_datum+properties.caloric_ds(feos_poling_cp[j,properties.heat_capacity,compatibility.PhaseType.vaporPhase,vapor_fit],298.15{K},T);
+fn liquid_h(T:Temperature,j:chemistry.species)->MolarEnthalpy=constants.standard_enthalpy_datum+properties.caloric_dh(correlations.dippr100[j,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit],298.15{K},T)-latent[j];
+
+def Ideal(defined_state:Boolean=true):equilibrium.EquilibriumThermoPackage {
+override param defined:Boolean=defined_state;
+override param components:Set<chemistry.species>=aromatics;
+override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=ordinary_bt.psat;
+override param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=liquid_h;
+override param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=vapor_h;
+override param minimum_temperature:Temperature=300{K};
+override param maximum_temperature:Temperature=450{K};
+override param bubble_start:Temperature=365{K};
+override param dew_start:Temperature=370{K};
+}
+def Liquid(defined_state:Boolean=true):ideal_caloric_state.SinglePhaseCaloricState {
+override param defined:Boolean=defined_state;
+override param selected_phase:chemistry.phase=chemistry.liquid;
+override param components:Set<chemistry.species>=aromatics;
+override param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=liquid_h;
+override param reference_pressure:Pressure=101325{Pa};
+override param minimum_temperature:Temperature=300{K};
+override param maximum_temperature:Temperature=450{K};
+}
+def PR(defined_state:Boolean=true,minimum:Temperature=300{K},maximum:Temperature=450{K}):pr_equilibrium.SmoothPR {
+override param defined:Boolean=defined_state;
+override param components:Set<chemistry.species>=aromatics;
+override param eos_package:properties.property_package=eos;
+override param eos_potential:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy=potential;
+override param density_phase:peng_robinson.PressureDensityPhase=peng_robinson.RelationalDensity;
+override param psat:Fn(T:Temperature,j:chemistry.species)->Pressure=ordinary_bt.psat;
+override param liquid_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=vapor_h;
+override param vapor_enthalpy:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=vapor_h;
+override param ideal_entropy:Fn(T:Temperature,j:chemistry.species)->MolarEntropy=gas_s;
+override param minimum_temperature:Temperature=minimum;
+override param maximum_temperature:Temperature=maximum;
+override param bubble_start:Temperature=365{K};
+override param dew_start:Temperature=370{K};
+}
+}
