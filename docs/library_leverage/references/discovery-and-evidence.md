@@ -58,6 +58,11 @@ select the investigated world; they do not establish every other build configura
 Use a separate output directory for another selection. Help and ordinary retained-input reads
 do not prepare missing capabilities implicitly.
 
+For changing checkouts, the [operating guide](../../dev/library-evidence.md) describes
+`--reference-project SNAPSHOT`: it reuses a separately prepared frozen project and retains
+its metadata independently of the API acquisition context. Record the source revision and
+preserve cross-project identity uncertainty rather than treating copied paths as equivalence.
+
 Read `manifest.json` and `README.md` first. The bundle retains selection and metadata,
 reference observations and per-package API tables. Individual failed operations remain in
 the manifest, other independent packages still run, and incomplete collection returns failure.

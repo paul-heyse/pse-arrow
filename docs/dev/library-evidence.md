@@ -17,6 +17,12 @@ requires `--build-macros`. `--features`, `--no-default-features`, `--target`, an
 `--test-context` select the semantic context; they do not promise compiler-unit equivalence.
 API exports retain their separately acquired documentation context and feature selection.
 
+During concurrent source work, prepare a native session with `--project SNAPSHOT` over a
+frozen project, then pass `--reference-project SNAPSHOT` to this recipe. Record the snapshot's
+source revision. `reference-metadata.json` and `reference_packages` retain that separate
+population; the API metadata and artifacts still belong to the owning checkout. The bundle
+does not silently equate path-package identities or build contexts across those projects.
+
 For example, after reviewing the requested effects:
 
 ```bash

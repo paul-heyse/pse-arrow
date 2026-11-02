@@ -21,6 +21,9 @@ pub(crate) struct Args {
     /// New caller-owned output directory; existing output is never overwritten.
     #[arg(long)]
     output: PathBuf,
+    /// Optional frozen project for reference evidence; API evidence keeps this checkout's context.
+    #[arg(long)]
+    reference_project: Option<PathBuf>,
     /// Explicitly prepare the native analysis tool. Prepare the reusable session separately.
     #[arg(long)]
     prepare: bool,
@@ -87,6 +90,9 @@ fn capture(root: &Path, output: &Path, name: &str, arguments: Vec<String>) -> Re
 }
 fn context(args: &Args) -> Vec<String> {
     let mut result = vec!["--backend".into(), "native-snapshot".into()];
+    if let Some(project) = &args.reference_project {
+        result.extend(["--project".into(), project.to_string_lossy().into_owned()]);
+    }
     if let Some(value) = &args.features {
         result.extend(["--features".into(), value.clone()]);
     }
@@ -164,6 +170,17 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         .current_dir(root)
         .other_options(vec!["--locked".into()])
         .exec()?;
+    let reference_metadata = args
+        .reference_project
+        .as_ref()
+        .map(|project| {
+            cargo_metadata::MetadataCommand::new()
+                .current_dir(root.join(project))
+                .other_options(vec!["--locked".into()])
+                .exec()
+        })
+        .transpose()?;
+    let reference_metadata = reference_metadata.as_ref().unwrap_or(&metadata);
     let mut selected = BTreeMap::new();
     let mut family_packages = BTreeMap::new();
     for family in &chosen {
@@ -191,6 +208,18 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         output.join("metadata.json"),
         serde_json::to_vec_pretty(&metadata)?,
     )?;
+    fs::write(
+        output.join("reference-metadata.json"),
+        serde_json::to_vec_pretty(reference_metadata)?,
+    )?;
+    let mut reference_packages = BTreeSet::new();
+    for family in &chosen {
+        for package in &reference_metadata.packages {
+            if package_matches(&selection.families[family].packages, package.name.as_str())? {
+                reference_packages.insert(package.id.to_string());
+            }
+        }
+    }
     let mut steps = Vec::new();
     if args.prepare {
         steps.push(capture(
@@ -201,7 +230,7 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         )?);
     }
     let mut usage = vec!["inspect".into(), "dependency-usage".into()];
-    usage.extend(selected.keys().cloned());
+    usage.extend(reference_packages.iter().cloned());
     usage.extend(context(&args));
     steps.push(capture(root, &output, "references", usage)?);
     for (index, id) in selected.keys().enumerate() {
@@ -239,7 +268,7 @@ pub(crate) fn run(root: &Path, args: Args) -> Result<()> {
         steps.push(capture(root, &output, &format!("export-{index}"), command)?);
     }
     let failed = steps.iter().filter(|step| !step.passed()).count();
-    let manifest = serde_json::json!({"version":1,"families":family_packages,"packages":selected,"steps":steps,"failed_steps":failed,"capture_complete":failed == 0,"semantic_context":context(&args),"coverage":"Capture completion describes command success only. Consult each original response for missing packages, incomplete references and profile ambiguity. Selected locked packages, one explicitly selected native world, and separately acquired documentation contexts. References are not calls or proof of runtime use. API exports do not establish ordinary-build availability."});
+    let manifest = serde_json::json!({"version":1,"families":family_packages,"packages":selected,"reference_packages":reference_packages,"steps":steps,"failed_steps":failed,"capture_complete":failed == 0,"semantic_context":context(&args),"coverage":"Capture completion describes command success only. Consult each original response for missing packages, incomplete references and profile ambiguity. API and reference package populations retain separate metadata and contexts; an alternate reference project is not automatically equated with this checkout's API context. References are not calls or proof of runtime use. API exports do not establish ordinary-build availability."});
     fs::write(
         output.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest)?,
