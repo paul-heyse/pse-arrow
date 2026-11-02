@@ -11,6 +11,7 @@ use std::ops::Range;
 mod acquisition;
 pub use acquisition::{SourceIdentity, SourceOrigin, SourceRequest, SourceText};
 mod facts;
+pub(crate) use facts::{Selection as FactSelection, collect as selected_facts};
 mod navigation;
 pub use facts::{AttributeMeta, InterpretedValue, SourceFact, ValueMapping};
 pub use navigation::byte_offset;
@@ -251,6 +252,43 @@ pub struct ParseIssue {
     /// Original source coordinates.
     pub range: SourceRange,
 }
+/// Interpretation demand, resolved before source facts are constructed.
+#[derive(
+    Clone, Copy, Debug, Default, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceDetail {
+    /// Declaration navigation only; facts and decoded mappings are not constructed.
+    #[default]
+    Navigation,
+    /// Selected original facts and interpreted values, without character mappings.
+    Facts,
+    /// Selected facts with available decoded-character correspondence.
+    Mapped,
+}
+/// How the interpreted ranges select facts.
+#[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FactScope {
+    /// Interpretation was not requested or is unavailable for this source format.
+    NotRequested,
+    /// Facts owned by exactly the selected declarations, excluding nested owners.
+    DeclarationOwners,
+    /// Complete facts intersecting an explicitly selected original range.
+    IntersectingRange,
+}
+/// Interpretation coverage, independent of declaration paging and parser diagnostics.
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+pub struct DetailCoverage {
+    /// Actual executed demand.
+    pub detail: SourceDetail,
+    /// Selection meaning; parser errors and declaration pagination have independent coverage.
+    pub scope: FactScope,
+    /// Declaration owner ranges or intersecting range; empty when not requested.
+    pub ranges: Vec<SourceRange>,
+    /// File-owned facts were included as a distinct scope.
+    pub includes_file_facts: bool,
+}
 /// A structure reading of one immutable UTF-8 string.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 pub struct Outline {
@@ -264,8 +302,10 @@ pub struct Outline {
     pub entries: Vec<Entry>,
     /// Original syntax errors; their absence does not establish compiler acceptance.
     pub parse_issues: Vec<ParseIssue>,
-    /// Lossless literal/doc/attribute observations from this exact parse, including root docs.
+    /// Requested facts owned by the selected declarations, plus explicit file-owned facts.
     pub facts: Vec<SourceFact>,
+    /// What was interpreted; empty facts alone never establish examination.
+    pub detail_coverage: DetailCoverage,
 }
 
 /// Logical Rust identifier from an actual parsed name; raw syntax is retained in source bytes.
@@ -297,21 +337,34 @@ fn declaration(node: &SyntaxNode) -> Option<String> {
 
 /// Parse a Rust snapshot losslessly even when some syntax is incomplete.
 pub fn rust(source: &str, edition: RustEdition) -> Outline {
-    rust_bounded(source, edition, 0, usize::MAX).0
+    rust_detail(source, edition, SourceDetail::Navigation)
+}
+/// Read an entire file with explicit interpretation demand, including file-owned facts.
+pub fn rust_detail(source: &str, edition: RustEdition, detail: SourceDetail) -> Outline {
+    rust_bounded(source, edition, 0, usize::MAX, detail).0
 }
 pub(super) fn rust_bounded(
     source: &str,
     edition: RustEdition,
     offset: usize,
     limit: usize,
+    detail: SourceDetail,
 ) -> (Outline, usize) {
     let parsed = SourceFile::parse(source, edition.native());
-    rust_parsed(source, edition, offset, limit, &parsed)
+    rust_parsed(source, edition, offset, limit, detail, &parsed)
 }
 pub(crate) fn rust_with_syntax(source: &str, edition: RustEdition) -> (Outline, SyntaxNode) {
     let parsed = SourceFile::parse(source, edition.native());
     (
-        rust_parsed(source, edition, 0, usize::MAX, &parsed).0,
+        rust_parsed(
+            source,
+            edition,
+            0,
+            usize::MAX,
+            SourceDetail::Navigation,
+            &parsed,
+        )
+        .0,
         parsed.syntax_node(),
     )
 }
@@ -334,16 +387,22 @@ fn rust_parsed(
     edition: RustEdition,
     offset: usize,
     limit: usize,
+    detail: SourceDetail,
     parsed: &ra_ap_syntax::Parse<SourceFile>,
 ) -> (Outline, usize) {
     let lines = line_starts(source);
     let mut total = 0;
-    let entries = parsed
+    let entries: Vec<Entry> = parsed
         .tree()
         .syntax()
         .descendants()
         .filter_map(|node| {
             let name = declaration(&node)?;
+            let index = total;
+            total += 1;
+            if index < offset || index - offset >= limit {
+                return None;
+            }
             let mut path: Vec<_> = node
                 .ancestors()
                 .skip(1)
@@ -363,9 +422,17 @@ fn rust_parsed(
                         | SyntaxKind::ITEM_LIST
                         | SyntaxKind::RECORD_FIELD_LIST
                         | SyntaxKind::VARIANT_LIST
+                        | SyntaxKind::TOKEN_TREE
                 )
             });
-            let header_end = body.map_or(end, |n| usize::from(n.text_range().start()));
+            let header_end = body
+                .map(|n| usize::from(n.text_range().start()))
+                .or_else(|| {
+                    node.children_with_tokens()
+                        .find(|element| element.kind() == SyntaxKind::EQ)
+                        .map(|element| usize::from(element.text_range().start()))
+                })
+                .unwrap_or(end);
             let header_start = node
                 .children_with_tokens()
                 .find(|element| {
@@ -376,7 +443,7 @@ fn rust_parsed(
                 path,
                 kind: format!("{:?}", node.kind()),
                 range: location(&lines, start..end),
-                signature: source[start..header_end].trim_end().to_owned(),
+                signature: source[header_start..header_end].trim_end().to_owned(),
                 written_header: Some(location(&lines, header_start..header_end)),
                 written_visibility: node
                     .children()
@@ -400,12 +467,18 @@ fn rust_parsed(
                     .is_some_and(|parameters| parameters.self_param().is_some()),
             })
         })
-        .filter_map(|entry| {
-            let index = total;
-            total += 1;
-            (index >= offset && index - offset < limit).then_some(entry)
-        })
         .collect();
+    let includes_file_facts = offset == 0 && (limit > 0 || total == 0);
+    let ranges: Vec<_> = entries.iter().map(|entry| entry.range.clone()).collect();
+    let facts = facts::collect(
+        parsed.tree().syntax(),
+        &lines,
+        detail,
+        &facts::Selection::Owners {
+            ranges: &ranges,
+            file: includes_file_facts,
+        },
+    );
     let parse_issues = parsed
         .errors()
         .into_iter()
@@ -424,7 +497,21 @@ fn rust_parsed(
             backend: "ra_ap_syntax/0.0.360".into(),
             entries,
             parse_issues,
-            facts: facts::collect(parsed.tree().syntax(), &lines),
+            facts,
+            detail_coverage: DetailCoverage {
+                detail,
+                scope: if detail == SourceDetail::Navigation {
+                    FactScope::NotRequested
+                } else {
+                    FactScope::DeclarationOwners
+                },
+                ranges: if detail == SourceDetail::Navigation {
+                    Vec::new()
+                } else {
+                    ranges
+                },
+                includes_file_facts: detail != SourceDetail::Navigation && includes_file_facts,
+            },
         },
         total,
     )
@@ -503,6 +590,12 @@ pub(super) fn markdown_bounded(source: &str, offset: usize, limit: usize) -> (Ou
             entries,
             parse_issues: Vec::new(),
             facts: Vec::new(),
+            detail_coverage: DetailCoverage {
+                detail: SourceDetail::Navigation,
+                scope: FactScope::NotRequested,
+                ranges: Vec::new(),
+                includes_file_facts: false,
+            },
         },
         headings.len(),
     )

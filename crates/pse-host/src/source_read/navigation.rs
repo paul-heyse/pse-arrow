@@ -142,6 +142,8 @@ mod coordinate_tests {
 /// Producer allowance applies to every declaration, including nested outline entries.
 #[derive(Clone, Debug, Default)]
 pub struct PageRequest {
+    /// Interpretation demand, independent of declaration record allowance.
+    pub detail: super::SourceDetail,
     /// Maximum declaration records; None selects all. Zero refuses.
     pub max_records: Option<usize>,
     /// Opaque continuation returned by this same producer.
@@ -153,6 +155,7 @@ pub struct OutlineCursor {
     source: SourceIdentity,
     backend: String,
     edition: Option<RustEdition>,
+    detail: super::SourceDetail,
     next: usize,
 }
 /// Coverage and continuation for a bounded declaration collection.
@@ -191,7 +194,8 @@ pub(crate) fn outline(
         if cursor.source != *source.identity() {
             return Err(SourceReadError::StaleSource);
         }
-        if cursor.backend != backend || cursor.edition != edition {
+        if cursor.backend != backend || cursor.edition != edition || cursor.detail != request.detail
+        {
             return Err(SourceReadError::InvalidCursor);
         }
         cursor.next
@@ -199,7 +203,7 @@ pub(crate) fn outline(
         0
     };
     let (outline, total) = match edition {
-        Some(edition) => super::rust_bounded(source.text(), edition, offset, limit),
+        Some(edition) => super::rust_bounded(source.text(), edition, offset, limit, request.detail),
         None => super::markdown_bounded(source.text(), offset, limit),
     };
     if offset > total {
@@ -212,6 +216,7 @@ pub(crate) fn outline(
                 source: source.identity().clone(),
                 backend: backend.into(),
                 edition,
+                detail: request.detail,
                 next,
             })
             .map_err(|_| SourceReadError::InvalidCursor)?,

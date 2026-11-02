@@ -236,6 +236,8 @@ fn rust_documentation(
     }
     let mut output = Vec::new();
     let mut limitations = Vec::new();
+    let mut targets = Vec::new();
+    let lines = crate::source_read::line_starts(source);
     for attribute in attributes {
         let node = attribute.syntax();
         let target = if ast::DocComment::cast(node.clone()).is_some() {
@@ -260,21 +262,30 @@ fn rust_documentation(
             None
         };
         if let Some(target) = target {
-            if let Some(fact) = outline.facts.iter().find(|fact| {
-                fact.range.byte_start == usize::from(target.start())
-                    && fact.range.byte_end == usize::from(target.end())
-            }) {
-                if matches!(
-                    fact.value,
-                    Some(crate::source_read::InterpretedValue::Text(_))
-                ) {
-                    output.push(fact.clone());
-                } else {
-                    limitations.push("authored documentation literal is invalid or nontextual; original source remains inspectable".into());
-                }
+            targets.push(crate::source_read::location(
+                &lines,
+                usize::from(target.start())..usize::from(target.end()),
+            ));
+        }
+    }
+    let facts = crate::source_read::selected_facts(
+        &syntax,
+        &lines,
+        crate::source_read::SourceDetail::Facts,
+        &crate::source_read::FactSelection::Ranges(&targets),
+    );
+    for target in targets {
+        if let Some(fact) = facts.iter().find(|fact| fact.range == target) {
+            if matches!(
+                fact.value,
+                Some(crate::source_read::InterpretedValue::Text(_))
+            ) {
+                output.push(fact.clone());
             } else {
-                limitations.push("documentation has no exact interpreted source fact; original source remains inspectable".into());
+                limitations.push("authored documentation literal is invalid or nontextual; original source remains inspectable".into());
             }
+        } else {
+            limitations.push("documentation has no exact interpreted source fact; original source remains inspectable".into());
         }
     }
     if !outline.parse_issues.is_empty() {
@@ -284,4 +295,38 @@ fn rust_documentation(
         ));
     }
     (output, limitations)
+}
+
+#[cfg(test)]
+mod source_detail_tests {
+    use super::*;
+
+    #[test]
+    fn documentation_selects_its_original_owner_and_never_requests_literal_mappings() {
+        let source = "//! [File](file.md)\n/// [Selected](selected.md)\n#[doc = \"[Attribute](attribute.md)\"]\nfn selected() { let unrelated = \"ignored\"; /// [Nested](nested.md)\nfn nested() {} }";
+        let offset = source.find("fn selected").unwrap();
+        let selected = investigation::MatchRange {
+            byte_start: offset,
+            byte_end: offset + 2,
+            line_start: 4,
+            line_end: 4,
+        };
+        let (facts, limitations) = rust_documentation(source, Some(&selected));
+        assert!(limitations.is_empty(), "{limitations:?}");
+        assert_eq!(facts.len(), 2);
+        assert!(
+            facts
+                .iter()
+                .all(|fact| fact.owner.is_some() && fact.mapping.is_none())
+        );
+        assert_eq!(facts[0].written, "/// [Selected](selected.md)");
+        assert_eq!(facts[1].written, "\"[Attribute](attribute.md)\"");
+        let (file, limitations) = rust_documentation(source, None);
+        assert!(limitations.is_empty(), "{limitations:?}");
+        assert_eq!(file.len(), 4);
+        assert!(
+            file.iter()
+                .any(|fact| fact.owner.is_none() && fact.written == "//! [File](file.md)")
+        );
+    }
 }

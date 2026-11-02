@@ -646,6 +646,13 @@ fn associations_read_comment_and_literal_doc_attribute_citations_from_original_f
             "{response}"
         );
         assert_eq!(report["owning_plan"]["status"], "not_declared");
+        assert!(
+            report["documentation"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|fact| fact["mapping"].is_null())
+        );
     }
     assert!(!root.path().join("target").exists());
 }

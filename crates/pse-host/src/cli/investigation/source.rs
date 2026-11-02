@@ -14,6 +14,9 @@ use std::{
 
 #[derive(Debug, Args)]
 pub(in crate::cli::investigation) struct Outline {
+    /// Construct navigation, interpreted facts, or facts with decoded character mappings.
+    #[arg(long, value_enum, default_value = "navigation")]
+    detail: crate::source_read::SourceDetail,
     #[arg(required=true,num_args=1..)]
     files: Vec<PathBuf>,
     #[arg(long)]
@@ -23,6 +26,9 @@ pub(in crate::cli::investigation) struct Outline {
 }
 #[derive(Debug, Args)]
 pub(in crate::cli::investigation) struct Declaration {
+    /// Interpretation demand; declarations default to facts, exact ranges to navigation.
+    #[arg(long, value_enum)]
+    detail: Option<crate::source_read::SourceDetail>,
     source: OsString,
     #[arg(long)]
     item: Vec<String>,
@@ -241,7 +247,7 @@ pub(super) fn outline(
             ));
         }
         let mut response=crate::cli::runtime()?.block_on(async {
-            let mut task=crate::source_command::batch::start_page(files,options.parsing.language,options.parsing.edition,tokio_util::sync::CancellationToken::new(),output.presentation.budget);
+            let mut task=crate::source_command::batch::start_page(files,options.parsing.language,options.parsing.edition,tokio_util::sync::CancellationToken::new(),output.presentation.budget,options.detail);
             tokio::select! {
                 response=task.settle()=>response.map_err(HostError::from),
                 signal=tokio::signal::ctrl_c()=>{task.cancel();let response=task.settle().await?;signal?;Ok(response)},
@@ -281,6 +287,7 @@ pub(super) fn outline(
         options.parsing.language,
         options.parsing.edition,
         crate::source_read::PageRequest {
+            detail: options.detail,
             max_records: output.presentation.budget,
             cursor: options.cursor,
         },
@@ -343,6 +350,11 @@ pub(super) fn declaration(
         &position,
         options.parsing.language,
         options.parsing.edition,
+        options.detail.unwrap_or(if options.range_start.is_some() {
+            crate::source_read::SourceDetail::Navigation
+        } else {
+            crate::source_read::SourceDetail::Facts
+        }),
     )?;
     response.command = "inspect declaration".into();
     crate::cli::source_emit(output, response, crate::source_command::selection_text)
@@ -367,4 +379,63 @@ pub(super) fn origin(
     )?;
     response.command = "inspect origin".into();
     Ok(output.emit_page(response, DetailView::default())?)
+}
+
+#[cfg(test)]
+mod detail_tests {
+    use super::*;
+    use clap::FromArgMatches as _;
+
+    #[test]
+    fn parser_owns_detail_defaults_and_refuses_unknown_or_conflicting_selection() {
+        let command = Outline::augment_args(clap::Command::new("outline"));
+        let matches = command
+            .clone()
+            .try_get_matches_from(["outline", "file.rs"])
+            .unwrap();
+        assert_eq!(
+            Outline::from_arg_matches(&matches).unwrap().detail,
+            crate::source_read::SourceDetail::Navigation
+        );
+        let matches = command
+            .clone()
+            .try_get_matches_from(["outline", "file.rs", "--detail", "mapped"])
+            .unwrap();
+        assert_eq!(
+            Outline::from_arg_matches(&matches).unwrap().detail,
+            crate::source_read::SourceDetail::Mapped
+        );
+        assert!(
+            command
+                .try_get_matches_from(["outline", "file.rs", "--detail", "unknown"])
+                .is_err()
+        );
+        let command = Declaration::augment_args(clap::Command::new("declaration"));
+        let matches = command
+            .clone()
+            .try_get_matches_from(["declaration", "file.rs::selected"])
+            .unwrap();
+        assert!(
+            Declaration::from_arg_matches(&matches)
+                .unwrap()
+                .detail
+                .is_none()
+        );
+        assert!(
+            command
+                .try_get_matches_from([
+                    "declaration",
+                    "file.rs",
+                    "--range-start",
+                    "0",
+                    "--range-end",
+                    "1",
+                    "--at-byte",
+                    "0",
+                    "--detail",
+                    "facts"
+                ])
+                .is_err()
+        );
+    }
 }

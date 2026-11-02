@@ -72,8 +72,9 @@ pub struct SourceFact {
     pub value: Option<InterpretedValue>,
     /// Native interpretation error, without discarding the written fact.
     pub interpretation_error: Option<String>,
-    /// Exact decoded character mapping. C strings expose bytes but no invented char mapping.
-    pub mapping: Vec<ValueMapping>,
+    /// Exact decoded character mapping; None when not requested. Invalid values and
+    /// byte-oriented literals have no invented character correspondence.
+    pub mapping: Option<Vec<ValueMapping>>,
     /// Native authored attribute meta tree.
     pub meta: Option<AttributeMeta>,
 }
@@ -84,12 +85,11 @@ impl SourceFact {
         if self.value.is_none() || selected.start >= selected.end {
             return None;
         }
-        let first = self
-            .mapping
+        let mapping = self.mapping.as_ref()?;
+        let first = mapping
             .iter()
             .find(|mapping| mapping.interpreted.start == selected.start)?;
-        let last = self
-            .mapping
+        let last = mapping
             .iter()
             .find(|mapping| mapping.interpreted.end == selected.end)?;
         (first.source.byte_start <= last.source.byte_end).then_some(SourceRange {
@@ -136,6 +136,11 @@ fn mappings(value: &impl ast::IsString, lines: &[usize]) -> Vec<ValueMapping> {
     let mut offset = 0;
     value.escaped_char_ranges(&mut |native, decoded| {
         if let Ok(character) = decoded {
+            #[cfg(test)]
+            CONSTRUCTION.with(|value| {
+                let (facts, mappings) = value.get();
+                value.set((facts, mappings + 1));
+            });
             let end = offset + character.len_utf8();
             output.push(ValueMapping {
                 interpreted: offset..end,
@@ -146,14 +151,102 @@ fn mappings(value: &impl ast::IsString, lines: &[usize]) -> Vec<ValueMapping> {
     });
     output
 }
-pub(super) fn collect(root: &SyntaxNode, lines: &[usize]) -> Vec<SourceFact> {
+pub(crate) enum Selection<'a> {
+    Owners {
+        ranges: &'a [SourceRange],
+        file: bool,
+    },
+    Attributes {
+        ranges: &'a [SourceRange],
+    },
+    Range(&'a SourceRange),
+    Ranges(&'a [SourceRange]),
+}
+#[cfg(test)]
+thread_local! {
+    static CONSTRUCTION: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+#[cfg(test)]
+pub(super) fn construction() -> (usize, usize) {
+    CONSTRUCTION.with(std::cell::Cell::get)
+}
+#[cfg(test)]
+pub(super) fn reset_construction() {
+    CONSTRUCTION.with(|value| value.set((0, 0)));
+}
+pub(crate) fn collect(
+    root: &SyntaxNode,
+    lines: &[usize],
+    detail: SourceDetail,
+    selection: &Selection<'_>,
+) -> Vec<SourceFact> {
+    if detail == SourceDetail::Navigation {
+        return Vec::new();
+    }
+    let owners: std::collections::BTreeSet<_> = match selection {
+        Selection::Owners { ranges, .. } | Selection::Attributes { ranges } => ranges
+            .iter()
+            .map(|range| (range.byte_start, range.byte_end))
+            .collect(),
+        Selection::Range(_) | Selection::Ranges(_) => Default::default(),
+    };
     let mut facts = Vec::new();
-    for node in root.descendants() {
+    let mut walk = root.preorder();
+    while let Some(event) = walk.next() {
+        let ra_ap_syntax::WalkEvent::Enter(node) = event else {
+            continue;
+        };
+        let extent = range(node.text_range(), lines);
+        let relevant = match selection {
+            Selection::Range(selected) => {
+                extent.byte_start < selected.byte_end && selected.byte_start < extent.byte_end
+            }
+            Selection::Ranges(ranges) => ranges.iter().any(|selected| {
+                extent.byte_start < selected.byte_end && selected.byte_start < extent.byte_end
+            }),
+            Selection::Owners { .. } | Selection::Attributes { .. } => {
+                declaration(&node).is_none()
+                    || owners
+                        .range((extent.byte_start, 0)..=(extent.byte_end, usize::MAX))
+                        .any(|(_, end)| *end <= extent.byte_end)
+            }
+        };
+        if !relevant {
+            walk.skip_subtree();
+            continue;
+        }
+        if !ast::Attr::can_cast(node.kind())
+            && !ast::DocComment::can_cast(node.kind())
+            && !ast::Literal::can_cast(node.kind())
+        {
+            continue;
+        }
+        if matches!(selection, Selection::Attributes { .. }) && ast::Literal::can_cast(node.kind())
+        {
+            continue;
+        }
         let owner = node
             .ancestors()
             .skip(1)
             .find(|node| declaration(node).is_some())
             .map(|node| range(node.text_range(), lines));
+        let owned = match selection {
+            Selection::Owners { file, .. } => owner.as_ref().map_or(*file, |owner| {
+                owners.contains(&(owner.byte_start, owner.byte_end))
+            }),
+            Selection::Attributes { .. } => owner
+                .as_ref()
+                .is_some_and(|owner| owners.contains(&(owner.byte_start, owner.byte_end))),
+            Selection::Range(_) | Selection::Ranges(_) => true,
+        };
+        if !owned {
+            continue;
+        }
+        #[cfg(test)]
+        CONSTRUCTION.with(|value| {
+            let (facts, mappings) = value.get();
+            value.set((facts + 1, mappings));
+        });
         if let Some(attribute) = ast::Attr::cast(node.clone()) {
             facts.push(SourceFact {
                 kind: "attribute".into(),
@@ -170,21 +263,32 @@ pub(super) fn collect(root: &SyntaxNode, lines: &[usize]) -> Vec<SourceFact> {
                 ),
                 value: None,
                 interpretation_error: None,
-                mapping: Vec::new(),
+                mapping: (detail == SourceDetail::Mapped).then(Vec::new),
                 meta: attribute.meta().map(|value| meta(value, lines)),
             });
             continue;
         }
         if let Some(doc) = ast::DocComment::cast(node.clone()) {
             let start = usize::from(node.text_range().start()) + 3;
-            let mapping = doc
-                .text()
-                .char_indices()
-                .map(|(offset, character)| ValueMapping {
-                    interpreted: offset..offset + character.len_utf8(),
-                    source: location(lines, start + offset..start + offset + character.len_utf8()),
-                })
-                .collect();
+            let mapping = (detail == SourceDetail::Mapped).then(|| {
+                doc.text()
+                    .char_indices()
+                    .map(|(offset, character)| {
+                        #[cfg(test)]
+                        CONSTRUCTION.with(|value| {
+                            let (facts, mappings) = value.get();
+                            value.set((facts, mappings + 1));
+                        });
+                        ValueMapping {
+                            interpreted: offset..offset + character.len_utf8(),
+                            source: location(
+                                lines,
+                                start + offset..start + offset + character.len_utf8(),
+                            ),
+                        }
+                    })
+                    .collect()
+            });
             facts.push(SourceFact {
                 kind: "documentation".into(),
                 written: node.text().to_string(),
@@ -231,7 +335,7 @@ pub(super) fn collect(root: &SyntaxNode, lines: &[usize]) -> Vec<SourceFact> {
                 attachment: None,
                 value,
                 interpretation_error,
-                mapping,
+                mapping: (detail == SourceDetail::Mapped).then_some(mapping),
                 meta: None,
             });
             continue;
@@ -248,7 +352,7 @@ pub(super) fn collect(root: &SyntaxNode, lines: &[usize]) -> Vec<SourceFact> {
                     suffix: number.suffix().map(str::to_owned),
                 }),
                 interpretation_error: None,
-                mapping,
+                mapping: (detail == SourceDetail::Mapped).then_some(mapping),
                 meta: None,
             });
             continue;
@@ -264,13 +368,15 @@ pub(super) fn collect(root: &SyntaxNode, lines: &[usize]) -> Vec<SourceFact> {
                     token.kind() == SyntaxKind::TRUE_KW,
                 )),
                 interpretation_error: None,
-                mapping,
+                mapping: (detail == SourceDetail::Mapped).then_some(mapping),
                 meta: None,
             });
             continue;
         }
         let value = if let Some(value) = ast::String::cast(token.clone()) {
-            mapping = mappings(&value, lines);
+            if detail == SourceDetail::Mapped {
+                mapping = mappings(&value, lines);
+            }
             value
                 .value()
                 .map(|value| InterpretedValue::Text(value.into_owned()))
@@ -304,7 +410,7 @@ pub(super) fn collect(root: &SyntaxNode, lines: &[usize]) -> Vec<SourceFact> {
             attachment: None,
             value,
             interpretation_error,
-            mapping,
+            mapping: (detail == SourceDetail::Mapped).then_some(mapping),
             meta: None,
         });
     }

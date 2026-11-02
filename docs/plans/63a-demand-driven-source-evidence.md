@@ -1,6 +1,6 @@
 ---
 title: "Plan63a: Demand-driven source evidence"
-status: proposed
+status: in-progress
 date: 2026-11-01
 doc_role: plan
 doc_owner: docs/plans/63-code-intelligence-cli-robustness.md
@@ -120,9 +120,34 @@ large selected values. Document the changed default and explicit expansion in B0
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | open | Source evidence | Shared demand, parser/schema and migrated first consumers |
-| A02 | open | Source evidence | Selective construction and correct ownership/mappings |
-| A03 | open | Source evidence | Revealing unit/CLI/schema controls and default guidance |
+| A01 | implemented | Source evidence | Demand, parser/schema and consumers implemented; selected unit controls passed |
+| A02 | implemented | Source evidence | Selective construction and ownership implemented; selected unit controls passed |
+| A03 | in progress | Source evidence | Unit controls passed; combined CLI/schema controls authored for Q01 |
+
+### Execution checkpoint — 2026-11-01
+
+The source owner now accepts `SourceDetail` before constructing facts. Ordinary outlines and
+internal navigation readers request navigation; declaration inspection defaults to facts, exact
+ranges default to original text/navigation, and explicit `--detail mapped` requests decoded
+character correspondence. Coverage states the actual demand, declaration-owner or range selection,
+and whether file-owned facts were included. Continuations bind the demand alongside source,
+backend and edition. Mapping omission is represented by `null`, distinct from an explicitly
+examined invalid or unavailable mapping.
+
+Declaration paging now selects entries before constructing headers; navigation excludes attached
+documentation, attributes and const/static initializers. Fact traversal prunes unrelated syntax
+and excludes nested declaration owners unless selected themselves. Addressed range facts retain
+their full intersecting original ranges. Documentation associations extract only their selected
+doc/comment literals, and syntax-query explanations request only selected owned attributes.
+Batch counting uses navigation demand and passes the requested detail into each selected parse.
+
+Unit controls use test-local construction observations for omitted facts and mappings, independently
+specified escaped/Unicode values, file/nested ownership, continuation detail, public schemas and
+large selected values. CLI controls are authored in `source_addressing` and `investigation_evidence`;
+assembled execution and static/manual checks remain Q01 obligations. The coordinator's combined
+unit run exercised 49 source-reader, source-query, batch, documentation and detail-parser controls
+with zero failures against the zero target. Its enclosing 105-test run retained one unrelated
+wire-test failure for the coordinator to repair. No assembled or performance qualification is claimed.
 
 ## Verification and handoff
 
@@ -135,6 +160,7 @@ portable assertion; fixture output must be independent of unrelated source detai
 Latency/allocation benefits remain unmeasured unless a selected experiment establishes them.
 Integrated/static checks belong to Q01, not every package.
 
-**Interface-checked:** relevant owners and critical library mechanisms have been inspected.
-No implementation or new test execution is claimed. B01/B03 supply shared failure projection
+**Interface-checked (authoring):** relevant owners and critical library mechanisms were inspected.
+Authoring supplied no implementation or new test execution; the execution checkpoint above
+records the current local state. B01/B03 supply shared failure projection
 if new detail refusals need it; A01 does not wait for the entire recovery companion.

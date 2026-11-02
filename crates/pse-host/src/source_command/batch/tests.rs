@@ -3,6 +3,43 @@
 use super::*;
 
 #[tokio::test]
+async fn requested_detail_reaches_each_batch_task_and_exhausted_pages_construct_none() {
+    let root = tempfile::tempdir().unwrap();
+    let first = root.path().join("first.rs");
+    let last = root.path().join("last.rs");
+    let docs = root.path().join("docs.rs");
+    std::fs::write(&first, "fn first() { let s = \"a\\nβ\"; }").unwrap();
+    std::fs::write(&last, "fn last() { let s = \"unselected\"; }").unwrap();
+    std::fs::write(&docs, "//! file-owned docs").unwrap();
+    let mut task = start_page(
+        vec![first, last, docs],
+        None,
+        RustEdition::E2024,
+        CancellationToken::new(),
+        Some(1),
+        crate::source_read::SourceDetail::Mapped,
+    );
+    let response = task.settle().await.unwrap();
+    let Record::Read { reading: first } = &response.payload.records[0] else {
+        panic!("first source was not read")
+    };
+    let Record::Read { reading: last } = &response.payload.records[1] else {
+        panic!("last source was not read")
+    };
+    assert_eq!(first.outline.facts.len(), 1);
+    assert_eq!(first.outline.facts[0].mapping.as_ref().unwrap().len(), 3);
+    assert!(last.outline.facts.is_empty());
+    assert!(last.outline.detail_coverage.ranges.is_empty());
+    assert!(!last.outline.detail_coverage.includes_file_facts);
+    let Record::Read { reading: docs } = &response.payload.records[2] else {
+        panic!("doc-only source was not read")
+    };
+    assert!(docs.outline.entries.is_empty());
+    assert!(docs.outline.detail_coverage.includes_file_facts);
+    assert_eq!(docs.outline.facts[0].written, "//! file-owned docs");
+}
+
+#[tokio::test]
 async fn native_cancel_hook_releases_actual_work_without_cancelling_sibling() {
     use std::sync::{Arc, Condvar, Mutex};
     let parent = CancellationToken::new();
@@ -45,6 +82,7 @@ async fn declaration_budget_applies_across_nested_entries_and_all_operand_outcom
         RustEdition::E2024,
         CancellationToken::new(),
         Some(2),
+        crate::source_read::SourceDetail::Navigation,
     );
     let response = task.settle().await.unwrap();
     assert_eq!(response.payload.records.len(), 3);

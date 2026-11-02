@@ -186,6 +186,27 @@ fn explain(source: &SourceText, matches: &mut [SyntaxMatch]) {
         return;
     }
     let (outline, syntax) = crate::source_read::rust_with_syntax(source.text(), RustEdition::E2024);
+    let owners: Vec<_> = matches
+        .iter()
+        .filter_map(|matched| {
+            let range = &matched.locator.range;
+            outline
+                .entries
+                .iter()
+                .filter(|entry| {
+                    entry.range.byte_start <= range.byte_start
+                        && entry.range.byte_end >= range.byte_end
+                })
+                .min_by_key(|entry| entry.range.byte_end - entry.range.byte_start)
+                .map(|entry| entry.range.clone())
+        })
+        .collect();
+    let facts = crate::source_read::selected_facts(
+        &syntax,
+        &crate::source_read::line_starts(source.text()),
+        crate::source_read::SourceDetail::Facts,
+        &crate::source_read::FactSelection::Attributes { ranges: &owners },
+    );
     let capture = |node: ra_ap_syntax::SyntaxNode| {
         let range = node.text_range();
         CapturedNode {
@@ -228,8 +249,7 @@ fn explain(source: &SourceText, matches: &mut [SyntaxMatch]) {
             }),
             receiver,
             arguments,
-            attributes: outline
-                .facts
+            attributes: facts
                 .iter()
                 .filter(|fact| {
                     matches!(fact.kind.as_str(), "attribute" | "documentation")

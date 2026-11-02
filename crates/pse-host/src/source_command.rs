@@ -53,8 +53,10 @@ pub struct FileSelection {
     pub parse_issues: Vec<source_read::ParseIssue>,
     /// Exact original UTF-8 text; line numbering is a separate human presentation.
     pub selection: SourceSelection,
-    /// Interpreted observations inside the exact selected source extent.
+    /// Requested facts owned by the declaration, or complete facts intersecting a raw range.
     pub facts: Vec<source_read::SourceFact>,
+    /// Selected interpretation scope, independent of parse-error coverage.
+    pub detail_coverage: source_read::DetailCoverage,
 }
 /// Source reading refuses unsupported or ambiguous selectors without guessing.
 #[derive(Debug, thiserror::Error)]
@@ -426,6 +428,7 @@ pub fn show(
         }),
         language,
         edition,
+        source_read::SourceDetail::Facts,
     )
 }
 /// Read a declaration or exact range from working, index or committed source bytes.
@@ -435,14 +438,56 @@ pub fn show_addressed(
     position: &PositionSelector,
     selected_language: Option<Language>,
     edition: RustEdition,
+    detail: source_read::SourceDetail,
 ) -> Result<Envelope<FileSelection>, SourceCommandError> {
     let language = language(request.path(), selected_language)?;
     let source = request.acquire()?;
-    let outline = match language {
-        Language::Rust => source_read::rust(source.text(), edition),
-        Language::Markdown => source_read::markdown(source.text()),
+    let (outline, syntax) = match language {
+        Language::Rust => {
+            let (outline, syntax) = source_read::rust_with_syntax(source.text(), edition);
+            (outline, Some(syntax))
+        }
+        Language::Markdown => (source_read::markdown(source.text()), None),
+    };
+    let detail = if syntax.is_some() {
+        detail
+    } else {
+        source_read::SourceDetail::Navigation
     };
     let selection = position.select(source.text(), &outline, items)?;
+    let selected_ranges = vec![selection.range.clone()];
+    let selected = if matches!(position, PositionSelector::Range { .. }) {
+        source_read::FactSelection::Range(&selection.range)
+    } else {
+        source_read::FactSelection::Owners {
+            ranges: &selected_ranges,
+            file: false,
+        }
+    };
+    let facts = syntax.as_ref().map_or_else(Vec::new, |syntax| {
+        source_read::selected_facts(
+            syntax,
+            &source_read::line_starts(source.text()),
+            detail,
+            &selected,
+        )
+    });
+    let detail_coverage = source_read::DetailCoverage {
+        detail,
+        scope: if detail == source_read::SourceDetail::Navigation {
+            source_read::FactScope::NotRequested
+        } else if matches!(position, PositionSelector::Range { .. }) {
+            source_read::FactScope::IntersectingRange
+        } else {
+            source_read::FactScope::DeclarationOwners
+        },
+        ranges: if detail == source_read::SourceDetail::Navigation {
+            Vec::new()
+        } else {
+            selected_ranges
+        },
+        includes_file_facts: false,
+    };
     let locator = SourceLocator {
         source: source.identity().clone(),
         range: selection.range.clone(),
@@ -458,14 +503,8 @@ pub fn show_addressed(
             locator,
             backend: outline.backend,
             rust_edition: outline.rust_edition,
-            facts: outline
-                .facts
-                .into_iter()
-                .filter(|fact| {
-                    fact.range.byte_start >= selection.range.byte_start
-                        && fact.range.byte_end <= selection.range.byte_end
-                })
-                .collect(),
+            facts,
+            detail_coverage,
             parse_issues: outline.parse_issues,
             selection,
         },

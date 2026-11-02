@@ -217,7 +217,14 @@ pub fn start(
     edition: RustEdition,
     cancellation: CancellationToken,
 ) -> BatchTask {
-    start_page(files, language, edition, cancellation, None)
+    start_page(
+        files,
+        language,
+        edition,
+        cancellation,
+        None,
+        crate::source_read::SourceDetail::Navigation,
+    )
 }
 /// Bound nested declarations globally in deterministic operand order. Every operand outcome
 /// remains represented, even when no declaration allowance remains for its mandatory context.
@@ -227,6 +234,7 @@ pub fn start_page(
     edition: RustEdition,
     cancellation: CancellationToken,
     max_records: Option<usize>,
+    detail: crate::source_read::SourceDetail,
 ) -> BatchTask {
     let cancellation = cancellation.child_token();
     let worker_token = cancellation.clone();
@@ -250,9 +258,13 @@ pub fn start_page(
                         Language::Markdown => None,
                     };
                     let (_, count) = match selected_edition {
-                        Some(edition) => {
-                            crate::source_read::rust_bounded(source.text(), edition, 0, 0)
-                        }
+                        Some(edition) => crate::source_read::rust_bounded(
+                            source.text(),
+                            edition,
+                            0,
+                            0,
+                            crate::source_read::SourceDetail::Navigation,
+                        ),
                         None => crate::source_read::markdown_bounded(source.text(), 0, 0),
                     };
                     Ok::<_, SourceCommandError>((source, selected_edition, count))
@@ -290,9 +302,13 @@ pub fn start_page(
                 ),
                 Some(Ok((source, selected_edition, count))) => {
                     let (outline, _) = match selected_edition {
-                        Some(edition) => {
-                            crate::source_read::rust_bounded(source.text(), edition, 0, allowance)
-                        }
+                        Some(edition) => crate::source_read::rust_bounded(
+                            source.text(),
+                            edition,
+                            0,
+                            allowance,
+                            detail,
+                        ),
                         None => crate::source_read::markdown_bounded(source.text(), 0, allowance),
                     };
                     let provider = super::provider_context(

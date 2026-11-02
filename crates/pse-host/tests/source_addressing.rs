@@ -21,6 +21,246 @@ fn value(output: Output) -> serde_json::Value {
     assert!(output.status.success(), "{output:?}");
     serde_json::from_slice(&output.stdout).unwrap()
 }
+
+#[test]
+fn source_detail_defaults_expansion_and_cursor_refusal_follow_actual_schemas() {
+    let root = tempfile::tempdir().unwrap();
+    let source = format!(
+        "//! file docs\n/// {}\nconst BIG: &str = \"{}\";\n/// selected docs\nfn selected() {{ let s = \"a\\nβ\"; fn nested() {{ let n = \"nested\"; }} }}",
+        "d".repeat(100_000),
+        "x".repeat(100_000)
+    );
+    std::fs::write(root.path().join("detail.rs"), &source).unwrap();
+    let outline = value(
+        pse(root.path())
+            .args(["inspect", "outline", "detail.rs", "--budget", "1"])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect outline", &outline);
+    assert!(serde_json::to_vec(&outline).unwrap().len() < 8_000);
+    assert_eq!(
+        outline["payload"]["outline"]["entries"][0]["signature"],
+        "const BIG: &str"
+    );
+    assert_eq!(
+        outline["payload"]["outline"]["facts"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        outline["payload"]["outline"]["detail_coverage"]["detail"],
+        "navigation"
+    );
+    let cursor = outline["payload"]["page"]["next_cursor"].as_str().unwrap();
+    let mismatch = pse(root.path())
+        .args([
+            "inspect",
+            "outline",
+            "detail.rs",
+            "--cursor",
+            cursor,
+            "--detail",
+            "facts",
+        ])
+        .output()
+        .unwrap();
+    assert!(!mismatch.status.success());
+    let declaration = value(
+        pse(root.path())
+            .args(["inspect", "declaration", "detail.rs::selected"])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect declaration", &declaration);
+    assert_eq!(declaration["payload"]["detail_coverage"]["detail"], "facts");
+    let facts = declaration["payload"]["facts"].as_array().unwrap();
+    assert_eq!(facts.len(), 2);
+    assert!(facts.iter().all(|fact| fact["mapping"].is_null()));
+    assert_eq!(facts[0]["written"], "/// selected docs");
+    assert_eq!(facts[1]["value"]["value"], "a\nβ");
+    let mapped = value(
+        pse(root.path())
+            .args([
+                "inspect",
+                "declaration",
+                "detail.rs::selected",
+                "--detail",
+                "mapped",
+            ])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect declaration", &mapped);
+    let mappings = mapped["payload"]["facts"][1]["mapping"].as_array().unwrap();
+    assert_eq!(mappings.len(), 3);
+    let newline = &mappings[1]["source"];
+    assert_eq!(
+        &source[newline["byte_start"].as_u64().unwrap() as usize
+            ..newline["byte_end"].as_u64().unwrap() as usize],
+        "\\n"
+    );
+    let invalid = pse(root.path())
+        .args(["inspect", "outline", "detail.rs", "--detail", "unknown"])
+        .output()
+        .unwrap();
+    assert!(!invalid.status.success());
+    assert!(!root.path().join("target").exists());
+}
+
+#[test]
+fn explicit_range_facts_intersect_complete_original_literal_and_plain_range_stays_text() {
+    let root = tempfile::tempdir().unwrap();
+    let source = "fn selected() { let s = \"abcdef\"; }";
+    std::fs::write(root.path().join("range.rs"), source).unwrap();
+    let start = (source.find("abcdef").unwrap() + 1).to_string();
+    let end = (source.find("abcdef").unwrap() + 2).to_string();
+    let args = [
+        "inspect",
+        "declaration",
+        "range.rs",
+        "--range-start",
+        &start,
+        "--range-end",
+        &end,
+    ];
+    let raw = value(pse(root.path()).args(args).output().unwrap());
+    assert_eq!(raw["payload"]["selection"]["text"], "b");
+    assert_eq!(raw["payload"]["detail_coverage"]["detail"], "navigation");
+    assert_eq!(raw["payload"]["facts"], serde_json::json!([]));
+    let selected = value(
+        pse(root.path())
+            .args(args)
+            .args(["--detail", "mapped"])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect declaration", &selected);
+    assert_eq!(selected["payload"]["facts"][0]["written"], "\"abcdef\"");
+    assert_eq!(
+        selected["payload"]["facts"][0]["mapping"]
+            .as_array()
+            .unwrap()
+            .len(),
+        6
+    );
+    assert_eq!(
+        selected["payload"]["detail_coverage"]["scope"],
+        "intersecting_range"
+    );
+}
+
+#[test]
+fn explicit_outline_detail_and_projection_remain_independent_in_single_and_batch_responses() {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join("first.rs"),
+        "//! root docs\nfn first() { let s = \"a\\nβ\"; }",
+    )
+    .unwrap();
+    std::fs::write(
+        root.path().join("second.rs"),
+        "fn second() { let s = \"second\"; }",
+    )
+    .unwrap();
+    let facts = value(
+        pse(root.path())
+            .args(["inspect", "outline", "first.rs", "--detail", "facts"])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect outline", &facts);
+    assert_eq!(
+        facts["payload"]["outline"]["detail_coverage"]["detail"],
+        "facts"
+    );
+    assert!(
+        facts["payload"]["outline"]["detail_coverage"]["includes_file_facts"]
+            .as_bool()
+            .unwrap()
+    );
+    let file_facts = facts["payload"]["outline"]["facts"].as_array().unwrap();
+    assert_eq!(file_facts.len(), 2);
+    assert!(file_facts[0]["owner"].is_null());
+    assert!(file_facts.iter().all(|fact| fact["mapping"].is_null()));
+    let mapped = value(
+        pse(root.path())
+            .args(["inspect", "outline", "first.rs", "--detail", "mapped"])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect outline", &mapped);
+    assert_eq!(
+        mapped["payload"]["outline"]["facts"][1]["mapping"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    let projected = value(
+        pse(root.path())
+            .args([
+                "inspect",
+                "outline",
+                "first.rs",
+                "--detail",
+                "mapped",
+                "--fields",
+                "outline.facts",
+            ])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(
+        projected["payload"]["outline"]["facts"],
+        mapped["payload"]["outline"]["facts"]
+    );
+    assert!(projected["payload"]["outline"].get("entries").is_none());
+    assert_eq!(projected["providers"], mapped["providers"]);
+    let navigation = value(
+        pse(root.path())
+            .args([
+                "inspect",
+                "outline",
+                "first.rs",
+                "--fields",
+                "outline.facts",
+            ])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(
+        navigation["payload"]["outline"]["facts"],
+        serde_json::json!([])
+    );
+    let batch = value(
+        pse(root.path())
+            .args([
+                "inspect",
+                "outline",
+                "first.rs",
+                "second.rs",
+                "--detail",
+                "mapped",
+            ])
+            .output()
+            .unwrap(),
+    );
+    schema(root.path(), "inspect outline batch", &batch);
+    let records = batch["payload"]["records"].as_array().unwrap();
+    assert_eq!(records.len(), 2);
+    assert_eq!(
+        records[0]["reading"]["outline"]["detail_coverage"]["detail"],
+        "mapped"
+    );
+    assert_eq!(
+        records[1]["reading"]["outline"]["facts"][0]["mapping"]
+            .as_array()
+            .unwrap()
+            .len(),
+        6
+    );
+    assert!(!root.path().join("target").exists());
+}
 fn git(root: &Path, arguments: &[&OsStr]) {
     let output = Command::new("git")
         .current_dir(root)

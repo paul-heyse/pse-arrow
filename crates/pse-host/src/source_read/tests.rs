@@ -228,6 +228,7 @@ fn declaration_pages_bound_nested_entries_and_bind_source_backend_and_edition() 
         &original,
         Some(RustEdition::E2024),
         PageRequest {
+            detail: SourceDetail::Navigation,
             max_records: Some(2),
             cursor: None,
         },
@@ -244,6 +245,7 @@ fn declaration_pages_bound_nested_entries_and_bind_source_backend_and_edition() 
         None,
         RustEdition::E2024,
         PageRequest {
+            detail: SourceDetail::Navigation,
             max_records: Some(2),
             cursor: None,
         },
@@ -259,6 +261,7 @@ fn declaration_pages_bound_nested_entries_and_bind_source_backend_and_edition() 
         &original,
         Some(RustEdition::E2024),
         PageRequest {
+            detail: SourceDetail::Navigation,
             max_records: Some(2),
             cursor: Some(cursor.clone()),
         },
@@ -274,6 +277,7 @@ fn declaration_pages_bound_nested_entries_and_bind_source_backend_and_edition() 
             &changed,
             Some(RustEdition::E2024),
             PageRequest {
+                detail: SourceDetail::Navigation,
                 max_records: Some(2),
                 cursor: Some(cursor.clone())
             }
@@ -285,6 +289,7 @@ fn declaration_pages_bound_nested_entries_and_bind_source_backend_and_edition() 
             &original,
             Some(RustEdition::E2018),
             PageRequest {
+                detail: SourceDetail::Navigation,
                 max_records: Some(2),
                 cursor: Some(cursor)
             }
@@ -438,7 +443,7 @@ fn actual() {
 }
 fn broken(
 "####;
-    let outline = rust(source, RustEdition::E2024);
+    let outline = rust_detail(source, RustEdition::E2024, SourceDetail::Mapped);
     assert!(!outline.parse_issues.is_empty());
     assert_eq!(
         outline
@@ -454,7 +459,7 @@ fn broken(
         .find(|fact| fact.written == r#""a\n\u{3b2}""#)
         .unwrap();
     assert!(matches!(&escaped.value, Some(InterpretedValue::Text(value)) if value == "a\nβ"));
-    let newline = &escaped.mapping[1];
+    let newline = &escaped.mapping.as_ref().unwrap()[1];
     assert_eq!(
         escaped.map_interpreted_range(1..2),
         Some(newline.source.clone())
@@ -464,7 +469,7 @@ fn broken(
         &source[newline.source.byte_start..newline.source.byte_end],
         r"\n"
     );
-    let beta = &escaped.mapping[2];
+    let beta = &escaped.mapping.as_ref().unwrap()[2];
     assert_eq!(beta.interpreted, 2..4);
     assert_eq!(
         &source[beta.source.byte_start..beta.source.byte_end],
@@ -497,9 +502,10 @@ fn broken(
 
 #[test]
 fn invalid_literal_interpretations_retain_spelling_without_fabricated_decoded_ranges() {
-    let outline = rust(
+    let outline = rust_detail(
         r#"fn f(){ let invalid = "a\qz"; let valid = "β"; }"#,
         RustEdition::E2024,
+        SourceDetail::Mapped,
     );
     let invalid = outline
         .facts
@@ -507,7 +513,7 @@ fn invalid_literal_interpretations_retain_spelling_without_fabricated_decoded_ra
         .find(|fact| fact.written == r#""a\qz""#)
         .unwrap();
     assert!(invalid.interpretation_error.is_some());
-    assert!(invalid.value.is_none() && invalid.mapping.is_empty());
+    assert!(invalid.value.is_none() && invalid.mapping.as_ref().unwrap().is_empty());
     let valid = outline
         .facts
         .iter()
@@ -515,4 +521,195 @@ fn invalid_literal_interpretations_retain_spelling_without_fabricated_decoded_ra
         .unwrap();
     assert!(valid.map_interpreted_range(0..1).is_none());
     assert!(valid.map_interpreted_range(0..2).is_some());
+}
+
+#[test]
+fn navigation_does_not_construct_facts_or_copy_unrelated_initializers_and_docs() {
+    let huge = "x".repeat(200_000);
+    let source = format!(
+        "/// {huge}\nconst BIG: &str = \"{huge}\";\nfn selected() {{ let value = \"a\\nβ\"; }}"
+    );
+    facts::reset_construction();
+    let (outline, count) =
+        rust_bounded(&source, RustEdition::E2024, 0, 1, SourceDetail::Navigation);
+    assert_eq!(count, 2);
+    assert_eq!(outline.entries[0].signature, "const BIG: &str");
+    assert!(outline.facts.is_empty());
+    assert!(outline.detail_coverage.ranges.is_empty());
+    assert!(!outline.detail_coverage.includes_file_facts);
+    assert_eq!(facts::construction(), (0, 0));
+    assert!(serde_json::to_vec(&outline).unwrap().len() < 2_000);
+}
+
+#[test]
+fn selected_facts_precede_construction_and_mapping_demand() {
+    let source = format!(
+        "//! file docs\n/// {}\nconst BIG: &str = \"{}\";\n/// selected docs\nfn selected() {{ let value = \"a\\nβ\"; fn nested() {{ let n = \"excluded\"; }} }}",
+        "d".repeat(80_000),
+        "x".repeat(80_000)
+    );
+    let (outline, syntax) = rust_with_syntax(&source, RustEdition::E2024);
+    let owner = outline
+        .entries
+        .iter()
+        .find(|entry| entry.path == ["selected"])
+        .unwrap()
+        .range
+        .clone();
+    let owners = [owner.clone()];
+    let selection = FactSelection::Owners {
+        ranges: &owners,
+        file: false,
+    };
+    facts::reset_construction();
+    let selected = selected_facts(
+        &syntax,
+        &line_starts(&source),
+        SourceDetail::Facts,
+        &selection,
+    );
+    assert_eq!(facts::construction(), (2, 0));
+    assert_eq!(selected.len(), 2);
+    assert!(
+        selected
+            .iter()
+            .all(|fact| fact.owner.as_ref() == Some(&owner) && fact.mapping.is_none())
+    );
+    assert_eq!(selected[0].written, "/// selected docs");
+    assert!(matches!(&selected[1].value, Some(InterpretedValue::Text(text)) if text == "a\nβ"));
+    facts::reset_construction();
+    let mapped = selected_facts(
+        &syntax,
+        &line_starts(&source),
+        SourceDetail::Mapped,
+        &selection,
+    );
+    assert_eq!(
+        facts::construction(),
+        (2, " selected docs".chars().count() + 3)
+    );
+    let literal = &mapped[1];
+    let ranges: Vec<_> = literal
+        .mapping
+        .as_ref()
+        .unwrap()
+        .iter()
+        .map(|mapping| source[mapping.source.byte_start..mapping.source.byte_end].to_string())
+        .collect();
+    assert_eq!(ranges, ["a", "\\n", "β"]);
+}
+
+#[test]
+fn selected_range_intersection_retains_complete_original_fact_and_file_docs_have_own_scope() {
+    let source = "//! file\n/// item\n#[doc = \"owned\"]\nfn selected() { let s = \"abc\"; }";
+    let (_, syntax) = rust_with_syntax(source, RustEdition::E2024);
+    let lines = line_starts(source);
+    let literal_start = source.find("\"abc\"").unwrap();
+    let selected = location(&lines, literal_start + 2..literal_start + 3);
+    let facts = selected_facts(
+        &syntax,
+        &lines,
+        SourceDetail::Facts,
+        &FactSelection::Range(&selected),
+    );
+    assert_eq!(facts.len(), 1);
+    assert_eq!(
+        facts[0].range,
+        location(&lines, literal_start..literal_start + 5)
+    );
+    assert_eq!(facts[0].written, "\"abc\"");
+    let root = selected_facts(
+        &syntax,
+        &lines,
+        SourceDetail::Facts,
+        &FactSelection::Owners {
+            ranges: &[],
+            file: true,
+        },
+    );
+    assert_eq!(root.len(), 1);
+    assert_eq!(root[0].written, "//! file");
+    assert!(root[0].owner.is_none());
+}
+
+#[test]
+fn detail_is_bound_into_guarded_continuation_and_public_schema() {
+    let source = SourceText::new("/source/detail.rs".into(), "fn a() {} fn b() {}".into()).unwrap();
+    let (_, page) = outline_page(
+        &source,
+        Some(RustEdition::E2024),
+        PageRequest {
+            detail: SourceDetail::Facts,
+            max_records: Some(1),
+            cursor: None,
+        },
+    )
+    .unwrap();
+    assert!(matches!(
+        outline_page(
+            &source,
+            Some(RustEdition::E2024),
+            PageRequest {
+                detail: SourceDetail::Mapped,
+                max_records: Some(1),
+                cursor: page.next_cursor.clone()
+            }
+        ),
+        Err(SourceReadError::InvalidCursor)
+    ));
+    let (next, _) = outline_page(
+        &source,
+        Some(RustEdition::E2024),
+        PageRequest {
+            detail: SourceDetail::Facts,
+            max_records: Some(1),
+            cursor: page.next_cursor,
+        },
+    )
+    .unwrap();
+    assert_eq!(next.detail_coverage.detail, SourceDetail::Facts);
+    let schema = serde_json::to_value(schemars::schema_for!(Outline)).unwrap();
+    let detail_schema = jsonschema::validator_for(&schema["$defs"]["SourceDetail"]).unwrap();
+    for detail in ["navigation", "facts", "mapped"] {
+        detail_schema.validate(&serde_json::json!(detail)).unwrap();
+    }
+    assert!(
+        detail_schema
+            .validate(&serde_json::json!("unknown"))
+            .is_err()
+    );
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    for detail in [
+        SourceDetail::Navigation,
+        SourceDetail::Facts,
+        SourceDetail::Mapped,
+    ] {
+        let outline = rust_detail(
+            "fn selected() { let s = \"a\\nβ\"; }",
+            RustEdition::E2024,
+            detail,
+        );
+        validator
+            .validate(&serde_json::to_value(outline).unwrap())
+            .unwrap();
+    }
+    assert!(schema["properties"].get("detail_coverage").is_some());
+    assert!(serde_json::from_str::<SourceDetail>("\"unknown\"").is_err());
+}
+
+#[test]
+fn explicit_large_selected_value_retains_every_decoded_character() {
+    let value = "β".repeat(20_000);
+    let source = format!("const SELECTED: &str = \"{value}\";");
+    facts::reset_construction();
+    let outline = rust_detail(&source, RustEdition::E2024, SourceDetail::Mapped);
+    assert_eq!(outline.facts.len(), 1);
+    assert!(
+        matches!(&outline.facts[0].value, Some(InterpretedValue::Text(decoded)) if decoded == &value)
+    );
+    assert_eq!(outline.facts[0].mapping.as_ref().unwrap().len(), 20_000);
+    assert_eq!(facts::construction(), (1, 20_000));
+    let last = outline.facts[0].mapping.as_ref().unwrap().last().unwrap();
+    assert_eq!(&source[last.source.byte_start..last.source.byte_end], "β");
+    assert_eq!(last.interpreted, 39_998..40_000);
 }
