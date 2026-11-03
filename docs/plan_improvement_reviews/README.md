@@ -1,5 +1,12 @@
 # Plan improvement reviews
 
+The [Plan64 Proto integration and extensibility review](plan64-proto-integration-and-extensibility-2026-11-03.md)
+develops six proposed interventions from the Proto discovery briefing: owner-derived
+engineering contracts, constraints and editing, a finite engineering service, prepared
+scientific workers, independent reference interchange and selective materialization.
+It includes breaking improvements to delivered Plan64 scope and bounded related capabilities;
+adoption and plan revision remain separate decisions.
+
 The [recycle preparation and convergence review](recycle-preparation-performance-2026-11-02.md)
 investigates Plan64's slow recycle and first-delivery controls. A preparation-only recycle
 control took 84.9 seconds and approximately 6 GiB RSS; profiles identify repeated owned field
