@@ -295,16 +295,19 @@ async fn perform(
             return Ok(());
         }
         let mut requirements = Vec::new();
-        for requirement in &listed.requirements {
-            for identity in listed.inventory.selected_tests_iter() {
-                let captured = listed.inventory.test(&identity)?;
-                if test_workflow::matches_requirement(
-                    requirement,
-                    &identity,
-                    &captured.artifact.cargo,
-                ) {
-                    requirements.push(requirement.clone());
-                    break;
+        {
+            let mut verified = listed.inventory.verified_tests();
+            for requirement in &listed.requirements {
+                for identity in listed.inventory.selected_tests_iter() {
+                    let captured = verified.test(&identity)?;
+                    if test_workflow::matches_requirement(
+                        requirement,
+                        &identity,
+                        &captured.artifact.cargo,
+                    ) {
+                        requirements.push(requirement.clone());
+                        break;
+                    }
                 }
             }
         }

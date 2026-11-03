@@ -49,13 +49,73 @@ impl Executable {
     /// Authenticate retained bytes before lending their path to a child.
     pub fn verify(&self) -> Result<(), CorrectnessError> {
         let mut file = read_file(&self.captured)?;
-        let (bytes, digest) = hash_copy(&mut file, &mut io::sink())?;
-        if bytes != self.bytes || digest != self.sha256 {
+        self.verify_file(&mut file).map(|_| ())
+    }
+    fn verify_file(&self, file: &mut File) -> Result<FileIdentity, CorrectnessError> {
+        let before = FileIdentity::read(file)?;
+        let (bytes, digest) = hash_copy(file, &mut io::sink())?;
+        let after = FileIdentity::read(file)?;
+        if before != after || bytes != self.bytes || digest != self.sha256 {
             return Err(invalid(
                 "captured executable differs from its original identity",
             ));
         }
+        Ok(after)
+    }
+}
+
+/// One metadata traversal of immutable capture records. Successful content authentication
+/// is shared only inside this borrowed owner; each reuse still checks the opened inode's
+/// change identity. A missing, replaced or modified capture refuses rather than refreshing.
+#[derive(Debug, Default)]
+pub(super) struct Verification<'a> {
+    files: BTreeMap<&'a Path, (&'a Executable, FileIdentity)>,
+    #[cfg(test)]
+    authentications: usize,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct FileIdentity {
+    device: u64,
+    inode: u64,
+    bytes: u64,
+    modified: (i64, i64),
+    changed: (i64, i64),
+}
+impl FileIdentity {
+    fn read(file: &File) -> Result<Self, CorrectnessError> {
+        let metadata = file.metadata()?;
+        Ok(Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            bytes: metadata.len(),
+            modified: (metadata.mtime(), metadata.mtime_nsec()),
+            changed: (metadata.ctime(), metadata.ctime_nsec()),
+        })
+    }
+}
+impl<'a> Verification<'a> {
+    pub(super) fn verify(&mut self, executable: &'a Executable) -> Result<(), CorrectnessError> {
+        let mut file = read_file(&executable.captured)?;
+        if let Some((original, identity)) = self.files.get(executable.captured.as_path()) {
+            if *original != executable || *identity != FileIdentity::read(&file)? {
+                return Err(invalid(
+                    "captured executable changed during inventory traversal",
+                ));
+            }
+            return Ok(());
+        }
+        #[cfg(test)]
+        {
+            self.authentications += 1;
+        }
+        let identity = executable.verify_file(&mut file)?;
+        self.files
+            .insert(executable.captured.as_path(), (executable, identity));
         Ok(())
+    }
+    #[cfg(test)]
+    pub(super) fn authentications(&self) -> usize {
+        self.authentications
     }
 }
 fn executable_record(path: &Path) -> Result<PathBuf, CorrectnessError> {

@@ -79,6 +79,124 @@ fn inventory_ready_requires_each_original_phase_and_refuses_unsupported_or_missi
     listed.inventory.capture.pop();
     assert!(!listed.inventory.capture_complete());
 }
+#[test]
+fn metadata_traversal_authenticates_unique_executables_once_and_refuses_changed_captures() {
+    let (_root, intent) = intent();
+    let mut listed = listed(intent);
+    let group = &mut listed.inventory.groups[0];
+    let suite = group.listing.rust_suites.values_mut().next().unwrap();
+    let case = suite.test_cases.values().next().unwrap().clone();
+    suite.test_cases = (0..44)
+        .map(|index| {
+            (
+                nextest_metadata::TestCaseName::new(&format!("case_{index}")),
+                case.clone(),
+            )
+        })
+        .collect();
+    let mut second = suite.clone();
+    let second_path = listed.capture_root.join("captured-second");
+    fs::copy(&group.build.artifacts[0].executable.captured, &second_path).unwrap();
+    second.binary.binary_id = nextest_metadata::RustBinaryId::new("second");
+    second.binary.binary_path = second_path.to_str().unwrap().into();
+    let mut second_artifact = group.build.artifacts[0].clone();
+    second_artifact.executable.captured = second_path.clone();
+    group.build.artifacts.push(second_artifact);
+    group
+        .binaries
+        .rust_binaries
+        .insert(second.binary.binary_id.clone(), second.binary.clone());
+    group
+        .listing
+        .rust_suites
+        .insert(second.binary.binary_id.clone(), second);
+    group.listing.test_count = 88;
+    let identities = listed.inventory.selected_tests();
+    assert_eq!(identities.len(), 88);
+    let mut verified = listed.inventory.verified_tests();
+    for _ in 0..3 {
+        for identity in &identities {
+            verified.test(identity).unwrap();
+        }
+    }
+    assert_eq!(
+        verified.authentications(),
+        2,
+        "264 metadata lookups authenticate two captured images"
+    );
+    let first = &listed.inventory.groups[0].build.artifacts[0]
+        .executable
+        .captured;
+    let mut tampered = fs::read(first).unwrap();
+    tampered[0] ^= 1;
+    fs::set_permissions(first, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(first, tampered).unwrap();
+    assert!(verified.test(&identities[0]).is_err());
+    fs::remove_file(second_path).unwrap();
+    assert!(verified.test(identities.last().unwrap()).is_err());
+    assert_eq!(verified.authentications(), 2);
+    assert!(listed.inventory.test(&identities[0]).is_err());
+}
+#[test]
+fn ordinary_selection_skips_rerun_authentication_but_launch_still_refuses_missing_capture() {
+    let (_root, intent) = intent();
+    let listed = listed(intent);
+    let identity = listed.inventory.selected_tests()[0].clone();
+    fs::remove_file(
+        &listed.inventory.groups[0].build.artifacts[0]
+            .executable
+            .captured,
+    )
+    .unwrap();
+    assert!(listed.inventory.test(&identity).is_err());
+    source::verify_rerun(&listed.inventory).unwrap();
+    assert!(listed.command(0).is_err());
+}
+#[test]
+fn rerun_verification_preserves_exact_source_feature_identity_and_capture_guards() {
+    let (_root, intent) = intent();
+    let mut listed = listed(intent);
+    let case = selection::RerunCase {
+        package: "case".into(),
+        target: selection::TargetIntent {
+            name: "case".into(),
+            kind: Some("lib".into()),
+        },
+        features: selection::Features {
+            defaults: false,
+            ..Default::default()
+        },
+        binary_id: "case".into(),
+        test_name: "same_name".into(),
+    };
+    let selection = listed.inventory.selection.clone();
+    let basis = selection::SourceBasis::RerunFailed {
+        invocation: crate::envelope::CliInvocationId::new(),
+    };
+    listed.inventory.selection = selection.clone().source(basis.clone(), vec![case.clone()]);
+    source::verify_rerun(&listed.inventory).unwrap();
+    let mut wrong_features = case.clone();
+    wrong_features
+        .features
+        .enabled
+        .insert("different-feature".into());
+    listed.inventory.selection = selection
+        .clone()
+        .source(basis.clone(), vec![wrong_features]);
+    assert!(source::verify_rerun(&listed.inventory).is_err());
+    let mut wrong_test = case.clone();
+    wrong_test.test_name = "different_test".into();
+    listed.inventory.selection = selection.clone().source(basis.clone(), vec![wrong_test]);
+    assert!(source::verify_rerun(&listed.inventory).is_err());
+    listed.inventory.selection = selection.source(basis, vec![case]);
+    fs::remove_file(
+        &listed.inventory.groups[0].build.artifacts[0]
+            .executable
+            .captured,
+    )
+    .unwrap();
+    assert!(source::verify_rerun(&listed.inventory).is_err());
+}
 fn listed(intent: Intent) -> Listed {
     let resolved = intent
         .plan

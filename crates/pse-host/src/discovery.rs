@@ -258,6 +258,19 @@ impl Inventory {
 
     /// Resolve an original selected identity to its exact captured binary and feature context.
     pub fn test(&self, identity: &TestIdentity) -> Result<CapturedTest<'_>, DiscoveryError> {
+        let captured = self.test_record(identity)?;
+        captured.artifact.executable.verify()?;
+        Ok(captured)
+    }
+    /// Authenticate each distinct executable once during one owned metadata traversal.
+    /// This view grants no execution authority; launch still performs its own verification.
+    pub(crate) fn verified_tests(&self) -> VerifiedTests<'_> {
+        VerifiedTests {
+            inventory: self,
+            verification: capture::Verification::default(),
+        }
+    }
+    fn test_record(&self, identity: &TestIdentity) -> Result<CapturedTest<'_>, DiscoveryError> {
         let group = self
             .groups
             .get(identity.group)
@@ -279,13 +292,33 @@ impl Inventory {
             .iter()
             .find(|artifact| artifact.executable.captured == suite.binary.binary_path.as_std_path())
             .ok_or_else(|| invalid("test has no original captured executable"))?;
-        artifact.executable.verify()?;
         Ok(CapturedTest {
             identity: identity.clone(),
             artifact,
             case,
             ignored_policy: self.selection.ignored(),
         })
+    }
+}
+
+/// Borrowed verification state for one traversal, never retained beyond its inventory.
+#[derive(Debug)]
+pub(crate) struct VerifiedTests<'a> {
+    inventory: &'a Inventory,
+    verification: capture::Verification<'a>,
+}
+impl<'a> VerifiedTests<'a> {
+    pub(crate) fn test(
+        &mut self,
+        identity: &TestIdentity,
+    ) -> Result<CapturedTest<'a>, DiscoveryError> {
+        let captured = self.inventory.test_record(identity)?;
+        self.verification.verify(&captured.artifact.executable)?;
+        Ok(captured)
+    }
+    #[cfg(test)]
+    pub(crate) fn authentications(&self) -> usize {
+        self.verification.authentications()
     }
 }
 

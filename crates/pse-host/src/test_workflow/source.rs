@@ -202,9 +202,13 @@ pub(super) fn resolve(
 }
 
 pub(super) fn verify_rerun(inventory: &crate::discovery::Inventory) -> Result<(), WorkflowError> {
+    if inventory.selection.rerun_cases().is_empty() {
+        return Ok(());
+    }
     let mut mapped = BTreeSet::new();
+    let mut verified = inventory.verified_tests();
     for identity in inventory.selected_tests_iter() {
-        let captured = inventory.test(&identity)?;
+        let captured = verified.test(&identity)?;
         for (index, case) in inventory.selection.rerun_cases().iter().enumerate() {
             let original_package = inventory
                 .selection
