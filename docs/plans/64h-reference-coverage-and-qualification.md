@@ -1,6 +1,6 @@
 ---
 title: "Plan64h: Reference coverage and qualification"
-status: draft
+status: in-progress
 date: 2026-11-02
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -33,7 +33,7 @@ Reuse existing case/source declarations, conformance/reference exchange and reta
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| H01 | planned | Accepted RC01 scope and current case/register sources | Exact reference repositories/environment and finite required population are established, with every source category explicitly dispositioned |
+| H01 | in-progress | Accepted RC01 scope and current case/register sources | [Source/configuration crosswalk](64h-required-process-population.md) supplies D–G selections and gaps; full inherited/parameterized population, recursive closure and exact executable environment remain open |
 | H02 | planned | H01 first-case slice; ordinary-data and formulation selection from 64b/64c | Matched recycle/exchanger reference contracts and independent candidate/comparison controls are ready before integrated execution |
 | H03 | planned | H02; complete native A–C journeys and consumed F01/F02/F03 contracts | Packet D establishes complete outputs, intended failure correspondence, original physical checks and exact retained readback |
 | H04 | planned | H01 population; selected 64d–64g scientific capabilities | Configuration, property, unit, workflow and extension acceptance closes each delivered family at its actual scope |
@@ -48,6 +48,30 @@ Classify the released core families, supported categorical configurations, shipp
 For each selected family enumerate relevant dynamic/steady/storage choices, material/energy/momentum balances, ports/directions, property/reaction compatibility, phase/state/flow basis, thermal/pressure assumptions, numerical discretization and design/operating specifications. Record forbidden combinations as refusal obligations. Continuous domains need stated envelopes and motivated boundary/interior checks; finite samples do not prove arbitrary-domain correctness.
 
 The investigation output is the exact source/configuration/case inventory, reference-environment compatibility decisions, input closure and required outputs/evidence for each mandatory row. It supplies concrete downstream choices to 64b/64d–64g. Unknown parameterized variants or missing helper/data artifacts block that row's execution readiness; they do not block unrelated inventoried cases. Keep the existing held/archive disposition history and explain any change through the coordinator.
+
+### Investigated source/configuration handoff — 2026-11-03
+
+**Interface-checked, source only:** the [required process population crosswalk](64h-required-process-population.md)
+records the exact core/examples/compatibility sources, categorical balance/state/unit
+axes, concrete shipped scientific variants, helper/data dependencies, D01/E01/F01/G01
+consumers and remaining ordinary-data/reference gaps. Local core HEAD matches the
+selected 2.13.0 revision; exact examples/compatibility archives are accessible. No
+reference environment was installed or qualified. Examples' own 2.10.0 declaration
+and unpinned optional core dependency leave actual 2.13.0 compatibility unresolved.
+
+The handoff separates fixed/reverse/reacting bed cases; three TSA adsorbent/steam/bed
+specifications; membrane flow/sweep requirements; power/SOC/network consumers; and
+surrogate training, artifact evaluation, embedding and optimization. Proposed first
+E01 increments are an enzyme CSTR with inventory, a reactive 1D fixed bed and the
+zeolite TSA cycle, each with its actual source science and prerequisites. These
+enable independent dependency decisions without reducing mandatory family scope.
+
+H01 is not closed: full inherited configuration and parameterized-case enumeration,
+remaining archive comparisons, recursive artifact closure and the exact executable
+reference environment still need resolution. The existing notebook register remains
+the entry-point inventory owner; source wrapper deduplication cannot erase distinct
+scientific specifications. No total configuration count, accepted execution,
+native family completion or H04/H07 qualification follows from this source handoff.
 
 ## H02/H03 — Packet D matched independent references
 
@@ -87,4 +111,8 @@ H06 begins only for an identified benefit or capacity decision. Separate first p
 
 Final completion requires every mandatory capability/configuration/case row to have accepted evidence, no unresolved required variant, zero failures in the selected acceptance population, complete required output coverage and public scope matching actual support. Preserve unavailable, failed and unattempted outcomes; do not shrink scope to improve a percentage. Publish enduring contracts through their established architecture/decision owners and retire replaced paths and completed planning material under the repository lifecycle policy.
 
-**Outcome:** Proposed only. No builds, tests, solver/reference runs or measurements were performed in authoring this plan. H01's finite population and first-case input/reference investigation are the next ready work once the coordinator's scope/decision prerequisites are available; H03–H07 remain unqualified obligations.
+**Outcome:** Interface-checked source/configuration handoff only. No builds, tests,
+solver/reference runs or measurements were performed for this investigation. H01's
+remaining denominator/environment/input-closure work is identified in the linked
+crosswalk; H02/H03 still require matched references and actual native/reference
+execution, and H04–H07 remain unqualified obligations.

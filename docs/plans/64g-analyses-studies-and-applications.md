@@ -1,6 +1,6 @@
 ---
 title: "Plan64g: Analyses, studies and applications"
-status: draft
+status: in-progress
 date: 2026-11-02
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -41,16 +41,26 @@ Engineering assessments retain physical contributor, boundary, currency/base per
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| G01 | planned | 64a task/outcome contracts; C05 shared product contract; selected exposed products | P6 demands and route decisions feed the shared owner; integration consumes implemented scoped permission without quantity-only aliasing |
+| G01 | in-progress | 64a task/outcome contracts; C05 shared product contract; selected exposed products | P6 demands and route decisions feed the shared owner; integration consumes implemented scoped permission without quantity-only aliasing |
 | G02 | planned | G01; ordinary experimental inputs and accepted models from 64b/64d | Joint inference/reconciliation retains shared parameters, observation meaning, identifiability limits and qualified uncertainty |
 | G03 | planned | G01; accepted deterministic operation; selected distributions | Uncertainty execution retains measure/dependence, actual samples, failed-case treatment and statistically appropriate comparisons |
 | G04 | planned | Selected reference applications from 64h; G01; demanded scientific capability | Surrogate/discrete realization decision settled, selected artifact/training/embedding paths integrated and unsupported demands refused |
 | G05 | planned | Selected dynamic route from 64e or accepted steady period model; G01 | Control/horizon and multiperiod/grid workflows retain physical-time/coupling meaning and intentional failure behavior |
 | G06 | planned | G01; selected physical results and assessment inputs | Cost/environment/utility products and useful stream/result/visualization views preserve identities, assumptions, provenance and permission |
 | G07 | planned | Selected G02–G06 integrations and their actual consumers | Joined workflow acceptance, consumer migration and enduring contract publication completed within declared scope |
-| G08 | planned | 64a A04 publication-witness target; exact selector/writer closure | Atomic capture/protections/receipt replaces pending global gate, preserving future-member completeness, unrelated liveness and recovery |
+| G08 | in-progress | 64a A04 publication-witness target; exact selector/writer closure | Atomic capture/protections/receipt replaces pending global gate, preserving future-member completeness, unrelated liveness and recovery |
 
 ## Investigations and execution route
+
+### Current checkpoint — 2026-11-03
+
+All G scope, including G08, is authorized with D/E/F and required enabling slices. G01 consumes
+64c's implemented scoped product-permission owner instead of recreating it from this document's
+historical baseline description. Remaining P6 consumers and finite configurations are being
+mapped. Proposed ADR-0230 and blueprint344 record G08's atomic witness target before production
+change. A dedicated writable-module qualification branch is testing actual pinned-engine
+rollback/timeout/settlement; production remains on its current mechanism until a replacement
+and its full writer/reader/protection migration are established. No new G completion is claimed.
 
 ### G01 — Product scope before additional consumers
 

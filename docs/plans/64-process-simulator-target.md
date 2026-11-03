@@ -19,6 +19,14 @@ doc_topics: [current-work, design, validation]
 
 ## Combined target and foundation assessment
 
+**Execution authorization — 2026-11-03:** the maintainer authorized all remaining 64d–64g
+packages, including the necessary enabling 64h inventory/reference and 64a contract slices.
+The existing companion tables remain their status owners. This authorization does not close
+H01's unenumerated population or qualify broader 64h/Plan58h work. Initial execution joins the
+finite required-population inventory, state-coordinate and reaction foundations, and G08's
+atomic capture replacement. Proposed ADR-0230 and blueprint revision344 record the capture
+target before its production migration.
+
 An engineer authors a physical definition once, selects a case and task, inspects its meaning, makes attributable edits, prepares a supported numerical realization and obtains physical outputs or useful failures. Scientific definitions, parameter selections and evidence retain exact identities from source to stored revision and consuming case. A value edit can reuse compatible structure; topology, selected science, roles and required products retain their actual invalidation effects.
 
 | Existing foundation | Assessment and target consequence |

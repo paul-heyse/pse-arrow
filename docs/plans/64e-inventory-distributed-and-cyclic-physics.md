@@ -1,6 +1,6 @@
 ---
 title: "Plan64e: Inventory, distributed and cyclic physics"
-status: draft
+status: in-progress
 date: 2026-11-02
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
@@ -41,7 +41,7 @@ The review's IDA candidate APIs (`IDAInit`, `IDASetId`, `IDACalcIC`, `IDASolve`)
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| E01 | planned | P0 finite cases; selected 64d state/property closure | Case-to-physics and route gap decisions identify existing support, authored additions, generic gaps and explicit refusals |
+| E01 | in-progress | P0 finite cases; selected 64d state/property closure | Case-to-physics and route gap decisions identify existing support, authored additions, generic gaps and explicit refusals |
 | E02 | planned | E01 selected lumped storage case; ordinary records | Phase/component/element/total storage projections and independent inventory closure work for the selected configurations |
 | E03 | planned | E01 distributed case; required state/transfer science | Authored spatial/temporal accumulation, boundary meaning, origin mappings and coupled consumer replace only the corresponding dynamic refusal |
 | E04 | planned | E02 or E03 working storage contract; selected operating program | Physical carryover, transitions, transfers and periodic closure work through existing temporal owners |
@@ -49,6 +49,15 @@ The review's IDA candidate APIs (`IDAInit`, `IDASetId`, `IDACalcIC`, `IDASolve`)
 | E06 | planned | Selected E02–E05 producer and consumer changes | Complete native/reference transient and cyclic cases, retained readback and correct published scope |
 
 ## Work packages and investigations
+
+### Current checkpoint — 2026-11-03
+
+All E scope is authorized with D/F/G. Source inspection confirms existing homogeneous vessel
+integrated/simultaneous formulations and current Diffsol/IDAS owners; these are reused rather
+than treated as missing infrastructure. H01's required-process crosswalk supplies the candidate
+lumped, distributed and TSA-cycle closures. Temporal accumulation for the current spatial
+control volume, expanded allocations and complete physical operating programs remain selected
+implementation work. No new E numerical acceptance is established by this checkpoint.
 
 ### E01 — Select the first physics and resolve route feasibility
 

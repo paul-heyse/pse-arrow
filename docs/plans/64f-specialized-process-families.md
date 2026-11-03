@@ -1,6 +1,6 @@
 ---
 title: "Plan64f: Specialized process families"
-status: draft
+status: in-progress
 date: 2026-11-02
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
@@ -37,7 +37,7 @@ The [IDAES overview](../libraries/idaes-pse.md) and [released-scope inventory](.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| F01 | planned | P0 finite released/configuration population | Family/configuration and scientific-gap decisions assign each required variant to a concrete dependency and acceptance route |
+| F01 | in-progress | P0 finite released/configuration population | Family/configuration and scientific-gap decisions assign each required variant to a concrete dependency and acceptance route |
 | F02 | planned | F01 power cases; 64d pure-fluid/pressure/heat/costing closure; required 64e physics | Steam, supercritical and integrated power cases have matched formulations, ordinary data and complete selected outputs |
 | F03 | planned | F01 gas-solid cases; separate states, heterogeneous reaction/transfer and required 64e storage | Selected fixed/moving/bubbling beds and chemical-looping configurations preserve basis, source and conservation meaning |
 | F04 | planned | F01 capture cases; 64d speciation/transport/columns/membrane closure; required 64e distribution | Selected MEA, membrane and integrated separation cases pass their configured scientific contracts |
@@ -46,6 +46,15 @@ The [IDAES overview](../libraries/idaes-pse.md) and [released-scope inventory](.
 | F07 | planned | Selected F02–F06 and their actual consumer implementations | Finite configured family coverage, negative controls, retained readback and public claims reconcile with 64h |
 
 ## Work packages and consequential investigations
+
+### Current checkpoint — 2026-11-03
+
+All F scope is authorized with D/E/G. The H01 required-process crosswalk identifies distinct
+steam/power, gas-solid, capture/membrane, TSA/SOC and network populations and their dependency
+owners. Exact source inspection distinguishes required TSA adsorbent/steam/compressor variants
+and bed direction/reaction variants. F02–F07 implementation and configuration-specific native/
+reference evidence remain open; generic unit or solver availability supplies no specialist
+family acceptance.
 
 ### F01 — Resolve configurations and scientific dependency closures
 

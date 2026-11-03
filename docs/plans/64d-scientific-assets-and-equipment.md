@@ -1,6 +1,6 @@
 ---
 title: "Plan64d: Scientific assets and reusable equipment"
-status: draft
+status: in-progress
 date: 2026-11-02
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -33,9 +33,9 @@ Reaction increments retain participating subjects, stoichiometry, extent/rate ba
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| D01 | planned | 64h H01 finite family/configuration population; 64a scope; 64b source policy | Scientific dependency groups, consuming cases, current capability evidence and missing contracts settled |
-| D02 | planned | D01 selected state/property demands; 64b ordinary inputs | State/property/caloric/steam increments supply demanded outputs, derivatives, datum and branch/refusal behavior |
-| D03 | planned | D01; selected transport/reaction dependencies | Transport, reactions and electrolyte/speciation increments satisfy their actual consuming contracts |
+| D01 | in-progress | 64h H01 finite family/configuration population; 64a scope; 64b source policy | Scientific dependency groups, consuming cases, current capability evidence and missing contracts settled |
+| D02 | in-progress | D01 selected state/property demands; 64b ordinary inputs | State/property/caloric/steam increments supply demanded outputs, derivatives, datum and branch/refusal behavior |
+| D03 | in-progress | D01; selected transport/reaction dependencies | Transport, reactions and electrolyte/speciation increments satisfy their actual consuming contracts |
 | D04 | planned | Relevant D02/D03 slices; 64c first-delivery composition | Generic equipment configurations and rating/design behavior delivered with initialization and original checks |
 | D05 | planned | D04 selected equipment/property closures | HDA and methanol integration plus selected custom composition demonstrate complete steady workflows |
 | D06 | planned | D02–D05 delivered populations; 64h correspondence | Selected scientific/equipment rows have independent configuration-specific evidence and truthful remaining coverage |
@@ -81,6 +81,18 @@ For each delivered configuration retain independent value/derivative, convention
 Hand 64h exact native/reference configurations, output mappings, comparison allowances and unavailable/unattempted scope. A supported unit configuration can complete while another configuration remains open; a nominal heater pass cannot qualify the generic library. Independent specialized families in 64f consume the actual accepted slices, not the completion label of this whole document.
 
 ## Execution and evidence boundary
+
+### Current checkpoint — 2026-11-03
+
+The entire D–G scope and necessary enabling slices are authorized. H01's
+[required-process crosswalk](64h-required-process-population.md) is being expanded from exact
+sources; it is not a complete or numerically qualified denominator. The first D02 slice extends
+the existing state/port/reconstruction owners with six coordinate families and explicit
+zero-flow/phase limits. The first D03 slice supplies source-attributed constant/van't Hoff
+log-equilibrium laws and an admitted reaction-activity projection. Their actual authored-source
+controls are in development; no new family completion or scientific qualification is claimed.
+Steam, transport, electrolyte, broader reaction/equipment and integrated process obligations
+remain open under D02–D06.
 
 Keep extraction/database access outside scalar property callbacks. Prepare immutable science once while its premises hold; attempt-owned mutable provider state is not shared between concurrent solves. Prefer native composed evaluation and sparse products where they meet the actual contract; retain necessary independent physical checks for every new numerical state. Repeated assembly, per-scalar crossings and nested pools need justified workload fit, but no cost model or universal streaming requirement follows.
 
