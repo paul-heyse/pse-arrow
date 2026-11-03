@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64102000000040008000000000000001") package exchanger_inference {
+@id("64102000000040008000000000000002") use provenance @"1.0.0";
+@id("64102000000040008000000000000003") use chem @"1.0.0";
+@id("64102000000040008000000000000004") use state_coordinate_fixtures @"1.0.0";
+@id("64102000000040008000000000000005") use heat_exchange @"1.0.0";
+@id("64102000000040008000000000000006") use numerical_policy @"1.0.0";
+// Constant-Cp co-current ODE: d(Th-Tc)/dA=-U*(1/Ch+1/Cc)*(Th-Tc).
+// Therefore Q=Ch*Cc/(Ch+Cc)*(Thi-Tci)*(1-exp(-UA*(1/Ch+1/Cc))).
+// The numbers below are independent evaluations of this ODE solution. They do
+// not use the native logarithmic-mean-temperature-difference evaluator.
+@id("64102000000040008000000000000007") entity provenance.source analytic_exchanger {title="Synthetic co-current constant-Cp exchanger: equimolar Cp=30 J/(mol K), A=2 m2, U=10 W/(m2 K); experiments (Fh,Fc,Thi,Tci)=(2,1,400,300) and (3,1.5,370,310). Outlet readings are noiseless design means with independent known sigma=0.1 K; no empirical confidence or statistical coverage claim."}
+@id("64102000000040008000000000000008") entity kind temperature_reading {
+@id("64102000000040008000000000000009") attribute value:Temperature;
+@id("6410200000004000800000000000000a") attribute sigma:DeltaTemperature;
+}
+@id("6410200000004000800000000000000b") entity temperature_reading hot_one provenance(analytic_exchanger,provenance.Role.measured) {value=378.9293147057147{K},sigma=0.1{K}}
+@id("6410200000004000800000000000000c") entity temperature_reading cold_one provenance(analytic_exchanger,provenance.Role.measured) {value=342.1413705885705{K},sigma=0.1{K}}
+@id("6410200000004000800000000000000d") entity temperature_reading hot_two provenance(analytic_exchanger,provenance.Role.measured) {value=360.26834238065186{K},sigma=0.1{K}}
+@id("6410200000004000800000000000000e") entity temperature_reading cold_two provenance(analytic_exchanger,provenance.Role.measured) {value=329.46331523869634{K},sigma=0.1{K}}
+// The fitting API binds numerical parameter ports. The equipment's original
+// physical variables remain governed by its balances and constitutive equation.
+@id("6410200000004000800000000000000f") def Apparatus {
+@id("64102000000040008000000000000010") param coefficient:HeatTransferCoefficient=7{W/(m^2*K)};
+@id("64102000000040008000000000000011") param surface_area:Area=2{m^2};
+@id("64102000000040008000000000000012") child exchanger:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=state_coordinate_fixtures.TotalTemperature(),hot_outlet_pkg=state_coordinate_fixtures.TotalTemperature(defined_state=false),cold_inlet_pkg=state_coordinate_fixtures.TotalTemperature(),cold_outlet_pkg=state_coordinate_fixtures.TotalTemperature(defined_state=false),cocurrent=true);
+@id("64102000000040008000000000000013") eq coefficient_binding:exchanger.coefficient==coefficient;
+@id("64102000000040008000000000000014") eq area_binding:exchanger.area==surface_area;
+@id("64102000000040008000000000000015") annotation report exchanger.hot.outlet.T("hot outlet temperature");
+@id("64102000000040008000000000000016") annotation report exchanger.cold.outlet.T("cold outlet temperature");
+@id("64102000000040008000000000000017") annotation report exchanger.cold.heat("transferred heat");
+}
+// A standalone witness uses the generating parameters. The fit owner replaces
+// these numeric parameter values at trials; source queries keep the same cases.
+@id("64102000000040008000000000000018") test experiment_one oracle analytic_exchanger fixture {dof 0;route steady;procedure solve;value root.coefficient=10{W/(m^2*K)};value root.surface_area=2{m^2};fix root.exchanger.hot.inlet.flow=2{mol/s};fix root.exchanger.cold.inlet.flow=1{mol/s};fix root.exchanger.hot.inlet.T=400{K};fix root.exchanger.cold.inlet.T=300{K};fix root.exchanger.hot.inlet.pressure=101325{Pa};fix root.exchanger.cold.inlet.pressure=101325{Pa};fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.hot.delta_pressure=0{Pa};fix root.exchanger.cold.delta_pressure=0{Pa};} {
+@id("64102000000040008000000000000019") child root:Apparatus=Apparatus;
+@id("6410200000004000800000000000001a") expect root.exchanger.hot.outlet.T==378.9293147057147{K} tolerance numerical_policy.temperature;
+@id("6410200000004000800000000000001b") expect root.exchanger.cold.outlet.T==342.1413705885705{K} tolerance numerical_policy.temperature;
+@id("6410200000004000800000000000001c") expect root.exchanger.cold.heat==1264.2411176571154{W} tolerance numerical_policy.energy_transfer_rate;
+}
+@id("6410200000004000800000000000001d") test experiment_two oracle analytic_exchanger fixture {dof 0;route steady;procedure solve;value root.coefficient=10{W/(m^2*K)};value root.surface_area=2{m^2};fix root.exchanger.hot.inlet.flow=3{mol/s};fix root.exchanger.cold.inlet.flow=1.5{mol/s};fix root.exchanger.hot.inlet.T=370{K};fix root.exchanger.cold.inlet.T=310{K};fix root.exchanger.hot.inlet.pressure=101325{Pa};fix root.exchanger.cold.inlet.pressure=101325{Pa};fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.hot.delta_pressure=0{Pa};fix root.exchanger.cold.delta_pressure=0{Pa};} {
+@id("6410200000004000800000000000001e") child root:Apparatus=Apparatus;
+@id("6410200000004000800000000000001f") expect root.exchanger.hot.outlet.T==360.26834238065186{K} tolerance numerical_policy.temperature;
+@id("64102000000040008000000000000020") expect root.exchanger.cold.outlet.T==329.46331523869634{K} tolerance numerical_policy.temperature;
+@id("64102000000040008000000000000021") expect root.exchanger.cold.heat==875.8491857413344{W} tolerance numerical_policy.energy_transfer_rate;
+}
+}
