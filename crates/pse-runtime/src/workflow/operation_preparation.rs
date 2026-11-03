@@ -652,11 +652,11 @@ mod initialization_tests {
             if !recorded {
                 assert!(operation.clone().into_study().is_err());
                 let PreparedOperation::Initialization(original) = &operation else {
-                    unreachable!();
+                    panic!("prepared initialization operation required");
                 };
                 let mut changed = original.execution.clone();
                 let DeclaredProcedure::Initialize(policy) = &mut changed.procedure else {
-                    unreachable!();
+                    panic!("declared initialization policy required");
                 };
                 policy.maximum_attempts += 1;
                 let changed =
@@ -753,7 +753,7 @@ mod initialization_tests {
                 panic!("initialization replay constructor required");
             };
             let PreparedOperation::Initialization(request) = &operation else {
-                unreachable!();
+                panic!("prepared initialization operation required");
             };
             assert_eq!(
                 serde_json::to_value(policy).unwrap(),

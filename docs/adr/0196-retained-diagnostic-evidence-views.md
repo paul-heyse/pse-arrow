@@ -123,6 +123,38 @@ ingress and Arrow projection allowances remain independent and do not establish 
 peak memory. Plan47f owns assembled acceptance and actual measurements; formal status stays
 proposed and scientific defaults are unchanged.
 
+## Plan64c construction capture and bounded throughput — 2026-11-03
+
+**Implemented:** maintainer-authorized C09 extends the same source owner with selected
+detail header/document v3. DetailRequest remains v1; source request/ACK/launch-result,
+record-page and frozen-set versions retain their existing declarations. Version 3 makes
+oversized/full/closed rejection distinct and acknowledges only completely flushed prefixes.
+Earlier detail headers are refused. A bounded batch writer wakes on work or closure;
+producer/family tracking consumes a separate finite fraction of admitted collector memory,
+with the remaining memory sizing its queue. A fixed 256-source ceiling was inadequate for
+the selected compiled-model population. Deliberate exhaustion still refuses completeness;
+this is conservative ownership accounting, not a measured allocator-RSS bound.
+
+Optional handoffs copy original preparation, actual success/failure attempts and full
+numerical requirements/native controls before disposal. Direct contexts create no scientific
+invocation. Actual RunResult handoffs retain their original invocation/canonical locators.
+Descriptive readers defer effectful provider identity, admitted typed documents avoid an
+encode/decode copy, and actual aggregate output cannot exceed the reader's 64 MiB limit.
+Source snapshots and raw record availability retain their independent coverage and clocks.
+Finalized native-scalar module records expose actual occupancy, extents and cache outcome
+through the existing coherent-record owner, without a second store or fabricated child metrics.
+
+**Tested, local Linux with explicit correctness validation:** 95 selected native
+detail/capture/review controls include
+`producer_tracking_uses_admitted_memory_and_refuses_when_its_partition_exhausts`,
+`tracker_capacity_counts_each_producer_family_pair` and bounded offline readers. Real
+preparation, successful/rejected initialization and canonical publication captures have
+passed `c09_real_capture_offline_readback` under their declared bounded selections.
+The [Plan64c owner](../plans/64c-process-authoring-and-first-delivery.md#current-checkpoint--2026-11-03)
+retains fresh broad-compiled capture and final qualification obligations, original failed
+selections and measured conditions. No scientific permission, unconditional lossless-stream
+guarantee or formal ADR acceptance follows.
+
 **Implemented — 2026-10-19:** selected dynamic context also retains the original joined
 native segment statistics with run identity and native reset scope. This preserves original
 getter populations when the compact live metric catalogue reports curtailment, without new

@@ -206,42 +206,6 @@ impl ModelingPackage {
         }).await
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn empty_knowledge_projection_respects_its_base_budget() {
-        let runtime = crate::workflow::tests::runtime();
-        let rows = pse_authoring::language::parse(
-            "package p {def Empty {}}",
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            Default::default(),
-        )
-        .unwrap();
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let services = runtime.preparation_services();
-        let cancel = crate::CancelSource::new();
-        let error = package
-            .knowledge(&services, None, 1, 1, &cancel.token())
-            .await
-            .unwrap_err();
-        assert!(
-            error.to_string().contains("exceeds maximum_bytes"),
-            "{error}"
-        );
-        let empty = package
-            .knowledge(&services, None, 1, 4096, &cancel.token())
-            .await
-            .unwrap();
-        assert_eq!(empty.table().batch().num_rows(), 0);
-    }
-}
-
 fn empty(kind: Kind) -> Node {
     Node {
         kind,
@@ -376,4 +340,40 @@ fn node(value: &Value, arena: &mut Vec<Node>, depth: usize) -> Result<u32, Workf
     let index = u32::try_from(arena.len()).map_err(|_| contract("knowledge arena extent"))?;
     arena.push(result);
     Ok(index)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn empty_knowledge_projection_respects_its_base_budget() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p {def Empty {}}",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let package = runtime
+            .modeling_package(rows, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let services = runtime.preparation_services();
+        let cancel = crate::CancelSource::new();
+        let error = package
+            .knowledge(&services, None, 1, 1, &cancel.token())
+            .await
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("exceeds maximum_bytes"),
+            "{error}"
+        );
+        let empty = package
+            .knowledge(&services, None, 1, 4096, &cancel.token())
+            .await
+            .unwrap();
+        assert_eq!(empty.table().batch().num_rows(), 0);
+    }
 }

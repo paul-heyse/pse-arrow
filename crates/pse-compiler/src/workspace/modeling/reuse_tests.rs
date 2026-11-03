@@ -88,7 +88,7 @@ fn repeated_function_calls_do_not_rematerialize_static_source_packages() {
         let first_selection = actual.resolved.functions.iter().next().unwrap();
         let function = first_selection.product.as_ref();
         assert_eq!(function.declaration, law);
-        assert_eq!(function.signature, [x.ty.clone()]);
+        assert_eq!(function.signature.as_slice(), std::slice::from_ref(&x.ty));
         assert_eq!(function.result, x.ty);
         for selection in actual
             .resolved

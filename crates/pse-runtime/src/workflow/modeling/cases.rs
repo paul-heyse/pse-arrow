@@ -1664,12 +1664,14 @@ impl ModelingPackage {
         lower_authored_accuracy(
             product,
             model.solved().lineage(),
-            &physical,
+            AccuracySourceContext {
+                registry: &physical,
+                scientific_revision: Some(self.revision_id()),
+            },
             numerical,
             &mut solver.numerics,
             &mut targets,
             &authored_values,
-            Some(self.revision_id()),
         )?;
         let mut producer_ids = product
             .model
@@ -1864,19 +1866,30 @@ fn selected_output_derivative_unavailable(cause: &crate::math::MathRuntimeError)
         _ => false,
     }
 }
+/// Physical and immutable scientific authority for authored accuracy premises.
+pub(in crate::workflow) struct AccuracySourceContext<'a> {
+    /// Registry owning the complete physical quantities and units.
+    pub registry: &'a pse_quantity::QuantityRegistry,
+    /// Exact immutable source revision, when a scientific context is available.
+    pub scientific_revision: Option<&'a str>,
+}
+
 /// Lower selected authored accuracy declarations into the shared numerical policy.
 /// Expressions have already been evaluated by the compiler's typed modeling program;
 /// this function only binds those values to their existing target and registry owners.
 pub(in crate::workflow) fn lower_authored_accuracy(
     product: &pse_compiler::workspace::PreparedModeling,
     scope: pse_model::lineage::Lineage,
-    registry: &pse_quantity::QuantityRegistry,
+    source: AccuracySourceContext<'_>,
     numerical: &mut NumericalInputs,
     policy: &mut pse_model::numerics::NumericalPolicy,
     targets: &mut Vec<pse_math::numerics::TargetSpec>,
     values: &BTreeMap<SemanticId, f64>,
-    scientific_revision: Option<&str>,
 ) -> Result<(), WorkflowError> {
+    let AccuracySourceContext {
+        registry,
+        scientific_revision,
+    } = source;
     fn ensure_target(
         numerical: &mut NumericalInputs,
         targets: &mut Vec<pse_math::numerics::TargetSpec>,
@@ -5829,12 +5842,14 @@ mod root_unavailable_tests {
         lower_authored_accuracy(
             product,
             model.solved().lineage(),
-            &registry,
+            AccuracySourceContext {
+                registry: &registry,
+                scientific_revision: None,
+            },
             &mut numerical,
             &mut policy,
             &mut targets,
             &BTreeMap::new(),
-            None,
         )
         .unwrap();
         for (n, target) in [(1_u8, first), (2, second)] {
@@ -5947,12 +5962,14 @@ mod root_unavailable_tests {
         lower_authored_accuracy(
             product,
             model.solved().lineage(),
-            registry,
+            AccuracySourceContext {
+                registry,
+                scientific_revision: None,
+            },
             &mut numerical,
             &mut policy,
             &mut targets,
             &values,
-            None,
         )?;
         let sources = lower_closure_requirements(
             product,
@@ -6267,12 +6284,14 @@ mod root_unavailable_tests {
         lower_authored_accuracy(
             product,
             model.solved().lineage(),
-            &registry,
+            AccuracySourceContext {
+                registry: &registry,
+                scientific_revision: None,
+            },
             &mut numerical,
             &mut policy,
             &mut targets,
             &BTreeMap::new(),
-            None,
         )
         .unwrap();
         let closures = lower_closure_requirements(

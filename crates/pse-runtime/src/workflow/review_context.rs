@@ -1915,8 +1915,10 @@ mod tests {
             native_accuracy: &native_accuracy,
             accuracy: &accuracy,
         };
-        let mut request = ReviewContextRequest::default();
-        request.maximum_bytes = 512;
+        let mut request = ReviewContextRequest {
+            maximum_bytes: 512,
+            ..Default::default()
+        };
         assert!(
             builder(&request, None, None)
                 .fact("/numerics".into(), "modeling-direct-numerics.v1", &facts)

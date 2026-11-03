@@ -8,6 +8,12 @@ use crate::workflow::{
 use std::sync::Arc;
 
 type Report<T> = Result<T, Arc<WorkflowError>>;
+type LazyRequestIdentity<'a> = Box<
+    dyn FnOnce() -> Result<(pse_ids::ContentHash, Option<pse_ids::ContentHash>), WorkflowError>
+        + Send
+        + Sync
+        + 'a,
+>;
 
 /// Borrowed execution-input projection; it never stores an independent request.
 #[derive(Clone, Copy, Debug)]
@@ -36,12 +42,7 @@ pub(super) struct RequestFacts<'a> {
     pub sources: Vec<&'a crate::workflow::ModelingPackage>,
     // Executable provider identity is effectful. Descriptive readers consume the
     // other facts without querying it; only the actual identity consumer calls this.
-    pub identity: Box<
-        dyn FnOnce() -> Result<(pse_ids::ContentHash, Option<pse_ids::ContentHash>), WorkflowError>
-            + Send
-            + Sync
-            + 'a,
-    >,
+    pub identity: LazyRequestIdentity<'a>,
     pub provenance: Result<Vec<serde_json::Value>, WorkflowError>,
     pub requested_steps: usize,
     pub native_record_coverage: crate::workflow::ReplayNativeRecordCoverage,

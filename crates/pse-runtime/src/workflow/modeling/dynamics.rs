@@ -2463,12 +2463,14 @@ impl ModelingPackage {
         cases::lower_authored_accuracy(
             product,
             model.solved().lineage(),
-            &self.quantities,
+            cases::AccuracySourceContext {
+                registry: &self.quantities,
+                scientific_revision: Some(self.revision_id()),
+            },
             &mut numerical_inputs,
             &mut profile.numerics,
             &mut targets,
             &accuracy_values,
-            Some(self.revision_id()),
         )?;
         if !profile.numerics.caloric_requirements.is_empty() {
             return Err(contract(

@@ -75,8 +75,8 @@ retain their own intervals; parent-clock numbers never filter an unrelated clock
 Selected source recording is explicitly accepted before construction. Applicable producer/family
 activation is independent of issued work: acknowledged zero work may be complete; unsupported,
 unobserved, sampled, refused and lost sources remain distinct. DetailRequest remains v1;
-source-recording request/acknowledgement and launch-result envelopes are v2, selected detail
-headers/documents/pages and supplied frozen sets are v2. Optional producer handoff is separately
+source-recording request/acknowledgement and launch-result envelopes are v2. Selected detail
+headers/documents are v3; record pages and supplied frozen sets remain v2. Optional producer handoff is separately
 admitted before construction and publishes only original joined facts or retained pre-handle
 context under its selected byte/member/expiry limits. It has its own completion receipt and
 retains no extra context when absent. Data-only handoff readback obeys frozen aggregate bounds. Earlier
@@ -84,6 +84,26 @@ output codecs are refused rather than interpreted through a compatibility path. 
 command accepts a request file and publishes an actual operation/process acknowledgement;
 CPU capture of arbitrary argv cannot establish source recording. Closing a recorder drains its
 writer and never cancels science; command cancellation owns its exact child separately.
+
+Version 3 distinguishes oversized, full-queue and closed-queue rejection. A bounded batch
+writer acknowledges records only after their complete prefix flushes; work/closure wakes it
+without a polling runtime. Producer descriptions and producer/family sequence tracking use
+a separate finite partition of the selected memory budget, with queue capacity derived from
+the remainder. Exhaustion, stop, expiry and partial writes retain explicit incomplete coverage.
+Selected native scalar compilation records identify finalized module occupancy, actual
+source/object/executable extents, output limits and cache outcome. Cache hits explicitly lack
+an object-file observation; these sizes do not establish compiler or process-tree RSS.
+
+Construction handoffs retain the actual source revision, preparation controls, full original
+initialization attempts and resolved numerical requirements/native stopping controls while
+their owners are available. Pre-solve preparation supplies no numerical outcome. Direct
+reports create no RunResult invocation; an actual run handle supplies its original invocation
+and acknowledged canonical locators. Optional operation snapshots retain their point-in-time
+coverage/staleness rather than filling missing child metrics. Descriptive reads do not invoke
+executable provider-identity callbacks. Typed owned documents move through bounded handoff
+publication without a JSON encode/decode copy, and actual aggregate output obeys the same
+64 MiB bound as its reader even when a larger allowance was requested. Copy or capture
+failure remains independent from scientific success and permission.
 
 Offline review publication exclusively creates its destination, publishes an incomplete index,
 finalizes selected members under finite allowances, and seals its index only after required
@@ -403,7 +423,7 @@ zero-overhead claim follows.
 
 > Decision: ADR-0192 (proposed; Plan44/RC01 implemented). The invocation recorder is established inside the entered activity owner before native dispatch, and that one context transfers through worker and supervisor. Version 2 uses wall seconds from that establishment, excluding earlier preparation; synchronous admission/refusal and nested invocation boundaries remain. Version-1 supervisor-only observations do not supply that expanded coverage. The native worker records its actual bounded inclusive execution interval; it is not exclusive CPU accounting. Selected historical invocation, comparison and projection acceptance retains its original scope in §24.2.
 
-> Decision: ADR-0196 (proposed; Plan43e target). Retained source-event pages can be projected through the registry-declared `runtime.diagnostic_evidence_fields`, `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` relations. Operation/producer/generation/event/field membership, exact time, units, typed values and explicit loss/availability survive projection. Existing source artifacts remain raw authority; finite analytical allocation leases remain attached to escaped Arrow buffers. Native DataFusion consumers use this same projection without scientific-store availability, implicit evaluation or a second retention authority. Repeated event identities refuse the derived view rather than silently deduplicate raw evidence.
+> Decision: ADR-0196 (proposed; Plan43e/Plan47 and Plan64c targets). Retained source-event pages can be projected through the registry-declared `runtime.diagnostic_evidence_fields`, `runtime.diagnostic_invocations` and `runtime.diagnostic_captures` relations. Operation/producer/generation/event/field membership, exact time, units, typed values and explicit loss/availability survive projection. Existing source artifacts remain raw authority; finite analytical allocation leases remain attached to escaped Arrow buffers. Native DataFusion consumers use this same projection without scientific-store availability, implicit evaluation or a second retention authority. Repeated event identities refuse the derived view rather than silently deduplicate raw evidence.
 
 Pure interpretation consumes copied coherent history or actual joined invocation documents. Selected numerical-history policies declare thresholds and require compatible phase, generation, sequence, coordinate and norm meaning. Statements distinguish facts, hypotheses and limitations and reference their source fields. Tiny native search directions are not accepted physical displacements; equal endpoints do not establish continuous stagnation. Invocation comparisons preserve requested products, original permission, failures, retries and inclusive clock scopes without initiating science or selecting an automatic performance winner.
 
