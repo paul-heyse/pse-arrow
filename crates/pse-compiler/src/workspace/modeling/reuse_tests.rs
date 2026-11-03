@@ -1941,6 +1941,66 @@ fn retention_observation_is_exclusive_owned_and_explicitly_fresh() {
 }
 
 #[test]
+fn retention_excess_records_actual_dimension_and_survives_generation_rotation() {
+    for bytes in [false, true] {
+        let mut workspace = CompilerWorkspace::new(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        )
+        .unwrap();
+        // An empty workspace may contain exactly one input. Establish an actual
+        // retained modeling population before forcing either census dimension.
+        let declarations = rows("package p {def Root {var x:Scalar;eq e:x==1;}}");
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let escaped = workspace
+            .specialize_modeling(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+        let populated = workspace.observe_retention();
+        assert!(populated.entries > 1 && populated.known_bytes > 1);
+        workspace.limits.retained_entries = if bytes { usize::MAX } else { 1 };
+        workspace.limits.retained_bytes = if bytes { 1 } else { usize::MAX };
+        let snapshot = workspace.observe_retention();
+        let excess = workspace.retention_excess().unwrap().clone();
+        assert_eq!(excess.observed, snapshot);
+        assert_eq!(excess.entry_limit, workspace.limits.retained_entries);
+        assert_eq!(excess.byte_limit, workspace.limits.retained_bytes);
+        assert_eq!(excess.entries_exceeded, !bytes);
+        assert_eq!(excess.bytes_exceeded, bytes);
+        assert!(!excess.ingredients.is_empty());
+        assert!(excess.ingredients.len() <= 8);
+        assert!(
+            excess
+                .ingredients
+                .windows(2)
+                .all(|pair| pair[0].known_bytes >= pair[1].known_bytes)
+        );
+        let next = workspace.generation() + 1;
+        workspace.rebuild(workspace.inputs.clone()).unwrap();
+        assert_eq!(workspace.generation(), next);
+        assert_eq!(workspace.retention_snapshot(), None);
+        assert_eq!(workspace.retention_excess(), Some(&excess));
+        assert_eq!(
+            escaped.equations.len(),
+            1,
+            "escaped product survives retention rotation"
+        );
+        assert_eq!(escaped.symbols.len(), 1);
+    }
+}
+
+#[test]
 fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
     let mut workspace = CompilerWorkspace::new(
         crate::authored_transfer_tests::context(),
@@ -2067,6 +2127,139 @@ fn instance_prelude_is_local_to_membership_and_static_meaning() {
         assert_eq!(incremental.as_ref(), &clean);
         assert_eq!(executions.count(Query::InstancePrelude), expected);
     }
+}
+
+#[test]
+fn repeated_actual_instances_share_field_projection_and_prelude_construction() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let measure = |copies: usize| {
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("repeated-instance-source-construction");
+        let context = operation.context();
+        let _entered = context.enter();
+        let (mut workspace, _) = observed_workspace(
+            crate::authored_transfer_tests::context(),
+            WorkspaceLimits::default(),
+        );
+        let children = (0..copies)
+            .map(|index| format!("child c{index}:Child=Child();"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let declarations = rows(&format!(
+            "package p {{def Child {{var x:Scalar;eq e:x==1;}} def Root {{{children}}}}}"
+        ));
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let revision = workspace
+            .publish_modeling(declarations, PhysicalScope::default())
+            .unwrap();
+        let instance = pse_modeling::specialize::root_instance(root);
+        let actual = workspace
+            .specialize_modeling(root, instance, Bindings::default(), Limits::default())
+            .unwrap();
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let count = |name: &str| {
+            let metric = snapshot
+                .metrics
+                .iter()
+                .find(|metric| metric.name == name)
+                .unwrap();
+            assert!(
+                !metric.cumulative_partial,
+                "{name}: incomplete construction count"
+            );
+            match metric.cumulative {
+                Value::Count(value) => value,
+                ref other => panic!("{other:?}"),
+            }
+        };
+        let measured = (
+            count("modeling.source_projections"),
+            count("modeling.prelude_premises"),
+        );
+        drop(_entered);
+        let direct = pse_modeling::specialize::specialize_with_discretizer(
+            revision.checked(),
+            root,
+            instance,
+            &Bindings::default(),
+            Limits::default(),
+            &|| false,
+            &LibraryDiscretizer,
+        )
+        .unwrap();
+        assert_eq!(actual.as_ref(), &direct);
+        assert_eq!(actual.equations.len(), copies);
+        measured
+    };
+    let one = measure(1);
+    let eight = measure(8);
+    assert_eq!(
+        one, eight,
+        "equivalent actual instances must reuse construction"
+    );
+    assert_eq!(one.1, 2, "one root and one shared child prelude");
+}
+
+#[test]
+fn exact_membership_discovery_does_not_materialize_checked_payloads() {
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("source-membership-without-materialization");
+    let context = operation.context();
+    let _entered = context.enter();
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let declarations =
+        rows("package p {def Root {var x:Scalar;eq e:x==1;} def Other {var y:Scalar;eq e:y==2;}}");
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let revision = workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    context.count("modeling.source_projections", "projections", 0);
+    let projections = || {
+        let snapshot = context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        let metric = snapshot
+            .metrics
+            .iter()
+            .find(|metric| metric.name == "modeling.source_projections")
+            .unwrap();
+        assert!(!metric.cumulative_partial);
+        match metric.cumulative {
+            Value::Count(value) => value,
+            ref other => panic!("{other:?}"),
+        }
+    };
+    let before = projections();
+    let selection = pse_modeling::check::StaticPackageSelection::root(root);
+    let membership = selection.membership(revision.checked()).unwrap();
+    assert!(membership.contains(root));
+    assert_eq!(
+        projections(),
+        before,
+        "discovery cannot allocate an owned selected package"
+    );
+    let selected = selection.select(revision.checked()).unwrap();
+    assert!(
+        selected
+            .declarations()
+            .all(|row| membership.contains(row.declaration_id))
+    );
+    assert_eq!(projections(), before + 1);
 }
 
 #[test]

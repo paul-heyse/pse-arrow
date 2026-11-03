@@ -35,7 +35,19 @@ impl PreludePremises {
     /// # Errors
     /// Missing definition or invalid static dependency projection.
     pub fn select(package: &CheckedPackage, bindings: &PreludeBindings) -> Result<Self> {
-        let definition = bindings.definition;
+        Self::from_selection(package, bindings.definition, Self::selection(bindings))
+    }
+    /// Construct local premises inside the owner of this exact static request.
+    /// # Errors
+    /// The selected definition or a static dependency is absent.
+    pub fn from_selection(
+        package: &CheckedPackage,
+        definition: DeclarationId,
+        selection: crate::check::StaticPackageSelection,
+    ) -> Result<Self> {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("modeling.prelude_premises", "premises", 1);
+        }
         let members = package
             .members
             .get(&definition)
@@ -68,7 +80,6 @@ impl PreludePremises {
                 conditional.insert(id, children);
             }
         }
-        let selection = Self::selection(bindings);
         Ok(Self {
             package: Arc::new(selection.select(package)?),
             selection,
@@ -76,8 +87,12 @@ impl PreludePremises {
             conditional,
         })
     }
+    /// Complete source selector, usable as a nonauthoritative lookup hint.
+    pub fn source_selection(&self) -> &crate::check::StaticPackageSelection {
+        &self.selection
+    }
     /// Capture the exact static request before its owner materializes a package.
-    pub(super) fn selection(bindings: &PreludeBindings) -> crate::check::StaticPackageSelection {
+    pub fn selection(bindings: &PreludeBindings) -> crate::check::StaticPackageSelection {
         fn dependencies(value: &Value, out: &mut Vec<DeclarationId>) {
             match value {
                 Value::Function(id) => out.push(*id),
@@ -132,6 +147,16 @@ impl PreludePremises {
     pub fn retained_bytes(&self) -> usize {
         self.package
             .retained_bytes()
+            .saturating_add(self.local_retained_bytes())
+    }
+    /// Compiler-owned extent when the physical inputs are independently retained.
+    pub fn retained_bytes_excluding_shared_inputs(&self) -> usize {
+        self.package
+            .retained_bytes_excluding_shared_inputs()
+            .saturating_add(self.local_retained_bytes())
+    }
+    fn local_retained_bytes(&self) -> usize {
+        size_of::<Self>()
             .saturating_add(self.selection.retained_bytes())
             .saturating_add(self.members.len().saturating_mul(256))
             .saturating_add(
@@ -225,6 +250,16 @@ impl InstancePrelude {
 /// The compiler provides query-owned derivation; standalone specialization derives
 /// exactly the same pure result without introducing another production mechanism.
 pub trait Fragments {
+    /// Discover exact field membership without retaining projected payloads.
+    fn selected_field_membership(
+        &self,
+        selection: crate::check::StaticPackageSelection,
+    ) -> Result<Arc<crate::check::StaticPackageMembership>>;
+    /// Read an exact field source before dependency discovery materializes it.
+    fn selected_field_package(
+        &self,
+        selection: crate::check::StaticPackageSelection,
+    ) -> Result<Arc<CheckedPackage>>;
     /// Derive one source-owned expression with explicit local typed and namespace premises.
     fn field_fragment(
         &self,
@@ -239,7 +274,7 @@ pub trait Fragments {
     /// Derive from entity-local premises and exact bindings.
     fn instance_prelude(
         &self,
-        premises: Arc<PreludePremises>,
+        selection: crate::check::StaticPackageSelection,
         bindings: PreludeBindings,
     ) -> Result<Arc<InstancePrelude>>;
 }

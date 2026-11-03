@@ -51,16 +51,27 @@ fn types_heap((value,): &(SharedOwner<BTreeMap<String, pse_modeling::Type>>,)) -
 // Immutable payload interning happens only inside tracked projection producers,
 // never on each field/function callback. Parent/selector handles belong to the
 // producer key; equal complete payloads still share across independent parents.
-#[derive(Clone, Debug, PartialEq)]
-pub(super) struct StaticFunctionPackage(Arc<CheckedPackage>);
+#[derive(Clone, Debug)]
+pub(super) struct StaticFunctionPackage(Arc<CheckedPackage>, u64);
+impl StaticFunctionPackage {
+    fn new(package: Arc<CheckedPackage>) -> Self {
+        let mut hint = std::collections::hash_map::DefaultHasher::new();
+        for declaration in package.declarations() {
+            std::hash::Hash::hash(&declaration.declaration_id, &mut hint);
+        }
+        Self(package, std::hash::Hasher::finish(&hint))
+    }
+}
+impl PartialEq for StaticFunctionPackage {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
 impl Eq for StaticFunctionPackage {}
 impl std::hash::Hash for StaticFunctionPackage {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         // Bucket hint only; complete checked equality remains the payload authority.
-        std::hash::Hash::hash(
-            &self.0.declarations().next().map(|row| row.declaration_id),
-            state,
-        );
+        std::hash::Hash::hash(&self.1, state);
     }
 }
 #[salsa::interned(heap_size=package_heap)]
@@ -84,7 +95,7 @@ fn package_heap(
 }
 #[salsa::interned(heap_size=selection_heap)]
 pub(super) struct Selection<'db> {
-    value: pse_modeling::check::StaticPackageSelection,
+    pub(super) value: pse_modeling::check::StaticPackageSelection,
 }
 fn selection_heap((value,): &(pse_modeling::check::StaticPackageSelection,)) -> usize {
     value.retained_bytes()
@@ -130,6 +141,30 @@ fn selected_package<'db>(
     let package = Arc::new(selection.value(db).select(&source)?);
     Ok(own_static_package(db, package)?)
 }
+#[salsa::tracked(returns(clone), lru=256, heap_size=membership_heap)]
+fn selected_membership<'db>(
+    db: &'db dyn CompilerDb,
+    parent: StaticFunctionPackageKey<'db>,
+    selection: Selection<'db>,
+) -> Result<Arc<pse_modeling::check::StaticPackageMembership>> {
+    checkpoint(db);
+    let source = read_static_package(db, &parent)?;
+    let membership = Arc::new(selection.value(db).membership(&source)?);
+    checkpoint(db);
+    Ok(membership)
+}
+fn membership_heap(value: &Result<Arc<pse_modeling::check::StaticPackageMembership>>) -> usize {
+    value
+        .as_ref()
+        .map_or(0, |membership| membership.retained_bytes())
+}
+pub(super) fn field_membership<'db>(
+    db: &'db dyn CompilerDb,
+    parent: StaticFunctionPackageKey<'db>,
+    selection: pse_modeling::check::StaticPackageSelection,
+) -> Result<Arc<pse_modeling::check::StaticPackageMembership>> {
+    selected_membership(db, parent, Selection::new(db, selection))
+}
 pub(super) fn root_package<'db>(
     db: &'db dyn CompilerDb,
     catalog: Catalog,
@@ -147,6 +182,7 @@ pub(super) fn select_package<'db>(
 pub(super) fn configure(db: &mut dyn CompilerDb, capacity: usize) {
     root_package_query::set_lru_capacity(db, capacity);
     selected_package::set_lru_capacity(db, capacity);
+    selected_membership::set_lru_capacity(db, capacity);
 }
 fn same_owners(
     a: &pse_modeling::SharedPackageInputs,
@@ -198,7 +234,7 @@ fn own_static_package<'db>(
     }
     Ok(StaticFunctionPackageKey::new(
         db,
-        StaticFunctionPackage(package),
+        StaticFunctionPackage::new(package),
         quantities,
         preconditions,
         scope,

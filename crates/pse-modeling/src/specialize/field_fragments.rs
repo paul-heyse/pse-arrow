@@ -144,6 +144,29 @@ fn state_extent(value: &State) -> usize {
         + value.presets.capacity() * size_of::<DeclarationId>()
         + value.stack.capacity() * size_of::<DeclarationId>()
 }
+// A fragment captures lexical premises, not prior demand effects. Select before
+// cloning so a large instance's unrelated symbols/selections are never copied.
+fn state_premises(state: &State, foreign: &CapturePremises) -> State {
+    State {
+        selections: Default::default(),
+        presets: state.presets.clone(),
+        definition: state.definition,
+        parent: state.parent,
+        env: state.env.clone(),
+        scope: state.scope.clone(),
+        path: state.path.clone(),
+        members: state.members.clone(),
+        member_kinds: state.member_kinds.clone(),
+        children: state.children.clone(),
+        symbols: state
+            .symbols
+            .iter()
+            .filter(|(_, id)| foreign.symbols.contains_key(id))
+            .map(|(key, id)| (key.clone(), *id))
+            .collect(),
+        stack: state.stack.clone(),
+    }
+}
 /// Immutable typed local expression and its original lazy member effects.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldFragment {
@@ -498,7 +521,7 @@ impl Engine<'_, '_> {
             dependencies(value, &mut additional);
         }
         let mut dependencies = additional.into_iter().collect::<BTreeSet<_>>();
-        let package = loop {
+        let selection = loop {
             self.checkpoint()?;
             let previous = (dependencies.len(), instances.len());
             // Only actual instances own lexical contexts. Temporal parameter owners
@@ -525,21 +548,30 @@ impl Engine<'_, '_> {
                 dependencies.insert(source.declaration);
                 instances.insert(source.instance);
             }
-            let package = self.p.select_field(
+            let selection = crate::check::StaticPackageSelection::field(
                 source.field.declaration,
-                &dependencies.iter().copied().collect::<Vec<_>>(),
-            )?;
+                dependencies.iter().copied().collect(),
+            );
+            let membership = if let Some(fragments) = self.fragments {
+                fragments.selected_field_membership(selection.clone())?
+            } else {
+                Arc::new(selection.membership(self.p)?)
+            };
             let mut reached = Vec::new();
-            for (field, checked) in &package.expressions {
-                for (instance, state) in &self.states {
-                    if instances.contains(instance)
-                        && (state.definition == field.declaration
-                            || state.members.values().any(|id| *id == field.declaration))
-                    {
+            for instance in instances.iter().copied().collect::<Vec<_>>() {
+                let state = &self.states[&instance];
+                let declarations = std::iter::once(state.definition)
+                    .chain(state.members.values().copied())
+                    .collect::<BTreeSet<_>>();
+                for declaration in declarations
+                    .into_iter()
+                    .filter(|id| membership.contains(*id))
+                {
+                    for (_, checked) in self.p.occurrences_of(declaration) {
                         for expression in crate::expression::inventory::field(&checked.syntax) {
                             expression_dependencies(
                                 &self.states,
-                                *instance,
+                                instance,
                                 expression,
                                 &mut reached,
                                 &mut instances,
@@ -549,9 +581,7 @@ impl Engine<'_, '_> {
                 }
             }
             for ((target, _), source) in &self.numerical_sources {
-                if instances.contains(target)
-                    && package.declarations.contains_key(&source.declaration)
-                {
+                if instances.contains(target) && membership.contains(source.declaration) {
                     reached.push(source.declaration);
                     expression_dependencies(
                         &self.states,
@@ -573,20 +603,25 @@ impl Engine<'_, '_> {
             }
             dependencies.extend(reached);
             if (dependencies.len(), instances.len()) == previous {
-                break Arc::new(package);
+                break selection;
             }
+        };
+        let package = if let Some(fragments) = self.fragments {
+            fragments.selected_field_package(selection.clone())?
+        } else {
+            Arc::new(selection.select(self.p)?)
         };
         let mut states = self
             .states
             .iter()
             .filter(|(id, _)| instances.contains(id))
-            .map(|(id, state)| (*id, state.clone()))
+            .map(|(id, state)| (*id, state))
             .collect::<BTreeMap<_, _>>();
         // Preserve lexical ancestry and complete namespaces, including failed lookups.
         let mut owner = Some(instance);
         while let Some(id) = owner {
             let state = &self.states[&id];
-            states.entry(id).or_insert_with(|| state.clone());
+            states.entry(id).or_insert(state);
             owner = state.parent;
         }
         let referenced = states
@@ -652,14 +687,10 @@ impl Engine<'_, '_> {
         debug_assert_eq!(captured.actual.len(), captured.premises.symbols.len());
         let foreign_bindings = captured.bindings;
         let foreign = captured.premises;
-        for state in states.values_mut() {
-            state
-                .symbols
-                .retain(|_, id| foreign.symbols.contains_key(id));
-        }
-        for state in states.values_mut() {
-            state.selections.clear();
-        }
+        let states = states
+            .into_iter()
+            .map(|(id, state)| (id, state_premises(state, &foreign)))
+            .collect::<BTreeMap<_, _>>();
         let numerical_sources = self
             .numerical_sources
             .iter()
@@ -771,10 +802,6 @@ impl Engine<'_, '_> {
             permissions: self.evidence_permissions(instance)?,
             continuity_done,
         });
-        let selection = crate::check::StaticPackageSelection::field(
-            source.field.declaration,
-            dependencies.into_iter().collect(),
-        );
         let input = Arc::new(FieldFragmentInput {
             package,
             selection,
@@ -905,6 +932,11 @@ fn relocate_annotation(
     match roots {
         A::None => {}
         A::Scalar { value } | A::Engineering { value } => node(value, imported)?,
+        A::Caloric { values } => {
+            for value in values {
+                node(value, imported)?;
+            }
+        }
         A::Bounds { lower, upper } | A::Valid { lower, upper } => {
             node(lower, imported)?;
             node(upper, imported)?;

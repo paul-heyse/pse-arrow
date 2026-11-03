@@ -1722,6 +1722,38 @@ pub struct RetentionSnapshot {
     pub metadata_bytes: usize,
 }
 
+/// Bounded ingredient attribution from the same exclusive census as a bound excess.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RetentionIngredient {
+    /// Existing Salsa ingredient name; no independent symbol inventory is built.
+    pub name: &'static str,
+    /// Query summary rather than stored struct population.
+    pub query: bool,
+    /// Retained population reported by this ingredient.
+    pub entries: usize,
+    /// Metadata and inline fields plus any reported heap estimate.
+    pub known_bytes: usize,
+    /// Whether heap extent was supplied; false never means no external heap.
+    pub heap_reported: bool,
+}
+
+/// Last observed retention bound excess, preserved across the generation it causes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RetentionExcess {
+    /// Original census; the replacement generation never relabels this observation.
+    pub observed: RetentionSnapshot,
+    /// Actual retained-entry bound at observation.
+    pub entry_limit: usize,
+    /// Actual known-byte bound at observation, not an RSS bound.
+    pub byte_limit: usize,
+    /// The retained-entry dimension exceeded its bound.
+    pub entries_exceeded: bool,
+    /// The known-byte dimension exceeded its bound.
+    pub bytes_exceeded: bool,
+    /// Up to eight largest known ingredient extents from that same census.
+    pub ingredients: Vec<RetentionIngredient>,
+}
+
 /// Single-writer workspace. Callers serialize access; no database clones or partial batches escape.
 pub struct CompilerWorkspace {
     events: Option<CompilerEvents>,
@@ -1732,6 +1764,7 @@ pub struct CompilerWorkspace {
 
     generation: usize,
     retention_snapshot: Option<RetentionSnapshot>,
+    retention_excess: Option<RetentionExcess>,
     modeling: Option<modeling::State>,
     granular: modeling::granular::State,
     /// Package data document inputs by identity (ADR-0125), each set only when its bytes
@@ -1813,6 +1846,7 @@ impl CompilerWorkspace {
 
             generation: 0,
             retention_snapshot: None,
+            retention_excess: None,
             modeling: None,
             granular: Default::default(),
             documents: BTreeMap::new(),
@@ -1835,6 +1869,7 @@ impl CompilerWorkspace {
         if let Some(state) = &self.modeling {
             replacement.publish_modeling_revision(state.revision.clone())?;
         }
+        replacement.retention_excess = self.retention_excess.take();
         *self = replacement;
         self.generation = generation;
         self.retention_snapshot = None;
@@ -1992,32 +2027,51 @@ impl CompilerWorkspace {
                 .lock()
                 .map_or(0, |live| live.bodies.len()),
         );
-        let (entries, known_bytes, metadata_bytes) =
-            report.structs.iter().chain(report.queries.values()).fold(
-                (
-                    self.granular
-                        .entries()
-                        .saturating_add(live_entries)
-                        .saturating_add(label_entries),
-                    self.granular
-                        .known_bytes(&self.db)
-                        .saturating_add(label_extent)
-                        .saturating_add(live_entries.saturating_mul(256)),
-                    0usize,
-                ),
-                |(entries, bytes, metadata), info| {
-                    let inline = info
-                        .size_of_metadata()
-                        .saturating_add(info.size_of_fields());
-                    (
-                        entries.saturating_add(info.count()),
-                        bytes
-                            .saturating_add(inline)
-                            .saturating_add(info.heap_size_of_fields().unwrap_or(0)),
-                        metadata.saturating_add(inline),
-                    )
-                },
-            );
+        let mut entries = self
+            .granular
+            .entries()
+            .saturating_add(live_entries)
+            .saturating_add(label_entries);
+        let mut known_bytes = self
+            .granular
+            .known_bytes(&self.db)
+            .saturating_add(label_extent)
+            .saturating_add(live_entries.saturating_mul(256));
+        let mut metadata_bytes = 0usize;
+        let mut ingredients = Vec::with_capacity(8);
+        for (query, info) in report
+            .structs
+            .iter()
+            .map(|info| (false, info))
+            .chain(report.queries.values().map(|info| (true, info)))
+        {
+            let inline = info
+                .size_of_metadata()
+                .saturating_add(info.size_of_fields());
+            let known = inline.saturating_add(info.heap_size_of_fields().unwrap_or(0));
+            entries = entries.saturating_add(info.count());
+            known_bytes = known_bytes.saturating_add(known);
+            metadata_bytes = metadata_bytes.saturating_add(inline);
+            let ingredient = RetentionIngredient {
+                name: info.debug_name(),
+                query,
+                entries: info.count(),
+                known_bytes: known,
+                heap_reported: info.heap_size_of_fields().is_some(),
+            };
+            let rank = |item: &RetentionIngredient| {
+                (std::cmp::Reverse(item.known_bytes), item.name, item.query)
+            };
+            let index = ingredients
+                .binary_search_by_key(&rank(&ingredient), rank)
+                .unwrap_or_else(|index| index);
+            if index < 8 {
+                if ingredients.len() == 8 {
+                    ingredients.pop();
+                }
+                ingredients.insert(index, ingredient);
+            }
+        }
         let observed = RetentionSnapshot {
             generation: self.generation,
             revision: salsa::plumbing::current_revision(&self.db),
@@ -2029,7 +2083,153 @@ impl CompilerWorkspace {
             metadata_bytes,
         };
         self.retention_snapshot = Some(observed);
+        // This is the only census: selected detail copies only its bounded top
+        // ingredients and never retains the invocation context on the workspace.
+        if let Some(context) = pse_diagnostics::observation::current()
+            && context.record_tap().is_some_and(|tap| {
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    tap.selected("compiler_retention.v1")
+                }))
+                .unwrap_or(false)
+            })
+        {
+            use pse_diagnostics::observation::{ProducerRole, RecordField, Value};
+            let producer = context.producer(ProducerRole::Workflow, "compiler.retention");
+            producer.activate_record_family("compiler_retention.v1");
+            let mut fields = Vec::with_capacity(10 + ingredients.len() * 5);
+            let mut field = |name: String, unit: &str, value: Value| {
+                fields.push(RecordField {
+                    name,
+                    unit: unit.into(),
+                    value,
+                    availability: None,
+                })
+            };
+            let count = |value: usize| u64::try_from(value).map_or(Value::Overflow, Value::Count);
+            field(
+                "generation".into(),
+                "generation",
+                count(observed.generation),
+            );
+            field(
+                "revision".into(),
+                "salsa_revision",
+                Value::Text(format!("{:?}", observed.revision)),
+            );
+            field(
+                "observation".into(),
+                "observation",
+                Value::Count(observed.observation),
+            );
+            field("entries".into(), "entries", count(entries));
+            field("known_bytes".into(), "bytes", count(known_bytes));
+            field("metadata_bytes".into(), "bytes", count(metadata_bytes));
+            field(
+                "entry_limit".into(),
+                "entries",
+                count(self.limits.retained_entries),
+            );
+            field(
+                "byte_limit".into(),
+                "bytes",
+                count(self.limits.retained_bytes),
+            );
+            field(
+                "entries_exceeded".into(),
+                "boolean",
+                Value::Boolean(entries > self.limits.retained_entries),
+            );
+            field(
+                "bytes_exceeded".into(),
+                "boolean",
+                Value::Boolean(known_bytes > self.limits.retained_bytes),
+            );
+            for (index, ingredient) in ingredients.iter().enumerate() {
+                let prefix = format!("ingredient_{index}");
+                field(
+                    format!("{prefix}_name"),
+                    "salsa_ingredient",
+                    Value::Text(ingredient.name.into()),
+                );
+                field(
+                    format!("{prefix}_query"),
+                    "boolean",
+                    Value::Boolean(ingredient.query),
+                );
+                field(
+                    format!("{prefix}_entries"),
+                    "entries",
+                    count(ingredient.entries),
+                );
+                field(
+                    format!("{prefix}_known_bytes"),
+                    "bytes",
+                    count(ingredient.known_bytes),
+                );
+                field(
+                    format!("{prefix}_heap_reported"),
+                    "boolean",
+                    Value::Boolean(ingredient.heap_reported),
+                );
+            }
+            let record = producer.record("compiler_retention.v1", "census", None, None, fields);
+            producer.publish(&record);
+        }
+        if entries > self.limits.retained_entries || known_bytes > self.limits.retained_bytes {
+            let excess = RetentionExcess {
+                observed,
+                entry_limit: self.limits.retained_entries,
+                byte_limit: self.limits.retained_bytes,
+                entries_exceeded: entries > self.limits.retained_entries,
+                bytes_exceeded: known_bytes > self.limits.retained_bytes,
+                ingredients,
+            };
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("compiler.retention_excess_observations", "observations", 1);
+                context.gauge(
+                    "compiler.retention_excess.generation",
+                    "generation",
+                    self.generation as f64,
+                );
+                context.gauge(
+                    "compiler.retention_excess.entries",
+                    "entries",
+                    entries as f64,
+                );
+                context.gauge(
+                    "compiler.retention_excess.known_bytes",
+                    "bytes",
+                    known_bytes as f64,
+                );
+                context.gauge(
+                    "compiler.retention_excess.entry_limit",
+                    "entries",
+                    self.limits.retained_entries as f64,
+                );
+                context.gauge(
+                    "compiler.retention_excess.byte_limit",
+                    "bytes",
+                    self.limits.retained_bytes as f64,
+                );
+                context.gauge(
+                    "compiler.retention_excess.entries_exceeded",
+                    "boolean",
+                    u8::from(excess.entries_exceeded) as f64,
+                );
+                context.gauge(
+                    "compiler.retention_excess.bytes_exceeded",
+                    "boolean",
+                    u8::from(excess.bytes_exceeded) as f64,
+                );
+            }
+            self.retention_excess = Some(excess);
+        }
         observed
+    }
+    /// Last bound-excess observation, including the original generation and top ingredients.
+    /// Reading does not perform a census or alter cache recency.
+    pub fn retention_excess(&self) -> Option<&RetentionExcess> {
+        self.retention_excess.as_ref()
     }
     /// Latest owned diagnostic observation. It can predate subsequent queries or
     /// edits; admission always calls `observe_retention` instead of trusting it.

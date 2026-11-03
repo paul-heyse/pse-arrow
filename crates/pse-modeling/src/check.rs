@@ -211,6 +211,22 @@ enum StaticSelectionMode {
     Static,
     Field,
 }
+/// Exact declaration membership discovered by the ordinary selected-source walker.
+/// It owns no declaration payload, checked expression or parent package.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StaticPackageMembership {
+    declarations: BTreeSet<DeclarationId>,
+}
+impl StaticPackageMembership {
+    /// Whether this exact dependency closure contains a declaration.
+    pub fn contains(&self, declaration: DeclarationId) -> bool {
+        self.declarations.contains(&declaration)
+    }
+    /// Conservative owned index extent, excluding the caller's independent source.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.declarations.len() * (size_of::<DeclarationId>() + 64)
+    }
+}
 impl StaticPackageSelection {
     /// The input is already the exact selected package.
     pub fn complete() -> Self {
@@ -257,6 +273,22 @@ impl StaticPackageSelection {
             StaticSelectionMode::Root => parent.select(self.root),
             StaticSelectionMode::Static => parent.select_static(self.root, &self.additional),
             StaticSelectionMode::Field => parent.select_field(self.root, &self.additional),
+        }
+    }
+    /// Discover dependencies without copying their checked payloads.
+    /// # Errors
+    /// The selected root or a required source is absent.
+    pub fn membership(&self, parent: &CheckedPackage) -> Result<StaticPackageMembership> {
+        match self.mode {
+            StaticSelectionMode::Complete => Ok(StaticPackageMembership {
+                declarations: parent.declarations.keys().copied().collect(),
+            }),
+            StaticSelectionMode::Root => {
+                parent.select_membership(self.root, false, &self.additional)
+            }
+            StaticSelectionMode::Static | StaticSelectionMode::Field => {
+                parent.select_membership(self.root, true, &self.additional)
+            }
         }
     }
     /// Owned immutable selector storage, independent from the package payload.
@@ -1959,7 +1991,7 @@ pub(super) fn finish_package(
 }
 
 impl CheckedPackage {
-    fn occurrences_of(
+    pub(crate) fn occurrences_of(
         &self,
         declaration: DeclarationId,
     ) -> impl Iterator<
@@ -2010,17 +2042,17 @@ impl CheckedPackage {
         }
         Ok(package)
     }
-    fn select_mode(
+    fn select_membership(
         &self,
         root: DeclarationId,
         static_only: bool,
         additional: &[DeclarationId],
-    ) -> Result<Self> {
+    ) -> Result<StaticPackageMembership> {
         if !self.declarations.contains_key(&root) {
             return Err(invalid(root, "selected root absent"));
         }
         if let Some(context) = pse_diagnostics::observation::current() {
-            context.count("modeling.source_projections", "projections", 1);
+            context.count("modeling.source_memberships", "memberships", 1);
         }
         let mut selected = BTreeSet::new();
         let mut pending = vec![root];
@@ -2192,6 +2224,22 @@ impl CheckedPackage {
                 }
                 type_dependencies(&table.result, &mut pending);
             }
+        }
+        Ok(StaticPackageMembership {
+            declarations: selected,
+        })
+    }
+    fn select_mode(
+        &self,
+        root: DeclarationId,
+        static_only: bool,
+        additional: &[DeclarationId],
+    ) -> Result<Self> {
+        let selected = self
+            .select_membership(root, static_only, additional)?
+            .declarations;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.count("modeling.source_projections", "projections", 1);
         }
         // A record stays with the declaration that admitted it: its entity or its dataset.
         let entities = selected

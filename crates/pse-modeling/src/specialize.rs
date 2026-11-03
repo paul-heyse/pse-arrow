@@ -645,7 +645,7 @@ pub(crate) struct Engine<'a, 'b> {
     root: DeclarationId,
     function_permissions: Option<std::sync::Arc<Vec<pse_model::applicability::Permission>>>,
     inspection_context: Option<ContentHash>,
-    selection_collector: crate::scientific_selection::Collector,
+    pub(crate) selection_collector: crate::scientific_selection::Collector,
     finite_collector: finite::Collector,
     construction: crate::resolved::construction::Construction,
     originals: Vec<std::sync::Arc<construction::OriginalScope>>,
@@ -1758,10 +1758,10 @@ impl Engine<'_, '_> {
             facts: self.facts.clone(),
             members: self.limits.members,
         };
-        let premises = std::sync::Arc::new(prelude::PreludePremises::select(self.p, &bindings)?);
         let prelude = if let Some(fragments) = self.fragments {
-            fragments.instance_prelude(premises, bindings)?
+            fragments.instance_prelude(prelude::PreludePremises::selection(&bindings), bindings)?
         } else {
+            let premises = prelude::PreludePremises::select(self.p, &bindings)?;
             std::sync::Arc::new(prelude::derive(&premises, &bindings)?)
         };
         for (occurrence, closure) in &prelude.selections {

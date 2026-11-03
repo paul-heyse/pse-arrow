@@ -358,27 +358,67 @@ fn function_contracts(
 ) -> Result<Arc<CheckedPackage>> {
     selected(db, catalog, root)
 }
-#[derive(Clone, Debug, PartialEq)]
-struct PreludeInput {
-    premises: Arc<pse_modeling::specialize::prelude::PreludePremises>,
-    bindings: pse_modeling::specialize::prelude::PreludeBindings,
-}
-impl Eq for PreludeInput {}
-impl std::hash::Hash for PreludeInput {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // A bucket hint only: complete entity-local premises remain Eq authority.
-        std::hash::Hash::hash(&self.bindings, state);
+#[derive(Clone, Debug)]
+struct SharedPreludePremises(Arc<pse_modeling::specialize::prelude::PreludePremises>);
+impl PartialEq for SharedPreludePremises {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
     }
+}
+impl Eq for SharedPreludePremises {}
+impl std::hash::Hash for SharedPreludePremises {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(self.0.source_selection(), state);
+    }
+}
+#[salsa::interned(heap_size=prelude_source_heap)]
+struct PreludeSource<'db> {
+    premises: SharedPreludePremises,
+}
+fn prelude_source_heap((premises,): &(SharedPreludePremises,)) -> usize {
+    premises.0.retained_bytes_excluding_shared_inputs()
+}
+#[derive(Clone, Debug, PartialEq, salsa::SalsaValue)]
+struct PreludeFailure {
+    cause: CompileError,
+}
+#[salsa::tracked(returns(clone), lru = 256)]
+fn prelude_source<'db>(
+    db: &'db dyn CompilerDb,
+    parent: StaticFunctionPackageKey<'db>,
+    selection: shared_packages::Selection<'db>,
+    definition: DeclarationId,
+) -> std::result::Result<PreludeSource<'db>, PreludeFailure> {
+    checkpoint(db);
+    let source = read_static_package(db, &parent).map_err(|error| PreludeFailure {
+        cause: error.into(),
+    })?;
+    let premises = pse_modeling::specialize::prelude::PreludePremises::from_selection(
+        &source,
+        definition,
+        selection.value(db).clone(),
+    )
+    .map_err(|error| PreludeFailure {
+        cause: error.into(),
+    })?;
+    checkpoint(db);
+    Ok(PreludeSource::new(
+        db,
+        SharedPreludePremises(Arc::new(premises)),
+    ))
 }
 #[salsa::interned(heap_size=prelude_key_heap)]
 struct PreludeKey<'db> {
-    input: Arc<PreludeInput>,
+    source: PreludeSource<'db>,
+    bindings: Arc<pse_modeling::specialize::prelude::PreludeBindings>,
 }
-fn prelude_key_heap((input,): &(Arc<PreludeInput>,)) -> usize {
-    input
-        .premises
-        .retained_bytes()
-        .saturating_add(input.bindings.retained_bytes())
+fn prelude_key_heap(
+    (_, bindings): &(
+        PreludeSource<'_>,
+        Arc<pse_modeling::specialize::prelude::PreludeBindings>,
+    ),
+) -> usize {
+    bindings.retained_bytes()
 }
 #[salsa::tracked(returns(clone),lru=256,heap_size=prelude_heap)]
 fn instance_prelude(
@@ -386,8 +426,9 @@ fn instance_prelude(
     key: PreludeKey<'_>,
 ) -> Result<Arc<pse_modeling::specialize::prelude::InstancePrelude>> {
     checkpoint(db);
-    let input = key.input(db);
-    let result = pse_modeling::specialize::prelude::derive(&input.premises, &input.bindings)?;
+    let source = key.source(db);
+    let result =
+        pse_modeling::specialize::prelude::derive(&source.premises(db).0, key.bindings(db))?;
     checkpoint(db);
     Ok(Arc::new(result))
 }
@@ -496,6 +537,22 @@ struct QueryFragments<'db> {
     parent: StaticFunctionPackageKey<'db>,
 }
 impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
+    fn selected_field_membership(
+        &self,
+        selection: pse_modeling::check::StaticPackageSelection,
+    ) -> std::result::Result<
+        Arc<pse_modeling::check::StaticPackageMembership>,
+        pse_modeling::ModelingError,
+    > {
+        shared_packages::field_membership(self.db, self.parent, selection).map_err(fragment_error)
+    }
+    fn selected_field_package(
+        &self,
+        selection: pse_modeling::check::StaticPackageSelection,
+    ) -> std::result::Result<Arc<CheckedPackage>, pse_modeling::ModelingError> {
+        let package = select_package(self.db, self.parent, selection).map_err(fragment_error)?;
+        read_static_package(self.db, &package)
+    }
     fn field_fragment(
         &self,
         input: Arc<pse_modeling::specialize::field_fragments::FieldFragmentInput>,
@@ -541,13 +598,20 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
 
     fn instance_prelude(
         &self,
-        premises: Arc<pse_modeling::specialize::prelude::PreludePremises>,
+        selection: pse_modeling::check::StaticPackageSelection,
         bindings: pse_modeling::specialize::prelude::PreludeBindings,
     ) -> std::result::Result<
         Arc<pse_modeling::specialize::prelude::InstancePrelude>,
         pse_modeling::ModelingError,
     > {
-        let key = PreludeKey::new(self.db, Arc::new(PreludeInput { premises, bindings }));
+        let source = prelude_source(
+            self.db,
+            self.parent,
+            shared_packages::Selection::new(self.db, selection),
+            bindings.definition,
+        )
+        .map_err(|error| fragment_error(error.cause))?;
+        let key = PreludeKey::new(self.db, source, Arc::new(bindings));
         instance_prelude(self.db, key).map_err(|error| match error {
             CompileError::Modeling(error) => error,
             CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
@@ -783,6 +847,7 @@ impl CompilerWorkspace {
             }
             restored.generation = generation;
             restored.retention_snapshot = None;
+            restored.retention_excess = self.retention_excess.take();
             *self = restored;
         }
         candidate
@@ -895,6 +960,7 @@ impl CompilerWorkspace {
             }
             restored.generation = generation;
             restored.retention_snapshot = None;
+            restored.retention_excess = self.retention_excess.take();
             *self = restored;
         }
         result
@@ -969,6 +1035,7 @@ impl CompilerWorkspace {
             specialized::set_lru_capacity(&mut self.db, self.limits.query_values);
             observed_specialization::set_lru_capacity(&mut self.db, self.limits.query_values);
             instance_prelude::set_lru_capacity(&mut self.db, self.limits.query_values);
+            prelude_source::set_lru_capacity(&mut self.db, self.limits.query_values);
             function_fragment::set_lru_capacity(&mut self.db, self.limits.query_values);
             field_fragment::set_lru_capacity(&mut self.db, self.limits.query_values);
             physical_scope::set_lru_capacity(&mut self.db, self.limits.query_values);

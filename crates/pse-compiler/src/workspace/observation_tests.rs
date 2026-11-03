@@ -56,6 +56,119 @@ fn count(context: &pse_diagnostics::observation::ObservationContext, name: &str)
 }
 
 #[test]
+fn selected_retention_census_records_actual_bounds_ingredients_and_operation() {
+    #[derive(Debug, Default)]
+    struct Detail {
+        activated: AtomicUsize,
+        records: Mutex<Vec<pse_diagnostics::observation::CoherentRecord>>,
+    }
+    impl RecordTap for Detail {
+        fn selected(&self, family: &str) -> bool {
+            family == "compiler_retention.v1"
+        }
+        fn activate(&self, _: &pse_diagnostics::observation::ProducerDescriptor, _: &str) {
+            self.activated.fetch_add(1, Ordering::Relaxed);
+        }
+        fn observe(&self, record: &pse_diagnostics::observation::CoherentRecord) {
+            self.records.lock().unwrap().push(record.clone());
+        }
+    }
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .publish_modeling(declarations(1), pse_modeling::PhysicalScope::default())
+        .unwrap();
+    workspace.limits.retained_entries = usize::MAX;
+    workspace.limits.retained_bytes = usize::MAX;
+    let hub = ObservationHub::new(Policy::default());
+    let first = hub.start("retention first");
+    let first_tap = Arc::new(Detail::default());
+    let first_context = first.context().with_record_tap(first_tap.clone());
+    let initial = {
+        let _entered = first_context.enter();
+        workspace.observe_retention()
+    };
+    assert!(workspace.retention_excess().is_none());
+    assert!(first_tap.activated.load(Ordering::Relaxed) > 0);
+    workspace.rebuild(workspace.inputs.clone()).unwrap();
+    workspace.limits.retained_entries = 0;
+    workspace.limits.retained_bytes = 0;
+    let second = hub.start("retention second");
+    let second_tap = Arc::new(Detail::default());
+    let second_context = second.context().with_record_tap(second_tap.clone());
+    let observed = {
+        let _entered = second_context.enter();
+        workspace.observe_retention()
+    };
+    let excess = workspace.retention_excess().unwrap();
+    assert!(observed.generation > initial.generation);
+    let records = second_tap.records.lock().unwrap();
+    assert_eq!(records.len(), 1);
+    let record = &records[0];
+    assert_eq!(record.producer.operation, second_context.id());
+    assert_eq!(record.family, "compiler_retention.v1");
+    let value = |name: &str| {
+        &record
+            .values
+            .iter()
+            .find(|field| field.name == name)
+            .unwrap()
+            .value
+    };
+    assert_eq!(
+        value("generation"),
+        &Value::Count(observed.generation as u64)
+    );
+    assert_eq!(value("observation"), &Value::Count(observed.observation));
+    assert_eq!(value("entries"), &Value::Count(observed.entries as u64));
+    assert_eq!(
+        value("known_bytes"),
+        &Value::Count(observed.known_bytes as u64)
+    );
+    assert_eq!(value("entry_limit"), &Value::Count(0));
+    assert_eq!(value("byte_limit"), &Value::Count(0));
+    assert_eq!(
+        value("entries_exceeded"),
+        &Value::Boolean(excess.entries_exceeded)
+    );
+    assert_eq!(
+        value("bytes_exceeded"),
+        &Value::Boolean(excess.bytes_exceeded)
+    );
+    assert!(!excess.ingredients.is_empty());
+    assert!(excess.ingredients.len() <= 8);
+    let ingredient = &excess.ingredients[0];
+    assert_eq!(
+        value("ingredient_0_name"),
+        &Value::Text(ingredient.name.into())
+    );
+    assert_eq!(
+        value("ingredient_0_query"),
+        &Value::Boolean(ingredient.query)
+    );
+    assert_eq!(
+        value("ingredient_0_entries"),
+        &Value::Count(ingredient.entries as u64)
+    );
+    assert_eq!(
+        value("ingredient_0_known_bytes"),
+        &Value::Count(ingredient.known_bytes as u64)
+    );
+    assert_eq!(
+        value("ingredient_0_heap_reported"),
+        &Value::Boolean(ingredient.heap_reported)
+    );
+    assert_eq!(
+        first_tap.records.lock().unwrap().len(),
+        1,
+        "later generation must not reuse the first invocation tap"
+    );
+}
+
+#[test]
 fn query_observation_batches_exact_events_without_ordinary_key_formatting() {
     let key = actual_key();
     let cache = Mutex::new(None);
