@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 345
+revision: 346
 date: 2026-11-03
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 346 | 2026-11-03 | Record the selected native water provider, ideal-only stock reference translation and authored equipment boundary (§9.8). | Proposed ADR-0238 before the Plan64d D02 / 64f F02 backend binding; native/source controls and configured scientific qualification remain open. |
 | 345 | 2026-11-03 | Include newly published protection predicates in the proposed atomic capture witness, covering retention and withdrawal in both commit orders (§20.6.3). | Plan64g G08 source investigation within proposed ADR-0230; production implementation and race qualification remain open. |
 | 344 | 2026-11-03 | Record the Plan64g atomic capture publication-witness target and conditional SQL-only writable Surrealism qualification boundary (§20.6.3). | Maintainer-authorized Plan64d–g implementation; proposed ADR-0230 amended before production replacement. Exact-engine evidence and complete writer/reader migration remain required; formal ADR status unchanged. |
 | 343 | 2026-11-03 | Retain original native or reconstructed quality separately from declared checks in selected direct-result evidence (§23.1). | Authorized Plan64c C09 correction within proposed ADR-0196; bounded codec and actual rejected-stage offline readback passed. No ADR status or assembled qualification change. |

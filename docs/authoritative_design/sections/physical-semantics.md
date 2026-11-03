@@ -610,6 +610,18 @@ rows for isolated numerical behavior; they exclude external dataset transport. T
 execution packet records actual evidence. Full package/data transport and assembled
 qualification remain Plan 25k work.
 
+> Proposed binding: ADR-0238, Plan64d D02 / 64f F02.
+
+The selected native water increment binds CoolProp HEOS through the existing typed provider
+contract, with attempt-owned mutable states and exact loaded-library/data identity. Authored
+steam state and equipment definitions retain physical equations and reference meaning. The
+stock h/s reference is obtained from the library's ideal-only anchor at the actual declared
+reference conditions using its fitted gas constant; h and internal-energy diagnostics receive
+the same offset. No global reference-state mutation is selected. Pressure, enthalpy and entropy
+with homogeneous first/second partials are the initial demanded products. Wet-state, phase/root
+and expanded fluid claims require their own complete consumer evidence. This is a proposed
+binding; the existing implementation and qualification limits above remain until delivery.
+
 ### 9.9 Electrolytes and inherent reactions
 
 > Implemented amendment: [ADR-0140](../../adr/0140-scientific-knowledge-admission.md).

@@ -6,7 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
 doc_topics: [current-work, design, validation]
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
-adrs: []
+adrs: [ADR-0238]
 ---
 
 # Scientific assets and reusable equipment
@@ -52,7 +52,15 @@ Extend demanded state-coordinate families through existing semantic slots and re
 
 Deliver steam/supercritical-fluid capabilities with pump/turbine or heat-exchanger consumers. Compare authored and selected external realizations only for the complete demanded physical contract, including ideal/caloric contributions, datum, root/phase selection, derivatives and domain failures. No particular external dependency is adopted by this plan.
 
-The review preserves useful candidates: CoolProp `AbstractState`, `update`, keyed outputs and supported partial derivatives permit repeated products from an attempt-owned state, but phase/backend/data/reference-state limits matter ([primary API](https://coolprop.org/coolprop/LowLevelAPI.html)). teqp `build_multifluid_model`, `get_Arxy` and `pure_VLE_T` expose residual Helmholtz/phase capabilities; ideal/caloric completeness and ancillary-versus-equilibrium meaning remain separate ([multifluid](https://teqp.readthedocs.io/en/latest/models/multifluid.html), [derivatives](https://teqp.readthedocs.io/en/latest/derivs/derivs.html)). Treat these as researched candidates, not pinned integrations. Exact version/ABI/data selection and focused source validation are D02 decisions before adapter implementation.
+The selected first native increment is [ADR-0238](../adr/0238-native-water-property-provider.md):
+CoolProp 8 HEOS Water through the existing full `coolprop-sys` C ABI and typed provider joins,
+with coherent pressure/enthalpy/entropy, homogeneous first/second partials, explicit ideal-only
+stock reference translation and actual pump/turbine consumers. It requires exact loaded-library
+and scientific data admission; native properties alone do not qualify the configured consumers.
+Wet-state derivatives and broader fluid/configuration obligations remain separate. The
+[primary API](https://coolprop.org/coolprop/LowLevelAPI.html) explains attempt-owned state reuse.
+teqp remains an alternative for residual Helmholtz/phase demands, with ideal/caloric completeness
+and ancillary-versus-equilibrium meaning assessed separately ([multifluid](https://teqp.readthedocs.io/en/latest/models/multifluid.html), [derivatives](https://teqp.readthedocs.io/en/latest/derivs/derivs.html)).
 
 ### D03 — Deliver transport, reaction and electrolyte closures
 
