@@ -10,6 +10,13 @@ doc_topics: [design, validation, preparation, numerical-execution]
 
 ## Judgment and inspected scope
 
+The [follow-up investigation](#follow-up-investigation-source-scope-and-retained-evidence)
+extends the original assessment below. Its disposable field-selection prototype passed the
+preparation control and showed a substantially shorter observed test body; complete requested
+query recording nevertheless lost records. The current recommendation remains preparation
+first, with explicit capture integration and coverage repair before stronger numerical claims.
+All prototype changes are investigative and do not constitute production adoption.
+
 **Proposed:** correct repeated source-package construction before changing solver defaults
 or increasing test allowances. Preparation alone takes substantial time and memory, and
 the same local-field selection path was observed in both the recycle context control and
@@ -96,7 +103,7 @@ Raw local diagnostics are `/tmp/pse-recycle-review-context.{stdout,stderr,perf.d
 `/tmp/pse-recycle-review-rating.perf.data` and
 `/tmp/pse-recycle-review-rating-deep.stacks.txt`. These workstation scratch files are
 not portable retained performance artifacts; the reproduction conditions and observed
-values above delimit the claims. No before/after speedup is established by this review.
+values above delimit the claims. The initial assessment established no before/after comparison.
 
 ## Why the tests do different amounts of work
 
@@ -337,7 +344,7 @@ inputs, arithmetic-identity assertions, integrality and hard-domain protection h
 meanings. They must not be mistaken for a demanded temperature output accuracy or loosened
 as a group. Relevant principles: AP-04/AP-07, H6/H12/H20, PS-01/PS-07/PS-10/PS-11.
 
-## Execution implications and limits
+## Initial assessment: execution implications and limits
 
 I01 is the first concrete amendment to consider within C02. I02 should follow remaining
 profiles rather than becoming a prerequisite rewrite. I03 can reduce duplicated assurance
@@ -347,6 +354,513 @@ shared precision paradigm through meaningful context. None requires relaxing ori
 energy/material closure, applicability, hard domains, source provenance or failure semantics.
 
 The existing function-selection fix is useful and has targeted correctness/projection-count
-evidence; it is not evidence that all source projection has become cheap. This review supplies
+evidence; it is not evidence that all source projection has become cheap. The initial assessment supplied
 no measured improvement, full native qualification, independent-reference comparison or new
 completion claim. H02/H03 and wider Plan64 qualification retain their existing owners.
+
+## Follow-up investigation: source scope and retained evidence
+
+The follow-up began at `7db37f4ac`, preserving unrelated CLI and library-documentation
+changes. It follows the source/admission, compiler, evaluation, initialization, native,
+assessment, observation and retained-result paths consumed by these cases. Core 3.4,
+efficiency heuristics 1.0, test-assessment 1.2 and process-simulator 1.5 remain selected.
+Source-supported amplification and measured bottlenecks are distinguished below. Neither
+the historical four-feed study nor the ordinary one-feed case is silently substituted for
+the other. Production adoption and Plan64 package completion remain separately owned.
+
+### Evidence recovered, and evidence that did not survive
+
+**Tested:** the original native 36-control receipt, six-test native-diagnostics receipt,
+four-test product-observation receipt and precision diagnostic remain readable. Their
+JUnit reports establish individual outcomes and whole-test duration. They do not contain
+the successful local scientific reports' full native metrics, options or callback payloads.
+The raw perf samples and GDB stacks remain available, with their original sampling limits.
+
+The historical exchanger preservation command additionally returned
+`passed=false complete=false coverage=selected checks=1818 fixtures=1 {Inconclusive:1}`.
+No report directory was selected. The aggregate reducer ranks Inconclusive above Failed;
+this does not establish 1817 passing checks, one failed native solve, or global infeasibility.
+The exact inconclusive check is unavailable in retained output. A selected rerun must retain
+the existing conformance report export, not infer its cause from the aggregate status.
+
+| Owner/population | Actual available evidence | Interpretation limit |
+|---|---|---|
+| Invocation/JUnit | Original executable selection, streams, test outcomes and times | Includes setup/teardown; not a native-solve timer |
+| Compiler observations | Query execution/validation/wait/discard facts; selected query records; projection starts | Query miss cause and matching wait-exit duration can be unavailable; projection starts are not completed bytes or attributed selector hits |
+| Runtime preparation/cache owners | Frontier/basis acquisition, actual producers/waiters, reuse, entries and known extent | Process totals and inclusive intervals overlap; reserved bytes, known retained bytes and RSS differ |
+| Native report | Metrics, options, starts, native observations, candidate and original quality | Local successful direct outcomes are not automatically archived before destruction |
+| Canonical results/progress | Protected typed result relations and exact attempt progress | B03's selected exchanger archive is not an archive of every local recycle run |
+| Inner implicit roots | Source-associated KINSOL attempt observations and provider work | Inner SolveReport is consumed for its candidate; do not presume a separate durable inner-report archive |
+| Selected source recording | Original coherent records, family sequences, activation and loss accounting | Requires an actual cooperating entrypoint and independent finalization |
+| Offline analysis/export | Frozen interpretation, bounded detail pages, typed IPC and selected packs | A SQL specification is not executed analysis; a bounded explanation is not the whole recording |
+
+Recoverable raw follow-up artifacts are under the workstation directory
+`/home/paul/.local/state/pse-arrow/recycle-followup-20261102`, with post-clean recovery
+attempts under its `-restored` sibling. These are diagnostic artifacts, not new scientific
+authority or a portable result store. The directories retain original stdout/stderr,
+sampled checkpoint streams, derived metric selections, outcomes and numerical probe JSON.
+Sampled checkpoints are explicitly not complete source-event recordings.
+
+### Disposable experiment and collection outcomes
+
+**Tested and Measured:** the capture-only context baseline, native invocation
+`01a19ee2-d4f1-7509-b768-13465ba7a70c`, used the same six features and correctness
+validation as the original control. Its only source amendment wrapped the unchanged
+preparation body in an opt-in recorder at construction. One selected test passed against
+the zero failure baseline: nextest duration 80.282 s, original body 79.985 s. The post-clean
+test build took 6 min 4 s and is excluded from those body times.
+
+The three-file I01 prototype then routed each unchanged exact field selector through the
+existing tracked selected-package owner before construction. Native invocation
+`01a19ee9-e6f8-73cd-a283-d4f3032596f5` passed the same preparation control: nextest
+duration 26.277 s, original body 25.951 s. Neither numerical policy, source scenario nor
+scientific assertion changed. This is a witnessed promising comparison, not a stable
+threefold speedup claim: executions were not isolated repeats, other sampled controls and
+build work overlapped, and recorder losses/perturbation differed. No paired peak-memory
+benefit is established.
+
+A 250 ms checkpoint sampler retained 27 changed images from the I01 capture. Its latest
+observed compiler metrics included 1,093 source projections, specialization 12.734 s,
+plan-modeling 16.633 s and one rotation/rebuild. These cumulative metrics are explicitly
+**partial**; 1,093 cannot be presented as the complete replacement for the baseline's
+nonpartial 7,090, nor can absent remainder be treated as zero. Query-family event counts
+are a different population from owned projection constructions.
+
+| Requested compiler-query recording | Science | Terminal collection | Issued / acknowledged / dropped |
+|---|---|---|---:|
+| Capture-only baseline; complete, stride one, 16 MiB working, 256 MiB output | Passed | Incomplete; OwnerFinished | 25,784 / 10,621 / 15,163 |
+| I01 field prototype; same selection | Passed | Incomplete; OwnerFinished | 26,295 / 11,098 / 15,197 |
+| I01 field prototype; only working allowance raised to 128 MiB | Passed; body 24.823 s | Incomplete; OwnerFinished | 26,295 / 24,748 / 1,547 |
+| Capture-only binary; deliberately 1-byte output allowance | Passed; body 89.716 s | Incomplete; WriterFailed; output exhausted | 0 / 0 / 0 before activation |
+
+The first two captures actually activated four sources; their issued and observed counts
+matched, with zero sampled-out, unacknowledged and metadata-dropped counts, no unavailable
+scope and no writer error. The retained streams were only about 8 MB, below the 256 MiB
+output allowance. This establishes real collection loss despite accepted requests and
+successful science; increasing disk space or declaring the request Complete does not make
+the data complete. The 1-byte control independently confirms that diagnostic failure does
+not change the original scientific result. It does not exercise a native callback or prove
+successful whole-solve handoff. Full JSONL, acknowledgements, terminal frames, requests and
+patches are retained with the local investigation artifacts.
+
+The source computes a 64 KiB per-record retained-size threshold in both 16 and 128 MiB
+conditions, but queue capacity grows from 60 to 508 frames. Raising only that diagnostic
+allowance substantially reduced losses with identical issuance. This supports queue pressure
+as a consequential mechanism; it still did not produce complete capture. The family counter
+merges oversized-record rejection and failed queue reservation (Full/Closed); retained small
+JSON frames cannot prove the size of records that were rejected. Add distinct reason counts
+at this existing owner before claiming the remaining cause. Metadata/try-lock failures have
+different coverage fields; compiler query callback contention can instead lose updates before
+detail issuance. Inspect those operation-level dropped updates independently of detail's
+`source_partial=false`. Increasing working allowance is a diagnostic probe, not a selected
+new default or a correction for writer throughput.
+
+**Tested:** with I01 still applied, native invocation
+`01a19eee-ed45-72a5-9fe0-1c15be1e8646` ran eight selected `pse-compiler --lib`
+controls through `scripts/pse test`, explicit correctness validation: eight passed, zero
+failed against the zero baseline. Selection covered prelude locality, lazy ordinary field
+obligations, inactive aliases/membership changes, actual instances/forwarded sources,
+temporal replicas, transient specialization cancellation, receiving declaration budget and
+cancelled context refresh. These existing controls support semantic feasibility; they do
+not establish all proposed eviction, key-growth or quantitative projection-count properties.
+
+**Tested and Measured:** the captured I01 runtime binary additionally ran the three original
+historical controls through `scripts/pse-env --native=solver,klu,isolation -- /usr/bin/time -v
+<binary> --exact <test> --nocapture`, with no selected recorder. Three passed, zero failed
+against the zero baseline. A 500 ms checkpoint sampler and concurrent work remained active.
+
+| Historical control | Original body, s / max RSS, KiB | I01 body, s / max RSS, KiB |
+|---|---:|---:|
+| Four-feed context | 63.78 / 6,276,432 | 25.98 / 7,376,092 |
+| Successful initialization | 127.63 / 11,410,032 | 47.59 / 13,629,588 |
+| Overheated rejection without commit | 197.13 / 7,288,404 | 71.96 / 18,815,712 |
+
+These are diagnostic observations from different executions, not paired benchmark estimates.
+In particular the larger prototype peaks, especially the rejection case, require investigation
+before adoption; no memory improvement is claimed. Retaining intermediate exact selectors can
+trade construction for retained working set. Record ingredient ownership and reset behavior
+alongside repeat timings rather than accepting elapsed time alone. Boundary wall time can
+also include substantial launch/provider/admission delay: for the original ordinary positive
+it was 267.521 s while the body was 61.67 s; for the prototype historical positive it was
+138.925 s while the body was 47.59 s. The captured command and inner `/usr/bin/time` retain
+both clocks; the difference is not native solve time and its precise owner is not established.
+
+After acquiring the binaries and results, all four temporary source files were restored
+byte-for-byte to their verified preimages. The recorder wrapper and I01 remain retained
+patches, not adopted implementation. No changed production code is part of this review update.
+
+### What the historical positive actually did numerically
+
+**Measured from sampled records:** the fresh historical positive took 129.742 s, with
+129 changed checkpoint images. Two preparation owners retained approximately 58.069 s
+(nonpartial cumulative phase) and 57.750 s (partial). One completed native-session owner,
+sequence 2285, spans 2.288 s and reports about 2.244 s native execution. Its two successful
+`native_owner_return.v1` records are original-oracle and coordinate-transport boundaries
+of that **one** session; they are not two independent solves or additive time. Another
+session is visible without a retained terminal record. No full disjoint wall partition or
+exact tear/original association follows from chronology alone.
+
+The completed session's sampled original-oracle callback counters report 732 constraint
+calls/0.894 s, 249 Jacobians/0.396 s and 245 Hessians/0.474 s, each partial. Transported
+callback intervals overlap these original boundaries. The 68 retained evaluator-demand
+batches belong to six producer generations: those counters reset **per batch**, unlike
+the separate cumulative operation metrics. Deduplicate by actual source identity before
+aggregating; never call the batch sum a lifetime callback or nonlinear iteration count.
+
+The 64 retained nonlinear-iteration records describe two incomplete populations. Their
+highest retained source sequences contain iterations 164 and 189, with native primal
+errors about 1.225e-9 and 0.01327 respectively; the latter has native dual error about
+1.083e21. These are intermediate samples in native coordinates, not final physical closure
+errors. Missing prefixes, internal sequence positions and suffixes preclude final residual,
+iteration-total or restoration-time conclusions. Successful return does not retroactively
+make the trajectory complete. The source-hashed `derived-native-analysis.json` preserves
+the exact groups and the interpretation in `native-sampled-analysis.md`.
+
+These actual observations reinforce preparation priority. They do not show that canonical
+enthalpy fallback caused the observed restoration or dual growth, or that solver tuning
+would remove minute-scale preparation. I05 remains a physical-policy concern on its own
+merits. Final original assessment, exact attempt/session links, full native summaries and
+factor/root detail still require deliberate retention at their existing owners.
+
+### Fresh preparation evidence
+
+**Tested and Measured:** the captured six-feature context control passed with zero failures
+while a 500 ms observer retained 64 changed checkpoints (19,956,423 bytes). Process wall
+time including boundary activation was 78.818 s. One observed compiler operation recorded
+7,090 source projections; `modeling.specialization` retained 53.005 s, its enclosing
+`compiler.query.specialized` 53.018 s, and `compiler.plan_modeling` 56.416 s. These are
+inclusive, overlapping intervals, not additive costs or exclusive CPU measurements.
+The tracked field-fragment phase accounted for only 2.842 s: timing only the cached
+derivation would miss much of the eager caller-side work identified by the earlier stacks.
+
+The same operation reported one retention-limit rotation and one workspace rebuild.
+That observation establishes occurrence, not that the rotation caused all repeated work.
+Across the sampled context stream, 264 operation identities appeared; observed per-operation
+coverage maxima included 28 dropped updates, 22,592 dropped detail records and 110 refused
+items. These are maxima of reported counters, not a deduplicated sum of all lost events.
+The historical positive control also passed, retaining 129 checkpoint images and 48,461,981
+bytes, with additional visible coverage loss. Neither stream can support complete numerical
+trajectory or zero-work claims for absent fields.
+
+During the first fresh matrix, the maintainer ran `cargo clean`. Six subsequent boundary
+launches refused with exit 125 because the prepared host was gone; no scientific test
+executed in those six attempts. Their refusals remain retained. Free space was observed
+to increase from about 2 GiB to 326 GiB. The native host was explicitly rebuilt, and
+`just ready` passed. These preparation effects are separate from scientific timing;
+the clean is not evidence of a solver or model speedup.
+
+**Tested and Measured:** after explicit host recovery, the six refused local controls were
+executed from the unchanged original captured binary using the same native boundary,
+`/usr/bin/time -v`, exact-test selection and 500 ms observer. Together with the first two
+fresh controls, all eight original local cases passed, zero failed against the zero baseline.
+Their fresh body and outer launch-wall times remain distinct:
+
+| Original local control | Test body, s | Outer wall, s | Changed checkpoint images |
+|---|---:|---:|---:|
+| Historical context | 63.78 | 78.818 | 64 |
+| Historical successful initialization | 127.63 | 129.742 | 129 |
+| Historical overheated rejection | 197.13 | 236.152 | 197 |
+| Ordinary successful recycle | 61.67 | 267.521 | 62 |
+| Ordinary overheated rejection | 165.48 | 167.202 | 165 |
+| Ordinary exchanger design | 97.69 | 111.970 | 98 |
+| Ordinary exchanger rating including design predecessor | 527.65 | 529.294 | 475 |
+| Ordinary arithmetic closure | 92.80 | 97.961 | 94 |
+
+The rating observer reached its 128 MiB archive bound: 134,094,672 retained bytes,
+103 reported output-limit encounters, last retained observer time about 476.360 s.
+The scientific test continued and passed; its later checkpoint suffix is unavailable.
+Other recovered cases reported no sampler I/O/output-limit errors, which does not remove
+their underlying hub curtailment or make 500 ms sampling complete. All raw refusal attempts
+remain retained alongside recoveries. Runs overlapped build/diagnostic work and cannot be
+used as isolated case-to-case benchmarks.
+
+The rating retained a nonpartial 218.287 s `modeling.prepare` observation. Ordinary positive
+retained a nonpartial 35.079 s preparation and 33.816 s specialization observation. Design
+and arithmetic also retained long compiler-preparation intervals, though partial. A
+`native.worker` or `native.join.wait` interval can include that compiler work; it is not a
+timer around the native solver. These corroborate preparation investigation across the
+consumed paths without supplying a complete final native breakdown for each case.
+
+### Caloric and energy-flow prototype: refine I05 rather than raise a global floor
+
+**Tested:** an offline probe read the exact frozen FeOS JSON and Perry Parquet, retained
+their SHA256 identities, normalized the FeOS kmol basis and evaluated the existing DIPPR100
+polynomial at five temperatures. Its 10 phase/temperature records and 30 flow projections
+are retained in `numerical-probe.json`. It is a fixed equimolar, local single-phase
+conditioning calculation, not a flash solve, output-error certificate or accepted default.
+FeOS unknown support and Perry benzene extrapolation above 353.24 K remain explicit.
+
+| At 368 K | Cp, J/(mol K) | Local T equivalent of 0.001 J/mol | Cp × 0.1 K, J/mol |
+|---|---:|---:|---:|
+| Ideal gas | 115.3299043 | 8.67078e-6 K | 11.53299 |
+| Liquid polynomial | 166.50315072 | 6.00589e-6 K | 16.65032 |
+
+This substantiates the local excessive-digit concern. It also rejects the tempting blanket
+remedy: for an independently selected flow F, a 1 W energy allowance corresponds locally
+to `1/F J/mol`. At 0.5, 1 and 50 mol/s this is 2, 1 and 0.02 J/mol; at the authored
+500 mol/s circulation capacity it is 0.002 J/mol. A global 11–17 J/mol allowance could
+represent thousands of watts at that capacity. Capacity is not actual solved circulation,
+and contextual power allowances may exceed their 1 W floor. Resolve the actual consuming
+requirements before deriving a shared allowance; neither this projection nor a conditioning
+nominal replaces coupled sensitivity or original physical acceptance.
+
+**Refined I05 recommendation:** retain the existing resolver and full quantity semantics;
+connect independently authored caloric differences, flow/energy requirements and selected
+output/decision goals. Inspect the tightest actual consumers and preserve affine-datum and
+unit invariance. Audit all selected canonical fallbacks, then require meaningful context where
+the ordinary case promises it. Do not assign one convenient molar-enthalpy constant globally.
+
+Native row-budget transport preserves each row's own physical allowance. Variable scales,
+however, are unchanged by that row transport, while native feasibility remains one conservative
+minimum. A small enthalpy budget can therefore tighten native bound convergence for another
+coordinate. Original bound enforcement often keeps coordinates inside already, so this is a
+potential stopping coupling, not proof of actual microkelvin iteration demand. Inspect which
+criterion remains limiting. Hard mathematical domains and fixed specifications remain separate.
+
+### Additional recommendations from the complete consumed path
+
+<a id="I06"></a>
+#### I06 — Activate collection at the real construction root and retain successful outcomes
+
+**Observed integration gap; first prerequisite for deeper numerical claims.** The selected
+recycle/ordinary entrypoints at the inspected baseline did not call
+`source_recording_from_environment`; the existing protocol is implemented and tested but
+setting its environment variable alone installs no recorder. The disposable cooperating
+context wrapper above demonstrates the required composition, not production integration.
+Select it before Runtime/source/preparation construction, propagate its context through the
+whole async future, and finalize its owner independently of science. An async `scope` is
+required; a thread-local enter guard must not cross await. Retain successful and unsuccessful
+original reports while alive. The direct `execute_declared` result differs from `Arc<RunResult>`:
+either export its existing typed factual projections or deliberately use the public
+`prepare_operation -> PreparedOperation::start -> RunHandle` journey for a separately named
+experiment. Do not silently time a different route or fabricate a successful handoff.
+AP-05/AP-06/AP-07, H6/H18/H26; closure requires actual activation, terminal coverage, original
+science outcome and offline readability for both successful and curtailed collection.
+
+<a id="I07"></a>
+#### I07 — Keep complete recording, recent history and bounded analysis distinct
+
+**Source-established contract mismatch risk.** Ordinary history defaults to 16 records per
+producer and at most 256; selected detail receives records before this retention layer.
+Delegated CPU/timeline capture is capped at 20 s, whereas preconstruction source detail
+supports a selected interval up to an hour. Complete means the selected interval, not the
+entire later journey: `WindowElapsed` can be complete for a short interval. Source detail also
+has independent 256-entry metadata trackers; merely increasing byte budgets cannot remove
+all coverage limits. Handoff can emit more than the frozen reader's 64 MiB aggregate bound,
+and an analysis explanation can inspect at most 4096 source items. Preserve full raw members,
+use cursor pages and bounded operation/attempt/window selections, and never embed the whole
+history repeatedly into a single frozen document. H5/H8/H10/H17/H26; closure tests must
+challenge expiry, metadata/queue loss, complete prefixes and records beyond the explanation cap.
+
+Local complete detail or accepted ACK also does not cover managed children. The existing
+managed group grant is separate and once-only; each actual attempt needs representable slots,
+an admitted share, child references and retained refusals. Queued children inherit the
+original monotonic expiry rather than restarting the window. A canonical managed campaign
+must reconcile these facts after science drains; a successful local context wrapper does
+not establish that campaign coverage.
+
+<a id="I08"></a>
+#### I08 — Use selective inspection without constructing editing inventories
+
+**Source-grounded avoidable-work opportunity.** `ModelingPackage::declarations()` reaches
+the full declaration inventory and delta-parent products, including reference/data products
+and parent copies. Existing declaration pages/windows deliberately avoid those products.
+Move consumers needing only case identification or a selected page to those existing reads;
+retain complete edit inventories where the caller really requires them. Separately distinguish
+encoded source decoding, carried metadata cloning and declaration/dataset payload cloning:
+the generic 32× source-decode reservation does not apply uniformly to every typed declaration.
+Measure those owners before changing conservative admission. AP-06/AP-07, H5/H7/H16;
+closure compares returned identity, absence/refusal and source-owner lifetime, with actual
+work counts rather than assuming a smaller displayed page did less work.
+
+Also decouple legitimate **full** ordered reads from edit preparation: let
+`declaration_inventory` consume the existing ordered-read owner and reserve its actual
+requested output; construct delta/dependency `Products` at the edit boundary. The present
+cold path constructs those products and copies a parent, and the warm path still copies
+that parent. Selective consumer changes alone leave this responsibility coupling intact.
+Preserve complete order, exact source/provenance, leases, corrupt/duplicate/absent-input
+refusals, cancellation and subsequent real edit/CAS/publication behavior. Do not implement
+the full read by looping a public page if that repeatedly decodes the whole ingress frame.
+This coherent owner correction is high priority independent of its unmeasured exclusive cost.
+
+<a id="I09"></a>
+#### I09 — Include key construction, source-history lookup and retention rotation in reuse
+
+**Observed rotation plus source-grounded amplification leads.** Complete fragment recipes
+are assembled before interning; static-package hashing uses a small bucket hint followed by
+complete equality. Selected admissions scan retained candidates and validate positive and
+absent namespace premises. Compiler retention performs an exclusive census and can rotate
+the entire generation when configured bounds are exceeded. Inspect actual key/equality work,
+candidate probes, known versus foreign bytes, rotation cause and subsequent reconstruction.
+Prefer shared immutable premises, suitable lookup/indexing and accurate shared-owner extent
+accounting where justified. Preserve full equality, negative dependencies and memory admission;
+raising caps or replacing complete equality with a hash is not the correction. H12–H17/H23;
+closure includes A/B/A edits, increasing source history, unrelated changes, and retained
+old products across a rotation.
+
+The inspected reference helper overrides worker capacity/jobs, leaving the Math workspace
+default at 4 GiB. Its compiler input and retained-byte bounds are each
+`min(default 2 GiB, workspace_bytes/2)`, hence 2 GiB here; retained entries are 131,072,
+live-family LRU 256 and granular LRU 4,096. The larger test pool does not enlarge this
+workspace. These semantic owner bounds are separate from the unbounded host workload mode.
+Rotation preserves the admitted revision, service-owned body retention and cancellation,
+while discarding local selectors, fragments, preludes and memo state. Retain the actual
+triggering dimension, bounds, generation and bounded ingredient census **before** reset,
+using the existing exclusive census. Its known heap estimates, unknown external heaps,
+reservations, escaped products and RSS are different facts. Shared-owner estimates warrant
+inspection, not an unsupported assertion of double charging. The prototype still observed
+a rotation; neither its occurrence nor that of the baseline identifies the cause.
+
+For admission-history investigations, record candidates probed, positive/absent premise
+comparisons and lock intervals. The newest-first vector and an output limit of 32 rows
+do not impose a 32-candidate scan bound. Retain latest-first behavior and exact missing-member
+validation. For interning, a stronger once-computed bucket hint is an alternative only if
+deep equality is measured material; retain complete semantic equality and physical custody.
+
+<a id="I10"></a>
+#### I10 — Make diagnostic work proportionate and retain once for repeated analysis
+
+**Source-grounded opportunity; overhead benefit unmeasured.** Selected source publication
+constructs/clones records and performs queue/sequence bookkeeping; the writer allocates JSON
+and flushes every frame, with a 5 ms idle poll. Context handoff serializes and decodes copies;
+analysis admits/indexes the supplied population, not merely its displayed source-item limit.
+Compare ordinary observation, selected detail and boundary CPU clocks separately. If material,
+reuse bounded encoding buffers, batch complete-frame flushes with truthful readable-prefix
+publication, and use existing channel wakeups. Preserve nonblocking scientific callbacks,
+finite ownership, loss reporting and stop/drain. Export once and query retained typed tables
+rather than recopying the entire history for each view. AP-07, H16/H17/H20/H26; closure
+requires recorder perturbation measurements plus queue-pressure, stop and partial-write tests.
+
+<a id="I11"></a>
+#### I11 — Consult prelude reuse before constructing its premises
+
+**Additional source-grounded pre-hit construction defect; outside the I01 prototype.**
+`Engine` constructs `PreludePremises::select` before `Fragments::instance_prelude`.
+[Prelude selection](../../crates/pse-modeling/src/specialize/prelude.rs) builds member and
+conditional maps and selects an owned package; the compiler derives from the supplied
+premises and does not select it again. Consequently repeated prelude hits still pay that
+first projection and retain the full selected package in their key. This explains why
+field reuse alone need not make source projection constant across repeated actual instances.
+
+**Proposed:** express the exact existing static selector plus complete `PreludeBindings`
+at the current tracked owner before building `PreludePremises`, and construct maps within
+its producer. Keep direct standalone construction. Preserve selected definition, namespaces,
+conditional membership, inherited actual environment, facts, permissions and member limits;
+an instance-name-only key would be wrong. Compare projection/map construction counts and
+retained key extent, with shadowing, missing/inactive members, inherited implicit contexts,
+TestOnly refusal and same-definition/different-binding controls. This fits the same compiler
+preparation correction and precedes speculative hash tuning. AP-07, DP-09, H5/H12/H14/H16.
+
+<a id="I12"></a>
+#### I12 — Carry already-qualified selection through the same invocation
+
+**Conditional source-grounded opportunity.** `CheckedSelection::new` performs receiving
+physical/current qualification and can clone declarations into an Arrow builder for scope
+validation. Its existing `carries` premises include source, physical/provider/registry and
+same-invocation custody. Inspect whether adjacent preparation layers reconstruct a selection
+that they could carry unchanged. Count qualification/build/clone work at those boundaries,
+then preserve the existing qualified owner where its exact premises remain true.
+Cross-invocation admission, changed source or physical context still requires current checks.
+Countercontrols must retain explicit force-validation, provenance/permission refusal,
+changed context and cancellation. No cross-invocation bypass or new global memo is selected;
+benefit is unmeasured. AP-06/AP-07, H6/H12/H16/H20.
+
+### Refined investigation and adoption order
+
+I01's cache-before-materialization mechanism remains the first concrete preparation change;
+I02 must account separately for fixed-point discovery, occurrence/state scans, alias expansion,
+recipe creation, interning and destruction. I03 should reuse immutable preparation through
+its actual validity boundaries, not merge tear/original or design/rating solves indiscriminately.
+Inspect current receiving qualification and retention before adding another cache.
+
+For I02's first miss-side probe, use the existing `CheckedPackage::occurrences_of`
+declaration index and actual definition/member-to-instance relationship instead of comparing
+every selected occurrence to every state. An actual declaration instantiated twice still
+needs two actual contexts. Preserve temporal derivative/integral closure and forwarded alias
+reachability. A later borrowed-membership view should factor the **same** selection traversal,
+not invent a lighter competing dependency walker; measure parent lifetime because a small
+view can retain a much larger parent than a compact projection. Recipe sharing follows actual
+capture/equality evidence and retains unsuccessful lexical lookups and shadowing.
+
+For I03, separate same-source structural reuse, changed numerical point, changed fixed/free
+roles, tear overlay, original A/B/A restoration and accepted-design-to-rating. Reuse compatible
+frontiers/bodies/programs through the existing single-flight owners; keep waiter cancellation,
+actual starts, factor dependencies and original physical acceptance independent. Helper
+consolidation does not share mutable preparation across independent nextest processes.
+
+For I04, recover actual callback populations and exclusive versus inclusive timing before
+choosing a native setting. Preserve POUNCE's native factor call/parent-call, factor/refinement
+and multipart identities; retain opaque MUMPS internals as unavailable. Inner-root work,
+derivative demand and provider reconstruction can dominate without many outer iterations.
+The native terminal statistics and bounded trajectory are complementary, not substitutes.
+Only then compare evaluator realization, optimization effort, curvature and linear settings
+at fixed scientifically meaningful requirements. Retain failed alternatives and classify
+each original result independently; output rounding is not convergence policy.
+
+Build/fixture preparation and retained executable copies also contribute to developer feedback
+cost. The observed host loss after clean demonstrates that preparation must remain explicit
+and separately measured. Reuse the selected executable/profile during a campaign, inspect
+feature-induced rebuilds and artifact lifetimes, and preserve scientific/execution custody
+when evaluating retention improvements. A test-body speedup alone does not establish a faster
+edit/build/test cycle. These are H24/H26/H27 lifecycle opportunities, not authority for
+automatic cleanup, a new build orchestrator or removing required validation.
+
+### Evidence to retain for the next adopted correction
+
+Use the existing diagnostic, result and native report owners. The current investigation
+retained sampled/checkpoint and selected-query populations, not an exhaustive successful
+simulation archive. The following specifies the missing joins and useful measurements;
+it does not assert that all fields below were captured here.
+
+| Population | Retain and investigate | Avoided inference |
+|---|---|---|
+| Experiment identity | Exact source revision and prototype patch, executable identity/features/profile, provider/method, force-validation, input/data identities, resolved policy and cold/warm state | A method label alone does not identify an equivalent experiment |
+| Complete journey clocks | Build/fixture preparation, boundary admission, test body, admission/preparation, realization, native work, original assessment, persistence/export and teardown; process CPU/RSS separately | Overlapping phases do not add to a wall partition; RSS is not retained logical extent |
+| Compiler/preparation work | Projection starts plus completed rows/bytes if instrumented, fixed-point rounds/occurrence-state visits, recipes/captures/equality, query execute/validate/wait/discard, producers/waiters, exact qualification and source-history probes | Cache lookup or output-page count does not measure work avoided |
+| Retention transitions | Existing exclusive census, bounds/trigger, ingredient/generation distribution, evictions/rebuild, escaped owners and subsequent production | One reset or a large reservation is not its causal cost or measured heap allocation |
+| Attempt and numerical meaning | Original/tear/design/rating identities, actual start lineage, quantity/instance IDs, units, allowance source, characteristic, fallback, coordinate/row scale, effective options and exact final original checks | Native scaled residuals and tiny policy scalars are not temperature error or decision invariance |
+| Native and implicit work | Terminal scalar statistics plus bounded trajectory, callback/evaluator demand, KINSOL roots/trials/rejections, POUNCE factor/refinement call trees and parts where exposed | Two boundary roles do not mean two solves; unexposed MUMPS internals remain unavailable |
+| Recording and analysis | Accepted/refused selection, actual activation, full source tuple, issued/observed/queued/acknowledged/lost populations, end reason, valid prefix and writer settlement; managed grants/children separately | Accepted Complete is not obtained completeness, nor is one explanation page the entire population |
+
+Correlate process-instance operation, producer, generation, sequence, family sequence and
+source-field ordinal, retaining existing run/attempt/step and POUNCE parent-call/multipart
+identities. Reject conflicting duplicates through the existing analysis owner. Preserve raw
+records before deriving typed tables or bounded question selections, and retain the exact
+selection/query with derived results. Separate reset-per-batch counts from cumulative metrics;
+report sampled intervals and unavailable fields explicitly. Keep both diagnostic and science
+outcomes, including failed alternatives and curtailed/refused collection. Export/interpret
+after the measured science interval unless export itself is the question.
+
+The local `investigation/` artifact directory retains the independent source reports,
+numerical and analysis scripts, exact prototype images/patches, recording requests/ACKs,
+JSONL streams and native workflow reports. The three checkpoint campaigns retain their
+commands, original streams, changed images and derived analyses in their respective roots.
+Their files support reproduction and scrutiny on this workstation; they are not a new
+canonical result authority or a claim of portable full-plan qualification.
+
+### Integrated disposition and remaining uncertainty
+
+I01 is the first production amendment to consider, supported by original semantic/scientific
+passes and promising elapsed observations. Its larger observed working set must be explained
+and its full construction counts/repeat conditions established before accepting the benefit.
+I11 and I08 are concrete adjacent ownership corrections: prelude reuse must precede premise
+construction, and ordinary reads should not accidentally construct editing products. I09's
+reset-cause observation is a prerequisite to retention-policy selection. I02's indexed scan
+is the next bounded miss-side experiment; deeper membership views, capture sharing, extent
+refinement, history policy, stronger interning hints and I12 depend on their actual costs.
+
+I06/I07/I10 are necessary companions to deep performance diagnosis: successful entrypoint
+retention, truthful complete/loss accounting and proportionate diagnostic work. Their current
+gaps are demonstrated rather than cured by this investigation. I03 preserves meaningful
+scientific coverage while seeking valid preparation reuse. I04 remains conditional tuning,
+with no selected backend/Hessian/evaluator change. I05 remains a shared physical-context
+correction; the caloric/flow probe rules out a convenient universal enthalpy relaxation.
+
+The principal unresolved evidence is exact projection completion/byte attribution, the cause
+of increased prototype RSS and workspace rotation, precise boundary-wait ownership, full
+attempt/session linkage and successful final native/physical report retention, whole-journey
+diagnostic overhead, and the historical exchanger's inconclusive conformance check. None is
+silently replaced by a pass, a larger timeout, a relaxed physical check or an unavailable zero.
+These are bounded follow-up questions with owners and revealing controls above. Accepted
+scope, design changes, adoption and Plan64 completion remain with their existing plan and
+decision routes; publishing this investigation does not change them.
