@@ -11,6 +11,10 @@ applicability assessments below. A shortlist does not establish fit or authorize
 The [pilot evidence account](../pilot-evidence.md) records the generated reference/API scope,
 retention and limits separately from those research judgments.
 
+The [Proto ecosystem briefing](proto/briefing.md) explores schema intelligence, validation,
+generation, engineering interfaces and reference exchange across Plan64. It uses
+representative source reads and selected library contracts, without a Proto reference census.
+
 Reusable technical types can be researched without a current match. Contextual applicability
 still connects them to a concrete opportunity. Follow the
 [technical research guide](../references/technical-contracts.md) for selected implementation
