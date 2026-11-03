@@ -48,6 +48,100 @@ fn iteration_values(page: &DetailRecordPage) -> Vec<i64> {
 }
 
 #[test]
+fn producer_tracking_uses_admitted_memory_and_refuses_when_its_partition_exhausts() {
+    let directory = tempfile::tempdir().unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("bounded producer population");
+    for (name, memory, producers, complete) in [
+        ("larger", 16 << 20, 300, true),
+        ("minimum", 4 << 20, 257, false),
+    ] {
+        let mut request = selection(directory.path().join(name));
+        request.budget.memory_bytes = memory;
+        let session = start_detailed_collection(operation.context(), request).unwrap();
+        assert_eq!(session.tap.tracker_capacity, memory / 16 / 1024);
+        let context = session.context();
+        let deadline = Instant::now() + Duration::from_secs(15);
+        for index in 0..producers {
+            // Keep this a metadata-capacity test: allow the real writer to drain
+            // before the next activation, descriptor and event enter its queue.
+            while session.tap.sender.capacity() < 4 {
+                assert!(Instant::now() < deadline, "detail writer did not drain");
+                std::thread::yield_now();
+            }
+            let producer = context.producer(ProducerRole::NativeIteration, "actual source");
+            producer.publish(&iteration(&producer, index));
+        }
+        let document = session.finish().unwrap();
+        if complete {
+            assert_eq!(document.outcome, DetailOutcome::Complete, "{document:?}");
+            assert_eq!(document.families[0].activated_sources, producers as u64);
+            assert_eq!(document.families[0].issued, producers as u64);
+            assert_eq!(document.families[0].acknowledged, producers as u64);
+            assert_eq!(document.metadata_dropped, 0);
+            assert!(!document.source_partial);
+            let mut offset = 0;
+            let mut read = 0;
+            loop {
+                let page = read_detail_records(&document.records, offset, 512, 4 << 20).unwrap();
+                assert!(!page.partial);
+                read += page.records.len();
+                match page.next_offset {
+                    Some(next) => {
+                        assert!(next > offset);
+                        offset = next;
+                    }
+                    None => break,
+                }
+            }
+            assert_eq!(read, producers as usize);
+        } else {
+            assert_eq!(document.outcome, DetailOutcome::Incomplete);
+            assert!(document.source_partial);
+            assert!(document.metadata_dropped > 0);
+            assert_eq!(
+                document.families[0].activation,
+                DetailFamilyActivation::Refused
+            );
+        }
+    }
+}
+
+#[test]
+fn tracker_capacity_counts_each_producer_family_pair() {
+    let directory = tempfile::tempdir().unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("multiple source families");
+    let mut request = selection(directory.path().join("two-families"));
+    request.budget.memory_bytes = 4 << 20;
+    request.families.push("other.v1".into());
+    let session = start_detailed_collection(operation.context(), request).unwrap();
+    let context = session.context();
+    let deadline = Instant::now() + Duration::from_secs(15);
+    // 129 producers are below the description cap, while their 258 distinct
+    // producer/family pairs exceed the minimum selection's 256-key bound.
+    for index in 0..129 {
+        while session.tap.sender.capacity() < 6 {
+            assert!(Instant::now() < deadline, "detail writer did not drain");
+            std::thread::yield_now();
+        }
+        let producer = context.producer(ProducerRole::NativeIteration, "actual source");
+        producer.publish(&iteration(&producer, index));
+        let other = producer.record("other.v1", "ordinary", None, None, vec![]);
+        producer.publish(&other);
+    }
+    let document = session.finish().unwrap();
+    assert_eq!(document.outcome, DetailOutcome::Incomplete);
+    assert!(document.source_partial);
+    assert!(
+        document
+            .families
+            .iter()
+            .any(|family| family.activation == DetailFamilyActivation::Refused)
+    );
+}
+
+#[test]
 fn acknowledged_empty_source_is_complete_but_unobserved_and_refused_are_not() {
     let directory = tempfile::tempdir().unwrap();
     let operation = ObservationHub::new(Policy::default()).start("science");

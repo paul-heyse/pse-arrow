@@ -1256,7 +1256,7 @@ mod static_error_tests {
             for original in [
                 error.clone(),
                 ModelingError::Located {
-                    span: pse_authoring::SourceSpan::new(SemanticId::NIL.into(), 3, 8),
+                    span: pse_authoring::SourceSpan::new(SemanticId::NIL, 3, 8),
                     name: "original argument".into(),
                     cause: Box::new(error),
                 },
@@ -1272,7 +1272,7 @@ mod static_error_tests {
             }
         }
         let error = ModelingError::Located {
-            span: pse_authoring::SourceSpan::new(SemanticId::NIL.into(), 3, 8),
+            span: pse_authoring::SourceSpan::new(SemanticId::NIL, 3, 8),
             name: "runtime coordinate".into(),
             cause: Box::new(crate::invalid_reason(
                 source,
@@ -1297,7 +1297,7 @@ mod static_error_tests {
             ..
         } = error
         else {
-            unreachable!();
+            panic!("original location required");
         };
         assert_eq!(span, original_span);
         assert_eq!(name, original_name);

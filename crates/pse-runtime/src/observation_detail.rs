@@ -310,6 +310,8 @@ struct Tap {
     managed_claimed: AtomicBool,
     scope_unavailable: Mutex<Vec<String>>,
     record_bytes: usize,
+    /// Shared cardinality bound for each producer and producer/family table.
+    tracker_capacity: usize,
     owner_budget: pse_diagnostics::observation::OwnerBudget,
     writer_signal: Arc<WriterSignal>,
 }
@@ -514,7 +516,7 @@ impl Tap {
         if described.contains(&producer.id) {
             return;
         }
-        if described.len() >= 256 {
+        if described.len() >= self.tracker_capacity {
             increment(&self.metadata_dropped);
             return;
         }
@@ -532,7 +534,7 @@ impl Tap {
         let family = &self.families[index];
         if let Ok(mut sequences) = self.sequences.try_lock() {
             let key = (record.producer, index);
-            if sequences.len() >= 256 && !sequences.contains_key(&key) {
+            if sequences.len() >= self.tracker_capacity && !sequences.contains_key(&key) {
                 self.source_partial.store(true, Ordering::Release);
             } else if let Some(sequence) = record.family_sequence {
                 let previous = sequences.insert(key, (record.generation, sequence));
@@ -602,7 +604,7 @@ impl RecordTap for Tap {
         if activated.contains(&key) {
             return;
         }
-        if activated.len() >= 256 || producer.name.len() > 256 {
+        if activated.len() >= self.tracker_capacity || producer.name.len() > 256 {
             family.activation.store(3, Ordering::Release);
             self.source_partial.store(true, Ordering::Release);
             return;
@@ -648,7 +650,7 @@ impl RecordTap for Tap {
             return;
         };
         let key = (record.producer, index);
-        if issued.len() >= 256 && !issued.contains_key(&key) {
+        if issued.len() >= self.tracker_capacity && !issued.contains_key(&key) {
             self.source_partial.store(true, Ordering::Release);
             return;
         }
@@ -911,10 +913,23 @@ pub fn start_detailed_collection(
         .create_new(true)
         .open(&records)?;
     let record_bytes = (request.budget.memory_bytes / 32).clamp(4096, 65536);
+    // Reserve a distinct finite partition for four producer/sequence hash
+    // tables. Allow 1024 bytes per capacity slot across all four tables, including
+    // bucket/control slack and growth overlap. Tables retain only fixed-size IDs,
+    // family indices and sequence heads; bounded names and copied metadata frames
+    // instead consume the separately sized queue. Each table independently caps
+    // its key count, including every distinct producer/family pair.
+    // The minimum 4 MiB selection retains the prior 256-key limit.
+    let tracker_bytes = request.budget.memory_bytes / 16;
+    let tracker_capacity = tracker_bytes / 1024;
+    let fixed = (request.budget.memory_bytes / 4)
+        .saturating_add(8 * record_bytes)
+        .saturating_add(262144)
+        .saturating_add(tracker_bytes);
     let capacity = request
         .budget
         .memory_bytes
-        .saturating_sub(request.budget.memory_bytes / 4 + 8 * record_bytes + 262144)
+        .saturating_sub(fixed)
         .checked_div(3 * record_bytes)
         .unwrap_or(0)
         .clamp(1, 512);
@@ -957,6 +972,7 @@ pub fn start_detailed_collection(
             request.budget.memory_bytes / 4,
         ),
         record_bytes,
+        tracker_capacity,
         writer_signal: Arc::new(WriterSignal::default()),
     });
     let state=Arc::new(Mutex::new(DetailDocument { version:pse_model::document::Version,request:request.clone(),outcome:DetailOutcome::Active,end:None,clock_scope:"source operation process clocks; selected offer interval begins at acknowledged construction".into(),records,readable_prefix_bytes:0,families:vec![],source_partial:false,metadata_dropped:0,scope_unavailable:vec![],error:None }));

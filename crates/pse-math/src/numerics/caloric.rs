@@ -7,6 +7,9 @@ use pse_model::numerics::{CaloricRequirement, NumericalPolicy};
 use pse_quantity::{
     IndexSet, PhysicalPreconditions, QuantityRegistry, QuantityTypeId, ResolvedPhysicalContract,
 };
+use std::collections::BTreeMap;
+
+type CombinedConsumers = BTreeMap<SemanticId, (f64, f64)>;
 
 /// Admit complete physical contracts before applying the SI composition. Values are
 /// frozen source magnitudes; point offsets never participate in an error difference.
@@ -16,17 +19,8 @@ pub(super) fn admitted_caloric_allowance(
     target: &super::TargetSpec,
     source: &CaloricRequirement,
     policy: &NumericalPolicy,
-    resolved_consumers: &std::collections::BTreeMap<
-        SemanticId,
-        pse_model::numerics::ResolvedTarget,
-    >,
-) -> Result<
-    (
-        CaloricAllowance,
-        std::collections::BTreeMap<SemanticId, (f64, f64)>,
-    ),
-    MathError,
-> {
+    resolved_consumers: &BTreeMap<SemanticId, pse_model::numerics::ResolvedTarget>,
+) -> Result<(CaloricAllowance, CombinedConsumers), MathError> {
     use pse_quantity::infer::OpRequest;
     let target_quantity = super::engineering_error_quantity(registry, preconditions, target)?;
     pse_quantity::admission::require_same_contract(
@@ -79,7 +73,7 @@ pub(super) fn admitted_caloric_allowance(
         _ => return Err(super::failure(target.id, "partial caloric thermal context")),
     };
     let mut consumers = Vec::with_capacity(source.consumers.len());
-    let mut combined = std::collections::BTreeMap::new();
+    let mut combined = BTreeMap::new();
     for consumer in &source.consumers {
         // A stream power is a datum-bearing point. Its error follows from the
         // difference of the admitted flow-times-enthalpy point operation; an
@@ -142,7 +136,7 @@ pub(super) fn admitted_caloric_allowance(
             consumer.power_quantity_id.into(),
             registry,
         )?;
-        let mut contributions = std::collections::BTreeMap::new();
+        let mut contributions = BTreeMap::new();
         for other in &policy.caloric_requirements {
             for item in other
                 .consumers
@@ -186,8 +180,7 @@ pub(super) fn admitted_caloric_allowance(
                             &other.science_records,
                         ),
                     )
-                {
-                    if f64::to_bits(old_power) != power.to_bits()
+                    && (f64::to_bits(old_power) != power.to_bits()
                         || f64::to_bits(old_exposure) != exposure.to_bits()
                         || old_revision != &other.science_revision
                         || old_rule != item.power_rule_id
@@ -197,13 +190,12 @@ pub(super) fn admitted_caloric_allowance(
                             != other
                                 .science_records
                                 .iter()
-                                .collect::<std::collections::BTreeSet<_>>()
-                    {
-                        return Err(super::failure(
-                            target.id,
-                            "conflicting copies of an energy-exposure contribution",
-                        ));
-                    }
+                                .collect::<std::collections::BTreeSet<_>>())
+                {
+                    return Err(super::failure(
+                        target.id,
+                        "conflicting copies of an energy-exposure contribution",
+                    ));
                 }
             }
         }

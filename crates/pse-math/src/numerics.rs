@@ -1305,8 +1305,10 @@ mod tests {
             integer: false,
             declared_tolerance: None,
         };
-        let mut policy = NumericalPolicy::default();
-        policy.strict_engineering_context = true;
+        let mut policy = NumericalPolicy {
+            strict_engineering_context: true,
+            ..Default::default()
+        };
         policy.caloric_requirements.push(CaloricRequirement {
             requirement_id: id(2),
             instance_id: None,
