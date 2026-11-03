@@ -14,6 +14,9 @@ pub(super) const SOLVE_RECORDING_FAMILIES: &[&str] = &[
     #[cfg(feature = "compiled-evaluator")]
     "native_scalar_compilation.v1",
     "callback_boundary.v1",
+    "evaluator_demand_batch.v1",
+    "evaluator_demand.v1",
+    "evaluator_census.v1",
     "root_evaluation.v1",
     "native_linear_work.v1",
     #[cfg(feature = "solver-pounce")]
@@ -561,6 +564,20 @@ fn inventory_contextual_study_attempts(
         let policy = result.prepared.solve.numerics();
         let mut contextual = BTreeMap::<(String, _), SemanticId>::new();
         let mut fallbacks = BTreeMap::<(String, String), usize>::new();
+        let mut oracle_instances = std::collections::BTreeSet::new();
+        let mut reference_instances = std::collections::BTreeSet::new();
+        let oracle_quantity = SemanticId::parse_hex("01a0e1a32b1d71818c260dfd3598e7f1")?;
+        let stock_difference = match result
+            .prepared
+            .source
+            .physical_context()
+            .quantities()
+            .physical_name("DeltaH")
+            .ok_or("stock enthalpy difference quantity absent")?
+        {
+            pse_quantity::PhysicalName::QuantityType(quantity) => quantity.as_id(),
+            _ => return Err("stock enthalpy difference quantity absent".into()),
+        };
         for target in &policy.targets {
             let owner = model
                 .symbols
@@ -576,8 +593,24 @@ fn inventory_contextual_study_attempts(
             let Some(owner) = owner else { continue };
             let is_enthalpy = owner.path.ends_with(".h")
                 || owner.path.ends_with(".enthalpy")
-                || owner.path.ends_with(".enthalpy_binding");
+                || owner.path.ends_with(".enthalpy_binding")
+                || owner.path.ends_with(".reference_binding");
             let engineering = target.engineering.as_ref();
+            if owner.path.ends_with(".oracle_h") {
+                assert_eq!(target.quantity, oracle_quantity);
+                let context = engineering.ok_or("oracle enthalpy engineering context absent")?;
+                assert!(!context.canonical_fallback && context.scale_id.is_some());
+                assert!(
+                    context
+                        .characteristic
+                        .is_some_and(|value| value.is_finite() && value > 0.0)
+                );
+                oracle_instances.insert((owner.path.clone(), owner.instance));
+            }
+            if owner.path.ends_with(".reference_binding") {
+                assert_eq!(target.quantity, stock_difference);
+                reference_instances.insert((owner.path.clone(), owner.instance));
+            }
             if let Some(context) = engineering.filter(|context| context.canonical_fallback) {
                 *fallbacks
                     .entry((target.kind.as_str().to_owned(), target.quantity.to_string()))
@@ -642,6 +675,16 @@ fn inventory_contextual_study_attempts(
             );
             contextual.insert((owner.path.clone(), owner.instance), target.id);
         }
+        assert_eq!(
+            oracle_instances.len(),
+            28,
+            "study {step:?} oracle target inventory"
+        );
+        assert_eq!(
+            reference_instances.len(),
+            28,
+            "study {step:?} reference-binding inventory"
+        );
         for suffix in [
             "splitter.unit.inlet.h",
             "splitter.unit.inlet.enthalpy",
@@ -668,6 +711,10 @@ fn inventory_contextual_study_attempts(
         eprintln!(
             "study step={step:?} fallback_by_role_quantity={fallbacks:?} controls={:?}",
             result.prepared.profile.controls
+        );
+        assert!(
+            fallbacks.is_empty(),
+            "study {step:?} retains canonical fallback on a selected variable or row: {fallbacks:?}"
         );
     }
     Ok(())

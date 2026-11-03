@@ -67,6 +67,11 @@
 @id("01a0e1971f90755199259829b0731f92") override param dew_start:Temperature=370{K};
 @id("01a0e1a32b1f76e89afdfd979fe12f6f") var oracle_h:BtOracleEnthalpy;
 @id("01a0e1a32b1f76e89afdfd98b22af1dc") eq reference_binding:h==oracle_to_stock(oracle_h,z,components);
+// Freeze an equimolar composition for the selected benzene/toluene pair,
+// independently of the solve. Differences of translated points cancel the
+// formation-inclusive reference offset at that composition.
+@id("6d3d06e7a6a3434fb7364df08dfe9c02") param precision_composition[j in components]:MoleFraction=0.5{1};
+@id("bf10808379a144a5bc7707a27655cb42") annotation engineering_scale oracle_h(kind=reference_difference,value=oracle_enthalpy_span(precision_composition,components));
 @id("01a0e1a32b1f76e89afdfd999db937ad") annotation start oracle_h(50000{J/mol});
 @id("01a0e1a32b1f76e89afdfd9a03533797") annotation nominal oracle_h(50000{J/mol});
 
@@ -204,5 +209,10 @@
 @id("9908d12fa75040b6b8669b44051c0ce9") fn oracle_reference_anchor(T:Temperature,p:Pressure,j:chemistry.species)->BtOracleEnthalpy valid(T==bt_ideal_oracle.temperature and p==bt_ideal_oracle.pressure)=caloric_reference[j].vapor_reference;
 @id("9b2086cfdf494125aa3d0f4ce8738e9f") fn stock_reference_anchor(T:Temperature,p:Pressure,j:chemistry.species)->MolarEnthalpy valid(p==bt_ideal_oracle.pressure)=constants.standard_enthalpy_datum+properties.enthalpy_increment(bt_ideal_idaes,chemistry.vapor,j,constants.standard_temperature,T);
 @id("0c6f70e19d5b4e88a1c85c4a4f2fe4b1") reference translation oracle_to_stock(value:BtOracleEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->MolarEnthalpy anchors(source=oracle_reference_anchor,target=stock_reference_anchor) at(temperature=bt_ideal_oracle.temperature,pressure=bt_ideal_oracle.pressure) provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
+@id("b00b1c0c0ae84aecbb1e7940c588fd5b") reference translation stock_to_oracle(value:MolarEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->BtOracleEnthalpy anchors(source=stock_reference_anchor,target=oracle_reference_anchor) at(temperature=bt_ideal_oracle.temperature,pressure=bt_ideal_oracle.pressure) provenance(references.idaes_bt_ideal,provenance.Role.oracle_input);
+// Translate two stock points separated by the selected phase endpoint span at
+// one frozen composition. Their oracle-datum difference cancels the offset;
+// this characteristic is not a coupled output certificate.
+@id("ad79da33398b429a87958e58ce873e96") fn oracle_enthalpy_span(composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->BtOracleDeltaH=stock_to_oracle(constants.standard_enthalpy_datum+phase_enthalpy_span(),composition,members)-stock_to_oracle(constants.standard_enthalpy_datum,composition,members);
 @id("225beafbf7784b3084fe0eebe2eed74e") entity properties.selection_context bt_ideal_idaes_admitted {roots={correlations.rpp4_wagner[chem.benzene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit],correlations.rpp4_wagner[chem.toluene,properties.vapor_pressure,compatibility.PhaseType.liquidPhase,references.idaes_rpp4_pressure_fit],correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.idaes_bt_ideal_liquid_fit],correlations.dippr100[chem.toluene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.idaes_bt_ideal_liquid_fit],correlations.rpp4_cp[chem.benzene,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_bt_ideal_vapor_fit],correlations.rpp4_cp[chem.toluene,properties.heat_capacity,compatibility.PhaseType.vaporPhase,references.idaes_bt_ideal_vapor_fit]},subjects={chem.benzene,chem.toluene},models={properties.vapor_pressure,properties.heat_capacity},rules={}}
 }
