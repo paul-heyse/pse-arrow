@@ -11,6 +11,8 @@ use std::time::Duration;
 pub(super) const SOLVE_RECORDING_FAMILIES: &[&str] = &[
     "compiler_query.v1",
     "compiler_retention.v1",
+    #[cfg(feature = "compiled-evaluator")]
+    "native_scalar_compilation.v1",
     "callback_boundary.v1",
     "root_evaluation.v1",
     "native_linear_work.v1",

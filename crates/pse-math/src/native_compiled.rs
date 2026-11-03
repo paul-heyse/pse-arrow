@@ -238,7 +238,7 @@ pub(crate) fn compile(
 }
 /// Packing is a physical preparation bound, not an evaluation or arithmetic fusion.
 /// Every member retains its individual preflight allowance and private worker scratch.
-const FUNCTIONS: [&str; 8] = [
+const FUNCTIONS: [&str; 32] = [
     "pse_value0",
     "pse_value1",
     "pse_value2",
@@ -247,12 +247,37 @@ const FUNCTIONS: [&str; 8] = [
     "pse_value5",
     "pse_value6",
     "pse_value7",
+    "pse_value8",
+    "pse_value9",
+    "pse_value10",
+    "pse_value11",
+    "pse_value12",
+    "pse_value13",
+    "pse_value14",
+    "pse_value15",
+    "pse_value16",
+    "pse_value17",
+    "pse_value18",
+    "pse_value19",
+    "pse_value20",
+    "pse_value21",
+    "pse_value22",
+    "pse_value23",
+    "pse_value24",
+    "pse_value25",
+    "pse_value26",
+    "pse_value27",
+    "pse_value28",
+    "pse_value29",
+    "pse_value30",
+    "pse_value31",
 ];
 const FUNCTIONS_PER_MODULE: usize = FUNCTIONS.len();
 pub(crate) struct Batch {
     pending: Vec<Pending>,
     template: Arc<OnceLock<Arc<Template>>>,
     cache: Option<cache::Cache>,
+    detail: Option<pse_diagnostics::observation::Producer>,
 }
 impl Default for Batch {
     fn default() -> Self {
@@ -266,6 +291,22 @@ impl Default for Batch {
             } else {
                 Some(cache::Cache::local())
             },
+            detail: pse_diagnostics::observation::current().and_then(|context| {
+                let selected = context.record_tap().is_some_and(|tap| {
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        tap.selected("native_scalar_compilation.v1")
+                    }))
+                    .unwrap_or(false)
+                });
+                selected.then(|| {
+                    let producer = context.producer(
+                        pse_diagnostics::observation::ProducerRole::Workflow,
+                        "math.native_scalar_compilation",
+                    );
+                    producer.activate_record_family("native_scalar_compilation.v1");
+                    producer
+                })
+            }),
         }
     }
 }
@@ -442,6 +483,69 @@ impl Batch {
                 _directory: directory,
             }))
             .map_err(|_| MathError::Contract("compiled module already finalized".into()))?;
+        if let Some(producer) = &self.detail {
+            use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
+            let count = |value: usize| u64::try_from(value).map_or(Value::Overflow, Value::Count);
+            let source_bytes = self
+                .pending
+                .iter()
+                .try_fold(0usize, |sum, item| sum.checked_add(item.source.len()));
+            let object_bytes = if hit {
+                None
+            } else {
+                std::fs::metadata(&object_path)
+                    .ok()
+                    .map(|metadata| metadata.len())
+            };
+            let field = |name: &str, unit: &str, value: Value| RecordField {
+                name: name.into(),
+                unit: unit.into(),
+                value,
+                availability: None,
+            };
+            let object = RecordField {
+                name: "object_bytes".into(),
+                unit: "bytes".into(),
+                value: object_bytes.map_or_else(
+                    || {
+                        Value::Unavailable(
+                            if hit {
+                                "cache hit; no object produced"
+                            } else {
+                                "object extent unavailable"
+                            }
+                            .into(),
+                        )
+                    },
+                    Value::Count,
+                ),
+                availability: object_bytes.is_none().then_some(if hit {
+                    RecordAvailability::NotSupplied
+                } else {
+                    RecordAvailability::Unavailable
+                }),
+            };
+            let record = producer.record(
+                "native_scalar_compilation.v1",
+                "finalized",
+                None,
+                None,
+                vec![
+                    field("cache_hit", "boolean", Value::Boolean(hit)),
+                    field("functions", "functions", count(self.pending.len())),
+                    field(
+                        "generated_source_bytes",
+                        "bytes",
+                        source_bytes.map_or(Value::Overflow, count),
+                    ),
+                    object,
+                    field("executable_bytes", "bytes", count(code_bytes)),
+                    field("object_limit_bytes", "bytes", count(object_limit)),
+                    field("executable_limit_bytes", "bytes", count(code_limit)),
+                ],
+            );
+            producer.publish(&record);
+        }
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count(
                 if hit {
@@ -552,16 +656,67 @@ mod tests {
     }
 
     #[test]
+    fn selected_compilation_record_retains_actual_finalized_module_extents() {
+        use pse_diagnostics::observation::{
+            CoherentRecord, ObservationHub, Policy, RecordTap, Value,
+        };
+        #[derive(Debug, Default)]
+        struct Selected(Mutex<Vec<CoherentRecord>>);
+        impl RecordTap for Selected {
+            fn selected(&self, family: &str) -> bool {
+                family == "native_scalar_compilation.v1"
+            }
+            fn observe(&self, record: &CoherentRecord) {
+                self.0.lock().unwrap().push(record.clone());
+            }
+        }
+        let evaluator = arithmetic();
+        let hub = ObservationHub::new(Policy::default());
+        let operation = hub.start("selected native scalar compilation");
+        let tap = Arc::new(Selected::default());
+        let context = operation.context().with_record_tap(tap.clone());
+        let _entered = context.enter();
+        let scope = pse_kernels::ExecutionScope::new(Default::default(), None);
+        let compiled = compile(&evaluator, 1 << 20, &scope).unwrap();
+        let module = compiled.template.get().unwrap()._directory.path();
+        let expected_source = std::fs::metadata(module.join("value.cpp")).unwrap().len();
+        let expected_object = std::fs::metadata(module.join("value.o")).unwrap().len();
+        let expected_code = std::fs::metadata(module.join("value.so")).unwrap().len();
+        let records = tap.0.lock().unwrap();
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.producer.operation, context.id());
+        assert_eq!(record.family, "native_scalar_compilation.v1");
+        assert_eq!(record.phase, "finalized");
+        let value = |name: &str| {
+            &record
+                .values
+                .iter()
+                .find(|field| field.name == name)
+                .unwrap()
+                .value
+        };
+        assert_eq!(value("cache_hit"), &Value::Boolean(false));
+        assert_eq!(value("functions"), &Value::Count(1));
+        assert_eq!(
+            value("generated_source_bytes"),
+            &Value::Count(expected_source)
+        );
+        assert_eq!(value("object_bytes"), &Value::Count(expected_object));
+        assert_eq!(value("executable_bytes"), &Value::Count(expected_code));
+        assert!(
+            matches!(value("object_limit_bytes"), Value::Count(limit) if *limit >= expected_object)
+        );
+        assert!(
+            matches!(value("executable_limit_bytes"), Value::Count(limit) if *limit >= expected_code)
+        );
+    }
+
+    #[test]
     fn named_modules_pack_bounded_symbols_and_keep_private_workers_and_live_files() {
         use pse_diagnostics::observation::{ObservationHub, Policy, Value};
-        let evaluator = arithmetic();
-        let no_arguments: &[Atom] = &[];
-        let constant = Atom::evaluator_multiple(&[parse!("7")], no_arguments)
-            .horner_iterations(0)
-            .cpe_iterations(Some(0))
-            .build()
-            .unwrap()
-            .map_coeff(&|c| c.to_real().unwrap().to_f64());
+        crate::initialize().unwrap();
+        let x = parse!("pse_native_test::x");
         let hub = ObservationHub::new(Policy::default());
         let operation = hub.start("named module packing");
         let context = operation.context();
@@ -570,7 +725,24 @@ mod tests {
         let mut batch = Batch::default();
         let mut functions = Vec::new();
         for i in 0..=FUNCTIONS_PER_MODULE {
-            let selected = if i % 2 == 0 { &evaluator } else { &constant };
+            // Each symbol has a different result, so a wrong same-arity dispatch
+            // cannot pass merely because two packed functions share semantics.
+            let expression = if i % 2 == 0 {
+                x.clone().pow(2) + Atom::num(i as i64 + 1)
+            } else {
+                Atom::num(i as i64 + 7)
+            };
+            let arguments = if i % 2 == 0 {
+                std::slice::from_ref(&x)
+            } else {
+                &[]
+            };
+            let selected = Atom::evaluator_multiple(&[expression], arguments)
+                .horner_iterations(0)
+                .cpe_iterations(Some(0))
+                .build()
+                .unwrap()
+                .map_coeff(&|c| c.to_real().unwrap().to_f64());
             let export = selected.export_instructions();
             let storage = library::EvaluatorFacts::inspect(
                 &export,
@@ -581,7 +753,7 @@ mod tests {
             .storage;
             functions.push(
                 batch
-                    .push(selected, &storage, &export, 1 << 20, &scope)
+                    .push(&selected, &storage, &export, 1 << 20, &scope)
                     .unwrap(),
             );
         }
@@ -609,7 +781,14 @@ mod tests {
             function
                 .evaluate(if i % 2 == 0 { &[3.] } else { &[] }, &mut result)
                 .unwrap();
-            assert_eq!(result[0], if i % 2 == 0 { 10. } else { 7. });
+            assert_eq!(
+                result[0],
+                if i % 2 == 0 {
+                    10. + i as f64
+                } else {
+                    7. + i as f64
+                }
+            );
         }
         drop(functions);
         drop(batch);

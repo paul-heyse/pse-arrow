@@ -227,7 +227,9 @@ pub(super) fn operations(
 }
 pub(super) fn family_question(family: &str) -> Option<Q> {
     match family {
-        "compiler_query.v1" | "compiler_retention.v1" => Some(Q::Preparation),
+        "compiler_query.v1" | "compiler_retention.v1" | "native_scalar_compilation.v1" => {
+            Some(Q::Preparation)
+        }
         "evaluator_demand_batch.v1" | "evaluator_demand.v1" | "evaluator_census.v1" => {
             Some(Q::EvaluatorWork)
         }
