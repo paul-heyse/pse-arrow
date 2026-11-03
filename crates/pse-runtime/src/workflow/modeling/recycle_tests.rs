@@ -27,6 +27,10 @@ pub(super) const SOLVE_RECORDING_FAMILIES: &[&str] = &[
     "native_refinement.v2",
 ];
 
+#[allow(
+    clippy::print_stderr,
+    reason = "capture handoff failures remain visible alongside scientific test results"
+)]
 pub(super) fn retain_declared(
     recording: &mut Option<crate::tooling::capture::SourceRecordingSession>,
     package: &ModelingPackage,
@@ -161,25 +165,25 @@ async fn reference_recycle_context_journey(
         let name = names
             .iter()
             .find(|name| closure.lineage.path.ends_with(**name))
-            .expect("original energy connection");
+            .ok_or("original energy connection")?;
         *counts.entry(*name).or_insert(0usize) += 1;
         let resolved = policy
             .targets
             .iter()
             .find(|target| target.id == closure.id && target.kind == NumericalTarget::Closure)
-            .expect("resolved original closure");
+            .ok_or("resolved original closure")?;
         let mut budgets = Vec::new();
         for (index, requirement) in closure.requirements.iter().enumerate() {
             let context = requirement
                 .context
-                .expect("original named transport context");
+                .ok_or("original named transport context")?;
             assert!(model.symbols.contains_key(&context));
             let endpoint = pse_ids::named_id(closure.id, &format!("physical-endpoint:{index}"));
             let target = policy
                 .targets
                 .iter()
                 .find(|target| target.id == endpoint && target.kind == NumericalTarget::Closure)
-                .expect("separately resolved original endpoint");
+                .ok_or("separately resolved original endpoint")?;
             assert_eq!(
                 (target.quantity, target.unit),
                 (resolved.quantity, resolved.unit)
@@ -187,7 +191,7 @@ async fn reference_recycle_context_journey(
             let engineering = target
                 .engineering
                 .as_ref()
-                .expect("shared engineering interpretation");
+                .ok_or("shared engineering interpretation")?;
             assert_eq!(engineering.rule_id.map(|id| id.as_id()), Some(power_rule));
             assert!(!engineering.canonical_fallback);
             assert!(
@@ -202,7 +206,10 @@ async fn reference_recycle_context_journey(
         }
         assert_eq!(
             resolved.budget,
-            budgets.into_iter().reduce(f64::min).unwrap()
+            budgets
+                .into_iter()
+                .reduce(f64::min)
+                .ok_or("original endpoint budgets absent")?
         );
     }
     for name in names {
@@ -278,6 +285,10 @@ async fn reference_recycle_initialization(
 }
 
 #[cfg(feature = "solver-pounce")]
+#[allow(
+    clippy::print_stderr,
+    reason = "failed recycle attempts retain native and physical test evidence"
+)]
 async fn reference_recycle_initialization_journey(
     fixture: &str,
     expected_success: bool,
@@ -553,6 +564,10 @@ async fn reference_recycle_initialization_journey(
 }
 
 #[cfg(feature = "solver-pounce")]
+#[allow(
+    clippy::print_stderr,
+    reason = "the scientific test retains its instance-qualified precision inventory"
+)]
 fn inventory_contextual_study_attempts(
     initialized: &ModelingInitializationReport,
     revision: &str,
@@ -637,17 +652,16 @@ fn inventory_contextual_study_attempts(
             if !is_enthalpy {
                 continue;
             }
-            let context = engineering
-                .and_then(|context| context.caloric.as_ref())
-                .ok_or_else(|| {
-                    format!(
-                        "study {step:?} missing contextual enthalpy for {}",
-                        owner.path
-                    )
-                })?;
+            let engineering = engineering.ok_or("enthalpy engineering interpretation absent")?;
+            let context = engineering.caloric.as_ref().ok_or_else(|| {
+                format!(
+                    "study {step:?} missing contextual enthalpy for {}",
+                    owner.path
+                )
+            })?;
             assert_eq!(context.science_revision, revision);
             assert!(!context.consumers.is_empty());
-            assert!(!engineering.unwrap().canonical_fallback);
+            assert!(!engineering.canonical_fallback);
             assert!(target.quantity != SemanticId::NIL && target.unit != SemanticId::NIL);
             assert!(
                 target.budget.is_finite()
@@ -677,8 +691,8 @@ fn inventory_contextual_study_attempts(
                 target.nominal,
                 target.coordinate_scale,
                 target.budget,
-                engineering.and_then(|context| context.characteristic),
-                engineering.map(|context| context.source),
+                engineering.characteristic,
+                engineering.source,
                 context
             );
             contextual.insert((owner.path.clone(), owner.instance), target.id);
@@ -768,6 +782,10 @@ async fn reference_cstr_steady_precision() -> Result<(), Box<dyn std::error::Err
     result
 }
 
+#[allow(
+    clippy::print_stderr,
+    reason = "the CSTR test retains native outcomes and physical residual evidence"
+)]
 async fn reference_cstr_steady_precision_journey(
     recording: &mut Option<crate::tooling::capture::SourceRecordingSession>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

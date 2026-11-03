@@ -161,10 +161,12 @@ fn numerical_campaign_variants_are_explicit_and_change_only_selected_controls() 
             preparation.compiler.class_proof_work,
             original.compiler.class_proof_work
         );
-        let mut solver = crate::math::solves::SolverProfile::default();
-        solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
-            pse_backend_native::solve::Backend::Pounce,
-        );
+        let mut solver = crate::math::solves::SolverProfile {
+            selection: pse_backend_native::solve::SolverSelection::Explicit(
+                pse_backend_native::solve::Backend::Pounce,
+            ),
+            ..Default::default()
+        };
         let original = solver.clone();
         variant.solver(&mut solver);
         assert_eq!(solver.selection, original.selection);

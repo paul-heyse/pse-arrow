@@ -41,6 +41,10 @@ async fn ordinary_delivery_admits_complete_source_and_process_definitions() -> T
     Ok(())
 }
 
+#[allow(
+    clippy::print_stderr,
+    reason = "optional recording setup and finalization report test evidence independently of science"
+)]
 async fn execute(name: &str, expected: bool) -> TestResult {
     if std::env::var_os(crate::tooling::capture::SOURCE_RECORDING_REQUEST_ENV).is_none() {
         return execute_journey(name, expected, &mut None).await;
@@ -1094,6 +1098,10 @@ async fn ordinary_delivery_compatible_closure_preserves_side_balances() -> TestR
 
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
+#[allow(
+    clippy::print_stderr,
+    reason = "optional canonical recording reports its independent setup and finalization evidence"
+)]
 async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source() -> TestResult {
     if std::env::var_os(crate::tooling::capture::SOURCE_RECORDING_REQUEST_ENV).is_none() {
         return ordinary_delivery_scientific_intake_journey(&mut None).await;
@@ -1134,6 +1142,10 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
 }
 
 #[cfg(feature = "canonical-tests")]
+#[allow(
+    clippy::print_stderr,
+    reason = "optional canonical handoff failure remains visible independently of the scientific result"
+)]
 async fn ordinary_delivery_scientific_intake_journey(
     recording: &mut Option<crate::tooling::capture::SourceRecordingSession>,
 ) -> TestResult {
@@ -1411,10 +1423,10 @@ async fn ordinary_delivery_scientific_intake_journey(
         .ok_or("ordinary consuming attempt was not recorded")?
         .to_owned();
     let run = handle.wait().await?;
-    if let Some(recording) = recording {
-        if let Err(error) = recording.retain_result(&run) {
-            eprintln!("source-recording review handoff failed: {error}");
-        }
+    if let Some(recording) = recording
+        && let Err(error) = recording.retain_result(&run)
+    {
+        eprintln!("source-recording review handoff failed: {error}");
     }
     assert!(
         run.usable(),
