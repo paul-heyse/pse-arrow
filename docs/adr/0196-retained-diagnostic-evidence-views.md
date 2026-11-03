@@ -144,12 +144,23 @@ Source snapshots and raw record availability retain their independent coverage a
 Finalized native-scalar module records expose actual occupancy, extents and cache outcome
 through the existing coherent-record owner, without a second store or fabricated child metrics.
 
+Direct-result facts also retain original native/reconstructed quality separately from
+declared modeling checks, with actual component lineage and explicit absence. Borrowed
+bounded serialization preserves every quality row, bound, integrality assessment and
+normalized maximum as exact IEEE-754 bits. No later evaluation supplies missing quality.
+The additive fact fields retain the existing direct-result codec interpretation; older
+facts lacking these fields cannot establish that the original quality was retained.
+
 **Tested, local Linux with explicit correctness validation:** 95 selected native
 detail/capture/review controls include
 `producer_tracking_uses_admitted_memory_and_refuses_when_its_partition_exhausts`,
 `tracker_capacity_counts_each_producer_family_pair` and bounded offline readers. Real
 preparation, successful/rejected initialization and canonical publication captures have
 passed `c09_real_capture_offline_readback` under their declared bounded selections.
+The selected 85-control runtime rerun includes the bounded quality/nonfinite control;
+a fresh historical rejected-stage handoff passed the same offline reader's
+`historical-rejected` mode, preserving its actual approximately 50 K violation against
+a 0.1 K tolerance independently of 667 passing declared checks.
 The [Plan64c owner](../plans/64c-process-authoring-and-first-delivery.md#current-checkpoint--2026-11-03)
 retains fresh broad-compiled capture and final qualification obligations, original failed
 selections and measured conditions. No scientific permission, unconditional lossless-stream

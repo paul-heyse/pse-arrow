@@ -1164,7 +1164,19 @@ fn direct_result(
         values: DirectValues<'a>,
         checks: DirectChecks<'a>,
         reports: DirectReports<'a>,
+        quality_origin: &'static str,
+        original_quality: Option<DirectQuality<'a>>,
+        component_qualities: DirectComponentQualities<'a>,
     }
+    let (quality_origin, original_quality, components) = match &result.outcome {
+        crate::math::solves::Outcome::Native(report) => ("native", report.quality.as_ref(), None),
+        crate::math::solves::Outcome::Constant(report) => (
+            "constant_reconstruction",
+            Some(&report.quality),
+            Some(report.as_ref()),
+        ),
+        crate::math::solves::Outcome::Rejected(_) => ("no_native_report", None, None),
+    };
     out.fact(
         prefix.into(),
         "modeling-direct-result.v1",
@@ -1177,6 +1189,9 @@ fn direct_result(
             values: DirectValues(&result.values.scalars),
             checks: DirectChecks(&result.checks),
             reports: DirectReports(&result.reports),
+            quality_origin,
+            original_quality: original_quality.map(DirectQuality),
+            component_qualities: DirectComponentQualities(components),
         },
     )?;
     out.result_settings(prefix, &result.prepared.profile)?;
@@ -1209,6 +1224,64 @@ fn direct_result(
 struct DirectChecks<'a>(&'a [super::ModelingCheck]);
 struct DirectReports<'a>(&'a [super::ModelingReport]);
 struct DirectValues<'a>(&'a std::collections::BTreeMap<pse_ids::SemanticId, f64>);
+/// Original native/reconstructed quality remains distinct from modeling checks.
+struct DirectQuality<'a>(&'a pse_backend_native::quality::Quality);
+impl serde::Serialize for DirectQuality<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("OriginalQuality", 4)?;
+        state.serialize_field("rows", &DirectViolations(&self.0.rows))?;
+        state.serialize_field("bounds", &DirectViolations(&self.0.bounds))?;
+        state.serialize_field("integrality", &DirectViolations(&self.0.integrality))?;
+        state.serialize_field("normalized_max_bits", &self.0.normalized_max.to_bits())?;
+        state.end()
+    }
+}
+struct DirectViolations<'a>(&'a [pse_backend_native::quality::Violation]);
+impl serde::Serialize for DirectViolations<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeSeq, SerializeStruct};
+        struct Violation<'a>(&'a pse_backend_native::quality::Violation);
+        impl serde::Serialize for Violation<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let mut state = serializer.serialize_struct("OriginalViolation", 3)?;
+                state.serialize_field("id", &self.0.id)?;
+                state.serialize_field("physical_bits", &self.0.physical.to_bits())?;
+                state.serialize_field("tolerance_bits", &self.0.tolerance.to_bits())?;
+                state.end()
+            }
+        }
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for violation in self.0 {
+            seq.serialize_element(&Violation(violation))?;
+        }
+        seq.end()
+    }
+}
+struct DirectComponentQualities<'a>(Option<&'a crate::math::solves::ConstantReport>);
+impl serde::Serialize for DirectComponentQualities<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        #[derive(serde::Serialize)]
+        struct Component<'a> {
+            ordinal: usize,
+            backend: pse_backend_native::solve::Backend,
+            quality: Option<DirectQuality<'a>>,
+        }
+        let mut seq =
+            serializer.serialize_seq(self.0.map(|report| report.component_reports().len()))?;
+        if let Some(report) = self.0 {
+            for (ordinal, component) in report.component_reports().enumerate() {
+                seq.serialize_element(&Component {
+                    ordinal,
+                    backend: component.backend,
+                    quality: component.quality.as_ref().map(DirectQuality),
+                })?;
+            }
+        }
+        seq.end()
+    }
+}
 impl serde::Serialize for DirectValues<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeSeq;
@@ -1780,6 +1853,75 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn direct_quality_bounded_readback_preserves_original_violations_and_ieee_bits() {
+        use pse_backend_native::quality::{Quality, Violation};
+        let id = pse_ids::SemanticId::from_bytes([17; 16]);
+        let physical = 50.000006501572955_f64;
+        let quality = Quality {
+            rows: vec![Violation {
+                id,
+                physical,
+                tolerance: 0.1,
+            }],
+            bounds: vec![Violation {
+                id,
+                physical: f64::INFINITY,
+                tolerance: 1.0,
+            }],
+            integrality: vec![Violation {
+                id,
+                physical: f64::from_bits(0x7ff8_0000_0000_0001),
+                tolerance: 1.0,
+            }],
+            normalized_max: f64::INFINITY,
+        };
+        let mut request = ReviewContextRequest {
+            maximum_bytes: 512,
+            ..Default::default()
+        };
+        assert!(
+            builder(&request, None, None)
+                .fact(
+                    "/quality".into(),
+                    "modeling-direct-result.v1",
+                    &DirectQuality(&quality)
+                )
+                .is_err()
+        );
+        request.maximum_bytes = 1 << 20;
+        let mut out = builder(&request, None, None);
+        out.fact(
+            "/quality".into(),
+            "modeling-direct-result.v1",
+            &DirectQuality(&quality),
+        )
+        .unwrap();
+        out.document.validate().unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&out.document.facts[0].payload).unwrap();
+        assert_eq!(json["rows"][0]["id"], serde_json::to_value(id).unwrap());
+        assert_eq!(
+            json["rows"][0]["physical_bits"].as_u64(),
+            Some(physical.to_bits())
+        );
+        assert_eq!(
+            json["rows"][0]["tolerance_bits"].as_u64(),
+            Some(0.1_f64.to_bits())
+        );
+        assert_eq!(
+            json["bounds"][0]["physical_bits"].as_u64(),
+            Some(f64::INFINITY.to_bits())
+        );
+        assert_eq!(
+            json["integrality"][0]["physical_bits"].as_u64(),
+            Some(0x7ff8_0000_0000_0001)
+        );
+        assert_eq!(
+            json["normalized_max_bits"].as_u64(),
+            Some(f64::INFINITY.to_bits())
+        );
+    }
     #[test]
     fn direct_settings_admit_one_conservative_profile_bound_and_refuse_less() {
         let profile = crate::math::solves::SolverProfile::default();

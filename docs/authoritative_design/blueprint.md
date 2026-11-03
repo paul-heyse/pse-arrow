@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 342
+revision: 343
 date: 2026-11-03
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 343 | 2026-11-03 | Retain original native or reconstructed quality separately from declared checks in selected direct-result evidence (§23.1). | Authorized Plan64c C09 correction within proposed ADR-0196; bounded codec and actual rejected-stage offline readback passed. No ADR status or assembled qualification change. |
 | 342 | 2026-11-03 | Record selected detail header/document v3, flushed-prefix acknowledgement, budgeted source tracking and original construction/outcome handoffs (§23.1). | Authorized Plan64c C09 execution within proposed ADR-0196; owning plan retains actual capture conditions, independent scientific outcomes and scope-end qualification. |
 | 341 | 2026-11-02 | Add conjunctive source-attributed caloric or energy-only consumer requirements, distinguishing exposure bounds and checked actual flows (§16.1). | Authorized Plan64c C08 target under proposed ADR-0163; implementation and scientific qualification remain separate. |
 | 340 | 2026-11-02 | Describe implemented full native initialization outcomes, actual parent projection coordinates, scoped product permission and versioned protected export interpretation (§21.1/§21.5). | Authorized Plan64c execution under proposed ADR-0236/0237; focused verification and remaining native delivery acceptance remain with Plan64c. No ADR status or assembled qualification change. |

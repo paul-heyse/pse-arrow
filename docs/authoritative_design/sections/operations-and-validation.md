@@ -49,6 +49,12 @@ references; decoded facts do not recreate those guards or native execution autho
 Standalone initialization and declared-recycle strategies can explicitly select descriptive
 context at their original join. Their actual run/operation, original source, submitted controls,
 stages/attempts and retained native records remain distinct from a RunResult invocation.
+Selected direct-result facts also retain original native or reconstructed quality,
+including its row, bound and integrality assessments and actual component quality.
+These assessments remain separate from declared modeling checks: passing those checks
+does not establish native feasibility. Exact floating-point bits preserve nonfinite
+values and signed zero; absent native quality is explicit. The copy uses the original
+report under its finite context allowance and performs no numerical reassessment.
 Unrequested context is not copied; a selected copy refusal does not alter the scientific result.
 Escaped context owns its finite byte allowance and retains no executable or native handle.
 Selected dynamic context also copies the original joined native segment statistics, with

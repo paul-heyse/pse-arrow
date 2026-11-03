@@ -550,7 +550,7 @@ mod tests {
                 assert!(fact("modeling-direct-preparation.v1").is_some());
                 assert!(fact("modeling-preparation-settings.v1").is_some());
             }
-            "initialized" | "rejected" => {
+            "initialized" | "rejected" | "historical-rejected" => {
                 assert!(context.run_id.is_some());
                 let initial = fact("modeling-direct-initialization.v1")
                     .expect("original initialization report");
@@ -575,6 +575,76 @@ mod tests {
                 assert!(numerics["native_accuracy"]["feasibility"].is_number());
                 assert!(numerics["native_accuracy"]["stationarity"].is_number());
                 assert!(numerics["targets"].is_array());
+                if kind == "historical-rejected" {
+                    let result =
+                        fact("modeling-direct-result.v1").expect("original rejected-stage result");
+                    let result: serde_json::Value =
+                        serde_json::from_slice(&result.payload).unwrap();
+                    assert_eq!(result["quality_origin"], "native");
+                    let rows = result["original_quality"]["rows"]
+                        .as_array()
+                        .expect("actual native quality rows");
+                    let violation = rows
+                        .iter()
+                        .find(|row| row["id"].as_str() == Some("e7775dcc8c4d26d6dca5d7e84dfe8d61"))
+                        .expect("original recycle connection quality row");
+                    let physical = f64::from_bits(violation["physical_bits"].as_u64().unwrap());
+                    let tolerance = f64::from_bits(violation["tolerance_bits"].as_u64().unwrap());
+                    assert!((49.9..50.1).contains(&physical));
+                    assert_eq!(tolerance, 0.1);
+                    assert!(physical > tolerance);
+                }
+            }
+            "solve" => {
+                let run = context.run_id.expect("original direct solve run identity");
+                let result = context
+                    .facts
+                    .iter()
+                    .find(|fact| {
+                        fact.path == "/declared/result" && fact.codec == "modeling-direct-result.v1"
+                    })
+                    .expect("original direct solve result");
+                let result: serde_json::Value = serde_json::from_slice(&result.payload).unwrap();
+                assert_eq!(result["run_id"], serde_json::to_value(run).unwrap());
+                assert_eq!(result["accepted"].as_bool(), Some(true));
+                assert!(result["permission"]["usability"].is_string());
+                assert!(
+                    result["values"]
+                        .as_array()
+                        .is_some_and(|values| !values.is_empty())
+                );
+                assert!(
+                    result["checks"]
+                        .as_array()
+                        .is_some_and(|checks| !checks.is_empty())
+                );
+                assert!(
+                    result["reports"]
+                        .as_array()
+                        .is_some_and(|reports| !reports.is_empty())
+                );
+                let numerics = context
+                    .facts
+                    .iter()
+                    .find(|fact| {
+                        fact.path == "/declared/result/numerics"
+                            && fact.codec == "modeling-direct-numerics.v1"
+                    })
+                    .expect("direct solve numerical inventory");
+                let numerics: serde_json::Value =
+                    serde_json::from_slice(&numerics.payload).unwrap();
+                assert!(numerics["key"].is_string());
+                assert!(
+                    numerics["targets"]
+                        .as_array()
+                        .is_some_and(|targets| !targets.is_empty())
+                );
+                assert!(numerics["native_accuracy"]["feasibility"].is_number());
+                assert!(numerics["native_accuracy"]["stationarity"].is_number());
+                assert!(
+                    evidence.invocations.is_empty(),
+                    "direct solve must not acquire a fabricated RunResult invocation"
+                );
             }
             "canonical" => {
                 assert!(context.run_id.is_some());
@@ -591,7 +661,9 @@ mod tests {
                 );
             }
             _ => {
-                panic!("C09_CAPTURE_KIND must be preparation, initialized, rejected, or canonical")
+                panic!(
+                    "C09_CAPTURE_KIND must be preparation, initialized, rejected, historical-rejected, solve, or canonical"
+                )
             }
         }
 

@@ -525,12 +525,20 @@ async fn reference_recycle_initialization_journey(
             failure.class,
             pse_model::diagnostic::BoundaryClass::TrialRejected
         );
-        let original = package
-            .prepare_analysis(services.preparation(), &declared.analysis, &cancel)
-            .await?;
+        // The failure expectation belongs to this exact immutable declared product;
+        // reading it must not repeat numerical preparation after the rejected stage.
+        let original = declared.prepared_model(&package)?;
+        assert_eq!(
+            package.revision_id(),
+            declared.retained_source().revision_id(),
+            "a rejected stage must retain the original scientific revision"
+        );
+        assert_eq!(
+            package.declaration(fixture).await?.value,
+            declared.retained_source().declaration(fixture).await?.value,
+            "a rejected stage must not rewrite the original fixture specification"
+        );
         let expected = original
-            .model
-            .model
             .compiled()
             .model
             .fixtures
