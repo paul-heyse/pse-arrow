@@ -155,8 +155,13 @@ production installer or an executable-reuse claim.
 
 `just features-combinations` and `just features-no-default` use pinned cargo-hack 0.6.45 with
 `CARGO_HACK_CARGO_SRC` set to the existing native correctness adapter. Cargo-hack owns enumeration,
-order and keep-going; the adapter preserves selected features, targets, profiles and force-validation.
-There is no combination resume cache or copied working tree. One driver owns overlapping Cargo
+order, keep-going and explicit partition selection; the adapter preserves selected features,
+targets, profiles and force-validation. Feature permutations select nonincremental compilation
+through Cargo's configuration argument, avoiding a retained incremental cache for every
+one-shot combination. Ordinary editing profiles and compiler optimization levels are unchanged.
+When partitioning a campaign, retain the printed command population and demonstrate complete
+coverage; stopped or failed original captures remain stopped or failed. There is no combination
+resume cache or copied working tree. One driver owns overlapping Cargo
 graphs in a checkout. Focused adapter controls do not qualify the full powerset campaign.
 
 Optional external coverage, mutation, fuzz, perf and rr tools can be selected explicitly for a

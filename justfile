@@ -337,9 +337,10 @@ audit-shear:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- audit audit-shear
 
 [group('local')]
+[doc('Check feature pairs without retaining an incremental cache for each permutation')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-combinations:
-    CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo-bin/cargo-pse-correctness" cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
+    CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo-bin/cargo-pse-correctness" cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked --config build.incremental=false
 
 [group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
