@@ -11,9 +11,10 @@ use std::{
     io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering},
     },
+    task::{Context, Poll, Wake, Waker},
     thread::JoinHandle,
     time::{Duration, Instant},
 };
@@ -168,13 +169,19 @@ pub struct DetailFamilyCoverage {
     pub sampled_out: u64,
     /// Queue/extent/collector refusals, distinct from sampling.
     pub dropped: u64,
+    /// Selected records rejected by the admitted per-record extent.
+    pub oversized: u64,
+    /// Selected records refused because the finite writer queue was full.
+    pub queue_full: u64,
+    /// Selected records refused after the writer receiver closed.
+    pub queue_closed: u64,
 }
 /// Immutable/readable capture prefix, never scientific publication permission.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DetailDocument {
     /// Standalone answer encoding.
-    pub version: pse_model::document::Version<2>,
+    pub version: pse_model::document::Version<3>,
     /// Original explicit source selection.
     pub request: DetailRequest,
     /// Collection sufficiency independent of science.
@@ -215,7 +222,7 @@ enum Frame {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DetailHeader {
-    version: pse_model::document::Version<2>,
+    version: pse_model::document::Version<3>,
     request: DetailRequest,
 }
 /// Bounded page of original source records, independent from derived explanations.
@@ -246,6 +253,9 @@ struct Family {
     acknowledged: AtomicU64,
     sampled_out: AtomicU64,
     dropped: AtomicU64,
+    oversized: AtomicU64,
+    queue_full: AtomicU64,
+    queue_closed: AtomicU64,
 }
 fn increment(value: &AtomicU64) -> u64 {
     value
@@ -275,6 +285,9 @@ impl Family {
             unacknowledged: queued.saturating_sub(acknowledged),
             sampled_out: self.sampled_out.load(Ordering::Acquire),
             dropped: self.dropped.load(Ordering::Acquire),
+            oversized: self.oversized.load(Ordering::Acquire),
+            queue_full: self.queue_full.load(Ordering::Acquire),
+            queue_closed: self.queue_closed.load(Ordering::Acquire),
         }
     }
 }
@@ -298,11 +311,149 @@ struct Tap {
     scope_unavailable: Mutex<Vec<String>>,
     record_bytes: usize,
     owner_budget: pse_diagnostics::observation::OwnerBudget,
+    writer_signal: Arc<WriterSignal>,
+}
+/// One native writer thread receives queue, close and last-offer wakeups without a runtime.
+#[derive(Debug, Default)]
+struct WriterSignal {
+    thread: OnceLock<std::thread::Thread>,
+    notified: AtomicBool,
+}
+impl WriterSignal {
+    fn notify(&self) {
+        self.notified.store(true, Ordering::Release);
+        if let Some(thread) = self.thread.get() {
+            thread.unpark();
+        }
+    }
+    fn wait_until(&self, deadline: Instant) {
+        if !self.notified.swap(false, Ordering::AcqRel) {
+            std::thread::park_timeout(deadline.saturating_duration_since(Instant::now()));
+        }
+    }
+}
+impl Wake for WriterSignal {
+    fn wake(self: Arc<Self>) {
+        self.notify();
+    }
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.notify();
+    }
+}
+/// Reuses bounded encoding and batch storage; acknowledgements follow successful flushes.
+struct DetailWriter {
+    output: std::fs::File,
+    encoded: Vec<u8>,
+    pending: Vec<u8>,
+    acknowledgements: Vec<u64>,
+    prefix: u64,
+    output_limit: u64,
+    frame_limit: usize,
+    batch_limit: usize,
+}
+struct FrameBuffer<'a> {
+    bytes: &'a mut Vec<u8>,
+    limit: usize,
+}
+impl Write for FrameBuffer<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if bytes.len() > self.limit.saturating_sub(self.bytes.len()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::FileTooLarge,
+                "selected detail frame exhausted",
+            ));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+impl DetailWriter {
+    fn new(output: std::fs::File, request: &DetailRequest, record_bytes: usize) -> Self {
+        let frame_limit = 6 * record_bytes + 65536;
+        let batch_limit = 2 * record_bytes;
+        Self {
+            output,
+            encoded: Vec::with_capacity(frame_limit),
+            pending: Vec::with_capacity(batch_limit),
+            acknowledgements: vec![0; request.families.len()],
+            prefix: 0,
+            output_limit: request.budget.output_bytes,
+            frame_limit,
+            batch_limit,
+        }
+    }
+    fn frame(&mut self, frame: &Frame, families: &[Family]) -> std::io::Result<()> {
+        self.encoded.clear();
+        let mut buffer = FrameBuffer {
+            bytes: &mut self.encoded,
+            limit: self.frame_limit,
+        };
+        serde_json::to_writer(&mut buffer, frame).map_err(std::io::Error::other)?;
+        buffer.write_all(b"\n")?;
+        if self
+            .prefix
+            .saturating_add(self.pending.len() as u64)
+            .saturating_add(self.encoded.len() as u64)
+            > self.output_limit
+        {
+            self.flush(families)?;
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::FileTooLarge,
+                "selected detail output exhausted",
+            ));
+        }
+        let family = match frame {
+            Frame::Record(record) => families
+                .iter()
+                .position(|family| family.name == record.family),
+            _ => None,
+        };
+        if self.pending.len() + self.encoded.len() > self.batch_limit {
+            self.flush(families)?;
+        }
+        if self.encoded.len() > self.batch_limit {
+            self.output.write_all(&self.encoded)?;
+            self.output.flush()?;
+            self.prefix += self.encoded.len() as u64;
+            if let Some(index) = family {
+                increment(&families[index].acknowledged);
+            }
+        } else {
+            self.pending.extend_from_slice(&self.encoded);
+            if let Some(index) = family {
+                self.acknowledgements[index] = self.acknowledgements[index].saturating_add(1);
+            }
+        }
+        Ok(())
+    }
+    fn flush(&mut self, families: &[Family]) -> std::io::Result<()> {
+        if self.pending.is_empty() {
+            return Ok(());
+        }
+        self.output.write_all(&self.pending)?;
+        self.output.flush()?;
+        self.prefix += self.pending.len() as u64;
+        self.pending.clear();
+        for (family, count) in families.iter().zip(&mut self.acknowledgements) {
+            let delta = std::mem::take(count);
+            let _ = family
+                .acknowledged
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                    Some(value.saturating_add(delta))
+                });
+        }
+        Ok(())
+    }
 }
 struct Offer<'a>(&'a Tap);
 impl Drop for Offer<'_> {
     fn drop(&mut self) {
-        self.0.in_flight.fetch_sub(1, Ordering::SeqCst);
+        if self.0.in_flight.fetch_sub(1, Ordering::SeqCst) == 1 && self.0.is_closed() {
+            self.0.writer_signal.notify();
+        }
     }
 }
 impl Tap {
@@ -323,9 +474,13 @@ impl Tap {
         };
         // One transition closes source admission and retains its first reason. A later
         // owner finish or a deadline crossed during drain cannot promote a stopped prefix.
-        let _ = self
+        if self
             .closed
-            .compare_exchange(0, code, Ordering::SeqCst, Ordering::SeqCst);
+            .compare_exchange(0, code, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            self.writer_signal.notify();
+        }
     }
     fn end(&self) -> DetailEnd {
         match self.closed.load(Ordering::SeqCst) {
@@ -407,6 +562,7 @@ impl Tap {
         }
         if record.retained_bytes() > self.record_bytes {
             increment(&family.dropped);
+            increment(&family.oversized);
             return;
         }
         match self.sender.clone().try_reserve_owned() {
@@ -414,8 +570,16 @@ impl Tap {
                 increment(&family.queued);
                 permit.send(Frame::Record(record.clone()));
             }
-            Err(_) => {
+            Err(error) => {
                 increment(&family.dropped);
+                match error {
+                    tokio::sync::mpsc::error::TrySendError::Full(_) => {
+                        increment(&family.queue_full);
+                    }
+                    tokio::sync::mpsc::error::TrySendError::Closed(_) => {
+                        increment(&family.queue_closed);
+                    }
+                }
             }
         }
     }
@@ -742,7 +906,7 @@ pub fn start_detailed_collection(
     }
     std::fs::create_dir(&request.output)?;
     let records = request.output.join("records.jsonl");
-    let mut output = OpenOptions::new()
+    let output = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(&records)?;
@@ -771,6 +935,9 @@ pub fn start_detailed_collection(
                 acknowledged: AtomicU64::new(0),
                 sampled_out: AtomicU64::new(0),
                 dropped: AtomicU64::new(0),
+                oversized: AtomicU64::new(0),
+                queue_full: AtomicU64::new(0),
+                queue_closed: AtomicU64::new(0),
             })
             .collect(),
         every: request.sample_every,
@@ -790,6 +957,7 @@ pub fn start_detailed_collection(
             request.budget.memory_bytes / 4,
         ),
         record_bytes,
+        writer_signal: Arc::new(WriterSignal::default()),
     });
     let state=Arc::new(Mutex::new(DetailDocument { version:pse_model::document::Version,request:request.clone(),outcome:DetailOutcome::Active,end:None,clock_scope:"source operation process clocks; selected offer interval begins at acknowledged construction".into(),records,readable_prefix_bytes:0,families:vec![],source_partial:false,metadata_dropped:0,scope_unavailable:vec![],error:None }));
     let writer_tap = Arc::clone(&tap);
@@ -797,62 +965,49 @@ pub fn start_detailed_collection(
     let worker = std::thread::Builder::new()
         .name("pse-detail-writer".into())
         .spawn(move || {
-            let mut prefix = 0u64;
-            let write_frame = |frame: &Frame,
-                               output: &mut std::fs::File,
-                               prefix: &mut u64|
-             -> std::io::Result<()> {
-                let mut bytes = serde_json::to_vec(frame).map_err(std::io::Error::other)?;
-                bytes.push(b'\n');
-                if bytes.len() > 6 * record_bytes + 65536
-                    || prefix.saturating_add(bytes.len() as u64) > request.budget.output_bytes
-                {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::FileTooLarge,
-                        "selected detail output exhausted",
-                    ));
-                }
-                output.write_all(&bytes)?;
-                output.flush()?;
-                *prefix += bytes.len() as u64;
-                Ok(())
-            };
-            let mut error = write_frame(
-                &Frame::Header(DetailHeader {
-                    version: pse_model::document::Version,
-                    request: request.clone(),
-                }),
-                &mut output,
-                &mut prefix,
-            )
-            .err();
+            let signal = Arc::clone(&writer_tap.writer_signal);
+            let _ = signal.thread.set(std::thread::current());
+            let waker = Waker::from(Arc::clone(&signal));
+            let mut context = Context::from_waker(&waker);
+            let mut writer = DetailWriter::new(output, &request, record_bytes);
+            let mut error = writer
+                .frame(
+                    &Frame::Header(DetailHeader {
+                        version: pse_model::document::Version,
+                        request: request.clone(),
+                    }),
+                    &writer_tap.families,
+                )
+                .and_then(|()| writer.flush(&writer_tap.families))
+                .err();
             loop {
                 if error.is_some() {
                     writer_tap.close(DetailEnd::WriterFailed);
                     while writer_tap.in_flight.load(Ordering::SeqCst) != 0 {
-                        std::thread::sleep(Duration::from_millis(1));
+                        signal.wait_until(Instant::now() + Duration::from_secs(3600));
                     }
                     break;
                 }
                 if Instant::now() >= writer_tap.deadline {
                     writer_tap.close(DetailEnd::WindowElapsed);
                 }
-                match receiver.try_recv() {
-                    Ok(frame) => {
-                        error = write_frame(&frame, &mut output, &mut prefix).err();
-                        if error.is_none()
-                            && let Frame::Record(record) = &frame
-                            && let Some(family) =
-                                writer_tap.families.iter().find(|f| f.name == record.family)
-                        {
-                            increment(&family.acknowledged);
-                        }
+                match receiver.poll_recv(&mut context) {
+                    Poll::Ready(Some(frame)) => {
+                        error = writer.frame(&frame, &writer_tap.families).err();
                         writer_state
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .readable_prefix_bytes = prefix;
+                            .readable_prefix_bytes = writer.prefix;
                     }
-                    Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                    Poll::Pending => {
+                        error = writer.flush(&writer_tap.families).err();
+                        writer_state
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .readable_prefix_bytes = writer.prefix;
+                        if error.is_some() {
+                            continue;
+                        }
                         if writer_tap.is_closed()
                             && writer_tap.in_flight.load(Ordering::SeqCst) == 0
                         {
@@ -862,13 +1017,20 @@ pub fn start_detailed_collection(
                             }
                             continue;
                         }
-                        std::thread::sleep(Duration::from_millis(5));
+                        signal.wait_until(if writer_tap.is_closed() {
+                            Instant::now() + Duration::from_secs(3600)
+                        } else {
+                            writer_tap.deadline
+                        });
                     }
-                    Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => break,
+                    Poll::Ready(None) => break,
                 }
             }
             writer_tap.close(DetailEnd::Stopped);
             receiver.close();
+            if error.is_none() {
+                error = writer.flush(&writer_tap.families).err();
+            }
             // Admission and active-offer counting use one sequentially consistent order:
             // no entrant can pass its second closed check after this drain has observed zero.
             let issued = writer_tap
@@ -891,7 +1053,7 @@ pub fn start_detailed_collection(
             let mut d = writer_state
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            d.readable_prefix_bytes = prefix;
+            d.readable_prefix_bytes = writer.prefix;
             d.families = writer_tap.families.iter().map(Family::snapshot).collect();
             d.source_partial = writer_tap.source_partial.load(Ordering::Acquire);
             d.metadata_dropped = writer_tap.metadata_dropped.load(Ordering::Acquire);
@@ -924,12 +1086,14 @@ pub fn start_detailed_collection(
                 .as_ref()
                 .map(|e| e.to_string().chars().take(512).collect());
             if error.is_none()
-                && let Err(e) = write_frame(&Frame::End(d.clone()), &mut output, &mut prefix)
+                && let Err(e) = writer
+                    .frame(&Frame::End(d.clone()), &writer_tap.families)
+                    .and_then(|()| writer.flush(&writer_tap.families))
             {
                 d.outcome = DetailOutcome::Incomplete;
                 d.error = Some(e.to_string().chars().take(512).collect());
             }
-            d.readable_prefix_bytes = prefix;
+            d.readable_prefix_bytes = writer.prefix;
         })?;
     Ok(DetailSession {
         context: context.with_record_tap(tap.clone()),
@@ -1311,6 +1475,100 @@ mod tests {
         let result = session.finish().unwrap();
         assert_eq!(result.outcome, DetailOutcome::Incomplete);
         assert_eq!(result.families[0].dropped, 1);
+        assert_eq!(result.families[0].oversized, 1);
+        assert_eq!(result.families[0].queue_full, 0);
+        assert_eq!(result.families[0].queue_closed, 0);
+        assert!(operation.context().is_active());
+    }
+    #[test]
+    fn full_queue_loss_is_distinct_from_record_extent_and_flushed_records() {
+        let directory = tempfile::tempdir().unwrap();
+        let operation = ObservationHub::new(Policy::default()).start("science");
+        let session = start_detailed_collection(
+            operation.context(),
+            request(directory.path().join("queue"), DetailRequirement::Complete),
+        )
+        .unwrap();
+        let p = session
+            .context()
+            .producer(ProducerRole::NativeIteration, "native");
+        p.publish(&record(&p, 1));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while session.tap.sender.capacity() != session.tap.sender.max_capacity() {
+            assert!(
+                Instant::now() < deadline,
+                "writer must drain its admitted first record"
+            );
+            std::thread::yield_now();
+        }
+        let permits = session
+            .tap
+            .sender
+            .try_reserve_many(session.tap.sender.max_capacity())
+            .unwrap();
+        p.publish(&record(&p, 2));
+        drop(permits);
+        let result = session.finish().unwrap();
+        let family = &result.families[0];
+        assert_eq!(family.issued, 2);
+        assert_eq!(family.acknowledged, 1);
+        assert_eq!(family.dropped, 1);
+        assert_eq!(family.queue_full, 1);
+        assert_eq!(family.oversized, 0);
+        assert_eq!(family.queue_closed, 0);
+        assert_eq!(result.outcome, DetailOutcome::Incomplete);
+        let retained = read_detailed_collection(&result.records, 1 << 20).unwrap();
+        assert_eq!(retained.families[0].queue_full, 1);
+    }
+    #[test]
+    fn buffered_records_acknowledge_only_a_successfully_flushed_prefix() {
+        let directory = tempfile::tempdir().unwrap();
+        let selection = request(directory.path().join("batch"), DetailRequirement::Complete);
+        let output = std::fs::File::create(directory.path().join("batch.jsonl")).unwrap();
+        let operation = ObservationHub::new(Policy::default()).start("science");
+        let session = start_detailed_collection(operation.context(), selection.clone()).unwrap();
+        let p = session
+            .context()
+            .producer(ProducerRole::NativeIteration, "native");
+        let frame = Frame::Record(record(&p, 1));
+        let mut writer = DetailWriter::new(output, &selection, session.tap.record_bytes);
+        writer.frame(&frame, &session.tap.families).unwrap();
+        assert_eq!(writer.prefix, 0);
+        assert_eq!(
+            session.tap.families[0].acknowledged.load(Ordering::Acquire),
+            0
+        );
+        writer.flush(&session.tap.families).unwrap();
+        assert!(writer.prefix > 0);
+        assert_eq!(
+            session.tap.families[0].acknowledged.load(Ordering::Acquire),
+            1
+        );
+        assert_eq!(
+            std::fs::metadata(directory.path().join("batch.jsonl"))
+                .unwrap()
+                .len(),
+            writer.prefix
+        );
+    }
+    #[test]
+    fn idle_writer_wakes_for_stop_and_expires_without_a_runtime() {
+        let directory = tempfile::tempdir().unwrap();
+        let operation = ObservationHub::new(Policy::default()).start("science");
+        let mut selection = request(directory.path().join("expiry"), DetailRequirement::Complete);
+        selection.duration = Duration::from_millis(10);
+        let expired = start_detailed_collection(operation.context(), selection)
+            .unwrap()
+            .wait()
+            .unwrap();
+        assert_eq!(expired.end, Some(DetailEnd::WindowElapsed));
+        let mut selection = request(directory.path().join("stop"), DetailRequirement::Complete);
+        selection.duration = Duration::from_secs(3600);
+        let session = start_detailed_collection(operation.context(), selection).unwrap();
+        let started = Instant::now();
+        let stopped = session.stop().unwrap();
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert_eq!(stopped.end, Some(DetailEnd::Stopped));
         assert!(operation.context().is_active());
     }
     #[test]

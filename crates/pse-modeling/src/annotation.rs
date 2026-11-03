@@ -80,6 +80,8 @@ pub enum AnnotationValue {
     AccuracyGoal(Box<AccuracyGoal>),
     /// Tagged physical characteristic magnitude, independent of conditioning scales.
     EngineeringScale(EngineeringScale),
+    /// Frozen local caloric and consuming energy premises.
+    CaloricContext(CaloricContext),
     /// A shared default selected by the identity of its source constant.
     EngineeringDefault {
         /// The marked constant whose allowance is selected for this target.
@@ -87,6 +89,28 @@ pub enum AnnotationValue {
         /// Authored precedence from the actual declaring scope.
         source: pse_model::generated::enums::NumericalSource,
     },
+}
+/// One consumer of an enthalpy target; repeated declarations name distinct consumers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CaloricContext {
+    /// Actual consuming physical target identity.
+    pub consumer: SemanticId,
+    /// The independently checked actual stream flow.
+    pub actual_flow: SemanticId,
+    /// The selected shared power rule.
+    pub power_rule: SemanticId,
+    /// Original exposure-bound expression, preserved with declaration identity.
+    pub exposure_expression: String,
+    /// Whether response and thermal resolution precede the power and exposure.
+    pub thermal: bool,
+    /// Physical expressions in source order.
+    pub values: Vec<Expr>,
+    /// Complete physical types of those expressions.
+    pub quantities: Vec<Type>,
+    /// Scientific records selected while constructing the response expression.
+    pub science_records: Vec<SemanticId>,
+    /// Source scope determines numerical precedence.
+    pub source: pse_model::generated::enums::NumericalSource,
 }
 /// One admitted accuracy-goal declaration after target and lexical specialization.
 #[derive(Clone, Debug, PartialEq)]
@@ -320,6 +344,11 @@ pub enum AnnotationRoots {
         /// Actual physical magnitude.
         value: NodeIx,
     },
+    /// Four separately observed frozen caloric premises.
+    Caloric {
+        /// Response, thermal resolution, power allowance and exposure roots.
+        values: Vec<NodeIx>,
+    },
 }
 impl AnnotationRoots {
     /// Ordered demanded numerical roots; no source syntax traversal occurs.
@@ -327,6 +356,7 @@ impl AnnotationRoots {
         match self {
             Self::None | Self::Check { .. } => vec![],
             Self::Scalar { value } | Self::Engineering { value } => vec![*value],
+            Self::Caloric { values } => values.to_vec(),
             Self::Bounds { lower, upper } | Self::Valid { lower, upper } => vec![*lower, *upper],
             Self::Accuracy {
                 time,
@@ -488,13 +518,26 @@ impl Engine<'_, '_> {
             return Ok(());
         }
         let ports = kind == Shape::Connectivity;
-        let targets = self.annotation_targets(
-            instance,
-            &self.p.expression_at(at, "annotation.target", 0)?.clone(),
-            env,
-            at,
-            ports,
-        )?;
+        let source = self.p.expression_at(at, "annotation.target", 0)?.clone();
+        let deferred = matches!(kind, Shape::CaloricContext | Shape::EnergyContext)
+            && deferred_caloric_equation(
+                self.p,
+                self.c,
+                at,
+                &source,
+                &self.source_types(at, env)?,
+            )?;
+        let targets = self.annotation_targets(instance, &source, env, at, ports)?;
+        // Target selection has already admitted coordinates and definedness. Rows
+        // may not yet be emitted when this annotation is visited, so inspect the
+        // selected instance member rather than the partially built row inventory.
+        let equation_target = match &source.kind {
+            ExprKind::Path(path) => path.segments.split_last().is_some_and(|(last, prefix)| {
+                self.equation_member(instance, at, prefix, &last.name, env)
+                    .is_some()
+            }),
+            _ => false,
+        };
         if ports {
             let (incoming, outgoing) = connectivity_limits(a, at)?;
             for (target, _, _) in targets {
@@ -558,6 +601,149 @@ impl Engine<'_, '_> {
                 }
                 expression_as(engine, "annotation.arguments", index, Some(&ty))
             };
+            if matches!(kind, Shape::CaloricContext | Shape::EnergyContext) {
+                let is_equation = equation_target;
+                if deferred && !is_equation {
+                    return Err(invalid(
+                        at,
+                        "deferred caloric target must resolve to an equation",
+                    ));
+                }
+                if !self.model.symbols.contains_key(&target) && !is_equation {
+                    return Err(invalid(
+                        at,
+                        "caloric context requires an existing physical value or row",
+                    ));
+                }
+                let named = |name: &str| {
+                    self.p
+                        .physical_types
+                        .get(name)
+                        .cloned()
+                        .ok_or_else(|| invalid(at, format!("missing physical type {name}")))
+                };
+                if difference_type(&ty, self.c.quantities, at)?
+                    != difference_type(&named("MolarEnthalpy")?, self.c.quantities, at)?
+                {
+                    return Err(invalid(
+                        at,
+                        "caloric target requires a molar enthalpy difference",
+                    ));
+                }
+                let thermal = kind == Shape::CaloricContext;
+                let mut quantities = Vec::with_capacity(4);
+                if thermal {
+                    quantities.push(named("MolarCp")?);
+                    quantities.push(difference_type(
+                        &named("Temperature")?,
+                        self.c.quantities,
+                        at,
+                    )?);
+                }
+                let power_index = quantities.len();
+                quantities.push(difference_type(&named("Power")?, self.c.quantities, at)?);
+                quantities.push(named("Flow")?);
+                let rule = self
+                    .p
+                    .names
+                    .get(a.arguments[power_index].trim())
+                    .copied()
+                    .ok_or_else(|| {
+                        invalid(at, "consumer allowance must name a shared engineering rule")
+                    })?
+                    .as_id();
+                if !self
+                    .model
+                    .engineering_rules
+                    .iter()
+                    .any(|item| item.id == rule)
+                {
+                    return Err(invalid(
+                        at,
+                        "consumer allowance is not a shared engineering rule",
+                    ));
+                }
+                let mut values = Vec::with_capacity(quantities.len());
+                let records = if thermal {
+                    let capture = self.selection_collector.scope();
+                    values.push(expression_as(
+                        self,
+                        "annotation.arguments",
+                        0,
+                        Some(&quantities[0]),
+                    )?);
+                    capture
+                        .finish()
+                        .values()
+                        .flat_map(|closure| closure.records.iter())
+                        .filter_map(|record| {
+                            if let crate::specialize::Value::Entity { id, .. } = record {
+                                Some(id.as_id())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .into_iter()
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                for (index, quantity) in quantities.iter().enumerate().skip(usize::from(thermal)) {
+                    values.push(expression_as(
+                        self,
+                        "annotation.arguments",
+                        index,
+                        Some(quantity),
+                    )?);
+                }
+                let consumer_expression = self
+                    .p
+                    .expression_at(at, "annotation.arguments", quantities.len())?
+                    .clone();
+                let consumers =
+                    self.annotation_targets(instance, &consumer_expression, env, at, false)?;
+                if consumers.len() != 1
+                    || difference_type(&consumers[0].1, self.c.quantities, at)?
+                        != quantities[power_index]
+                {
+                    return Err(invalid(
+                        at,
+                        "caloric consumer must name one physical power target",
+                    ));
+                }
+                let flow_expression = self
+                    .p
+                    .expression_at(at, "annotation.arguments", quantities.len() + 1)?
+                    .clone();
+                let flows = self.annotation_targets(instance, &flow_expression, env, at, false)?;
+                if flows.len() != 1 || flows[0].1 != quantities[power_index + 1] {
+                    return Err(invalid(
+                        at,
+                        "actual exposure must name one physical flow target",
+                    ));
+                }
+                let roots = values.iter().map(|value| value.root).collect();
+                let expressions = values.into_iter().map(|value| value.inspection).collect();
+                self.reserve(1)?;
+                self.model.annotations.push(Annotation {
+                    target,
+                    value: AnnotationValue::CaloricContext(CaloricContext {
+                        consumer: consumers[0].0,
+                        actual_flow: flows[0].0,
+                        power_rule: rule,
+                        exposure_expression: a.arguments[power_index + 1].clone(),
+                        thermal,
+                        values: expressions,
+                        quantities,
+                        science_records: records,
+                        source: annotation_source(self.p, at),
+                    }),
+                    roots: AnnotationRoots::Caloric { values: roots },
+                    lineage: self.lineage(instance, row, &[at]),
+                });
+                continue;
+            }
             if kind == Shape::AccuracyGoal {
                 if !self.model.symbols.contains_key(&target) {
                     return Err(invalid(
@@ -671,10 +857,10 @@ impl Engine<'_, '_> {
                 continue;
             }
             if kind == Shape::EngineeringScale {
-                if !self.model.symbols.contains_key(&target) {
+                if !self.model.symbols.contains_key(&target) && !equation_target {
                     return Err(invalid(
                         at,
-                        "engineering scale target is an existing scalar member",
+                        "engineering scale target is an existing scalar value or row",
                     ));
                 }
                 let members = a
@@ -821,6 +1007,8 @@ impl Engine<'_, '_> {
                 | AnnotationKind::Connectivity
                 | AnnotationKind::AccuracyGoal
                 | AnnotationKind::EngineeringScale
+                | AnnotationKind::CaloricContext
+                | AnnotationKind::EnergyContext
                 | AnnotationKind::EngineeringDefault
                 | AnnotationKind::EngineeringRule => {
                     return Err(invalid(at, "annotation kind handled above"));
@@ -973,6 +1161,37 @@ pub(crate) fn target_declaration(
             "whole-member annotation requires a scalar child path",
         )),
     }
+}
+
+/// Whether a checked interface path leaves only its final member to specialization.
+pub(crate) fn deferred_caloric_equation(
+    p: &crate::CheckedPackage,
+    c: &crate::TypeContext<'_>,
+    at: DeclarationId,
+    source: &Expr,
+    env: &dyn crate::TypeLookup,
+) -> Result<bool> {
+    let ExprKind::Path(mut path) = source.kind.clone() else {
+        return Ok(false);
+    };
+    let Some(last) = path.segments.pop() else {
+        return Ok(false);
+    };
+    if path.segments.is_empty() || !last.indices.is_empty() {
+        return Ok(false);
+    }
+    let parent = Expr {
+        kind: ExprKind::Path(path),
+        span: Default::default(),
+    };
+    let owner = crate::expression::infer(&parent, env, p, c, at, None)?;
+    Ok(match owner {
+        Type::Interface(id) => !p
+            .members
+            .get(&id)
+            .is_some_and(|members| members.contains_key(&last.name)),
+        _ => false,
+    })
 }
 
 pub(crate) fn target_type(

@@ -213,7 +213,9 @@ pub(super) fn validate(document: &ReviewContextDocument) -> Result<(), WorkflowE
             "initialization-outcome.v1"
             | "initialization-attempt.v1"
             | "declared-recycle-outcome.v1"
-            | "dynamic-native-statistics.v1" => {
+            | "dynamic-native-statistics.v1"
+            | "modeling-direct-initialization.v1"
+            | "modeling-direct-attempt.v1" => {
                 #[derive(serde::Deserialize)]
                 struct StrategyRun {
                     run_id: RunId,
@@ -226,6 +228,17 @@ pub(super) fn validate(document: &ReviewContextDocument) -> Result<(), WorkflowE
             }
             "engine-execution-observations.v2" => {
                 let _: pse_engine::session::CopiedExecutionObservations = decode(fact)?;
+            }
+            "modeling-direct-result.v1" if fact.path == "/declared/result" => {
+                #[derive(serde::Deserialize)]
+                struct DirectResult {
+                    run_id: RunId,
+                }
+                if document.run_id != Some(decode::<DirectResult>(fact)?.run_id) {
+                    return Err(contract(
+                        "direct result contradicts enclosing original run identity",
+                    ));
+                }
             }
             _ => {}
         }
@@ -292,6 +305,22 @@ mod tests {
         });
         document.validate().unwrap();
         document.facts[1].payload = br#"{"source":1,"bindings":"opaque"}"#.to_vec();
+        assert!(document.validate().is_err());
+    }
+    #[test]
+    fn direct_initialization_facts_retain_the_actual_run_identity() {
+        let run = RunId::from_bytes([1; 16]);
+        let mut document = context(run, 2);
+        document.facts.push(ReviewContextFact {
+            path: "/declared/initialization".into(),
+            codec: "modeling-direct-initialization.v1".into(),
+            payload: serde_json::to_vec(&serde_json::json!({"run_id": run})).unwrap(),
+        });
+        document.validate().unwrap();
+        document.facts[1].payload = serde_json::to_vec(&serde_json::json!({
+            "run_id": RunId::from_bytes([4; 16])
+        }))
+        .unwrap();
         assert!(document.validate().is_err());
     }
 }

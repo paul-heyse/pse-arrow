@@ -223,31 +223,21 @@ impl ReviewHandoffSession {
         let operation = invocation.operation;
         let canonical_run = invocation.canonical_run.clone();
         let canonical_attempt = invocation.canonical_attempt.clone();
-        // Construct the copied set by decoding under the existing bounded factual codec.
-        // This does not recreate source, native, or scientific allocation owners.
-        let context_bytes =
-            serde_json::to_vec(context.document()).map_err(|error| invalid(error.to_string()))?;
-        let invocation_bytes =
-            serde_json::to_vec(&*invocation).map_err(|error| invalid(error.to_string()))?;
+        // These exact joined typed facts have already been admitted by their owners.
+        // Keep those owners through publication rather than serialize/decode another copy.
+        let (context, _context_owner) = context.into_handoff_parts();
+        let crate::invocation::InvocationEvidence {
+            document: invocation,
+            _owner: _invocation_owner,
+        } = invocation;
         let mut evidence = FrozenEvidenceSet::default();
-        evidence.contexts.push(
-            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 2>(
-                &context_bytes,
-            )
-            .map_err(|error| invalid(error.to_string()))?,
-        );
+        evidence.contexts.push(context);
         evidence.engine_observations.extend(
             evidence.contexts[0]
                 .engine_observations()
                 .map_err(|error| invalid(error.to_string()))?,
         );
-        evidence.invocations.push(
-            crate::tooling::frozen_inspection::decode_document::<
-                crate::invocation::InvocationEvidenceDocument,
-                2,
-            >(&invocation_bytes)
-            .map_err(|error| invalid(error.to_string()))?,
-        );
+        evidence.invocations.push(invocation);
         if let Some(operation) = operation
             && let Some(reader) = crate::observation::process_diagnostics().reader(operation)
         {
@@ -272,13 +262,10 @@ impl ReviewHandoffSession {
             .admit_handoff(&self.receipt.request.context)
             .map_err(|error| invalid(error.to_string()))?;
         let _allocation = self.working_owner()?;
-        context
-            .validate()
-            .map_err(|error| invalid(error.to_string()))?;
-        let bytes = serde_json::to_vec(context).map_err(|error| invalid(error.to_string()))?;
         let mut evidence = FrozenEvidenceSet::default();
         evidence.contexts.push(
-            crate::tooling::frozen_inspection::decode_document::<ReviewContextDocument, 2>(&bytes)
+            context
+                .copy_for_handoff(&_allocation)
                 .map_err(|error| invalid(error.to_string()))?,
         );
         evidence.engine_observations.extend(
@@ -286,6 +273,15 @@ impl ReviewHandoffSession {
                 .engine_observations()
                 .map_err(|error| invalid(error.to_string()))?,
         );
+        // This is a point-in-time observation of the original operation; the
+        // operation may continue after this optional handoff is published.
+        if let Some(operation) = context.operation
+            && let Some(reader) = crate::observation::process_diagnostics().reader(operation)
+        {
+            evidence
+                .operations
+                .push(reader.snapshot(Duration::from_secs(60)));
+        }
         self.publish(
             &evidence,
             context.operation,
@@ -348,6 +344,7 @@ impl ReviewHandoffSession {
                     .receipt
                     .request
                     .maximum_bytes
+                    .min(crate::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES as u64)
                     .saturating_sub(self.written),
                 written: 0,
                 expiry: self.expiry,
@@ -473,6 +470,176 @@ mod tests {
     use super::*;
     use pse_diagnostics::observation::ObservationHub;
     #[test]
+    fn direct_context_handoff_retains_actual_operation_snapshot_and_metric() {
+        use pse_diagnostics::observation::Value;
+        let directory = tempfile::tempdir().unwrap();
+        let operation = crate::observation::process_diagnostics()
+            .hub()
+            .start("handoff.direct.snapshot");
+        let context = operation.context();
+        context.count("math.native_scalar_compilations", "count", 3);
+        let request = ReviewHandoffRequest {
+            context: ReviewContextRequest::default(),
+            maximum_bytes: 1 << 20,
+            maximum_members: 4,
+        };
+        let mut handoff =
+            ReviewHandoffSession::create(directory.path(), context.id(), request.clone(), None)
+                .unwrap();
+        let retained = ReviewContextDocument::pre_handle_failure(
+            request.context,
+            Some(context.id()),
+            "actual earlier refusal".into(),
+            Vec::new(),
+        )
+        .unwrap();
+        handoff.retain_context(&retained).unwrap();
+        handoff.finish(true);
+        let evidence = read_review_handoff(&directory.path().join("review/index.json")).unwrap();
+        let snapshot = evidence
+            .operations
+            .iter()
+            .find(|snapshot| snapshot.id == context.id())
+            .expect("original operation snapshot");
+        assert!(
+            snapshot
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "math.native_scalar_compilations"
+                    && metric.cumulative == Value::Count(3))
+        );
+        assert!(
+            context.is_active(),
+            "copying observations must not finish the operation"
+        );
+    }
+    /// Deliberately opt-in: this reads an independently executed real journey's
+    /// immutable outputs, never constructs or reruns the scientific operation.
+    #[test]
+    #[ignore = "requires C09_CAPTURE_DIR and C09_CAPTURE_KIND from a completed real journey"]
+    fn c09_real_capture_offline_readback() {
+        use crate::observation_detail::{
+            DetailFamilyActivation, DetailOutcome, read_detail_records, read_detailed_collection,
+        };
+        let directory =
+            PathBuf::from(std::env::var_os("C09_CAPTURE_DIR").expect("C09_CAPTURE_DIR"));
+        let kind = std::env::var("C09_CAPTURE_KIND").expect("C09_CAPTURE_KIND");
+        let detail_path = directory.join("detail/records.jsonl");
+        let receipt_path = directory.join("detail/review/index.json");
+        let receipt: ReviewHandoffReceipt = crate::tooling::frozen_inspection::read_document::<
+            ReviewHandoffReceipt,
+            1,
+        >(&receipt_path)
+        .unwrap();
+        assert_eq!(
+            receipt.state,
+            ReviewHandoffState::Complete,
+            "handoff receipt: {receipt:?}"
+        );
+        assert!(!receipt.members.is_empty());
+        let evidence = read_review_handoff(&receipt_path).unwrap();
+        assert!(
+            !evidence.contexts.is_empty(),
+            "no retained original context"
+        );
+        let context = &evidence.contexts[0];
+        let fact = |codec: &str| context.facts.iter().find(|fact| fact.codec == codec);
+        match kind.as_str() {
+            "preparation" => {
+                assert!(context.run_id.is_none());
+                assert!(fact("modeling-direct-preparation.v1").is_some());
+                assert!(fact("modeling-preparation-settings.v1").is_some());
+            }
+            "initialized" | "rejected" => {
+                assert!(context.run_id.is_some());
+                let initial = fact("modeling-direct-initialization.v1")
+                    .expect("original initialization report");
+                let initial: serde_json::Value = serde_json::from_slice(&initial.payload).unwrap();
+                assert_eq!(initial["completed"].as_bool(), Some(kind == "initialized"));
+                assert!(
+                    context
+                        .facts
+                        .iter()
+                        .any(|fact| fact.codec == "modeling-direct-attempt.v1")
+                );
+                assert!(
+                    context
+                        .facts
+                        .iter()
+                        .any(|fact| fact.codec == "modeling-direct-result.v1")
+                );
+                let numerics = fact("modeling-direct-numerics.v1")
+                    .expect("original result numerical inventory");
+                let numerics: serde_json::Value =
+                    serde_json::from_slice(&numerics.payload).unwrap();
+                assert!(numerics["native_accuracy"]["feasibility"].is_number());
+                assert!(numerics["native_accuracy"]["stationarity"].is_number());
+                assert!(numerics["targets"].is_array());
+            }
+            "canonical" => {
+                assert!(context.run_id.is_some());
+                assert!(
+                    !evidence.invocations.is_empty(),
+                    "actual RunHandle invocation absent"
+                );
+                assert!(
+                    evidence
+                        .invocations
+                        .iter()
+                        .any(|invocation| invocation.canonical_run.is_some()
+                            && invocation.canonical_attempt.is_some())
+                );
+            }
+            _ => {
+                panic!("C09_CAPTURE_KIND must be preparation, initialized, rejected, or canonical")
+            }
+        }
+
+        // Decode all selected source records by bounded cursor pages, not by
+        // embedding the archive in a frozen aggregate or an explanation document.
+        let document = read_detailed_collection(&detail_path, 512 << 20).unwrap();
+        assert_eq!(
+            document.outcome,
+            DetailOutcome::Complete,
+            "detail terminal coverage: {document:?}"
+        );
+        let mut cursor = 0;
+        let mut counts = std::collections::BTreeMap::<String, u64>::new();
+        loop {
+            let page = read_detail_records(&detail_path, cursor, 512, 16 << 20).unwrap();
+            assert!(!page.partial, "partial source record page");
+            for record in page.records {
+                assert!(document.request.families.contains(&record.family));
+                *counts.entry(record.family).or_default() += 1;
+            }
+            match page.next_offset {
+                Some(next) => {
+                    assert!(next > cursor);
+                    cursor = next;
+                }
+                None => break,
+            }
+        }
+        assert!(
+            counts.values().any(|count| *count > 0),
+            "no selected records decoded"
+        );
+        for family in &document.families {
+            assert_eq!(
+                family.activation,
+                DetailFamilyActivation::Applicable,
+                "{family:?}"
+            );
+            assert_eq!(
+                counts.get(&family.family).copied().unwrap_or(0),
+                family.acknowledged,
+                "{family:?}"
+            );
+            assert_eq!(family.issued, family.acknowledged, "{family:?}");
+            assert_eq!(family.dropped, 0, "{family:?}");
+        }
+    }
+    #[test]
     fn review_handoff_keeps_prehandle_context_without_science_and_relocates() {
         let directory = tempfile::tempdir().unwrap();
         let operation = ObservationHub::new(Default::default()).start("handoff.prehandle");
@@ -564,6 +731,33 @@ mod tests {
         .unwrap();
         handoff.retain_context(&narrow).unwrap();
         assert_eq!(handoff.receipt.members.len(), 1);
+        assert!(operation.context().is_active());
+    }
+    #[test]
+    fn large_requested_allowance_cannot_publish_an_unreadable_actual_aggregate() {
+        let directory = tempfile::tempdir().unwrap();
+        let operation = ObservationHub::new(Default::default()).start("handoff.output");
+        let request = ReviewHandoffRequest {
+            context: ReviewContextRequest::default(),
+            maximum_bytes: 1 << 30,
+            maximum_members: 4,
+        };
+        let mut handoff =
+            ReviewHandoffSession::create(directory.path(), operation.context().id(), request, None)
+                .unwrap();
+        handoff
+            .publish(&FrozenEvidenceSet::default(), None, None, None, None)
+            .unwrap();
+        assert_eq!(handoff.receipt.members.len(), 1);
+        // Exercise the cumulative admission boundary without allocating a huge fixture.
+        handoff.written = crate::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES as u64 - 1;
+        let error = handoff
+            .publish(&FrozenEvidenceSet::default(), None, None, None, None)
+            .unwrap_err();
+        assert!(error.to_string().contains("byte allowance exhausted"));
+        assert_eq!(handoff.receipt.state, ReviewHandoffState::Incomplete);
+        assert_eq!(handoff.receipt.members.len(), 1);
+        assert!(!handoff.directory.join("evidence-00001.json").exists());
         assert!(operation.context().is_active());
     }
     #[test]

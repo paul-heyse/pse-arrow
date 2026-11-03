@@ -222,6 +222,25 @@ impl ModelingOutput {
                     ModelingHint::EngineeringScaleValue => {
                         (Annotation::EngineeringScale, Component::Value)
                     }
+                    ModelingHint::CaloricResponse => {
+                        (Annotation::CaloricContext, Component::CaloricResponse)
+                    }
+                    ModelingHint::CaloricThermalResolution => (
+                        Annotation::CaloricContext,
+                        Component::CaloricThermalResolution,
+                    ),
+                    ModelingHint::CaloricPowerAllowance => {
+                        (Annotation::CaloricContext, Component::CaloricPowerAllowance)
+                    }
+                    ModelingHint::CaloricExposure => {
+                        (Annotation::CaloricContext, Component::CaloricExposure)
+                    }
+                    ModelingHint::EnergyPowerAllowance => {
+                        (Annotation::EnergyContext, Component::CaloricPowerAllowance)
+                    }
+                    ModelingHint::EnergyExposure => {
+                        (Annotation::EnergyContext, Component::CaloricExposure)
+                    }
                 };
                 R::AnnotationOutput {
                     target: *target,

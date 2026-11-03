@@ -3675,7 +3675,13 @@ impl Cursor<'_> {
                                 },
                             );
                         }
-                        A::Start | A::Nominal | A::Bounds | A::Report | A::Check => {
+                        A::Start
+                        | A::Nominal
+                        | A::Bounds
+                        | A::Report
+                        | A::Check
+                        | A::CaloricContext
+                        | A::EnergyContext => {
                             if !self.eat(")") {
                                 loop {
                                     annotation.arguments.push(self.until(&[",", ")"])?);

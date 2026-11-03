@@ -1539,6 +1539,12 @@ impl ModelingPackage {
                         | ModelingHint::AccuracyGoalLower
                         | ModelingHint::AccuracyGoalUpper
                         | ModelingHint::EngineeringScaleValue
+                        | ModelingHint::CaloricResponse
+                        | ModelingHint::CaloricThermalResolution
+                        | ModelingHint::CaloricPowerAllowance
+                        | ModelingHint::CaloricExposure
+                        | ModelingHint::EnergyPowerAllowance
+                        | ModelingHint::EnergyExposure
                 ) && !hint.nested
             })
             .collect::<Vec<_>>();
@@ -1569,6 +1575,12 @@ impl ModelingPackage {
                         | ModelingHint::AccuracyGoalLower
                         | ModelingHint::AccuracyGoalUpper
                         | ModelingHint::EngineeringScaleValue
+                        | ModelingHint::CaloricResponse
+                        | ModelingHint::CaloricThermalResolution
+                        | ModelingHint::CaloricPowerAllowance
+                        | ModelingHint::CaloricExposure
+                        | ModelingHint::EnergyPowerAllowance
+                        | ModelingHint::EnergyExposure
                 )
             })
         {
@@ -1657,6 +1669,7 @@ impl ModelingPackage {
             &mut solver.numerics,
             &mut targets,
             &authored_values,
+            Some(self.revision_id()),
         )?;
         let mut producer_ids = product
             .model
@@ -1862,6 +1875,7 @@ pub(in crate::workflow) fn lower_authored_accuracy(
     policy: &mut pse_model::numerics::NumericalPolicy,
     targets: &mut Vec<pse_math::numerics::TargetSpec>,
     values: &BTreeMap<SemanticId, f64>,
+    scientific_revision: Option<&str>,
 ) -> Result<(), WorkflowError> {
     fn ensure_target(
         numerical: &mut NumericalInputs,
@@ -2084,6 +2098,206 @@ pub(in crate::workflow) fn lower_authored_accuracy(
                     ),
                 };
                 declarations.push(row);
+            }
+            AnnotationValue::CaloricContext(context) => {
+                use pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequirementsFieldConsumersItem;
+                let revision = scientific_revision
+                    .filter(|revision| !revision.is_empty())
+                    .ok_or_else(|| {
+                        contract("caloric context requires an exact scientific revision")
+                    })?;
+                if context.thermal && context.science_records.is_empty() {
+                    return Err(contract(
+                        "caloric response has no qualified scientific selection closure",
+                    ));
+                }
+                let (kind, quantity) = authored_target_semantics(
+                    product,
+                    numerical,
+                    targets,
+                    registry,
+                    annotation.target,
+                )?;
+                let target = ensure_target(
+                    numerical,
+                    targets,
+                    registry,
+                    annotation.target,
+                    kind,
+                    quantity,
+                )?;
+                let error_quantity = pse_quantity::scheme::Scheme::Delta(Box::new(
+                    pse_quantity::scheme::Scheme::Concrete(quantity),
+                ))
+                .resolve(registry, &BTreeMap::new())
+                .map_err(|e| contract(e.to_string()))?;
+                let typed = context
+                    .quantities
+                    .iter()
+                    .map(|ty| {
+                        let quantity = ty
+                            .quantity_scheme()
+                            .ok_or_else(|| contract("caloric premise is not physical"))?
+                            .resolve(registry, &BTreeMap::new())
+                            .map_err(|e| contract(e.to_string()))?;
+                        let unit = registry
+                            .quantity_type(quantity)
+                            .map_err(|e| contract(e.to_string()))?
+                            .canonical_unit;
+                        Ok::<_, WorkflowError>((quantity, unit))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let (consumer_kind, consumer_quantity) = authored_target_semantics(
+                    product,
+                    numerical,
+                    targets,
+                    registry,
+                    context.consumer,
+                )?;
+                if consumer_kind == NumericalTarget::Objective {
+                    return Err(contract(
+                        "caloric consumer must be an original power target",
+                    ));
+                }
+                ensure_target(
+                    numerical,
+                    targets,
+                    registry,
+                    context.consumer,
+                    consumer_kind,
+                    consumer_quantity,
+                )?;
+                let consumer_difference = pse_quantity::scheme::Scheme::Delta(Box::new(
+                    pse_quantity::scheme::Scheme::Concrete(consumer_quantity),
+                ))
+                .resolve(registry, &BTreeMap::new())
+                .map_err(|e| contract(e.to_string()))?;
+                let power_index = if context.thermal { 2 } else { 0 };
+                pse_quantity::admission::require_same_contract(
+                    consumer_difference,
+                    typed[power_index].0,
+                    registry,
+                )
+                .map_err(|e| contract(e.to_string()))?;
+                let (_, flow_quantity) = authored_target_semantics(
+                    product,
+                    numerical,
+                    targets,
+                    registry,
+                    context.actual_flow,
+                )?;
+                pse_quantity::admission::require_same_contract(
+                    flow_quantity,
+                    typed[power_index + 1].0,
+                    registry,
+                )
+                .map_err(|e| contract(e.to_string()))?;
+                let flow_symbol =
+                    product
+                        .model
+                        .symbols
+                        .get(&context.actual_flow)
+                        .ok_or_else(|| {
+                            contract("energy exposure actual flow is not an original variable")
+                        })?;
+                if flow_symbol.role
+                    != pse_model::generated::enums::ModelingDeclarationKind::Variable
+                {
+                    return Err(contract(
+                        "energy exposure actual flow must be an original variable",
+                    ));
+                }
+                let get =
+                    |hint| find_value(annotation.target, annotation.lineage.declaration, hint);
+                let response = context
+                    .thermal
+                    .then(|| get(ModelingHint::CaloricResponse))
+                    .transpose()?;
+                let thermal_resolution = context
+                    .thermal
+                    .then(|| get(ModelingHint::CaloricThermalResolution))
+                    .transpose()?;
+                let response_quantity_id = context.thermal.then(|| typed[0].0.as_id());
+                let response_unit_id = context.thermal.then(|| typed[0].1.as_id());
+                let thermal_quantity_id = context.thermal.then(|| typed[1].0.as_id());
+                let thermal_unit_id = context.thermal.then(|| typed[1].1.as_id());
+                let consumer = AuthoredCaloricRequirementsFieldConsumersItem {
+                    target_id: context.consumer,
+                    declaration_id: annotation.lineage.declaration.as_id(),
+                    power_rule_id: context.power_rule,
+                    actual_flow_id: context.actual_flow,
+                    exposure_expression: context.exposure_expression.clone(),
+                    power_quantity_id: typed[power_index].0.as_id(),
+                    power_unit_id: typed[power_index].1.as_id(),
+                    power_allowance: get(if context.thermal {
+                        ModelingHint::CaloricPowerAllowance
+                    } else {
+                        ModelingHint::EnergyPowerAllowance
+                    })?,
+                    exposure_quantity_id: typed[power_index + 1].0.as_id(),
+                    exposure_unit_id: typed[power_index + 1].1.as_id(),
+                    aggregate_exposure: get(if context.thermal {
+                        ModelingHint::CaloricExposure
+                    } else {
+                        ModelingHint::EnergyExposure
+                    })?,
+                };
+                if let Some(existing) = policy
+                    .caloric_requirements
+                    .iter_mut()
+                    .find(|r| r.target_id == target.id && r.target_kind == kind)
+                {
+                    if existing.science_revision != revision
+                        || (context.thermal
+                            && existing.response.is_some()
+                            && (existing.science_records != context.science_records
+                                || existing.response.map(f64::to_bits)
+                                    != response.map(f64::to_bits)
+                                || existing.thermal_resolution.map(f64::to_bits)
+                                    != thermal_resolution.map(f64::to_bits)
+                                || existing.response_quantity_id != response_quantity_id
+                                || existing.thermal_quantity_id != thermal_quantity_id))
+                        || existing
+                            .consumers
+                            .iter()
+                            .any(|c| c.target_id == consumer.target_id)
+                    {
+                        return Err(contract(
+                            "conflicting caloric context or duplicate consumer",
+                        ));
+                    }
+                    if context.thermal && existing.response.is_none() {
+                        existing.science_records = context.science_records.clone();
+                        existing.response_quantity_id = response_quantity_id;
+                        existing.response_unit_id = response_unit_id;
+                        existing.response = response;
+                        existing.thermal_quantity_id = thermal_quantity_id;
+                        existing.thermal_unit_id = thermal_unit_id;
+                        existing.thermal_resolution = thermal_resolution;
+                    }
+                    existing.consumers.push(consumer);
+                } else {
+                    policy
+                        .caloric_requirements
+                        .push(pse_model::numerics::CaloricRequirement {
+                            requirement_id: pse_ids::named_id(target.id, "caloric-context"),
+                            instance_id: Some(annotation.lineage.instance),
+                            target_id: target.id,
+                            target_kind: kind,
+                            quantity_id: error_quantity.as_id(),
+                            unit_id: target.unit.as_id(),
+                            source: context.source,
+                            science_revision: revision.to_owned(),
+                            science_records: context.science_records.clone(),
+                            response_quantity_id,
+                            response_unit_id,
+                            response,
+                            thermal_quantity_id,
+                            thermal_unit_id,
+                            thermal_resolution,
+                            consumers: vec![consumer],
+                        });
+                }
             }
             AnnotationValue::EngineeringScale(scale) => {
                 let (kind, quantity) = authored_target_semantics(
@@ -2358,6 +2572,42 @@ fn contextual_scales(
             policy.engineering_scales.push(scale);
         }
     }
+    let caloric = policy
+        .caloric_requirements
+        .iter()
+        .filter(|item| item.target_id == context && item.target_kind != NumericalTarget::Objective)
+        .cloned()
+        .collect::<Vec<_>>();
+    for mut requirement in caloric {
+        pse_quantity::admission::require_same_contract(
+            requirement.quantity_id.into(),
+            target.quantity,
+            registry,
+        )
+        .map_err(pse_math::MathError::from)
+        .map_err(crate::math::MathRuntimeError::from)?;
+        if requirement.target_id == target.id && requirement.target_kind == target.kind {
+            continue;
+        }
+        requirement.requirement_id = pse_ids::named_id(
+            requirement.requirement_id,
+            &format!("physical-obligation:{}:{}", target.id, target.kind.as_str()),
+        );
+        requirement.target_id = target.id;
+        requirement.target_kind = target.kind;
+        requirement.quantity_id = target.quantity.as_id();
+        if let Some(previous) = policy
+            .caloric_requirements
+            .iter()
+            .find(|item| item.requirement_id == requirement.requirement_id)
+        {
+            if previous != &requirement {
+                return Err(contract("conflicting contextual caloric requirement"));
+            }
+        } else {
+            policy.caloric_requirements.push(requirement);
+        }
+    }
     Ok(())
 }
 fn closure_requirement_id(id: SemanticId, index: usize) -> SemanticId {
@@ -2440,13 +2690,48 @@ pub(in crate::workflow) fn lower_closure_requirements(
             // A direct request on the connected closure applies to each original endpoint;
             // existing precedence decides whether that request overrides inherited context.
             let mut endpoint_policy = policy.clone();
+            let mut resolution_targets = endpoints.clone();
+            // Retain the full shared-consumer population while resolving the endpoints.
+            // Each supporting target is issued by the same compiler inventory; never
+            // fabricate its quantity or identity from the requirement row.
+            for requirement in &endpoint_policy.caloric_requirements {
+                if resolution_targets
+                    .iter()
+                    .any(|t| t.id == requirement.target_id && t.kind == requirement.target_kind)
+                {
+                    continue;
+                }
+                let fact = inventory
+                    .target(requirement.target_id)
+                    .filter(|fact| fact.kind == requirement.target_kind)
+                    .ok_or_else(|| {
+                        contract("caloric contributor absent from compiler numerical inventory")
+                    })?;
+                resolution_targets.push(fact.specification());
+            }
+            for consumer in endpoint_policy
+                .caloric_requirements
+                .iter()
+                .flat_map(|requirement| &requirement.consumers)
+            {
+                if resolution_targets
+                    .iter()
+                    .any(|target| target.id == consumer.target_id)
+                {
+                    continue;
+                }
+                let fact = inventory.target(consumer.target_id).ok_or_else(|| {
+                    contract("caloric consumer absent from compiler numerical inventory")
+                })?;
+                resolution_targets.push(fact.specification());
+            }
             endpoint_policy.requirements.retain(|r| {
-                endpoints
+                resolution_targets
                     .iter()
                     .any(|t| t.id == r.target_id && t.kind == r.target_kind)
             });
             endpoint_policy.engineering_scales.retain(|s| {
-                endpoints
+                resolution_targets
                     .iter()
                     .any(|t| t.id == s.target_id && t.kind == s.target_kind)
             });
@@ -2508,7 +2793,7 @@ pub(in crate::workflow) fn lower_closure_requirements(
                 }
             }
             for source in declarations.iter().filter(|source| {
-                endpoints.iter().any(|endpoint| {
+                resolution_targets.iter().any(|endpoint| {
                     endpoint.id == source.declaration.target_id
                         && endpoint.kind == source.declaration.target_kind
                 })
@@ -2522,7 +2807,7 @@ pub(in crate::workflow) fn lower_closure_requirements(
             let resolved = pse_math::numerics::resolve(
                 registry,
                 preconditions,
-                &endpoints,
+                &resolution_targets,
                 &endpoint_sources,
                 &endpoint_policy,
             )
@@ -2530,6 +2815,11 @@ pub(in crate::workflow) fn lower_closure_requirements(
             let budget = resolved
                 .targets
                 .iter()
+                .filter(|target| {
+                    endpoints
+                        .iter()
+                        .any(|endpoint| endpoint.id == target.id && endpoint.kind == target.kind)
+                })
                 .map(|t| t.budget)
                 .fold(f64::INFINITY, f64::min);
             let mut combined = requirement(
@@ -5483,6 +5773,131 @@ mod root_unavailable_tests {
             .unwrap();
         (model, quantities)
     }
+    #[tokio::test]
+    async fn contextual_closure_keeps_external_shared_energy_contributors() {
+        use pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequirementsFieldConsumersItem as Consumer;
+        let source = r#"package p {
+            entity kind source provenance {attribute title:Text;}
+            enum role {given} entity source s {title="synthetic shared energy"}
+            constant allowance:Delta<MolarEnthalpy>=1{J/mol} provenance(s,role.given);
+            annotation engineering_rule p.allowance;
+            constant power_allowance:Delta<Power>=1{W} provenance(s,role.given);
+            annotation engineering_rule p.power_allowance;
+            def A {var H:MolarEnthalpy;var x:Scalar;state state supplied(true) {coordinate value=x;transport energy=H tolerance p.allowance;} material port port=state;annotation connectivity port(0,1);}
+            def B {var H:MolarEnthalpy;var x:Scalar;state state supplied(false) {coordinate value=x;transport energy=H tolerance 1{J/mol};} material port port=state;annotation connectivity port(1,0);}
+            def Root {child a:A=A();child b:B=B();var H2:MolarEnthalpy;var power:Power;annotation nominal H2(1{J/mol});annotation nominal power(1{W});connect stream:a.port->b.port;}
+        }"#;
+        let (model, registry) = contextual_closure_model(source).await;
+        let product = model.compiled();
+        let inventory = annotations(product).unwrap();
+        let symbol = |suffix: &str| {
+            product
+                .model
+                .symbols
+                .values()
+                .find(|s| s.lineage.path.ends_with(suffix))
+                .unwrap()
+                .id
+        };
+        let first = symbol(".a.H");
+        let second = symbol(".H2");
+        let consumer = symbol(".power");
+        let quantity = |name: &str| match registry.physical_name(name).unwrap() {
+            pse_quantity::PhysicalName::QuantityType(id) => id,
+            _ => panic!("quantity"),
+        };
+        let h = quantity("DeltaH");
+        let power = pse_quantity::scheme::Scheme::Delta(Box::new(
+            pse_quantity::scheme::Scheme::Concrete(quantity("Power")),
+        ))
+        .resolve(&registry, &BTreeMap::new())
+        .unwrap();
+        let flow = quantity("Flow");
+        let unit = |quantity| {
+            registry
+                .quantity_type(quantity)
+                .unwrap()
+                .canonical_unit
+                .as_id()
+        };
+        let mut policy = pse_model::numerics::NumericalPolicy::default();
+        let mut numerical = NumericalInputs::default();
+        let mut targets = inventory
+            .selected_targets()
+            .map(pse_compiler::workspace::NumericalTargetFact::specification)
+            .collect::<Vec<_>>();
+        lower_authored_accuracy(
+            product,
+            model.solved().lineage(),
+            &registry,
+            &mut numerical,
+            &mut policy,
+            &mut targets,
+            &BTreeMap::new(),
+            None,
+        )
+        .unwrap();
+        for (n, target) in [(1_u8, first), (2, second)] {
+            let id = |byte| SemanticId::from_bytes([byte; 16]);
+            let fact = inventory.target(target).unwrap();
+            policy
+                .caloric_requirements
+                .push(pse_model::numerics::CaloricRequirement {
+                    requirement_id: id(70 + n),
+                    instance_id: None,
+                    target_id: target,
+                    target_kind: fact.kind,
+                    quantity_id: h.as_id(),
+                    unit_id: unit(h),
+                    source: NumericalSource::Model,
+                    science_revision: "synthetic fixture".into(),
+                    science_records: vec![],
+                    response_quantity_id: None,
+                    response_unit_id: None,
+                    response: None,
+                    thermal_quantity_id: None,
+                    thermal_unit_id: None,
+                    thermal_resolution: None,
+                    consumers: vec![Consumer {
+                        target_id: consumer,
+                        declaration_id: id(90 + n),
+                        power_rule_id: id(81),
+                        actual_flow_id: id(100 + n),
+                        exposure_expression: "one molar flow".into(),
+                        power_quantity_id: power.as_id(),
+                        power_unit_id: unit(power),
+                        power_allowance: 1.0,
+                        exposure_quantity_id: flow.as_id(),
+                        exposure_unit_id: unit(flow),
+                        aggregate_exposure: 1.0,
+                    }],
+                });
+        }
+        let sources = lower_closure_requirements(
+            product,
+            inventory,
+            model.solved().lineage(),
+            &registry,
+            &pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap(),
+            &mut numerical.declarations,
+            &mut policy,
+        )
+        .unwrap();
+        let closure = product
+            .model
+            .closures
+            .values()
+            .find(|closure| closure.requirements.len() == 2)
+            .unwrap();
+        let resolved = sources
+            .iter()
+            .find(|source| source.declaration.target_id == closure.id)
+            .unwrap();
+        assert!((resolved.declaration.absolute_tolerance.unwrap() - 0.5).abs() < 1e-12);
+    }
     fn contextual_closure_policy(
         model: &ModelingPreparation,
         registry: &pse_quantity::QuantityRegistry,
@@ -5537,6 +5952,7 @@ mod root_unavailable_tests {
             &mut policy,
             &mut targets,
             &values,
+            None,
         )?;
         let sources = lower_closure_requirements(
             product,
@@ -5856,6 +6272,7 @@ mod root_unavailable_tests {
             &mut policy,
             &mut targets,
             &BTreeMap::new(),
+            None,
         )
         .unwrap();
         let closures = lower_closure_requirements(

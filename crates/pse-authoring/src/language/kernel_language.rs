@@ -962,6 +962,28 @@ fn objective_members_parse_and_render() {
 }
 
 #[test]
+fn caloric_context_roundtrips_typed_physical_operands() {
+    let source = "package p { def D { annotation caloric_context h(cp,dt,power,exposure,energy,flow); annotation energy_context h(power,exposure,energy,flow); } }";
+    let rows = parse_named(source);
+    let rendered = render(&rows).unwrap();
+    assert!(
+        rendered.contains("annotation caloric_context h(cp, dt, power, exposure, energy, flow);")
+    );
+    assert!(rendered.contains("annotation energy_context h(power, exposure, energy, flow);"));
+    let reparsed = parse(
+        &rendered,
+        SemanticId::NIL,
+        IdentityPolicy::Explicit,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        rows.iter().map(|row| &row.value).collect::<Vec<_>>(),
+        reparsed.iter().map(|row| &row.value).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn accuracy_goals_engineering_scales_and_shared_selectors_roundtrip() {
     let source = r#"package p {
  annotation engineering_rule numerical_policy.temperature;

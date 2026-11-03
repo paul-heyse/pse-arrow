@@ -887,7 +887,12 @@ impl RunResult {
                             t.provenance.len(),
                             size_of::<resolved::RuntimeResolvedNumericsFieldProvenanceItem>(),
                         ),
-                        (t.engineering.as_ref().map_or(0, |e| e.limitation.len()), 1),
+                        (
+                            t.engineering
+                                .as_ref()
+                                .map_or(0, pse_model::HeapUsage::heap_bytes),
+                            1,
+                        ),
                     ])?;
                     resolved
                         .push(resolved::Row {

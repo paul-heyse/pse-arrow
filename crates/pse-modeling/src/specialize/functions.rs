@@ -163,7 +163,7 @@ impl Engine<'_, '_> {
         }
         Err(invalid(at, "selected value is not a pure function"))
     }
-    pub(super) fn source_types(
+    pub(crate) fn source_types(
         &self,
         at: DeclarationId,
         env: &Environment,

@@ -27,6 +27,9 @@
 @id("675c800c7ac3477fae54062ea0860ee4") constant mole_fraction:Delta<MoleFraction>=0.001{1} provenance(engineering_resolution,provenance.Role.published);
 @id("8a097841b11d4824b0d5041250553949") constant dimensionless:Scalar=0.001 provenance(engineering_resolution,provenance.Role.published);
 @id("acb37d90535b40e88854430bd95eedb2") constant reduced_gibbs_energy:Delta<ReducedGibbsEnergy>=0.001{1} provenance(engineering_resolution,provenance.Role.published);
+// The existing 0.001 resolution corresponds to about 0.1% in the fugacity
+// ratio for this local phase equality; it is not a stability or output certificate.
+@id("8040646ecb7844e2ad62f06634f10787") constant log_component_fugacity:Delta<LogComponentFugacity>=0.001{1} provenance(engineering_resolution,provenance.Role.published);
 // Maintainer-selected 2026-10-08: historical-result comparisons permit +/-10%.
 // This comparison allowance is not a solver budget or an engineering_rule floor.
 @id("b8d8cd80a6c24476ab20a9c3dd584507") constant historical_reference_relative:Scalar=0.1 provenance(historical_comparison,provenance.Role.published);
@@ -46,4 +49,5 @@
 @id("80b22efe482a423bb721a945f055a1db") annotation engineering_rule numerical_policy.mole_fraction;
 @id("870df2106e3b4a97aa3b8fba02c0f916") annotation engineering_rule numerical_policy.dimensionless;
 @id("fe1e1fd3ac17486cbe22cf4feb72c121") annotation engineering_rule numerical_policy.reduced_gibbs_energy;
+@id("85d6fd786e204879813ae18f1b34fedc") annotation engineering_rule numerical_policy.log_component_fugacity;
 }

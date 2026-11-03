@@ -84,7 +84,7 @@ fn acknowledged_empty_source_is_complete_but_unobserved_and_refused_are_not() {
 }
 
 #[test]
-fn v1_header_is_refused_by_both_detail_readers() {
+fn historical_headers_are_refused_by_both_detail_readers() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("legacy.jsonl");
     let old = serde_json::json!({"kind":"header", "value":selection(directory.path().join("old"))});
@@ -96,14 +96,16 @@ fn v1_header_is_refused_by_both_detail_readers() {
         request: selection(directory.path().join("unknown")),
     })
     .unwrap();
-    header["version"] = serde_json::json!(1);
-    std::fs::write(
-        &path,
-        format!("{}\n", serde_json::json!({"kind":"header", "value":header})),
-    )
-    .unwrap();
-    assert!(read_detailed_collection(&path, 1 << 20).is_err());
-    assert!(read_detail_records(&path, 0, 8, 1 << 20).is_err());
+    for version in [1, 2] {
+        header["version"] = serde_json::json!(version);
+        std::fs::write(
+            &path,
+            format!("{}\n", serde_json::json!({"kind":"header", "value":header})),
+        )
+        .unwrap();
+        assert!(read_detailed_collection(&path, 1 << 20).is_err());
+        assert!(read_detail_records(&path, 0, 8, 1 << 20).is_err());
+    }
 }
 
 #[test]

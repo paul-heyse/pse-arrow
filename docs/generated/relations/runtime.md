@@ -3080,7 +3080,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling. Optional engineering context retains the selected shared rule, physical allowance, relative fraction, explicit characteristic magnitude and source, derived budget and fallback limitation. Historical rows without this context do not acquire contextual accuracy evidence.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, target_id`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, target_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -3106,6 +3106,50 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, 
 | `engineering.budget` | `Float64` | false | `payload` | — | — |
 | `engineering.canonical_fallback` | `Boolean` | false | `payload` | — | — |
 | `engineering.limitation` | `Utf8` | false | `payload` | — | — |
+| `engineering.caloric` | `Struct` | true | `payload` | — | — |
+| `engineering.caloric.requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.instance_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.caloric.source` | `enum:NumericalSource` | false | `payload` | — | — |
+| `engineering.caloric.science_revision` | `Utf8` | false | `payload` | — | — |
+| `engineering.caloric.science_records` | `List` | false | `payload` | — | — |
+| `engineering.caloric.science_records.item` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.response_quantity_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.caloric.response_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.caloric.response` | `Float64` | true | `payload` | — | — |
+| `engineering.caloric.thermal_quantity_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.caloric.thermal_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `engineering.caloric.thermal_resolution` | `Float64` | true | `payload` | — | — |
+| `engineering.caloric.consumers` | `List` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item` | `Struct` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.target_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.declaration_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.power_rule_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.actual_flow_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.exposure_expression` | `Utf8` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.power_quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.power_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.power_allowance` | `Float64` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.exposure_quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.exposure_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.aggregate_exposure` | `Float64` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.combined_exposure` | `Float64` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.combined_power_allowance` | `Float64` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors` | `List` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item` | `Struct` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.declaration_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.actual_flow_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.science_revision` | `Utf8` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.science_records` | `List` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.science_records.item` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.power_rule_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.exposure_quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.exposure_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.aggregate_exposure` | `Float64` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.power_quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.power_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `engineering.caloric.consumers.item.contributors.item.power_allowance` | `Float64` | false | `payload` | — | — |
+| `engineering.caloric.limiting_consumer` | `semantic_id` | true | `payload` | — | — |
+| `engineering.caloric.allowance` | `Float64` | false | `payload` | — | — |
 | `provenance` | `List` | false | `payload` | — | — |
 | `provenance.item` | `Struct` | false | `payload` | — | — |
 | `provenance.item.declaration` | `semantic_id` | true | `payload` | — | — |

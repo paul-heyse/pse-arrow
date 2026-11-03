@@ -27,6 +27,13 @@ mod knowledge;
     feature = "solver-ipopt"
 ))]
 mod ordinary_delivery_tests;
+#[cfg(all(
+    test,
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation",
+    feature = "solver-ipopt"
+))]
+mod precision_tests;
 #[cfg(test)]
 mod process_edit_tests;
 mod source_impact;

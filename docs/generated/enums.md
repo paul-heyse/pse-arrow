@@ -1323,6 +1323,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `connectivity` | `` | false |
 | `accuracy_goal` | `` | false |
 | `engineering_scale` | `` | false |
+| `caloric_context` | `` | false |
+| `energy_context` | `` | false |
 | `engineering_default` | `` | false |
 | `engineering_rule` | `` | false |
 

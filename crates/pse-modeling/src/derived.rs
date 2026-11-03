@@ -49,6 +49,14 @@ pub enum AnnotationComponent {
     CriterionLower,
     /// Upper convergence criterion.
     CriterionUpper,
+    /// Local caloric response.
+    CaloricResponse,
+    /// Useful temperature difference.
+    CaloricThermalResolution,
+    /// Consuming power allowance.
+    CaloricPowerAllowance,
+    /// Aggregate consuming molar exposure.
+    CaloricExposure,
 }
 /// A canonical body-local role. Parameters are never free derivative coordinates.
 #[derive(
@@ -174,6 +182,18 @@ impl FrameValue for AnnotationComponent {
             }
             Self::CriterionUpper => {
                 hash.str("criterion_upper");
+            }
+            Self::CaloricResponse => {
+                hash.str("caloric_response");
+            }
+            Self::CaloricThermalResolution => {
+                hash.str("caloric_thermal_resolution");
+            }
+            Self::CaloricPowerAllowance => {
+                hash.str("caloric_power_allowance");
+            }
+            Self::CaloricExposure => {
+                hash.str("caloric_exposure");
             }
         }
     }

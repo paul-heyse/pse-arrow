@@ -66,6 +66,18 @@ pub enum ModelingHint {
     AccuracyGoalUpper,
     /// Authored engineering characteristic magnitude.
     EngineeringScaleValue,
+    /// Local caloric response.
+    CaloricResponse,
+    /// Thermal resolution.
+    CaloricThermalResolution,
+    /// Consumer power allowance.
+    CaloricPowerAllowance,
+    /// Aggregate consumer exposure.
+    CaloricExposure,
+    /// Energy-only consumer power allowance.
+    EnergyPowerAllowance,
+    /// Energy-only aggregate consumer exposure.
+    EnergyExposure,
 }
 impl ModelingHint {
     /// Stable identity code for structural hashing; the unit variants keep their
@@ -86,6 +98,12 @@ impl ModelingHint {
             Self::AccuracyGoalLower => 13,
             Self::AccuracyGoalUpper => 14,
             Self::EngineeringScaleValue => 15,
+            Self::CaloricResponse => 16,
+            Self::CaloricThermalResolution => 17,
+            Self::CaloricPowerAllowance => 18,
+            Self::CaloricExposure => 19,
+            Self::EnergyPowerAllowance => 20,
+            Self::EnergyExposure => 21,
         }
     }
 }
@@ -924,6 +942,24 @@ fn projection(
                 ModelingHint::EngineeringScaleValue,
                 RegionOutput::Value(*value),
             )?,
+            (A::CaloricContext(context), Roots::Caloric { values }) => {
+                let hints = if context.thermal {
+                    vec![
+                        ModelingHint::CaloricResponse,
+                        ModelingHint::CaloricThermalResolution,
+                        ModelingHint::CaloricPowerAllowance,
+                        ModelingHint::CaloricExposure,
+                    ]
+                } else {
+                    vec![
+                        ModelingHint::EnergyPowerAllowance,
+                        ModelingHint::EnergyExposure,
+                    ]
+                };
+                for (kind, root) in hints.into_iter().zip(values) {
+                    push(kind, RegionOutput::Value(*root))?;
+                }
+            }
             (
                 A::EngineeringDefault { .. } | A::Scale(_) | A::Report(_) | A::Objective(_),
                 Roots::None,

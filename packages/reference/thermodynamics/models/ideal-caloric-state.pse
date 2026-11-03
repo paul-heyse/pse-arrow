@@ -5,6 +5,11 @@
 @id("01a0ede58ecf75039afc4717275205b3") use chemistry @"1.0.0";
 @id("f21929aacb324034b3385a220dd1ba81") use equilibrium @"1.0.0";
 @id("0fa5555ad5e9425487ce121716721238") use caloric @"1.0.0";
+// Endpoint characteristics use differences of the selected source functions.
+// They do not assert empirical validity throughout the selected interval.
+@id("6465b4969f4d446185bff1a291d6458b") fn larger_difference(a:Delta<MolarEnthalpy>,b:Delta<MolarEnthalpy>)->Delta<MolarEnthalpy>=if a>=b then a else b;
+@id("c874ae634a59466e97cb0fd8c30c220c") fn endpoint_enthalpy_span(first:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy,second:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy,members:Set<chemistry.species>,lower:Temperature,upper:Temperature)->Delta<MolarEnthalpy>=fold(acc,value; j in members | larger_difference(larger_difference(abs(first(lower,j)-second(lower,j)),abs(first(upper,j)-second(upper,j))),larger_difference(abs(first(lower,j)-second(upper,j)),abs(first(upper,j)-second(lower,j))));larger_difference(acc,value));
+@id("a1033f93ba9c48be9c21eae69342cf32") fn power_span(capacity:Flow,span:Delta<MolarEnthalpy>)->Delta<Power> valid(capacity>=0{mol/s})=capacity*(constants.standard_enthalpy_datum+span)-capacity*constants.standard_enthalpy_datum;
 @id("e07555fe07c844999405c8de8332de60") interface SinglePhaseCaloricState extends equilibrium.ThermoPackage {
 @id("a196f931116747dc93689ca5f430a151") param selected_phase:chemistry.phase=chemistry.vapor;
 @id("ab324a958c5e4d3a93acea3c16318088") param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy;

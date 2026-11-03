@@ -12,7 +12,11 @@ use pse_model::{
 };
 use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId, UnitId};
 use std::collections::BTreeMap;
+mod caloric;
 mod retained;
+pub use caloric::{
+    CaloricAllowance, CaloricConsumer, CaloricResolution, resolve_caloric_allowance,
+};
 pub use retained::{ResolutionPremises, resolution_allocation_bound, resolved_extent};
 
 /// Resolved kind/identity access shared by coordinate transport and original quality.
@@ -195,6 +199,11 @@ fn project_with(
             engineering.physical_allowance = engineering.physical_allowance.map(|v| v * scale);
             engineering.characteristic = engineering.characteristic.map(|v| v * scale);
             engineering.budget *= scale;
+            if let Some(caloric) = engineering.caloric.as_mut() {
+                // Source inputs retain their own recorded units; only the derived
+                // allowance is expressed in the projected target representation.
+                caloric.allowance *= scale;
+            }
             if !engineering.budget.is_finite()
                 || engineering.budget <= 0.0
                 || engineering
@@ -203,6 +212,10 @@ fn project_with(
                 || engineering
                     .characteristic
                     .is_some_and(|v| !v.is_finite() || v < 0.0)
+                || engineering
+                    .caloric
+                    .as_ref()
+                    .is_some_and(|v| !v.allowance.is_finite() || v.allowance <= 0.0)
             {
                 return Err(failure(
                     target.id,
@@ -324,7 +337,11 @@ pub fn operational_output_context(
     preconditions: &PhysicalPreconditions,
     target: &TargetSpec,
     policy: &NumericalPolicy,
+    resolved_targets: &[ResolvedTarget],
 ) -> Result<EngineeringContext, MathError> {
+    policy
+        .validate()
+        .map_err(|error| MathError::Contract(error.to_string()))?;
     let selected = policy
         .requirements
         .iter()
@@ -337,6 +354,34 @@ pub fn operational_output_context(
             declaration: declaration.clone(),
             source: NumericalSource::Analysis,
         });
+    let consumers = policy
+        .caloric_requirements
+        .iter()
+        .filter(|requirement| {
+            requirement.target_id == target.id && requirement.target_kind == target.kind
+        })
+        .flat_map(|requirement| {
+            requirement
+                .consumers
+                .iter()
+                .map(|consumer| consumer.target_id)
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut resolved_consumers = BTreeMap::new();
+    for resolved in resolved_targets
+        .iter()
+        .filter(|resolved| consumers.contains(&resolved.id))
+    {
+        if resolved_consumers
+            .insert(resolved.id, resolved.clone())
+            .is_some()
+        {
+            return Err(failure(
+                resolved.id,
+                "caloric consumer has ambiguous resolved targets",
+            ));
+        }
+    }
     engineering_default(
         registry,
         preconditions,
@@ -344,6 +389,7 @@ pub fn operational_output_context(
         policy,
         selected.as_ref(),
         true,
+        &resolved_consumers,
     )
 }
 
@@ -354,6 +400,7 @@ fn engineering_default(
     policy: &NumericalPolicy,
     selected: Option<&SourcedRequirement>,
     enforce_strict: bool,
+    resolved_consumers: &BTreeMap<SemanticId, ResolvedTarget>,
 ) -> Result<EngineeringContext, MathError> {
     let explicit_rule = selected.and_then(|r| r.declaration.engineering_rule_id);
     let rule = if let Some(id) = explicit_rule {
@@ -453,7 +500,65 @@ fn engineering_default(
         .max(fraction * characteristic.unwrap_or(0.0));
     let canonical_fallback =
         floor.is_none() && (characteristic.is_none_or(|s| s == 0.0) || fraction == 0.0);
-    let budget = if canonical_fallback {
+    let caloric = policy
+        .caloric_requirements
+        .iter()
+        .find(|r| r.target_id == target.id && r.target_kind == target.kind);
+    let resolved_caloric = caloric.map(|source| {
+        engineering_magnitude(registry, preconditions, target, source.unit_id.into())?;
+        let (result, combined) = caloric::admitted_caloric_allowance(registry, preconditions, target, source, policy, resolved_consumers)?;
+        use pse_model::generated::runtime::resolved_numerics::{RuntimeResolvedNumericsFieldEngineeringCaloric as Snapshot, RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem as Consumer, RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem as Contributor};
+        let ordered_records = |records: &[SemanticId]| { let mut records = records.to_vec(); records.sort(); records };
+        let mut ordered_consumers = source.consumers.iter().collect::<Vec<_>>();
+        ordered_consumers.sort_by_key(|consumer| consumer.target_id);
+        let mut ordered_requirements = policy.caloric_requirements.iter().collect::<Vec<_>>();
+        ordered_requirements.sort_by_key(|requirement| requirement.requirement_id);
+        Ok::<_, MathError>(Snapshot {
+            requirement_id: source.requirement_id,
+            instance_id: source.instance_id.map(Into::into),
+            source: source.source,
+            science_revision: source.science_revision.clone(),
+            science_records: ordered_records(&source.science_records),
+            response_quantity_id: source.response_quantity_id,
+            response_unit_id: source.response_unit_id,
+            response: source.response,
+            thermal_quantity_id: source.thermal_quantity_id,
+            thermal_unit_id: source.thermal_unit_id,
+            thermal_resolution: source.thermal_resolution,
+            consumers: ordered_consumers.into_iter().map(|c| {
+                let (power, exposure) = *combined.get(&c.target_id).ok_or_else(|| failure(target.id, "combined consumer context is absent"))?;
+                let mut contributors = BTreeMap::new();
+                for requirement in &ordered_requirements {
+                    for item in requirement.consumers.iter().filter(|item| item.target_id == c.target_id) {
+                        contributors.entry((item.declaration_id, item.actual_flow_id)).or_insert_with(|| Contributor {
+                            declaration_id: item.declaration_id, actual_flow_id: item.actual_flow_id,
+                            science_revision: requirement.science_revision.clone(), science_records: ordered_records(&requirement.science_records), power_rule_id: item.power_rule_id,
+                            exposure_quantity_id: item.exposure_quantity_id, exposure_unit_id: item.exposure_unit_id,
+                            aggregate_exposure: item.aggregate_exposure, power_quantity_id: item.power_quantity_id,
+                            power_unit_id: item.power_unit_id, power_allowance: item.power_allowance,
+                        });
+                    }
+                }
+                Ok::<_, MathError>(Consumer {
+                target_id: c.target_id, declaration_id: c.declaration_id,
+                power_rule_id: c.power_rule_id, actual_flow_id: c.actual_flow_id,
+                exposure_expression: c.exposure_expression.clone(), power_quantity_id: c.power_quantity_id,
+                power_unit_id: c.power_unit_id, power_allowance: c.power_allowance,
+                exposure_quantity_id: c.exposure_quantity_id, exposure_unit_id: c.exposure_unit_id,
+                aggregate_exposure: c.aggregate_exposure,
+                combined_exposure: exposure / registry.unit(c.exposure_unit_id.into())?.scale_to_canonical,
+                combined_power_allowance: power / registry.unit(c.power_unit_id.into())?.scale_to_canonical,
+                contributors: contributors.into_values().collect(),
+            }) }).collect::<Result<Vec<_>, MathError>>()?,
+            limiting_consumer: result.limiting_consumer,
+            allowance: result.joules_per_mole,
+        })
+    }).transpose()?;
+    let budget = if canonical_fallback && resolved_caloric.is_some() {
+        resolved_caloric
+            .as_ref()
+            .map_or(0.0, |context| context.allowance)
+    } else if canonical_fallback {
         if enforce_strict && policy.strict_engineering_context {
             return Err(failure(
                 target.id,
@@ -464,7 +569,9 @@ fn engineering_default(
         DEFAULT_ENGINEERING_ACCURACY
             * engineering_magnitude(registry, preconditions, target, canonical)?
     } else {
-        budget
+        resolved_caloric
+            .as_ref()
+            .map_or(budget, |context| budget.min(context.allowance))
     };
     if !budget.is_finite() || budget <= 0.0 || floor.is_some_and(|v| !v.is_finite() || v <= 0.0) {
         return Err(failure(
@@ -481,24 +588,38 @@ fn engineering_default(
         scale_kind: chosen.map(|(s, _, _)| s.kind),
         source: chosen.map_or_else(
             || {
-                selected.map_or(
-                    if rule.is_some() {
-                        NumericalSource::PropertyDefault
-                    } else {
-                        NumericalSource::CanonicalFallback
+                caloric.map_or_else(
+                    || {
+                        selected.map_or(
+                            if rule.is_some() {
+                                NumericalSource::PropertyDefault
+                            } else {
+                                NumericalSource::CanonicalFallback
+                            },
+                            |r| r.source,
+                        )
                     },
-                    |r| r.source,
+                    |c| c.source,
                 )
             },
             |(s, _, _)| s.source,
         ),
         budget,
-        canonical_fallback,
-        limitation: if canonical_fallback {
+        canonical_fallback: canonical_fallback && resolved_caloric.is_none(),
+        limitation: if resolved_caloric
+            .as_ref()
+            .is_some_and(|context| context.response.is_some())
+        {
+            "Local caloric response is an estimate, not coupled output-error evidence".into()
+        } else if resolved_caloric.is_some() {
+            "Energy-only context supplies no thermal-response or coupled output-error evidence"
+                .into()
+        } else if canonical_fallback {
             "No positive admitted engineering allowance; canonical magnitude fallback is not output-error evidence".into()
         } else {
             String::new()
         },
+        caloric: resolved_caloric,
     })
 }
 
@@ -578,6 +699,30 @@ pub fn resolve(
         )?;
         engineering_magnitude(registry, preconditions, target, scale.unit_id.into())?;
     }
+    for requirement in &policy.caloric_requirements {
+        let target = target_access
+            .get(&(requirement.target_kind, requirement.target_id))
+            .ok_or_else(|| {
+                failure(
+                    requirement.target_id,
+                    "caloric requirement names an unselected coordinate",
+                )
+            })?;
+        pse_quantity::admission::require_same_contract(
+            requirement.quantity_id.into(),
+            engineering_error_quantity(registry, preconditions, target)?,
+            registry,
+        )?;
+        engineering_magnitude(registry, preconditions, target, requirement.unit_id.into())?;
+        caloric::admitted_caloric_allowance(
+            registry,
+            preconditions,
+            target,
+            requirement,
+            policy,
+            &BTreeMap::new(),
+        )?;
+    }
     for rule in &policy.engineering_rules {
         let quantity = registry.quantity_type(rule.quantity_id.into())?;
         pse_quantity::convert_spec_for_type(
@@ -585,6 +730,69 @@ pub fn resolve(
             registry.unit(quantity.canonical_unit)?,
             &quantity.key,
         )?;
+    }
+    // Resolve distinct selected consumers once through the same numerical owner.
+    // Standalone supplied caloric requirements can retain their explicit power
+    // premise when no consumer target is part of this inventory.
+    let consumer_ids = policy
+        .caloric_requirements
+        .iter()
+        .flat_map(|requirement| {
+            requirement
+                .consumers
+                .iter()
+                .map(|consumer| consumer.target_id)
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    let consumer_targets = targets
+        .iter()
+        .filter(|target| consumer_ids.contains(&target.id))
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut resolved_consumers = BTreeMap::new();
+    if !consumer_targets.is_empty() {
+        if consumer_targets.iter().any(|target| {
+            policy.caloric_requirements.iter().any(|requirement| {
+                requirement.target_id == target.id && requirement.target_kind == target.kind
+            })
+        }) {
+            return Err(MathError::Contract(
+                "caloric consumer cannot depend on its own caloric target".into(),
+            ));
+        }
+        let selected = |id, kind| {
+            consumer_targets
+                .iter()
+                .any(|target| target.id == id && target.kind == kind)
+        };
+        let mut consumer_policy = policy.clone();
+        consumer_policy.caloric_requirements.clear();
+        consumer_policy
+            .requirements
+            .retain(|row| selected(row.target_id, row.target_kind));
+        consumer_policy
+            .engineering_scales
+            .retain(|row| selected(row.target_id, row.target_kind));
+        consumer_policy.goals.clear();
+        let consumer_declarations = declarations
+            .iter()
+            .filter(|row| selected(row.declaration.target_id, row.declaration.target_kind))
+            .cloned()
+            .collect::<Vec<_>>();
+        let result = resolve(
+            registry,
+            preconditions,
+            &consumer_targets,
+            &consumer_declarations,
+            &consumer_policy,
+        )?;
+        for target in result.targets {
+            if resolved_consumers.insert(target.id, target).is_some() {
+                return Err(MathError::Contract(
+                    "caloric consumer has ambiguous target kinds".into(),
+                ));
+            }
+        }
     }
     let mut all = declarations.to_vec();
     all.extend(
@@ -670,7 +878,11 @@ pub fn resolve(
         });
     }
     let mut resolved = Vec::with_capacity(targets.len());
-    let mut key = FramedHasher::new(pse_ids::Frame::NumericalResolvedV2);
+    let mut key = FramedHasher::new(if policy.caloric_requirements.is_empty() {
+        pse_ids::Frame::NumericalResolvedV2
+    } else {
+        pse_ids::Frame::NumericalResolvedV3
+    });
     key.hash(&policy.key());
     let mut identity_sources = all.iter().collect::<Vec<_>>();
     identity_sources.sort_by_key(|r| r.declaration.requirement_id);
@@ -807,6 +1019,7 @@ pub fn resolve(
                         policy,
                         Some(r),
                         index == 0,
+                        &resolved_consumers,
                     )?;
                     let budget = context.budget;
                     if index == 0 {
@@ -834,8 +1047,15 @@ pub fn resolve(
             if let Some(explicit) = target.declared_tolerance {
                 explicit
             } else {
-                let context =
-                    engineering_default(registry, preconditions, target, policy, None, true)?;
+                let context = engineering_default(
+                    registry,
+                    preconditions,
+                    target,
+                    policy,
+                    None,
+                    true,
+                    &resolved_consumers,
+                )?;
                 let budget = context.budget;
                 selected_engineering = Some(context);
                 budget
@@ -894,7 +1114,29 @@ pub fn resolve(
         for value in [nominal, coordinate_scale, absolute, relative, budget] {
             key.u64(value.to_bits());
         }
-        selected_engineering.frame(&mut key);
+        if policy.caloric_requirements.is_empty() {
+            key.bool(selected_engineering.is_some());
+            if let Some(context) = &selected_engineering {
+                macro_rules! legacy_field {
+                    ($field:ident) => {{
+                        key.str(concat!("r#", stringify!($field)));
+                        context.$field.frame(&mut key);
+                    }};
+                }
+                legacy_field!(rule_id);
+                legacy_field!(scale_id);
+                legacy_field!(physical_allowance);
+                legacy_field!(relative_fraction);
+                legacy_field!(characteristic);
+                legacy_field!(scale_kind);
+                legacy_field!(source);
+                legacy_field!(budget);
+                legacy_field!(canonical_fallback);
+                legacy_field!(limitation);
+            }
+        } else {
+            selected_engineering.frame(&mut key);
+        }
         for p in &provenance {
             p.declaration.frame(&mut key);
             p.source.frame(&mut key);
@@ -1034,6 +1276,429 @@ mod tests {
         }
     }
     #[test]
+    fn caloric_context_resolves_frozen_consumer_without_widening_a_rule() {
+        use pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequirementsFieldConsumersItem as Consumer;
+        let registry = standard_registry().unwrap();
+        let quantity = |name: &str| match registry.physical_name(name).unwrap() {
+            pse_quantity::PhysicalName::QuantityType(id) => id,
+            _ => panic!("expected quantity {name}"),
+        };
+        let unit = |quantity| registry.quantity_type(quantity).unwrap().canonical_unit;
+        let delta = |quantity| {
+            pse_quantity::scheme::Scheme::Delta(Box::new(pse_quantity::scheme::Scheme::Concrete(
+                quantity,
+            )))
+            .resolve(&registry, &BTreeMap::new())
+            .unwrap()
+        };
+        let h = quantity("MolarEnthalpy");
+        let dh = delta(h);
+        let cp = quantity("MolarCp");
+        let dt = delta(quantity("Temperature"));
+        let power = delta(quantity("Power"));
+        let flow = quantity("Flow");
+        let target = TargetSpec {
+            id: id(1),
+            kind: NumericalTarget::Variable,
+            quantity: h,
+            unit: unit(h),
+            integer: false,
+            declared_tolerance: None,
+        };
+        let mut policy = NumericalPolicy::default();
+        policy.strict_engineering_context = true;
+        policy.caloric_requirements.push(CaloricRequirement {
+            requirement_id: id(2),
+            instance_id: None,
+            target_id: target.id,
+            target_kind: target.kind,
+            quantity_id: dh.as_id(),
+            unit_id: unit(dh).as_id(),
+            source: NumericalSource::Model,
+            science_revision: "selected-revision".into(),
+            science_records: vec![id(3)],
+            response_quantity_id: Some(cp.as_id()),
+            response_unit_id: Some(unit(cp).as_id()),
+            response: Some(100.0),
+            thermal_quantity_id: Some(dt.as_id()),
+            thermal_unit_id: Some(unit(dt).as_id()),
+            thermal_resolution: Some(0.1),
+            consumers: vec![Consumer {
+                target_id: id(4),
+                declaration_id: id(6),
+                power_rule_id: id(7),
+                actual_flow_id: id(8),
+                exposure_expression: "feed/purge".into(),
+                power_quantity_id: power.as_id(),
+                power_unit_id: unit(power).as_id(),
+                power_allowance: 1.0,
+                exposure_quantity_id: flow.as_id(),
+                exposure_unit_id: unit(flow).as_id(),
+                aggregate_exposure: 4.0,
+            }],
+        });
+        let result = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &policy,
+        )
+        .unwrap();
+        let context = result.targets[0].engineering.as_ref().unwrap();
+        assert!((context.budget - 0.25).abs() < 1e-12);
+        assert_eq!(
+            context.caloric.as_ref().unwrap().limiting_consumer,
+            Some(id(4))
+        );
+        assert!(!context.canonical_fallback);
+        // Resolve the actual consuming point with the ordinary rule and scale,
+        // rather than treating its 1 W floor as the complete power budget.
+        let power_point = quantity("Power");
+        let consumer_target = TargetSpec {
+            id: id(4),
+            kind: NumericalTarget::Variable,
+            quantity: power_point,
+            unit: unit(power_point),
+            integer: false,
+            declared_tolerance: None,
+        };
+        let mut consuming = policy.clone();
+        consuming.caloric_requirements[0].response = None;
+        consuming.caloric_requirements[0].response_quantity_id = None;
+        consuming.caloric_requirements[0].response_unit_id = None;
+        consuming.caloric_requirements[0].thermal_quantity_id = None;
+        consuming.caloric_requirements[0].thermal_unit_id = None;
+        consuming.caloric_requirements[0].thermal_resolution = None;
+        consuming.engineering_rules.push(EngineeringRule {
+            rule_id: id(7).into(),
+            quantity_id: power.as_id(),
+            unit_id: unit(power).as_id(),
+            physical_allowance: Some(1.0),
+            relative_fraction: Some(0.001),
+            provenance: "consumer power floor".into(),
+        });
+        let mut power_scale = scale(50, NumericalSource::Model, 100_000.0);
+        power_scale.target_id = consumer_target.id;
+        power_scale.quantity_id = power_point.as_id();
+        power_scale.unit_id = unit(power_point).as_id();
+        consuming.engineering_scales.push(power_scale);
+        let targets = [target.clone(), consumer_target.clone()];
+        let budget = |policy: &NumericalPolicy| {
+            resolve(&registry, &facts(), &targets, &[], policy)
+                .unwrap()
+                .targets
+                .into_iter()
+                .find(|row| row.id == target.id)
+                .unwrap()
+                .budget
+        };
+        assert!((budget(&consuming) - 25.0).abs() < 1e-12);
+        let mut explicit_enthalpy = requirement(52, NumericalSource::Analysis, 1.0).declaration;
+        explicit_enthalpy.nominal = None;
+        explicit_enthalpy.absolute_tolerance = Some(0.01);
+        explicit_enthalpy.relative_tolerance = None;
+        explicit_enthalpy.unit_id = Some(unit(h).as_id());
+        let mut operational = consuming.clone();
+        operational.requirements.push(explicit_enthalpy);
+        let frozen = resolve(&registry, &facts(), &targets, &[], &operational).unwrap();
+        assert!(
+            frozen
+                .targets
+                .iter()
+                .find(|row| row.id == target.id)
+                .unwrap()
+                .engineering
+                .is_none()
+        );
+        assert!(
+            (operational_output_context(
+                &registry,
+                &facts(),
+                &target,
+                &operational,
+                &frozen.targets
+            )
+            .unwrap()
+            .budget
+                - 25.0)
+                .abs()
+                < 1e-12
+        );
+        let mut thermal_consumer = consuming.clone();
+        thermal_consumer.caloric_requirements[0].response_quantity_id = Some(cp.as_id());
+        thermal_consumer.caloric_requirements[0].response_unit_id = Some(unit(cp).as_id());
+        thermal_consumer.caloric_requirements[0].response = Some(1000.0);
+        thermal_consumer.caloric_requirements[0].thermal_quantity_id = Some(dt.as_id());
+        thermal_consumer.caloric_requirements[0].thermal_unit_id = Some(unit(dt).as_id());
+        thermal_consumer.caloric_requirements[0].thermal_resolution = Some(0.1);
+        assert!((budget(&thermal_consumer) - 25.0).abs() < 1e-12);
+        let mut explicit = requirement(51, NumericalSource::Analysis, 1.0).declaration;
+        explicit.target_id = consumer_target.id;
+        explicit.nominal = None;
+        explicit.absolute_tolerance = Some(0.5);
+        explicit.relative_tolerance = None;
+        explicit.unit_id = Some(unit(power_point).as_id());
+        consuming.requirements.push(explicit.clone());
+        thermal_consumer.requirements.push(explicit);
+        assert!((budget(&consuming) - 0.125).abs() < 1e-12);
+        assert!((budget(&thermal_consumer) - 0.125).abs() < 1e-12);
+        operational
+            .requirements
+            .push(consuming.requirements[0].clone());
+        let frozen = resolve(&registry, &facts(), &targets, &[], &operational).unwrap();
+        assert!(
+            (operational_output_context(
+                &registry,
+                &facts(),
+                &target,
+                &operational,
+                &frozen.targets
+            )
+            .unwrap()
+            .budget
+                - 0.125)
+                .abs()
+                < 1e-12
+        );
+        consuming.requirements.clear();
+        consuming.engineering_scales.clear();
+        assert!((budget(&consuming) - 0.25).abs() < 1e-12);
+        let mut invalid = policy.clone();
+        invalid.caloric_requirements[0].consumers[0].aggregate_exposure = -1.0;
+        assert!(operational_output_context(&registry, &facts(), &target, &invalid, &[]).is_err());
+        let mut tied = policy.clone();
+        let mut second_consumer = tied.caloric_requirements[0].consumers[0].clone();
+        second_consumer.target_id = id(10);
+        second_consumer.declaration_id = id(11);
+        tied.caloric_requirements[0].consumers.push(second_consumer);
+        let tied_forward = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &tied,
+        )
+        .unwrap();
+        tied.caloric_requirements[0].consumers.reverse();
+        let tied_reverse = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &tied,
+        )
+        .unwrap();
+        assert_eq!(tied_forward.key, tied_reverse.key);
+        assert_eq!(
+            tied_forward.targets[0]
+                .engineering
+                .as_ref()
+                .unwrap()
+                .caloric
+                .as_ref()
+                .unwrap()
+                .limiting_consumer,
+            Some(id(4))
+        );
+        let mut thermal_policy = policy.clone();
+        thermal_policy.caloric_requirements[0].consumers[0].power_allowance = 1000.0;
+        let thermal = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &thermal_policy,
+        )
+        .unwrap();
+        let mut fahrenheit = thermal_policy;
+        fahrenheit.caloric_requirements[0].thermal_unit_id = Some(ids::unit("degF").as_id());
+        fahrenheit.caloric_requirements[0].thermal_resolution = Some(0.18);
+        let converted = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &fahrenheit,
+        )
+        .unwrap();
+        assert!((converted.targets[0].budget - thermal.targets[0].budget).abs() < 1e-12);
+        assert!((thermal.targets[0].budget - 10.0).abs() < 1e-12);
+        let projected = project_difference(
+            &registry,
+            &facts(),
+            &result,
+            &[TargetProjection {
+                source: target.id,
+                source_kind: target.kind,
+                target: TargetSpec {
+                    id: id(20),
+                    kind: NumericalTarget::Row,
+                    quantity: dh,
+                    unit: unit(dh),
+                    integer: false,
+                    declared_tolerance: None,
+                },
+            }],
+        )
+        .unwrap();
+        let projected_context = projected.targets[0]
+            .engineering
+            .as_ref()
+            .unwrap()
+            .caloric
+            .as_ref()
+            .unwrap();
+        assert!((projected_context.allowance - 0.25).abs() < 1e-12);
+        assert_eq!(projected_context.science_revision, "selected-revision");
+        assert_eq!(projected_context.response_unit_id, Some(unit(cp).as_id()));
+        assert_eq!(projected_context.consumers[0].actual_flow_id, id(8));
+        let mut nominal = requirement(21, NumericalSource::Model, 100_000.0);
+        nominal.declaration.unit_id = Some(target.unit.as_id());
+        nominal.declaration.absolute_tolerance = None;
+        nominal.declaration.relative_tolerance = None;
+        let shifted_nominal = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[nominal],
+            &policy,
+        )
+        .unwrap();
+        assert!((shifted_nominal.targets[0].budget - result.targets[0].budget).abs() < 1e-12);
+        let mut energy_only = policy.clone();
+        let requirement = &mut energy_only.caloric_requirements[0];
+        requirement.science_records.clear();
+        requirement.response_quantity_id = None;
+        requirement.response_unit_id = None;
+        requirement.response = None;
+        requirement.thermal_quantity_id = None;
+        requirement.thermal_unit_id = None;
+        requirement.thermal_resolution = None;
+        let energy = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &energy_only,
+        )
+        .unwrap();
+        let context = energy.targets[0].engineering.as_ref().unwrap();
+        assert!((context.budget - 0.25).abs() < 1e-12);
+        assert!(context.caloric.as_ref().unwrap().response.is_none());
+        assert!(context.limitation.contains("no thermal-response"));
+        let before = energy_only.key();
+        energy_only.caloric_requirements[0].consumers[0].aggregate_exposure = 5.0;
+        assert_ne!(before, energy_only.key());
+        let changed = resolve(
+            &registry,
+            &facts(),
+            std::slice::from_ref(&target),
+            &[],
+            &energy_only,
+        )
+        .unwrap();
+        assert!((changed.targets[0].budget - 0.2).abs() < 1e-12);
+        // Equal physical copies can use different source units. Their retained
+        // representative is selected by stable requirement identity, not input order.
+        let mut alternate_watt = registry.unit(unit(power)).unwrap().clone();
+        alternate_watt.id = ids::unit("test_mW");
+        alternate_watt.symbol = "test_mW".into();
+        alternate_watt.scale_to_canonical = 0.001;
+        let mut builder = registry.to_builder();
+        builder.unit(alternate_watt);
+        let alternate_registry = builder.build().unwrap();
+        let mut equivalent = energy_only.clone();
+        equivalent.caloric_requirements[0].consumers[0].aggregate_exposure = 1.0;
+        let mut alternate = equivalent.caloric_requirements[0].clone();
+        alternate.requirement_id = id(30);
+        alternate.target_id = id(31);
+        alternate.consumers[0].power_unit_id = ids::unit("test_mW").as_id();
+        alternate.consumers[0].power_allowance = 1000.0;
+        equivalent.caloric_requirements.push(alternate);
+        let mut alternate_target = target.clone();
+        alternate_target.id = id(31);
+        let pair = [target.clone(), alternate_target];
+        let forward = resolve(&alternate_registry, &facts(), &pair, &[], &equivalent).unwrap();
+        equivalent.caloric_requirements.reverse();
+        let reverse = resolve(&alternate_registry, &facts(), &pair, &[], &equivalent).unwrap();
+        assert_eq!(forward.key, reverse.key);
+        let mut shared = energy_only.clone();
+        shared.caloric_requirements[0].consumers[0].aggregate_exposure = 1.0;
+        let mut other = shared.caloric_requirements[0].clone();
+        other.requirement_id = id(30);
+        other.target_id = id(31);
+        other.consumers[0].declaration_id = id(32);
+        other.consumers[0].actual_flow_id = id(33);
+        let mut projected_copy = shared.caloric_requirements[0].clone();
+        projected_copy.requirement_id = id(34);
+        projected_copy.target_id = id(35);
+        shared.caloric_requirements.extend([other, projected_copy]);
+        let mut target2 = target.clone();
+        target2.id = id(31);
+        let mut target3 = target.clone();
+        target3.id = id(35);
+        let all = [target.clone(), target2, target3];
+        let first = resolve(&registry, &facts(), &all, &[], &shared).unwrap();
+        assert!(
+            first
+                .targets
+                .iter()
+                .all(|target| (target.budget - 0.5).abs() < 1e-12)
+        );
+        for target in &first.targets {
+            let consumer = &target
+                .engineering
+                .as_ref()
+                .unwrap()
+                .caloric
+                .as_ref()
+                .unwrap()
+                .consumers[0];
+            assert!((consumer.combined_exposure - 2.0).abs() < 1e-12);
+            assert_eq!(consumer.contributors.len(), 2);
+        }
+        shared.caloric_requirements.reverse();
+        let reversed = resolve(&registry, &facts(), &all, &[], &shared).unwrap();
+        assert_eq!(first.key, reversed.key);
+        let mut many = energy_only.clone();
+        many.caloric_requirements.clear();
+        let mut many_targets = Vec::new();
+        for index in 0_u8..12 {
+            let mut requirement = energy_only.caloric_requirements[0].clone();
+            requirement.requirement_id = id(40 + index);
+            requirement.target_id = id(60 + index);
+            requirement.consumers[0].declaration_id = id(80 + index);
+            requirement.consumers[0].actual_flow_id = id(100 + index);
+            requirement.consumers[0].exposure_expression = "x".repeat(4096);
+            many.caloric_requirements.push(requirement);
+            let mut member = target.clone();
+            member.id = id(60 + index);
+            many_targets.push(member);
+        }
+        let bound = resolution_allocation_bound(&many_targets, &[], &many);
+        let many_resolved = resolve(&registry, &facts(), &many_targets, &[], &many).unwrap();
+        assert!(
+            bound >= resolved_extent(&many_resolved),
+            "shared-consumer result exceeds its admitted bound"
+        );
+        shared.caloric_requirements[0].target_id = id(99);
+        assert!(resolve(&registry, &facts(), &all, &[], &shared).is_err());
+        shared.caloric_requirements[0].target_id = id(35);
+        shared.caloric_requirements[0].quantity_id = id(100);
+        assert!(resolve(&registry, &facts(), &all, &[], &shared).is_err());
+        policy.engineering_rules.push(EngineeringRule {
+            rule_id: id(5).into(),
+            quantity_id: dh.as_id(),
+            unit_id: unit(dh).as_id(),
+            physical_allowance: Some(0.1),
+            relative_fraction: Some(0.0),
+            provenance: "independent physical requirement".into(),
+        });
+        let tighter = resolve(&registry, &facts(), &[target], &[], &policy).unwrap();
+        assert!((tighter.targets[0].budget - 0.1).abs() < 1e-12);
+    }
+    #[test]
     fn target_access_preserves_kinds_order_frozen_budgets_and_duplicate_requests() {
         let registry = standard_registry().unwrap();
         let mut row = target();
@@ -1131,14 +1796,15 @@ mod tests {
             engineering_rules: vec![rule(4, Some(0.1))],
             ..Default::default()
         };
-        let output = operational_output_context(&registry, &facts(), &target(), &policy).unwrap();
+        let output =
+            operational_output_context(&registry, &facts(), &target(), &policy, &[]).unwrap();
         assert_eq!(output.budget, 0.1);
         let mut changed = policy.clone();
         changed.requirements[0].absolute_tolerance = Some(10.);
         changed.kkt.stationarity = 1e-12;
         changed.kkt.complementarity = 0.5;
         assert_eq!(
-            operational_output_context(&registry, &facts(), &target(), &changed).unwrap(),
+            operational_output_context(&registry, &facts(), &target(), &changed, &[]).unwrap(),
             output
         );
     }
@@ -1871,7 +2537,8 @@ mod tests {
         let projected = project_difference(&registry, &present, &source, &projections).unwrap();
         assert_eq!(projected.targets[0].budget, source.targets[0].budget);
         assert_eq!(projected.targets[0].absolute, source.targets[0].absolute);
-        let output = operational_output_context(&registry, &present, &target, &policy).unwrap();
+        let output =
+            operational_output_context(&registry, &present, &target, &policy, &[]).unwrap();
         assert_eq!(output.budget, DEFAULT_ENGINEERING_ACCURACY);
         fn refuses<T: std::fmt::Debug>(result: Result<T, MathError>) {
             assert!(matches!(
@@ -1891,7 +2558,11 @@ mod tests {
                 &policy,
             ));
             refuses(operational_output_context(
-                &registry, missing, &target, &policy,
+                &registry,
+                missing,
+                &target,
+                &policy,
+                &[],
             ));
             refuses(project_difference(
                 &registry,
@@ -1945,7 +2616,7 @@ mod tests {
             Some(2e-7)
         );
         assert_eq!(
-            operational_output_context(&registry, &present, &target, &policy)
+            operational_output_context(&registry, &present, &target, &policy, &[])
                 .unwrap()
                 .budget,
             2e-7

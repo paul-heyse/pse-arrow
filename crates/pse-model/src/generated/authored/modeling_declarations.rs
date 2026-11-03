@@ -12961,7 +12961,9 @@ pub trait SourceExpressionVisitor {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SourceAnnotationShape {
     r#AccuracyGoal,
+    r#CaloricContext,
     r#Connectivity,
+    r#EnergyContext,
     r#EngineeringDefault,
     r#EngineeringRule,
     r#EngineeringScale,
@@ -13007,6 +13009,12 @@ impl AuthoredModelingDeclarationsFieldValueAnnotation {
             }
             super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
                 SourceAnnotationShape::r#EngineeringScale
+            }
+            super::super::enums::ModelingAnnotationKind::r#CaloricContext => {
+                SourceAnnotationShape::r#CaloricContext
+            }
+            super::super::enums::ModelingAnnotationKind::r#EnergyContext => {
+                SourceAnnotationShape::r#EnergyContext
             }
             super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
                 SourceAnnotationShape::r#EngineeringDefault
@@ -13096,6 +13104,20 @@ impl AuthoredModelingDeclarationsFieldValueAnnotation {
                     && self.r#engineering_scale.is_some() && self.r#objective.is_none()
                     && self.r#scheme.is_none()
             }
+            super::super::enums::ModelingAnnotationKind::r#CaloricContext => {
+                self.arguments.len() == 6usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
+            }
+            super::super::enums::ModelingAnnotationKind::r#EnergyContext => {
+                self.arguments.len() == 4usize && self.r#accuracy_goal.is_none()
+                    && self.r#connectivity.is_none()
+                    && self.r#engineering_default.is_none()
+                    && self.r#engineering_scale.is_none() && self.r#objective.is_none()
+                    && self.r#scheme.is_none()
+            }
             super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
                 self.arguments.is_empty() && self.r#accuracy_goal.is_none()
                     && self.r#connectivity.is_none()
@@ -13126,6 +13148,8 @@ impl AuthoredModelingDeclarationsFieldValueAnnotation {
             super::super::enums::ModelingAnnotationKind::r#Connectivity => 0usize,
             super::super::enums::ModelingAnnotationKind::r#AccuracyGoal => 0usize,
             super::super::enums::ModelingAnnotationKind::r#EngineeringScale => 0usize,
+            super::super::enums::ModelingAnnotationKind::r#CaloricContext => 6usize,
+            super::super::enums::ModelingAnnotationKind::r#EnergyContext => 4usize,
             super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => 0usize,
             super::super::enums::ModelingAnnotationKind::r#EngineeringRule => 0usize,
         }
@@ -15609,6 +15633,12 @@ impl AuthoredModelingDeclarationsFieldValue {
                             }
                             super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
                                 (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#CaloricContext => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EnergyContext => {
+                                (Some(SourceGrammar::Expression), true)
                             }
                             super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
                                 (None, true)
@@ -18773,6 +18803,12 @@ impl AuthoredModelingDeclarationsFieldValue {
                             }
                             super::super::enums::ModelingAnnotationKind::r#EngineeringScale => {
                                 (None, true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#CaloricContext => {
+                                (Some(SourceGrammar::Expression), true)
+                            }
+                            super::super::enums::ModelingAnnotationKind::r#EnergyContext => {
+                                (Some(SourceGrammar::Expression), true)
                             }
                             super::super::enums::ModelingAnnotationKind::r#EngineeringDefault => {
                                 (None, true)

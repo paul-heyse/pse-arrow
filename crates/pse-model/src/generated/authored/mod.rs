@@ -5,6 +5,8 @@
 ///Generated relation contract.
 pub mod r#accuracy_goals;
 ///Generated relation contract.
+pub mod r#caloric_requirements;
+///Generated relation contract.
 pub mod r#documents;
 ///Generated relation contract.
 pub mod r#engineering_default_rules;

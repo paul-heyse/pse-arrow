@@ -729,6 +729,14 @@ fn annotation(v: &crate::annotation::AnnotationValue) -> usize {
                 + goal.criterion_upper.as_ref().map_or(0, expression)
         }
         A::EngineeringScale(scale) => ty(&scale.quantity) + expression(&scale.value),
+        A::CaloricContext(context) => {
+            context.quantities.iter().map(ty).sum::<usize>()
+                + context.values.iter().map(expression).sum::<usize>()
+                + context
+                    .science_records
+                    .capacity()
+                    .saturating_mul(size_of::<pse_ids::SemanticId>())
+        }
     }
 }
 

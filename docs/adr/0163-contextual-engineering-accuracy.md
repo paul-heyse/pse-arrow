@@ -39,6 +39,33 @@ Static physical defaults remain useful fallback. Conditioning nominals confuse e
 
 Resolve inherited engineering budgets as `max(F,r*S)`, with shared physical allowance F, shared fraction r and independently admitted engineering magnitude S. Freeze context/provenance before execution. Explicit overrides retain `absolute+relative*nominal`. Missing meaningful context uses a recorded canonical fallback unless strict engineering completeness is requested.
 
+An authored engineering magnitude can name an existing scalar physical equation
+row as well as a value; the row's complete difference quantity governs admission.
+
+An explicitly selected caloric requirement may additionally constrain a molar-enthalpy
+difference by the conjunction of a frozen, admitted local caloric response times thermal
+resolution and each selected consuming power allowance divided by its aggregate molar
+exposure. The consumer identities and source-science revision, full physical quantities,
+units, values and limiting reason survive resolution and participate in identity. Exposure
+is an independently admitted consuming premise, not a capacity or an iterate. Unit
+conversion uses differences and does not use an absolute enthalpy datum. This additional
+requirement cannot widen an independently imposed physical allowance. A local response is
+an engineering estimate, not a coupled output-error certificate; EOS residual contributions
+must be included when the selected formulation requires them. Missing or incompatible
+required context is refused rather than fabricated.
+
+The same requirement may consist only of consuming power and exposure when no
+independently admitted thermal response exists. That form retains an explicit absent
+thermal premise and does not claim heat-capacity or thermal-output evidence. A frozen
+exposure bound and the separately checked actual stream are distinct facts, linked to
+their original source and consuming identities.
+
+A caloric annotation may name a final equation member supplied by the selected
+implementation of a statically checked interface path. Specialization must resolve
+exactly that equation and admit its complete molar-enthalpy difference quantity;
+an absent member, a value member or an incompatible equation is refused with the
+original annotation attribution. Other member lookup remains unchanged.
+
 Physical closure declarations retain the distinction between a marked shared-rule reference and an explicit tolerance. A connected closure resolves each endpoint's full physical quantity, unit and independently admitted characteristic before taking the tighter endpoint budget. Both endpoint obligations and their provenance enter the frozen numerical interpretation. An identical numeric literal remains explicit; no value comparison establishes inheritance. This physical agreement check is independent of any certificate for downstream output error.
 
 Registry-owned goals protect selected scalar outputs or the original optimum objective at supported observations. At least resolution or quantitative criterion is required. Inclusive bounds/bands express specifications independently of numerical resolution. Estimated is default; Certified requires actual admitted certification. Criterion-only goals require sufficient evidence to classify their decision without an unrelated output-digit cap.

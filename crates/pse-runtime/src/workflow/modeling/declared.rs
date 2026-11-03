@@ -215,6 +215,9 @@ pub(super) fn initialization(
     Ok(plan)
 }
 impl DeclaredExecution {
+    pub(in crate::workflow) fn retained_source(&self) -> &ModelingPackage {
+        &self.prepared.source
+    }
     /// Reuse only this exact admitted product under its retained source/context owners.
     pub(in crate::workflow) fn prepared_model(
         &self,
@@ -312,6 +315,14 @@ impl DeclaredExecution {
         }
         plan.validate()?;
         Ok(plan)
+    }
+}
+
+impl ModelingPackage {
+    pub(in crate::workflow) fn shares_retained_source(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.revision.admitted, &other.revision.admitted)
+            && Arc::ptr_eq(&self.providers, &other.providers)
+            && self.physical.identity() == other.physical.identity()
     }
 }
 impl ModelingPackage {

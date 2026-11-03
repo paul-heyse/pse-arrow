@@ -4454,6 +4454,8 @@
         "connectivity",
         "accuracy_goal",
         "engineering_scale",
+        "caloric_context",
+        "energy_context",
         "engineering_default",
         "engineering_rule"
       ],

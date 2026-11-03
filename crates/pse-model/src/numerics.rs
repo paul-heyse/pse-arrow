@@ -5,7 +5,8 @@ use crate::{
     SemanticFrame,
     generated::{
         authored::{
-            accuracy_goals, engineering_default_rules, engineering_scales, numerical_requirements,
+            accuracy_goals, caloric_requirements, engineering_default_rules, engineering_scales,
+            numerical_requirements,
         },
         enums::{
             ClosurePolicy, IncumbentPolicy, NumericalProvenanceField, NumericalSource,
@@ -23,6 +24,8 @@ pub type AccuracyGoal = accuracy_goals::Row;
 pub type EngineeringScale = engineering_scales::Row;
 /// Typed inherited engineering allowance rule.
 pub type EngineeringRule = engineering_default_rules::Row;
+/// Selected scientific and consuming premises for a conjunctive caloric allowance.
+pub type CaloricRequirement = caloric_requirements::Row;
 /// Frozen interpretation of a contextual engineering default in target-unit magnitudes.
 pub type EngineeringContext =
     crate::generated::runtime::resolved_numerics::RuntimeResolvedNumericsFieldEngineering;
@@ -69,6 +72,9 @@ pub struct NumericalPolicy {
     /// Shared rules matched by full quantity meaning, not dimensions alone.
     #[serde(default)]
     pub engineering_rules: Vec<EngineeringRule>,
+    /// Independently admitted caloric and consuming requirements, frozen before execution.
+    #[serde(default)]
+    pub caloric_requirements: Vec<CaloricRequirement>,
     /// Reject an engineering allowance relying on the canonical fallback.
     #[serde(default)]
     pub strict_engineering_context: bool,
@@ -123,6 +129,7 @@ impl Default for NumericalPolicy {
             goals: vec![],
             engineering_scales: vec![],
             engineering_rules: vec![],
+            caloric_requirements: vec![],
             strict_engineering_context: false,
             engineering_relative_fraction: DEFAULT_ENGINEERING_ACCURACY,
             strict_nominals: false,
@@ -238,11 +245,62 @@ impl NumericalPolicy {
                 ));
             }
         }
+        let mut caloric = std::collections::BTreeSet::new();
+        let mut caloric_targets = std::collections::BTreeSet::new();
+        for item in &self.caloric_requirements {
+            let mut consumers = std::collections::BTreeSet::new();
+            let records = item
+                .science_records
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>();
+            if !caloric.insert(item.requirement_id)
+                || !caloric_targets.insert((item.target_kind, item.target_id))
+                || item.science_revision.trim().is_empty()
+                || records.len() != item.science_records.len()
+                || matches!(
+                    item.source,
+                    NumericalSource::DerivedNominal | NumericalSource::CanonicalFallback
+                )
+                || item.consumers.is_empty()
+                || match (
+                    item.response_quantity_id,
+                    item.response_unit_id,
+                    item.response,
+                    item.thermal_quantity_id,
+                    item.thermal_unit_id,
+                    item.thermal_resolution,
+                ) {
+                    (Some(_), Some(_), Some(response), Some(_), Some(_), Some(thermal)) => {
+                        item.science_records.is_empty()
+                            || !response.is_finite()
+                            || response <= 0.0
+                            || !thermal.is_finite()
+                            || thermal <= 0.0
+                    }
+                    (None, None, None, None, None, None) => false,
+                    _ => true,
+                }
+                || item.consumers.iter().any(|consumer| {
+                    !consumers.insert(consumer.target_id)
+                        || consumer.exposure_expression.trim().is_empty()
+                        || !consumer.power_allowance.is_finite()
+                        || consumer.power_allowance <= 0.0
+                        || !consumer.aggregate_exposure.is_finite()
+                        || consumer.aggregate_exposure < 0.0
+                })
+            {
+                return Err(crate::malformed("invalid or duplicate caloric requirement"));
+            }
+        }
         Ok(())
     }
     /// Effective request identity with canonical registry framing and source ordering.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new(pse_ids::Frame::NumericalPolicyV3);
+        let mut h = FramedHasher::new(if self.caloric_requirements.is_empty() {
+            pse_ids::Frame::NumericalPolicyV3
+        } else {
+            pse_ids::Frame::NumericalPolicyV4
+        });
         let mut rows = self.requirements.iter().collect::<Vec<_>>();
         rows.sort_by_key(|r| r.requirement_id);
         h.u64(rows.len() as u64);
@@ -266,6 +324,19 @@ impl NumericalPolicy {
         h.u64(rules.len() as u64);
         for rule in rules {
             rule.frame(&mut h);
+        }
+        if !self.caloric_requirements.is_empty() {
+            let mut caloric = self.caloric_requirements.iter().collect::<Vec<_>>();
+            caloric.sort_by_key(|r| r.requirement_id);
+            h.u64(caloric.len() as u64);
+            for requirement in caloric {
+                let mut normalized = requirement.clone();
+                normalized.science_records.sort();
+                normalized
+                    .consumers
+                    .sort_by_key(|consumer| consumer.target_id);
+                normalized.frame(&mut h);
+            }
         }
         h.bool(self.strict_engineering_context)
             .u64(pse_ids::canonical_f64_bits(
@@ -354,6 +425,52 @@ pub struct ResolvedNumericalPolicy {
 #[cfg(test)]
 mod policy_identity_tests {
     use super::*;
+    #[test]
+    fn caloric_policy_identity_tracks_premises_and_consumer_order_is_irrelevant() {
+        use crate::generated::authored::caloric_requirements::AuthoredCaloricRequirementsFieldConsumersItem as Consumer;
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let consumer = |n| Consumer {
+            target_id: id(n),
+            declaration_id: id(15),
+            power_rule_id: id(16),
+            actual_flow_id: id(17),
+            exposure_expression: "feed/purge".into(),
+            power_quantity_id: id(4),
+            power_unit_id: id(5),
+            power_allowance: 1.0,
+            exposure_quantity_id: id(6),
+            exposure_unit_id: id(7),
+            aggregate_exposure: f64::from(n),
+        };
+        let mut policy = NumericalPolicy::default();
+        policy.caloric_requirements.push(CaloricRequirement {
+            requirement_id: id(1),
+            instance_id: None,
+            target_id: id(2),
+            target_kind: NumericalTarget::Row,
+            quantity_id: id(3),
+            unit_id: id(4),
+            source: NumericalSource::Model,
+            science_revision: "revision-a".into(),
+            science_records: vec![id(10), id(9)],
+            response_quantity_id: Some(id(11)),
+            response_unit_id: Some(id(12)),
+            response: Some(100.0),
+            thermal_quantity_id: Some(id(13)),
+            thermal_unit_id: Some(id(14)),
+            thermal_resolution: Some(0.1),
+            consumers: vec![consumer(21), consumer(20)],
+        });
+        policy.validate().unwrap();
+        let original = policy.key();
+        policy.caloric_requirements[0].consumers.reverse();
+        policy.caloric_requirements[0].science_records.reverse();
+        assert_eq!(original, policy.key());
+        policy.caloric_requirements[0].science_revision = "revision-b".into();
+        assert_ne!(original, policy.key());
+        policy.caloric_requirements[0].consumers[0].aggregate_exposure = -1.0;
+        assert!(policy.validate().is_err());
+    }
     #[test]
     fn engineering_defaults_preserve_discrete_and_physical_acceptance() {
         let policy = NumericalPolicy::default();

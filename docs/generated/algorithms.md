@@ -40,6 +40,7 @@ Version: `1`. Determinism: `deterministic`. Native effects: {Read}.
 | output | `engine_profiles` | `reference.engine_profiles` |
 | output | `accuracy_goals` | `authored.accuracy_goals` |
 | output | `engineering_scales` | `authored.engineering_scales` |
+| output | `caloric_requirements` | `authored.caloric_requirements` |
 | output | `engineering_default_rules` | `authored.engineering_default_rules` |
 | output | `numerical_requirements` | `authored.numerical_requirements` |
 | output | `fit_cases` | `authored.fit_cases` |

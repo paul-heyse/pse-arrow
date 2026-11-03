@@ -17,6 +17,13 @@ use pr_equilibrium @"1.0.0";
 use ideal_caloric_state @"1.0.0";
 use perry7_data @"1.0.0";
 
+// Frozen native context interval, not an empirical source-validity declaration.
+fn context_lower_temperature()->Temperature=300{K};
+fn context_upper_temperature()->Temperature=450{K};
+fn liquid_enthalpy_span()->Delta<MolarEnthalpy>=ideal_caloric_state.endpoint_enthalpy_span(liquid_h,liquid_h,aromatics,context_lower_temperature(),context_upper_temperature());
+fn vapor_enthalpy_span()->Delta<MolarEnthalpy>=ideal_caloric_state.endpoint_enthalpy_span(vapor_h,vapor_h,aromatics,context_lower_temperature(),context_upper_temperature());
+fn phase_enthalpy_span()->Delta<MolarEnthalpy>=ideal_caloric_state.larger_difference(ideal_caloric_state.larger_difference(liquid_enthalpy_span(),vapor_enthalpy_span()),ideal_caloric_state.endpoint_enthalpy_span(liquid_h,vapor_h,aromatics,context_lower_temperature(),context_upper_temperature()));
+
 entity provenance.software_release chemicals_source {title="Chemicals scientific data collection",version="e79047588b30cfabc564c79fb26d760c746877d7",locator="https://github.com/CalebBell/chemicals/tree/e79047588b30cfabc564c79fb26d760c746877d7"}
 entity provenance.release_artifact wagner_source {title="Poling Wagner 2.5,5 vapor-pressure parameters",release=chemicals_source,locator="chemicals/Vapor Pressure/Wagner Collection Poling.tsv; sha256=97fecbd70c931065cddc32b3f41e51bd69bc20199d11a1d006de668a29e9c0e5"}
 entity provenance.release_artifact critical_source {title="Yaws critical-property collection",release=chemicals_source,locator="chemicals/Critical Properties/Yaws Collection.tsv; sha256=8e9cce88b781b13a380c4d21ff86c4fd57d63592ffe3c40a88721fee2614bb64"}
@@ -26,6 +33,11 @@ entity properties.parameterization pressure_fit {title="Poling Wagner2.5,5 fit",
 entity properties.parameterization critical_fit {title="Yaws critical values",source=critical_source}
 entity properties.parameterization vapor_fit {title="FeOS0.10.1 Poling DIPPR100 ideal-gas Cp",source=references.poling2000}
 set aromatics:Set<chemistry.species>={chem.benzene,chem.toluene};
+// The selected closure owns the two liquid Cp records used by the frozen
+// interval-average response. Its 300–450 K interval includes the explicitly
+// permitted Perry benzene extrapolation; it is not a finite-interval error bound.
+entity properties.selection_context liquid_precision_source {roots={correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit],correlations.dippr100[chem.toluene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit]},subjects=aromatics,models={properties.heat_capacity}}
+fn liquid_precision_response()->MolarCp valid(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit] in liquid_precision_source.records and correlations.dippr100[chem.toluene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit] in liquid_precision_source.records)=(if benzene<toluene then benzene else toluene) where benzene=(liquid_h(context_upper_temperature(),chem.benzene)-liquid_h(context_lower_temperature(),chem.benzene))/(context_upper_temperature()-context_lower_temperature()),toluene=(liquid_h(context_upper_temperature(),chem.toluene)-liquid_h(context_lower_temperature(),chem.toluene))/(context_upper_temperature()-context_lower_temperature());
 
 // This is the2.5,5 Wagner form. The existing rpp4_wagner3,6 form is not reused
 // with these coefficients. Fitted Tc/Pc remain distinct from EOS critical data.

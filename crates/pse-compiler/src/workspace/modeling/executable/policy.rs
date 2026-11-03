@@ -606,6 +606,7 @@ impl<'a> ProjectionTargetIndex<'a> {
                         pse_modeling::annotation::AnnotationValue::Nominal(_)
                             | pse_modeling::annotation::AnnotationValue::AccuracyGoal(_)
                             | pse_modeling::annotation::AnnotationValue::EngineeringScale(_)
+                            | pse_modeling::annotation::AnnotationValue::CaloricContext(_)
                             | pse_modeling::annotation::AnnotationValue::EngineeringDefault { .. }
                     )
                 })

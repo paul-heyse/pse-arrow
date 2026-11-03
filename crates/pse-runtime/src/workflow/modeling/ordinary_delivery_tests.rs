@@ -42,6 +42,49 @@ async fn ordinary_delivery_admits_complete_source_and_process_definitions() -> T
 }
 
 async fn execute(name: &str, expected: bool) -> TestResult {
+    if std::env::var_os(crate::tooling::capture::SOURCE_RECORDING_REQUEST_ENV).is_none() {
+        return execute_journey(name, expected, &mut None).await;
+    }
+    let root = crate::observation::process_diagnostics()
+        .hub()
+        .start("ordinary.delivery.recording");
+    let mut recording = match crate::tooling::capture::source_recording_from_environment(
+        root.context(),
+        recycle_tests::SOLVE_RECORDING_FAMILIES,
+    ) {
+        Ok(recording) => recording,
+        Err(error) => {
+            eprintln!("source-recording diagnostic setup failed: {error}");
+            None
+        }
+    };
+    let context = recording
+        .as_ref()
+        .map_or_else(|| root.context(), |recording| recording.context());
+    let result = pse_diagnostics::observation::scope(
+        Some(context),
+        execute_journey(name, expected, &mut recording),
+    )
+    .await;
+    root.finish(if result.is_ok() {
+        pse_diagnostics::observation::Outcome::Completed
+    } else {
+        pse_diagnostics::observation::Outcome::Failed
+    });
+    if let Some(recording) = recording {
+        match recording.finish() {
+            Ok(document) => eprintln!("source-recording terminal detail={document:?}"),
+            Err(error) => eprintln!("source-recording diagnostic finish failed: {error}"),
+        }
+    }
+    result
+}
+
+async fn execute_journey(
+    name: &str,
+    expected: bool,
+    recording: &mut Option<crate::tooling::capture::SourceRecordingSession>,
+) -> TestResult {
     let (runtime, package, _spill, preparation) =
         pr_jacobian_tests::ordinary_delivery_package(false).await?;
     let services = runtime.execution_services();
@@ -85,14 +128,25 @@ async fn execute(name: &str, expected: bool) -> TestResult {
             services.preparation(),
             case,
             preparation.compiler,
-            crate::math::solves::SolverProfile {
+            pr_jacobian_tests::numerical_solver(crate::math::solves::SolverProfile {
                 intent: SolveIntent::Root,
+                numerics: pse_model::numerics::NumericalPolicy {
+                    strict_engineering_context: matches!(
+                        name,
+                        "ordinary_recycle"
+                            | "ordinary_overheated"
+                            | "ordinary_exchanger"
+                            | "ordinary_rating"
+                            | "ordinary_arithmetic_closure"
+                    ),
+                    ..Default::default()
+                },
                 controls: Controls {
                     time_limit: Duration::from_secs(600),
                     ..Default::default()
                 },
                 ..Default::default()
-            },
+            })?,
             Default::default(),
             preparation.limits,
             &cancel,
@@ -108,6 +162,13 @@ async fn execute(name: &str, expected: bool) -> TestResult {
             .execute_declared(&services, &declared, &cancel)
             .await?
     };
+    recycle_tests::retain_declared(
+        recording,
+        &package,
+        services.preparation(),
+        &declared,
+        Some(&outcome),
+    );
     match outcome {
         DeclaredAlgebraicOutcome::Initialization(report) => {
             initialization_failure_diagnostics(name, &report);
@@ -157,7 +218,7 @@ async fn execute(name: &str, expected: bool) -> TestResult {
                     .ok_or("intended stage failure absent")?;
                 assert_eq!(
                     failure.class,
-                    pse_model::diagnostic::BoundaryClass::Numerical
+                    pse_model::diagnostic::BoundaryClass::TrialRejected
                 );
                 let attempt = report
                     .attempts
@@ -754,10 +815,10 @@ fn assert_overheated_contradiction(result: &ModelingResult) -> TestResult {
         return Err("the overheated control must retain its actual native attempt".into());
     };
     assert_eq!(native.backend, Backend::Ipopt);
-    assert_eq!(native.termination.category, Termination::Numerical);
+    assert_eq!(native.termination.category, Termination::Infeasible);
     assert_eq!(native.qualification, Qualification::Unqualified);
-    assert_eq!(native.termination.code, -2);
-    assert_eq!(native.termination.name, "Restoration_Failed");
+    assert_eq!(native.termination.code, 2);
+    assert_eq!(native.termination.name, "Infeasible_Problem_Detected");
     let model = &result.prepared.model.model.compiled().model;
     let connection = model
         .connections
@@ -836,7 +897,7 @@ fn assert_overheated_contradiction(result: &ModelingResult) -> TestResult {
     )?;
     assert!(
         violation.physical > violation.tolerance,
-        "the native numerical stop must retain the actual50K physical contradiction"
+        "the native stop must retain the actual50K physical contradiction"
     );
     assert!(
         result.checks.iter().any(|check| check.kind
@@ -1034,6 +1095,48 @@ async fn ordinary_delivery_compatible_closure_preserves_side_balances() -> TestR
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source() -> TestResult {
+    if std::env::var_os(crate::tooling::capture::SOURCE_RECORDING_REQUEST_ENV).is_none() {
+        return ordinary_delivery_scientific_intake_journey(&mut None).await;
+    }
+    let root = crate::observation::process_diagnostics()
+        .hub()
+        .start("ordinary.canonical.recording");
+    let mut recording = match crate::tooling::capture::source_recording_from_environment(
+        root.context(),
+        recycle_tests::SOLVE_RECORDING_FAMILIES,
+    ) {
+        Ok(recording) => recording,
+        Err(error) => {
+            eprintln!("source-recording diagnostic setup failed: {error}");
+            None
+        }
+    };
+    let context = recording
+        .as_ref()
+        .map_or_else(|| root.context(), |recording| recording.context());
+    let result = pse_diagnostics::observation::scope(
+        Some(context),
+        ordinary_delivery_scientific_intake_journey(&mut recording),
+    )
+    .await;
+    root.finish(if result.is_ok() {
+        pse_diagnostics::observation::Outcome::Completed
+    } else {
+        pse_diagnostics::observation::Outcome::Failed
+    });
+    if let Some(recording) = recording {
+        match recording.finish() {
+            Ok(document) => eprintln!("source-recording terminal detail={document:?}"),
+            Err(error) => eprintln!("source-recording diagnostic finish failed: {error}"),
+        }
+    }
+    result
+}
+
+#[cfg(feature = "canonical-tests")]
+async fn ordinary_delivery_scientific_intake_journey(
+    recording: &mut Option<crate::tooling::capture::SourceRecordingSession>,
+) -> TestResult {
     let (runtime, package, _spill, preparation) =
         pr_jacobian_tests::ordinary_delivery_package(true).await?;
     let physical = package.physical_context().clone();
@@ -1066,8 +1169,13 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
         Box::pin(runtime.modeling_revision(base.clone(), physical.clone(), BTreeMap::new()))
             .await?;
     let original_rows = original
-        .declarations(&runtime.preparation_services())
-        .await?;
+        .declaration_path(
+            &runtime.preparation_services(),
+            &["ordinary_bt", "bt_vapor_caloric"],
+            &cancel,
+        )
+        .await?
+        .ok_or("ordinary source bank absent")?;
     let target = original_rows
         .iter()
         .find(|row| row.name == "bt_vapor_caloric")
@@ -1179,8 +1287,13 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
     ))
     .await?;
     let admitted_rows = admitted
-        .declarations(&runtime.preparation_services())
-        .await?;
+        .declaration_path(
+            &runtime.preparation_services(),
+            &["ordinary_bt", "bt_vapor_caloric"],
+            &cancel,
+        )
+        .await?
+        .ok_or("admitted source bank absent")?;
     let admitted_bank = admitted_rows
         .iter()
         .find(|row| row.declaration_id == target.declaration_id)
@@ -1273,6 +1386,10 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
             case,
             settings: Box::new(crate::math::settings::SolveSettings {
                 intent: SolveIntent::Root,
+                numerics: pse_model::numerics::NumericalPolicy {
+                    strict_engineering_context: true,
+                    ..Default::default()
+                },
                 controls: Controls {
                     time_limit: Duration::from_secs(600),
                     ..Default::default()
@@ -1294,6 +1411,11 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
         .ok_or("ordinary consuming attempt was not recorded")?
         .to_owned();
     let run = handle.wait().await?;
+    if let Some(recording) = recording {
+        if let Err(error) = recording.retain_result(&run) {
+            eprintln!("source-recording review handoff failed: {error}");
+        }
+    }
     assert!(
         run.usable(),
         "ordinary published-source consuming run must retain original permission"

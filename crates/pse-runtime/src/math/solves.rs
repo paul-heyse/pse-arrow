@@ -509,6 +509,7 @@ impl PreparedSolve {
                         declared_tolerance: None,
                     },
                     &self.numerics.policy,
+                    &self.numerics.targets,
                 )
                 .map_err(ProblemError::from)?,
             };
@@ -3263,7 +3264,17 @@ impl MathService {
         let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
         let normalization = Normalization::from_policy(&numerics, plan.columns(), &rows)?;
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
-        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let accuracy = match profile.selection {
+            SolverSelection::Explicit(backend) => execution::adapter(backend).resolve_accuracy(
+                &numerics.policy,
+                &tolerances,
+                &normalization,
+                &native::assembled::contract(plan),
+            )?,
+            SolverSelection::Auto => {
+                ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?
+            }
+        };
 
         let mut certificate: Option<Arc<dyn QuadraticEvidence>> = f
             .convexity
@@ -3725,6 +3736,19 @@ impl MathService {
         } else {
             decision.route()?
         };
+        // Resolve once for the selected transport before storing the preparation or
+        // applying any later goal-driven refinement. NLP eligibility validates bounds
+        // and callback support independently of this stopping scalar; root admission
+        // retains the same conservative projection used during candidate selection.
+        let accuracy = match route {
+            Route::Native(backend) => execution::adapter(backend).resolve_accuracy(
+                &numerics.policy,
+                &tolerances,
+                &normalization,
+                &native::assembled::contract(&prepared.prepared.plan),
+            )?,
+            Route::Constant => accuracy,
+        };
         let f = &prepared.prepared.facts;
         let profile = match route {
             Route::Native(backend) => SolverProfile {
@@ -3976,8 +4000,13 @@ impl MathService {
         let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
         let normalization = Normalization::from_policy(&numerics, plan.columns(), &rows)?;
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
-        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         let oracle = native::assembled::contract(plan);
+        let accuracy = execution::adapter(backend).resolve_accuracy(
+            &numerics.policy,
+            &tolerances,
+            &normalization,
+            &oracle,
+        )?;
         let mut prepared_operations = vec![routing::ArtifactDemand::Representation(
             execution::adapter(backend).representation(),
         )];

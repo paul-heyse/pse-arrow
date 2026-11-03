@@ -9,6 +9,271 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem {
+    ///declaration_id
+    pub r#declaration_id: pse_ids::SemanticId,
+    ///actual_flow_id
+    pub r#actual_flow_id: pse_ids::SemanticId,
+    ///science_revision
+    pub r#science_revision: String,
+    ///science_records
+    pub r#science_records: Vec<pse_ids::SemanticId>,
+    ///power_rule_id
+    pub r#power_rule_id: pse_ids::SemanticId,
+    ///exposure_quantity_id
+    pub r#exposure_quantity_id: pse_ids::SemanticId,
+    ///exposure_unit_id
+    pub r#exposure_unit_id: pse_ids::SemanticId,
+    ///aggregate_exposure
+    pub r#aggregate_exposure: f64,
+    ///power_quantity_id
+    pub r#power_quantity_id: pse_ids::SemanticId,
+    ///power_unit_id
+    pub r#power_unit_id: pse_ids::SemanticId,
+    ///power_allowance
+    pub r#power_allowance: f64,
+}
+impl crate::SemanticEq
+for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#declaration_id, &other.r#declaration_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#actual_flow_id,
+                &other.r#actual_flow_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#science_revision,
+                &other.r#science_revision,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#science_records,
+                &other.r#science_records,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_rule_id,
+                &other.r#power_rule_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#exposure_quantity_id,
+                &other.r#exposure_quantity_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#exposure_unit_id,
+                &other.r#exposure_unit_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#aggregate_exposure,
+                &other.r#aggregate_exposure,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_quantity_id,
+                &other.r#power_quantity_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_unit_id,
+                &other.r#power_unit_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_allowance,
+                &other.r#power_allowance,
+            )
+    }
+}
+impl PartialEq
+for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem {
+    ///target_id
+    pub r#target_id: pse_ids::SemanticId,
+    ///declaration_id
+    pub r#declaration_id: pse_ids::SemanticId,
+    ///power_rule_id
+    pub r#power_rule_id: pse_ids::SemanticId,
+    ///actual_flow_id
+    pub r#actual_flow_id: pse_ids::SemanticId,
+    ///exposure_expression
+    pub r#exposure_expression: String,
+    ///power_quantity_id
+    pub r#power_quantity_id: pse_ids::SemanticId,
+    ///power_unit_id
+    pub r#power_unit_id: pse_ids::SemanticId,
+    ///power_allowance
+    pub r#power_allowance: f64,
+    ///exposure_quantity_id
+    pub r#exposure_quantity_id: pse_ids::SemanticId,
+    ///exposure_unit_id
+    pub r#exposure_unit_id: pse_ids::SemanticId,
+    ///aggregate_exposure
+    pub r#aggregate_exposure: f64,
+    ///combined_exposure
+    pub r#combined_exposure: f64,
+    ///combined_power_allowance
+    pub r#combined_power_allowance: f64,
+    ///contributors
+    pub r#contributors: Vec<
+        RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem,
+    >,
+}
+impl crate::SemanticEq for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target_id, &other.r#target_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#declaration_id,
+                &other.r#declaration_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_rule_id,
+                &other.r#power_rule_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#actual_flow_id,
+                &other.r#actual_flow_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#exposure_expression,
+                &other.r#exposure_expression,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_quantity_id,
+                &other.r#power_quantity_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_unit_id,
+                &other.r#power_unit_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#power_allowance,
+                &other.r#power_allowance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#exposure_quantity_id,
+                &other.r#exposure_quantity_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#exposure_unit_id,
+                &other.r#exposure_unit_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#aggregate_exposure,
+                &other.r#aggregate_exposure,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#combined_exposure,
+                &other.r#combined_exposure,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#combined_power_allowance,
+                &other.r#combined_power_allowance,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#contributors,
+                &other.r#contributors,
+            )
+    }
+}
+impl PartialEq for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct RuntimeResolvedNumericsFieldEngineeringCaloric {
+    ///requirement_id
+    pub r#requirement_id: pse_ids::SemanticId,
+    ///instance_id
+    pub r#instance_id: Option<pse_ids::SemanticId>,
+    ///source
+    pub r#source: crate::generated::enums::NumericalSource,
+    ///science_revision
+    pub r#science_revision: String,
+    ///science_records
+    pub r#science_records: Vec<pse_ids::SemanticId>,
+    ///response_quantity_id
+    pub r#response_quantity_id: Option<pse_ids::SemanticId>,
+    ///response_unit_id
+    pub r#response_unit_id: Option<pse_ids::SemanticId>,
+    ///response
+    pub r#response: Option<f64>,
+    ///thermal_quantity_id
+    pub r#thermal_quantity_id: Option<pse_ids::SemanticId>,
+    ///thermal_unit_id
+    pub r#thermal_unit_id: Option<pse_ids::SemanticId>,
+    ///thermal_resolution
+    pub r#thermal_resolution: Option<f64>,
+    ///consumers
+    pub r#consumers: Vec<RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem>,
+    ///limiting_consumer
+    pub r#limiting_consumer: Option<pse_ids::SemanticId>,
+    ///allowance
+    pub r#allowance: f64,
+}
+impl crate::SemanticEq for RuntimeResolvedNumericsFieldEngineeringCaloric {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#requirement_id, &other.r#requirement_id)
+            && crate::SemanticEq::semantic_eq(&self.r#instance_id, &other.r#instance_id)
+            && crate::SemanticEq::semantic_eq(&self.r#source, &other.r#source)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#science_revision,
+                &other.r#science_revision,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#science_records,
+                &other.r#science_records,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#response_quantity_id,
+                &other.r#response_quantity_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#response_unit_id,
+                &other.r#response_unit_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#response, &other.r#response)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#thermal_quantity_id,
+                &other.r#thermal_quantity_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#thermal_unit_id,
+                &other.r#thermal_unit_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#thermal_resolution,
+                &other.r#thermal_resolution,
+            ) && crate::SemanticEq::semantic_eq(&self.r#consumers, &other.r#consumers)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#limiting_consumer,
+                &other.r#limiting_consumer,
+            ) && crate::SemanticEq::semantic_eq(&self.r#allowance, &other.r#allowance)
+    }
+}
+impl PartialEq for RuntimeResolvedNumericsFieldEngineeringCaloric {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct RuntimeResolvedNumericsFieldEngineering {
     ///rule_id
     pub r#rule_id: Option<crate::generated::identities::EngineeringRuleId>,
@@ -30,6 +295,8 @@ pub struct RuntimeResolvedNumericsFieldEngineering {
     pub r#canonical_fallback: bool,
     ///limitation
     pub r#limitation: String,
+    ///caloric
+    pub r#caloric: Option<RuntimeResolvedNumericsFieldEngineeringCaloric>,
 }
 impl crate::SemanticEq for RuntimeResolvedNumericsFieldEngineering {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -53,6 +320,7 @@ impl crate::SemanticEq for RuntimeResolvedNumericsFieldEngineering {
                 &self.r#canonical_fallback,
                 &other.r#canonical_fallback,
             ) && crate::SemanticEq::semantic_eq(&self.r#limitation, &other.r#limitation)
+            && crate::SemanticEq::semantic_eq(&self.r#caloric, &other.r#caloric)
     }
 }
 impl PartialEq for RuntimeResolvedNumericsFieldEngineering {
@@ -157,6 +425,155 @@ impl PartialEq for RuntimeResolvedNumericsRow {
 }
 /// The concrete generated relation row.
 pub type Row = RuntimeResolvedNumericsRow;
+impl crate::SemanticFrame
+for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#declaration_id));
+        crate::SemanticFrame::frame(&self.r#declaration_id, hash);
+        hash.str(stringify!(r#actual_flow_id));
+        crate::SemanticFrame::frame(&self.r#actual_flow_id, hash);
+        hash.str(stringify!(r#science_revision));
+        crate::SemanticFrame::frame(&self.r#science_revision, hash);
+        hash.str(stringify!(r#science_records));
+        crate::SemanticFrame::frame(&self.r#science_records, hash);
+        hash.str(stringify!(r#power_rule_id));
+        crate::SemanticFrame::frame(&self.r#power_rule_id, hash);
+        hash.str(stringify!(r#exposure_quantity_id));
+        crate::SemanticFrame::frame(&self.r#exposure_quantity_id, hash);
+        hash.str(stringify!(r#exposure_unit_id));
+        crate::SemanticFrame::frame(&self.r#exposure_unit_id, hash);
+        hash.str(stringify!(r#aggregate_exposure));
+        crate::SemanticFrame::frame(&self.r#aggregate_exposure, hash);
+        hash.str(stringify!(r#power_quantity_id));
+        crate::SemanticFrame::frame(&self.r#power_quantity_id, hash);
+        hash.str(stringify!(r#power_unit_id));
+        crate::SemanticFrame::frame(&self.r#power_unit_id, hash);
+        hash.str(stringify!(r#power_allowance));
+        crate::SemanticFrame::frame(&self.r#power_allowance, hash);
+    }
+}
+impl crate::HeapUsage
+for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItemContributorsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#declaration_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#actual_flow_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#science_revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#science_records))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_rule_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exposure_quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exposure_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#aggregate_exposure))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_allowance))
+    }
+}
+impl crate::SemanticFrame
+for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target_id));
+        crate::SemanticFrame::frame(&self.r#target_id, hash);
+        hash.str(stringify!(r#declaration_id));
+        crate::SemanticFrame::frame(&self.r#declaration_id, hash);
+        hash.str(stringify!(r#power_rule_id));
+        crate::SemanticFrame::frame(&self.r#power_rule_id, hash);
+        hash.str(stringify!(r#actual_flow_id));
+        crate::SemanticFrame::frame(&self.r#actual_flow_id, hash);
+        hash.str(stringify!(r#exposure_expression));
+        crate::SemanticFrame::frame(&self.r#exposure_expression, hash);
+        hash.str(stringify!(r#power_quantity_id));
+        crate::SemanticFrame::frame(&self.r#power_quantity_id, hash);
+        hash.str(stringify!(r#power_unit_id));
+        crate::SemanticFrame::frame(&self.r#power_unit_id, hash);
+        hash.str(stringify!(r#power_allowance));
+        crate::SemanticFrame::frame(&self.r#power_allowance, hash);
+        hash.str(stringify!(r#exposure_quantity_id));
+        crate::SemanticFrame::frame(&self.r#exposure_quantity_id, hash);
+        hash.str(stringify!(r#exposure_unit_id));
+        crate::SemanticFrame::frame(&self.r#exposure_unit_id, hash);
+        hash.str(stringify!(r#aggregate_exposure));
+        crate::SemanticFrame::frame(&self.r#aggregate_exposure, hash);
+        hash.str(stringify!(r#combined_exposure));
+        crate::SemanticFrame::frame(&self.r#combined_exposure, hash);
+        hash.str(stringify!(r#combined_power_allowance));
+        crate::SemanticFrame::frame(&self.r#combined_power_allowance, hash);
+        hash.str(stringify!(r#contributors));
+        crate::SemanticFrame::frame(&self.r#contributors, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeResolvedNumericsFieldEngineeringCaloricConsumersItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#declaration_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_rule_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#actual_flow_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exposure_expression))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#power_allowance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exposure_quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#exposure_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#aggregate_exposure))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#combined_exposure))
+            .saturating_add(
+                crate::HeapUsage::heap_bytes(&self.r#combined_power_allowance),
+            )
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#contributors))
+    }
+}
+impl crate::SemanticFrame for RuntimeResolvedNumericsFieldEngineeringCaloric {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#requirement_id));
+        crate::SemanticFrame::frame(&self.r#requirement_id, hash);
+        hash.str(stringify!(r#instance_id));
+        crate::SemanticFrame::frame(&self.r#instance_id, hash);
+        hash.str(stringify!(r#source));
+        crate::SemanticFrame::frame(&self.r#source, hash);
+        hash.str(stringify!(r#science_revision));
+        crate::SemanticFrame::frame(&self.r#science_revision, hash);
+        hash.str(stringify!(r#science_records));
+        crate::SemanticFrame::frame(&self.r#science_records, hash);
+        hash.str(stringify!(r#response_quantity_id));
+        crate::SemanticFrame::frame(&self.r#response_quantity_id, hash);
+        hash.str(stringify!(r#response_unit_id));
+        crate::SemanticFrame::frame(&self.r#response_unit_id, hash);
+        hash.str(stringify!(r#response));
+        crate::SemanticFrame::frame(&self.r#response, hash);
+        hash.str(stringify!(r#thermal_quantity_id));
+        crate::SemanticFrame::frame(&self.r#thermal_quantity_id, hash);
+        hash.str(stringify!(r#thermal_unit_id));
+        crate::SemanticFrame::frame(&self.r#thermal_unit_id, hash);
+        hash.str(stringify!(r#thermal_resolution));
+        crate::SemanticFrame::frame(&self.r#thermal_resolution, hash);
+        hash.str(stringify!(r#consumers));
+        crate::SemanticFrame::frame(&self.r#consumers, hash);
+        hash.str(stringify!(r#limiting_consumer));
+        crate::SemanticFrame::frame(&self.r#limiting_consumer, hash);
+        hash.str(stringify!(r#allowance));
+        crate::SemanticFrame::frame(&self.r#allowance, hash);
+    }
+}
+impl crate::HeapUsage for RuntimeResolvedNumericsFieldEngineeringCaloric {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requirement_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#science_revision))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#science_records))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#response_quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#response_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#response))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#thermal_quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#thermal_unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#thermal_resolution))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#consumers))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#limiting_consumer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#allowance))
+    }
+}
 impl crate::SemanticFrame for RuntimeResolvedNumericsFieldEngineering {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#rule_id));
@@ -179,6 +596,8 @@ impl crate::SemanticFrame for RuntimeResolvedNumericsFieldEngineering {
         crate::SemanticFrame::frame(&self.r#canonical_fallback, hash);
         hash.str(stringify!(r#limitation));
         crate::SemanticFrame::frame(&self.r#limitation, hash);
+        hash.str(stringify!(r#caloric));
+        crate::SemanticFrame::frame(&self.r#caloric, hash);
     }
 }
 impl crate::HeapUsage for RuntimeResolvedNumericsFieldEngineering {
@@ -194,6 +613,7 @@ impl crate::HeapUsage for RuntimeResolvedNumericsFieldEngineering {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#budget))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#canonical_fallback))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#limitation))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#caloric))
     }
 }
 impl crate::SemanticFrame for RuntimeResolvedNumericsFieldProvenanceItem {

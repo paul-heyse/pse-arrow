@@ -26,6 +26,7 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
         .chain([
             "authored.numerical_requirements".into(),
             "authored.accuracy_goals".into(),
+            "authored.caloric_requirements".into(),
             "authored.engineering_scales".into(),
             "authored.engineering_default_rules".into(),
             "runtime.accuracy_goal_assessments".into(),

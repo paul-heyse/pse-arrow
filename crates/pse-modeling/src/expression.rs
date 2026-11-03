@@ -1780,14 +1780,33 @@ pub(crate) fn check_declaration(
                 env.insert(name.clone(), *element);
             }
         }
-        let target = crate::annotation::target_type(
-            p,
-            context,
-            *id,
-            p.expression_at(*id, "annotation.target", 0)?,
-            &env,
-        )?;
         let shape = crate::annotation::shape(a, *id)?;
+        let source = p.expression_at(*id, "annotation.target", 0)?;
+        let deferred = matches!(shape, Shape::CaloricContext | Shape::EnergyContext)
+            && target_declaration.is_none()
+            && crate::annotation::deferred_caloric_equation(p, context, *id, source, &env)?;
+        let target = if deferred {
+            let enthalpy = p
+                .physical_types
+                .get("MolarEnthalpy")
+                .ok_or_else(|| invalid(*id, "missing physical type MolarEnthalpy"))?;
+            Type::Quantity(Scheme::Concrete(
+                Scheme::Delta(Box::new(
+                    enthalpy
+                        .quantity_scheme()
+                        .ok_or_else(|| invalid(*id, "physical enthalpy type"))?
+                        .clone(),
+                ))
+                .resolve_with_evidence(
+                    context.quantities,
+                    &Substitution::new(),
+                    context.preconditions,
+                )
+                .map_err(|error| invalid(*id, error.to_string()))?,
+            ))
+        } else {
+            crate::annotation::target_type(p, context, *id, source, &env)?
+        };
         let equation_target = target_declaration
             .is_some_and(|target| p.declarations[&target].value.equation.is_some());
         match a.kind {
@@ -1880,6 +1899,60 @@ pub(crate) fn check_declaration(
                         *id,
                         "engineering scale differs from target magnitude type",
                     ));
+                }
+                0
+            }
+            Shape::CaloricContext | Shape::EnergyContext => {
+                let named = |name: &str| {
+                    p.physical_types
+                        .get(name)
+                        .cloned()
+                        .ok_or_else(|| invalid(*id, format!("missing physical type {name}")))
+                };
+                let temperature = named("Temperature")?;
+                let difference = Type::Quantity(Scheme::Concrete(
+                    Scheme::Delta(Box::new(
+                        temperature
+                            .quantity_scheme()
+                            .ok_or_else(|| invalid(*id, "physical temperature type"))?
+                            .clone(),
+                    ))
+                    .resolve_with_evidence(
+                        context.quantities,
+                        &Substitution::new(),
+                        context.preconditions,
+                    )
+                    .map_err(|error| invalid(*id, error.to_string()))?,
+                ));
+                let power = named("Power")?;
+                let power_difference = Type::Quantity(Scheme::Concrete(
+                    Scheme::Delta(Box::new(
+                        power
+                            .quantity_scheme()
+                            .ok_or_else(|| invalid(*id, "physical power type"))?
+                            .clone(),
+                    ))
+                    .resolve_with_evidence(
+                        context.quantities,
+                        &Substitution::new(),
+                        context.preconditions,
+                    )
+                    .map_err(|error| invalid(*id, error.to_string()))?,
+                ));
+                let mut quantities = Vec::new();
+                if shape == Shape::CaloricContext {
+                    quantities.push(named("MolarCp")?);
+                    quantities.push(difference);
+                }
+                quantities.extend([power_difference, named("Flow")?, power, named("Flow")?]);
+                for (index, expected) in quantities.iter().enumerate() {
+                    let expression = p.expression_at(*id, "annotation.arguments", index)?;
+                    if infer(expression, &env, p, context, *id, Some(expected))? != *expected {
+                        return Err(invalid(
+                            *id,
+                            "caloric context expression has incompatible physical meaning",
+                        ));
+                    }
                 }
                 0
             }

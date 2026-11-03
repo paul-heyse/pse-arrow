@@ -7,6 +7,7 @@
 | Relation | Invariant | Native SQL |
 |---|---|---|
 | `authored.accuracy_goals` | `unique:pk` | `SELECT s."goal_id" FROM "authored"."accuracy_goals" s GROUP BY s."goal_id" HAVING COUNT(*) > 1` |
+| `authored.caloric_requirements` | `unique:pk` | `SELECT s."requirement_id" FROM "authored"."caloric_requirements" s GROUP BY s."requirement_id" HAVING COUNT(*) > 1` |
 | `authored.documents` | `foreign_key:package_id` | `SELECT DISTINCT s."document_id" FROM (SELECT * FROM (SELECT s."document_id", s."package_id" AS "__pse_value" FROM "authored"."documents" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "authored"."packages" t WHERE s."__pse_value" = t."package_id")` |
 | `authored.documents` | `unique:pk` | `SELECT s."document_id" FROM "authored"."documents" s GROUP BY s."document_id" HAVING COUNT(*) > 1` |
 | `authored.engineering_default_rules` | `unique:pk` | `SELECT s."rule_id" FROM "authored"."engineering_default_rules" s GROUP BY s."rule_id" HAVING COUNT(*) > 1` |

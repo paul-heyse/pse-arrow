@@ -69,8 +69,8 @@ follow the existing decision route before implementation.
 | C05 | in-progress | RC04; completion and local-analysis contracts | Exposed product applicability and exact governing scope are consistent across native/recorded consumers |
 | C06 | in-progress | C01–C05 selected behavior; B delivery; C08 precision and C09 evidence slices; H02 matched reference contracts and inputs | Recycle/exchanger native journeys, efficiency refinements and independent-reference handoff retain complete scoped acceptance |
 | C07 | in-progress | 64a A04 ordinary-interval disposition | Quality-owned tolerance semantics integrated into affected ordinary/conditional/initialization acceptance without relaxing hard domains or fixed specifications |
-| C08 | planned | B01/B02 scientific premises as needed; B04 exact case context; existing numerical policy | Shared meaningful precision covers governing first-case targets, with attributable fallback decisions and original physical acceptance |
-| C09 | planned | Existing source recording/result owners; C03–C05 report and permission contracts | Real journey capture, retained outcomes and bounded offline analysis preserve truthful coverage and proportionate diagnostic work |
+| C08 | in-progress | B01/B02 scientific premises as needed; B04 exact case context; existing numerical policy | Shared meaningful precision covers governing first-case targets, with attributable fallback decisions and original physical acceptance |
+| C09 | in-progress | Existing source recording/result owners; C03–C05 report and permission contracts | Real journey capture, retained outcomes and bounded offline analysis preserve truthful coverage and proportionate diagnostic work |
 
 ## C01 — Native inspection and editing
 
@@ -330,7 +330,44 @@ slices; structural corrections do not wait for all diagnostic features. Finish f
 scope before the assembled C06 qualification. Preserve package state and existing receipts;
 new planning scope does not reopen or erase previously verified narrower behavior.
 
-## Current checkpoint — 2026-11-02
+## Current checkpoint — 2026-11-03
+
+The remaining-scope implementation is underway. Field and prelude lookup now precede
+owned projection, membership discovery avoids intermediate checked packages, and indexed
+occurrences replace expression-by-state scans. Ordered declaration reads no longer prepare
+edit products; an exact rooted-path read and structurally shared admission history serve
+selected consumers. Receiving qualification remains scoped to its original invocation.
+Retention excess preserves its original census and bounded ingredient attribution.
+
+C08 carries source-attributed thermal and energy-only contexts through authored annotations,
+compiler selection and the shared numerical-policy owner. Actual resolved consumer budgets,
+including characteristics and stricter overrides, constrain shared energy exposure; original
+checks independently enforce the frozen flow bounds. PR contexts make no unsupported frozen
+heat-capacity claim. The ordinary inventory admitted recycle, design and rating contexts;
+remaining area/coefficient fallbacks now have explicit selected reference magnitudes, and the
+ordinary paths request strict context. Their strict rerun remains open. The native NLP
+projection excludes unbounded coordinates from bound feasibility while preserving per-row
+physical transport, original assessment and independent KKT budgets. Focused owner controls
+pass; the historical tear/original inventory and assembled journeys remain next. Historical
+native convergence exposed a new exposure-check mismatch at a sub-nanomolar flow deviation;
+the authored exposure envelope must include its selected shared flow-resolution margin
+before deriving enthalpy budgets, with the final exact premise check retained.
+
+C09 batches bounded frames, acknowledges only flushed prefixes, separates queue and extent
+rejection causes, and wakes its writer on work or closure. Selected journey roots retain
+original direct reports or the actual run-handle result. Descriptive readers defer executable
+provider-identity callbacks. Real preparation capture has complete selected source coverage
+and a complete retained handoff after correcting codec admission. Fresh preparation,
+initialized and rejected captures pass existing offline handoff and raw-record readers after
+removing a duplicate settings preflight charge. The canonical captured run and the added
+direct-operation snapshot control remain open. The overheated case still preserves the 50 K
+contradiction; the refined native projection now reaches Ipopt's local infeasible terminal
+rather than restoration failure, and its exact case expectation follows that observed result.
+This is not a mathematical infeasibility certificate. The launch owner now authenticates
+each executable once per metadata traversal, retaining metadata guards and final full launch
+authentication. Numerical comparisons and scope-end qualification remain open.
+
+The earlier accepted behavior and narrower evidence below remain the preservation basis:
 
 Full initialization outcomes, actual parent projection coordinates, protected scoped product
 permission, compiler-bound structural case-variable inspection and ordinary-bound acceptance
@@ -351,10 +388,10 @@ not claims that all linked algorithms converge on every case. The coordinated 36
 native rerun now passes with both declared methods, and all six public native-diagnostics
 integration controls pass. Scope-end qualification remains open. The requested
 [performance and meaningful-convergence review](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md)
-records remaining eager field projection, confirmed canonical enthalpy fallback and restored
-disposable experiments. I01–I12 are now scheduled through the coordinator and the packages
-above, including new planned C08/C09; their production changes and benefit qualification
-remain outstanding. No shared precision default was changed by the review or this plan revision.
+records the review baseline's eager field projection, confirmed canonical enthalpy fallback
+and restored disposable experiments. I01–I12 were scheduled through the coordinator and the
+packages above; the current implementation checkpoint records subsequent progress.
+The review itself changed no shared precision default.
 The overheated
 stage retains an actual Ipopt numerical stop and the original50K connection contradiction,
 not a mathematical infeasibility certificate. Its case-local expectation and independent

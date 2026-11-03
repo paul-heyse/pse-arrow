@@ -1268,11 +1268,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "declaration",
         "One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities",
     );
+    // Version 27 admits typed caloric and energy-exposure annotation shapes;
+    // the source grammar remains the authority for their ordered physical members.
     relation_version(
         builder,
         N::Authored,
         "modeling_declarations",
-        26,
+        27,
         S::Model,
         &["declaration_id"],
         vec![

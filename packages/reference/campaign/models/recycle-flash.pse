@@ -75,8 +75,16 @@
 // the loop runs at the fresh feed's pressure. The streams are the flowsheet's equations, so
 // the recycle closure is one named material connection an initialization stage can tear.
 @id("3d49b293030e469893be56bdfd30ca60") fn maximum_circulating_flow(fresh:Flow,purge:Scalar)->Flow valid(fresh>=0{mol/s} and purge>0 and purge<=1)=fresh/purge;
+// A separate admitted exposure envelope includes the shared flow-resolution margin.
+// It is neither a solved flow nor a propagated mass-balance error certificate.
+@id("0d979bbff5aa473cbbf27cdfa2e61ec4") fn exposure_bound(capacity:Flow,margin:Delta<Flow>)->Flow valid(capacity>=0{mol/s} and margin>=0{mol/s})=capacity+margin;
 @id("01a0f053c2807589b9b24cdcf3747f60") interface RecycleLoop {
 @id("4eb1d4cf03784447a1bb52ee376364e4") param context_enabled:Boolean=false;
+// Bind context to the same selected science as the actual process states.
+@id("e9471401295946ed9e44b503ae61b30f") param liquid_caloric_span:Fn()->Delta<MolarEnthalpy>=bt_ideal.liquid_enthalpy_span;
+@id("2635a6de3cbd40438a1694c92b92a2cc") param vapor_caloric_span:Fn()->Delta<MolarEnthalpy>=bt_ideal.vapor_enthalpy_span;
+@id("c0ae4eef24aa48d9a727e83c2638b191") param phase_caloric_span:Fn()->Delta<MolarEnthalpy>=bt_ideal.phase_enthalpy_span;
+@id("c8f540ba16f1425aaf6cf4886895189f") param liquid_caloric_response:Fn()->MolarCp=bt_ideal.liquid_precision_response;
 @id("39c3bba46b0144338b6e8219e3dce856") param feed_capacity:Flow=0{mol/s};
 @id("8e0d3ed09c144d039e22eea5033da9cb") param tear_fraction:Scalar=0.01;
 @id("01a0f053c2807589b9b24cdda52461b5") let purge:Scalar=splitter.purge;
@@ -104,20 +112,40 @@
 @id("361212ede7354d828d6de8e78f90abb0") let recycle_capacity:Flow=(1-purge)*circulation_capacity;
 @id("0ccdab4f51a44533810744ddbb322e03") let tear_capacity:Flow=tear_fraction*feed_capacity;
 @id("c03cf2cc93a24f3e9cb2cf0f37a1401d") annotation check feed_capacity(feed_capacity>=0{mol/s} and purge>0 and purge<=1 and tear_fraction>=0);
-@id("f50039d80b9146368688661c8f459b6a") annotation engineering_scale feed.state.energy_flow(kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.phase_enthalpy_span()));
-@id("80e79154313b48e284284a21c3634156") annotation engineering_scale mixer.unit.inlet[fresh].energy_flow(kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.phase_enthalpy_span()));
-@id("e8305be5c2a94e4d9e8a91e028dc503e") annotation engineering_scale mixer.unit.inlet[recycled].energy_flow(kind=reference_difference,value=bt_ideal.power_span(recycle_capacity,bt_ideal.liquid_enthalpy_span()));
-@id("60727dd7b87947918fb7500c00a5980a") annotation engineering_scale mixer.unit.outlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
-@id("7abd0ee182c74ce69ada37c241ed4060") annotation engineering_scale heater.unit.inlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
-@id("88bb3ce5ee8a437db8ffcd2e2a6cc03b") annotation engineering_scale heater.unit.outlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
-@id("c57b098975a44bad9b10a41e0edd6333") annotation engineering_scale flash.unit.inlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
-@id("bf16fe8cc47746b4962922a63bb1263a") annotation engineering_scale flash.unit.outlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.phase_enthalpy_span()));
-@id("28f675d38d1d4a2a84d51362be04bdab") annotation engineering_scale flash.unit.outlet.phase_energy_flow[chemistry.liquid](kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.liquid_enthalpy_span()));
-@id("70b49b61318f45b9b05aea30c9db5858") annotation engineering_scale flash.unit.outlet.phase_energy_flow[chemistry.vapor](kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.vapor_enthalpy_span()));
-@id("89d0e4b270ae418d9ba38babbb0a1eff") annotation engineering_scale splitter.unit.inlet.energy_flow(kind=reference_difference,value=bt_ideal.power_span(circulation_capacity,bt_ideal.liquid_enthalpy_span()));
-@id("6d9b84ee7a7b4174823b81fef9e72705") annotation engineering_scale splitter.unit.outlet_energy_flow[recycled](kind=reference_difference,value=bt_ideal.power_span(recycle_capacity,bt_ideal.liquid_enthalpy_span()));
-@id("00be6931d4ee4f378cc6685cc6e3c0ba") annotation engineering_scale splitter.unit.outlet_energy_flow[purged](kind=reference_difference,value=bt_ideal.power_span(feed_capacity,bt_ideal.liquid_enthalpy_span()));
-@id("54756c63692148cbbd29e70b70d706b3") annotation engineering_scale tear_energy(kind=reference_difference,value=bt_ideal.power_span(tear_capacity,bt_ideal.liquid_enthalpy_span()));
+// The selected feed is an admitted frozen premise. Actual streams must satisfy
+// their separate post-solve exposure checks; capacity is not a solved flow.
+@id("0ac1036224a148a299a8575beecba06e") annotation caloric_context splitter.unit.inlet.h(liquid_caloric_response(),numerical_policy.temperature,numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),splitter.unit.inlet.energy_flow,splitter.unit.inlet.flow);
+@id("bdaa8bb7cf164fc79adc959f80244336") annotation caloric_context splitter.unit.inlet.enthalpy(liquid_caloric_response(),numerical_policy.temperature,numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),splitter.unit.inlet.energy_flow,splitter.unit.inlet.flow);
+@id("7dd8cd51326d4cfcb1b98712f11385a0") annotation caloric_context mixer.unit.inlet[recycled].h(liquid_caloric_response(),numerical_policy.temperature,numerical_policy.power,exposure_bound(recycle_capacity,numerical_policy.molar_flow),mixer.unit.inlet[recycled].energy_flow,mixer.unit.inlet[recycled].flow);
+@id("324523fd9cf84b648f02a9c8c20e8dc1") annotation caloric_context mixer.unit.inlet[recycled].enthalpy(liquid_caloric_response(),numerical_policy.temperature,numerical_policy.power,exposure_bound(recycle_capacity,numerical_policy.molar_flow),mixer.unit.inlet[recycled].energy_flow,mixer.unit.inlet[recycled].flow);
+@id("fa6da031477c46edbd4b6d4ee3dbfbbb") annotation energy_context feed.state.h(numerical_policy.power,exposure_bound(feed_capacity,numerical_policy.molar_flow),feed.state.energy_flow,feed.state.flow);
+@id("50282a5ef35f4c2b937d15196bda074e") annotation energy_context feed.state.enthalpy_binding(numerical_policy.power,exposure_bound(feed_capacity,numerical_policy.molar_flow),feed.state.energy_flow,feed.state.flow);
+@id("a4cc500fb6184678a48d8078484bbdfe") annotation energy_context mixer.unit.inlet[fresh].h(numerical_policy.power,exposure_bound(feed_capacity,numerical_policy.molar_flow),mixer.unit.inlet[fresh].energy_flow,mixer.unit.inlet[fresh].flow);
+@id("bd3aa6162b114591a174f3b40a936324") annotation energy_context mixer.unit.inlet[fresh].enthalpy_binding(numerical_policy.power,exposure_bound(feed_capacity,numerical_policy.molar_flow),mixer.unit.inlet[fresh].energy_flow,mixer.unit.inlet[fresh].flow);
+@id("6a8f577af9914e63928d524a98037325") annotation energy_context mixer.unit.outlet.h(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),mixer.unit.outlet.energy_flow,mixer.unit.outlet.flow);
+@id("bceea55a058f44f0beb150f27759e667") annotation energy_context mixer.unit.outlet.enthalpy_binding(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),mixer.unit.outlet.energy_flow,mixer.unit.outlet.flow);
+@id("7ae770c62d3f4f63a09378c87d569c46") annotation energy_context heater.unit.inlet.h(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),heater.unit.inlet.energy_flow,heater.unit.inlet.flow);
+@id("0118c3aa00094ae6a0f7f336d5ef3626") annotation energy_context heater.unit.inlet.enthalpy_binding(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),heater.unit.inlet.energy_flow,heater.unit.inlet.flow);
+@id("e4e0c74686a5401bbb070561745839b3") annotation energy_context heater.unit.outlet.h(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),heater.unit.outlet.energy_flow,heater.unit.outlet.flow);
+@id("d7ffb27f6cf7444ab492cacf929c509b") annotation energy_context heater.unit.outlet.enthalpy_binding(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),heater.unit.outlet.energy_flow,heater.unit.outlet.flow);
+@id("62ad107e3ce64b749d69230889cd6ae4") annotation energy_context flash.unit.inlet.h(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),flash.unit.inlet.energy_flow,flash.unit.inlet.flow);
+@id("b269a97d5ad340d7b32031ea0d959d95") annotation energy_context flash.unit.inlet.enthalpy_binding(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),flash.unit.inlet.energy_flow,flash.unit.inlet.flow);
+@id("c37287d238d043fe97340a4fac3015ea") annotation energy_context flash.unit.outlet.h(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),flash.unit.outlet.energy_flow,flash.unit.outlet.flow);
+@id("84932d3c6e5c41e89ffdc684a10f3777") annotation energy_context flash.unit.outlet.enthalpy_binding(numerical_policy.power,exposure_bound(circulation_capacity,numerical_policy.molar_flow),flash.unit.outlet.energy_flow,flash.unit.outlet.flow);
+@id("f50039d80b9146368688661c8f459b6a") annotation engineering_scale feed.state.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,phase_caloric_span()));
+@id("80e79154313b48e284284a21c3634156") annotation engineering_scale mixer.unit.inlet[fresh].energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,phase_caloric_span()));
+@id("e8305be5c2a94e4d9e8a91e028dc503e") annotation engineering_scale mixer.unit.inlet[recycled].energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(recycle_capacity,liquid_caloric_span()));
+@id("60727dd7b87947918fb7500c00a5980a") annotation engineering_scale mixer.unit.outlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,phase_caloric_span()));
+@id("7abd0ee182c74ce69ada37c241ed4060") annotation engineering_scale heater.unit.inlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,phase_caloric_span()));
+@id("88bb3ce5ee8a437db8ffcd2e2a6cc03b") annotation engineering_scale heater.unit.outlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,phase_caloric_span()));
+@id("c57b098975a44bad9b10a41e0edd6333") annotation engineering_scale flash.unit.inlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,phase_caloric_span()));
+@id("bf16fe8cc47746b4962922a63bb1263a") annotation engineering_scale flash.unit.outlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,phase_caloric_span()));
+@id("28f675d38d1d4a2a84d51362be04bdab") annotation engineering_scale flash.unit.outlet.phase_energy_flow[chemistry.liquid](kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,liquid_caloric_span()));
+@id("70b49b61318f45b9b05aea30c9db5858") annotation engineering_scale flash.unit.outlet.phase_energy_flow[chemistry.vapor](kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,vapor_caloric_span()));
+@id("89d0e4b270ae418d9ba38babbb0a1eff") annotation engineering_scale splitter.unit.inlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(circulation_capacity,liquid_caloric_span()));
+@id("6d9b84ee7a7b4174823b81fef9e72705") annotation engineering_scale splitter.unit.outlet_energy_flow[recycled](kind=reference_difference,value=ideal_caloric_state.power_span(recycle_capacity,liquid_caloric_span()));
+@id("00be6931d4ee4f378cc6685cc6e3c0ba") annotation engineering_scale splitter.unit.outlet_energy_flow[purged](kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,liquid_caloric_span()));
+@id("54756c63692148cbbd29e70b70d706b3") annotation engineering_scale tear_energy(kind=reference_difference,value=ideal_caloric_state.power_span(tear_capacity,liquid_caloric_span()));
 }
 @id("76dc17d0b1d8478c9181cfe430939355") state tear_state supplied(true) {
 coordinate component[j in components]=tear_component[j];

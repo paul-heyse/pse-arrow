@@ -203,6 +203,7 @@ fn policy_extent(policy: &NumericalPolicy) -> usize {
         .saturating_add(policy.goals.heap_bytes())
         .saturating_add(policy.engineering_rules.heap_bytes())
         .saturating_add(policy.engineering_scales.heap_bytes())
+        .saturating_add(policy.caloric_requirements.heap_bytes())
 }
 /// Actual logical owned policy storage, excluding already owned physical inventories.
 pub fn resolved_extent(policy: &ResolvedNumericalPolicy) -> usize {
@@ -245,9 +246,28 @@ pub fn resolution_allocation_bound(
             .saturating_add(r.declaration.heap_bytes())
     });
     let requirements = declarations.len().saturating_add(policy.requirements.len());
+    // Each selected consumer can retain a shared-consumer contributor list.
+    // Bound the worst case before allocation, including cloned source revision
+    // and scientific record identities; shared consumers can make this quadratic.
+    let mut consumer_count = 0usize;
+    let mut contributor_bytes = 0usize;
+    for requirement in &policy.caloric_requirements {
+        consumer_count = consumer_count.saturating_add(requirement.consumers.len());
+        let per_contributor = 512usize
+            .saturating_add(requirement.science_revision.len())
+            .saturating_add(
+                requirement
+                    .science_records
+                    .len()
+                    .saturating_mul(size_of::<SemanticId>()),
+            );
+        contributor_bytes = contributor_bytes
+            .saturating_add(per_contributor.saturating_mul(requirement.consumers.len()));
+    }
     4096usize
         .saturating_add(policy_extent(policy).saturating_mul(8))
         .saturating_add(policy_encoding_extent(policy))
+        .saturating_add(contributor_bytes.saturating_mul(consumer_count))
         .saturating_add(declaration_bytes.saturating_mul(8))
         .saturating_add(targets.len().saturating_mul(
             size_of::<TargetSpec>()

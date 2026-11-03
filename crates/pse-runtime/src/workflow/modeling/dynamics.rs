@@ -2406,6 +2406,12 @@ impl ModelingPackage {
                     | ModelingHint::AccuracyGoalLower
                     | ModelingHint::AccuracyGoalUpper
                     | ModelingHint::EngineeringScaleValue
+                    | ModelingHint::CaloricResponse
+                    | ModelingHint::CaloricThermalResolution
+                    | ModelingHint::CaloricPowerAllowance
+                    | ModelingHint::CaloricExposure
+                    | ModelingHint::EnergyPowerAllowance
+                    | ModelingHint::EnergyExposure
             )
         }) {
             annotations
@@ -2424,7 +2430,13 @@ impl ModelingPackage {
                             | ModelingHint::AccuracyGoalResolution
                             | ModelingHint::AccuracyGoalLower
                             | ModelingHint::AccuracyGoalUpper
-                            | ModelingHint::EngineeringScaleValue,
+                            | ModelingHint::EngineeringScaleValue
+                            | ModelingHint::CaloricResponse
+                            | ModelingHint::CaloricThermalResolution
+                            | ModelingHint::CaloricPowerAllowance
+                            | ModelingHint::CaloricExposure
+                            | ModelingHint::EnergyPowerAllowance
+                            | ModelingHint::EnergyExposure,
                         ..
                     }
                 )
@@ -2456,7 +2468,13 @@ impl ModelingPackage {
             &mut profile.numerics,
             &mut targets,
             &accuracy_values,
+            Some(self.revision_id()),
         )?;
+        if !profile.numerics.caloric_requirements.is_empty() {
+            return Err(contract(
+                "dynamic caloric or energy-exposure context is unsupported: actual flow must be checked at every admitted sample",
+            ));
+        }
         declarations.extend(numerical_inputs.declarations);
         let closure_requirements = cases::lower_closure_requirements(
             product,

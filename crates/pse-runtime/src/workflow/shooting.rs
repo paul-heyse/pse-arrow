@@ -631,6 +631,11 @@ impl ShootingProblem {
             neutral,
             neutral_unit,
         ));
+        if !request.solver.numerics.caloric_requirements.is_empty() {
+            return Err(contract(
+                "shooting caloric or energy-exposure context is unsupported: actual flow must be checked by the shooting assessment owner",
+            ));
+        }
         let numerics = pse_math::numerics::resolve(
             &simulation.source.quantities,
             &simulation.source.physical.preconditions,

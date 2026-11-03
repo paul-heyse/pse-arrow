@@ -51,6 +51,8 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `NumericalPolicyV1` | `pse.numerical.policy.v1` | An effective numerical policy request. |
 | `NumericalPolicyV2` | `pse.numerical.policy.v2` | Numerical policy including incumbent permission; historical V1 remains unchanged. |
 | `NumericalPolicyV3` | `pse.numerical.policy.v3` | Numerical policy with contextual engineering defaults and declared goals. |
+| `NumericalPolicyV4` | `pse.numerical.policy.v4` | Numerical policy with explicit conjunctive caloric requirements. |
+| `NumericalResolvedV3` | `pse.numerical.resolved.v3` | Resolved numerical policy carrying conjunctive caloric context. |
 | `EngineeringGoalV1` | `pse.engineering.goal.v1` | Bound engineering goal and observation dependencies. |
 | `ModelingAdmissionV2` | `pse.modeling.admission.v2` | Request-qualified structural and route admission over bound model and resolved policies. |
 | `ModelingAdmissionV1` | `pse.modeling.admission.v1` | Historical generic capability admission before contextual readiness. |

@@ -371,6 +371,226 @@
       ],
       "type": "object"
     },
+    "AuthoredCaloricRequirementsFieldConsumersItem": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "actual_flow_id": {
+          "description": "actual_flow_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "aggregate_exposure": {
+          "description": "aggregate_exposure",
+          "format": "double",
+          "type": "number"
+        },
+        "declaration_id": {
+          "description": "declaration_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "exposure_expression": {
+          "description": "exposure_expression",
+          "type": "string"
+        },
+        "exposure_quantity_id": {
+          "description": "exposure_quantity_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "exposure_unit_id": {
+          "description": "exposure_unit_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "power_allowance": {
+          "description": "power_allowance",
+          "format": "double",
+          "type": "number"
+        },
+        "power_quantity_id": {
+          "description": "power_quantity_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "power_rule_id": {
+          "description": "power_rule_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "power_unit_id": {
+          "description": "power_unit_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "target_id": {
+          "description": "target_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "target_id",
+        "declaration_id",
+        "power_rule_id",
+        "actual_flow_id",
+        "exposure_expression",
+        "power_quantity_id",
+        "power_unit_id",
+        "power_allowance",
+        "exposure_quantity_id",
+        "exposure_unit_id",
+        "aggregate_exposure"
+      ],
+      "type": "object"
+    },
+    "AuthoredCaloricRequirementsRow": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "consumers": {
+          "description": "consumers",
+          "items": {
+            "$ref": "#/$defs/AuthoredCaloricRequirementsFieldConsumersItem"
+          },
+          "type": "array"
+        },
+        "instance_id": {
+          "description": "The instance owning the selected physical target.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "InstanceId"
+        },
+        "quantity_id": {
+          "description": "quantity_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "requirement_id": {
+          "description": "requirement_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "response": {
+          "description": "response",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "response_quantity_id": {
+          "description": "response_quantity_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "response_unit_id": {
+          "description": "response_unit_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "science_records": {
+          "description": "science_records",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "science_revision": {
+          "description": "science_revision",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/NumericalSource",
+          "description": "source"
+        },
+        "target_id": {
+          "description": "target_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "target_kind": {
+          "$ref": "#/$defs/NumericalTarget",
+          "description": "target_kind"
+        },
+        "thermal_quantity_id": {
+          "description": "thermal_quantity_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "thermal_resolution": {
+          "description": "thermal_resolution",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "thermal_unit_id": {
+          "description": "thermal_unit_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "unit_id": {
+          "description": "unit_id",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        }
+      },
+      "required": [
+        "requirement_id",
+        "instance_id",
+        "target_id",
+        "target_kind",
+        "quantity_id",
+        "unit_id",
+        "source",
+        "science_revision",
+        "science_records",
+        "response_quantity_id",
+        "response_unit_id",
+        "response",
+        "thermal_quantity_id",
+        "thermal_unit_id",
+        "thermal_resolution",
+        "consumers"
+      ],
+      "type": "object"
+    },
     "AuthoredEngineeringDefaultRulesRow": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -2649,6 +2869,14 @@
           "default": null,
           "description": "Optional separately qualified acceptable-termination budgets."
         },
+        "caloric_requirements": {
+          "default": [],
+          "description": "Independently admitted caloric and consuming requirements, frozen before execution.",
+          "items": {
+            "$ref": "#/$defs/AuthoredCaloricRequirementsRow"
+          },
+          "type": "array"
+        },
         "closure": {
           "$ref": "#/$defs/ClosurePolicy",
           "default": "require_closed",
@@ -2775,6 +3003,7 @@
         "goals",
         "engineering_scales",
         "engineering_rules",
+        "caloric_requirements",
         "strict_engineering_context",
         "engineering_relative_fraction",
         "strict_nominals",
@@ -3418,6 +3647,7 @@
           "$ref": "#/$defs/NumericalPolicy",
           "default": {
             "acceptable": null,
+            "caloric_requirements": [],
             "closure": "require_closed",
             "engineering_relative_fraction": 0.001,
             "engineering_rules": [],

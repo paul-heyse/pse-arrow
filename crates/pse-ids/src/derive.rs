@@ -177,6 +177,10 @@ frames! {
         NumericalPolicyV2 => "pse.numerical.policy.v2",
         /// Numerical policy with contextual engineering defaults and declared goals.
         NumericalPolicyV3 => "pse.numerical.policy.v3",
+        /// Numerical policy with explicit conjunctive caloric requirements.
+        NumericalPolicyV4 => "pse.numerical.policy.v4",
+        /// Resolved numerical policy carrying conjunctive caloric context.
+        NumericalResolvedV3 => "pse.numerical.resolved.v3",
         /// Bound engineering goal and observation dependencies.
         EngineeringGoalV1 => "pse.engineering.goal.v1",
         /// Request-qualified structural and route admission over bound model and resolved policies.

@@ -36,7 +36,9 @@ evaluator = { kind = "interpreted" }
 # Independent fixtures share the sixteen runtime CPU permits; each optimizer uses one.
 cores = 1
 horner_iterations = 10
-cpe_iterations = 10
+# Use the library's ordinary one-pass CPE policy throughout source preparation.
+# The opt-in numerical campaign still retains the former ten-pass comparison.
+cpe_iterations = 1
 
 [settings.preparation.compiler.assembly]
 contributions = 1000000

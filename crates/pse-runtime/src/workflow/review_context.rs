@@ -252,6 +252,33 @@ pub struct ReviewContextDocument {
     pub unavailable: Vec<ReviewContextUnavailable>,
 }
 impl ReviewContextDocument {
+    /// Copy typed facts only under the handoff's existing admitted working reservation.
+    /// The caller keeps that reservation alive until the copied document is discarded.
+    pub(crate) fn copy_for_handoff(
+        &self,
+        owner: &pse_columnar::MemoryReservation,
+    ) -> Result<Self, WorkflowError> {
+        self.validate()?;
+        let limit = owner.size() / 8;
+        super::replay::encoded_extent(
+            self,
+            limit.min(crate::tooling::frozen_inspection::MAXIMUM_DOCUMENT_BYTES),
+        )?;
+        Ok(Self {
+            version: self.version,
+            run_id: self.run_id,
+            attempt_id: self.attempt_id,
+            operation: self.operation,
+            selection: self.selection.clone(),
+            sources: self.sources.clone(),
+            source_positions: self.source_positions.clone(),
+            solver_settings: self.solver_settings.clone(),
+            facts: self.facts.clone(),
+            coverage: self.coverage.clone(),
+            failure: self.failure.clone(),
+            unavailable: self.unavailable.clone(),
+        })
+    }
     /// Describe an earlier source/admission failure from explicitly supplied copied facts.
     /// This constructor needs neither a runtime, an admitted package nor a run handle.
     pub fn pre_handle_failure(
@@ -383,6 +410,13 @@ impl ReviewContextDocument {
                         | "declared-recycle-outcome.v1"
                         | "declared-recycle-settings.v1"
                         | "dynamic-native-statistics.v1"
+                        | "modeling-direct-preparation.v1"
+                        | "modeling-preparation-settings.v1"
+                        | "modeling-direct-result.v1"
+                        | "modeling-direct-initialization.v1"
+                        | "modeling-direct-attempt.v1"
+                        | "modeling-direct-settings.v1"
+                        | "modeling-direct-numerics.v1"
                 )
             {
                 return Err(contract(
@@ -420,6 +454,12 @@ impl serde::Serialize for ReviewContext {
     }
 }
 impl ReviewContext {
+    /// Move joined facts into a descriptive handoff without encoding and decoding a copy.
+    pub(crate) fn into_handoff_parts(
+        self,
+    ) -> (ReviewContextDocument, Arc<pse_columnar::AllocationLease>) {
+        (self.document, self._owner)
+    }
     /// Borrow the complete selected factual document.
     pub fn document(&self) -> &ReviewContextDocument {
         &self.document
@@ -473,7 +513,7 @@ impl Builder {
         &mut self,
         profile: &crate::math::solves::SolverProfile,
     ) -> Result<(), WorkflowError> {
-        let extent = super::replay::profile_extent(profile)?.saturating_mul(8);
+        let extent = super::replay::profile_extent(profile)?;
         if extent > self.limit.saturating_sub(self.used) {
             return Err(contract(
                 "selected review settings exceed finite allocation",
@@ -486,6 +526,25 @@ impl Builder {
         )?);
         self.document.solver_settings.push(settings);
         Ok(())
+    }
+    fn result_settings(
+        &mut self,
+        prefix: &str,
+        profile: &crate::math::solves::SolverProfile,
+    ) -> Result<(), WorkflowError> {
+        // profile_extent already bounds the retained projection and its clone.
+        let extent = super::replay::profile_extent(profile)?;
+        let remaining = self.limit.saturating_sub(self.used);
+        if extent > remaining {
+            return Err(contract(format!(
+                "selected result settings require {extent} bounded bytes; {remaining} remain"
+            )));
+        }
+        self.fact(
+            format!("{prefix}/settings"),
+            "modeling-direct-settings.v1",
+            &ReplaySolverSettings::from_profile(profile),
+        )
     }
     fn source(&mut self, source: &ModelingPackage, position: usize) -> Result<(), WorkflowError> {
         if let Some(receipt) = source.physical.engine_receipt() {
@@ -923,7 +982,6 @@ fn strategy_builder(
     );
     Ok((out, owner))
 }
-#[cfg(feature = "solver-kinsol")]
 fn strategy_records(
     out: &mut Builder,
     prefix: &str,
@@ -951,6 +1009,554 @@ fn strategy_records(
         }
     }
     Ok(())
+}
+
+impl ModelingPackage {
+    /// Copy the admitted declared preparation and any original direct outcome while
+    /// their owners are alive. This descriptive selection does not create a run handle.
+    pub fn declared_review_context(
+        &self,
+        services: &super::PreparationServices,
+        declared: &super::DeclaredExecution,
+        outcome: Option<&super::DeclaredAlgebraicOutcome>,
+        request: &ReviewContextRequest,
+        operation: Option<OperationId>,
+    ) -> Result<ReviewContext, WorkflowError> {
+        declared
+            .retained_source()
+            .check_service_bindings(services)?;
+        if !self.shares_retained_source(declared.retained_source()) {
+            return Err(contract(
+                "declared review source differs from the admitted original owner",
+            ));
+        }
+        request.validate()?;
+        select_single(request)?;
+        let owner = services
+            .math()
+            .reserve("review:declared-context", request.maximum_bytes)?;
+        let run = outcome.map(|outcome| match outcome {
+            super::DeclaredAlgebraicOutcome::Solve(result) => result.run_id,
+            super::DeclaredAlgebraicOutcome::Initialization(report) => report.run_id,
+        });
+        let mut out = builder(request, run, operation);
+        out.source(declared.retained_source(), 0)?;
+        out.settings(&declared.analysis.solver)?;
+        out.fact(
+            "/declared/preparation".into(),
+            "modeling-direct-preparation.v1",
+            &serde_json::json!({
+                "root": declared.analysis.root,
+                "instance": declared.analysis.instance,
+                "route": declared.route,
+                "procedure": declared.procedure.kind(),
+            }),
+        )?;
+        out.fact(
+            "/declared/preparation/controls".into(),
+            "modeling-preparation-settings.v1",
+            &super::PreparationSettings {
+                compiler: declared.analysis.compiler,
+                limits: declared.analysis.limits,
+            },
+        )?;
+        out.unavailable(
+            "/attempt_id",
+            "direct declared execution has no durable attempt identity",
+            None,
+        );
+        out.unavailable(
+            "/invocation",
+            "direct declared execution has no RunResult invocation",
+            None,
+        );
+        match outcome {
+            None => out.unavailable(
+                "/outcome",
+                "preparation did not execute a numerical operation",
+                None,
+            ),
+            Some(super::DeclaredAlgebraicOutcome::Solve(result)) => {
+                direct_result(
+                    &mut out,
+                    declared.retained_source(),
+                    "/declared/result",
+                    result,
+                    request.include_native_records,
+                )?;
+            }
+            Some(super::DeclaredAlgebraicOutcome::Initialization(report)) => {
+                #[derive(serde::Serialize)]
+                struct Initialization<'a> {
+                    run_id: RunId,
+                    completed: bool,
+                    failure: &'a Option<pse_model::diagnostic::BoundaryDiagnostic>,
+                    committed: Option<DirectValues<'a>>,
+                    discrete: pse_model::generated::enums::ModelingDiscreteInitialization,
+                    discrete_assignment: DirectValues<'a>,
+                }
+                out.fact(
+                    "/declared/initialization".into(),
+                    "modeling-direct-initialization.v1",
+                    &Initialization {
+                        run_id: report.run_id,
+                        completed: report.completed,
+                        failure: &report.failure,
+                        committed: report.committed.as_ref().map(DirectValues),
+                        discrete: report.discrete,
+                        discrete_assignment: DirectValues(&report.discrete_assignment),
+                    },
+                )?;
+                for (ordinal, attempt) in report.attempts.iter().enumerate() {
+                    let (stage, fraction) = match &attempt.step {
+                        super::ModelingInitializationStep::Stage(name) => {
+                            (Some(name.as_str()), None)
+                        }
+                        super::ModelingInitializationStep::Homotopy(value) => (None, Some(*value)),
+                        super::ModelingInitializationStep::Original => (None, None),
+                    };
+                    let prefix = format!("/declared/attempts/{ordinal}");
+                    out.fact(format!("{prefix}/attempt"), "modeling-direct-attempt.v1", &serde_json::json!({
+                        "run_id": report.run_id, "ordinal": ordinal, "kind": attempt.step.kind(),
+                        "stage": stage, "fraction_bits": fraction.map(f64::to_bits), "accepted": attempt.accepted(),
+                        "interruption": attempt.interruption, "diagnostic": attempt.diagnostic(),
+                        "error": attempt.result.as_ref().err().map(ToString::to_string),
+                    }))?;
+                    if let Ok(result) = &attempt.result {
+                        direct_result(
+                            &mut out,
+                            declared.retained_source(),
+                            &format!("{prefix}/result"),
+                            result,
+                            request.include_native_records,
+                        )?;
+                    }
+                }
+            }
+        }
+        out.document.validate()?;
+        Ok(ReviewContext {
+            document: out.document,
+            _owner: owner,
+        })
+    }
+}
+
+fn direct_result(
+    out: &mut Builder,
+    source: &ModelingPackage,
+    prefix: &str,
+    result: &super::ModelingResult,
+    include_native: bool,
+) -> Result<(), WorkflowError> {
+    if !source.shares_retained_source(&result.prepared.source) {
+        return Err(contract(
+            "direct result source differs from its declared preparation owner",
+        ));
+    }
+    #[derive(serde::Serialize)]
+    struct ResultFacts<'a> {
+        run_id: RunId,
+        attempt: usize,
+        accepted: bool,
+        diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+        permission: &'a super::numerics::CandidateDecision,
+        values: DirectValues<'a>,
+        checks: DirectChecks<'a>,
+        reports: DirectReports<'a>,
+    }
+    out.fact(
+        prefix.into(),
+        "modeling-direct-result.v1",
+        &ResultFacts {
+            run_id: result.run_id,
+            attempt: result.original_attempt,
+            accepted: result.accepted,
+            diagnostic: result.diagnostic(),
+            permission: &result.completion.decision,
+            values: DirectValues(&result.values.scalars),
+            checks: DirectChecks(&result.checks),
+            reports: DirectReports(&result.reports),
+        },
+    )?;
+    out.result_settings(prefix, &result.prepared.profile)?;
+    out.fact(
+        format!("{prefix}/numerics"),
+        "modeling-direct-numerics.v1",
+        &DirectNumerics {
+            policy: result.prepared.solve.numerics(),
+            native_accuracy: result.prepared.solve.accuracy(),
+            accuracy: &result.completion.accuracy,
+        },
+    )?;
+    if result
+        .completion
+        .accuracy
+        .iter()
+        .any(|goal| goal.failure.is_some())
+    {
+        out.unavailable(format!("{prefix}/numerics/accuracy/failure"),
+            "opaque typed cause is not serialized; its original description and producer-reported extent remain in the factual accuracy record", None);
+    }
+    if include_native && let Some(trace) = &result.strategy {
+        strategy_records(out, prefix, trace)?;
+    }
+    Ok(())
+}
+
+// Registry rows are not serde codecs. Borrow their original fields while serializing,
+// so Builder's extent pass precedes the bounded output allocation.
+struct DirectChecks<'a>(&'a [super::ModelingCheck]);
+struct DirectReports<'a>(&'a [super::ModelingReport]);
+struct DirectValues<'a>(&'a std::collections::BTreeMap<pse_ids::SemanticId, f64>);
+impl serde::Serialize for DirectValues<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for (id, value) in self.0 {
+            seq.serialize_element(&(id, value.to_bits()))?;
+        }
+        seq.end()
+    }
+}
+macro_rules! fields {
+    ($state:ident, $row:ident, $($field:ident),+ $(,)?) => {
+        $(serde::ser::SerializeStruct::serialize_field(&mut $state, stringify!($field), &$row.$field)?;)+
+    };
+}
+
+/// Borrow the actual resolved inventory and original accuracy outcomes; the Builder
+/// sizes the selected document before allocating its serialized factual attachment.
+struct DirectNumerics<'a> {
+    policy: &'a pse_model::numerics::ResolvedNumericalPolicy,
+    native_accuracy: &'a pse_backend_native::solve::ResolvedAccuracy,
+    accuracy: &'a [pse_math::engineering_accuracy::GoalResult],
+}
+impl serde::Serialize for DirectNumerics<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("DirectNumerics", 5)?;
+        state.serialize_field("key", &self.policy.key)?;
+        state.serialize_field("policy", &self.policy.policy)?;
+        state.serialize_field("targets", &DirectTargets(&self.policy.targets))?;
+        state.serialize_field("native_accuracy", self.native_accuracy)?;
+        state.serialize_field("accuracy", &DirectAccuracy(self.accuracy))?;
+        state.end()
+    }
+}
+struct DirectTargets<'a>(&'a [pse_model::numerics::ResolvedTarget]);
+impl serde::Serialize for DirectTargets<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeSeq, SerializeStruct};
+        struct Target<'a>(&'a pse_model::numerics::ResolvedTarget);
+        impl serde::Serialize for Target<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let row = self.0;
+                let mut state = serializer.serialize_struct("ResolvedTarget", 12)?;
+                fields!(
+                    state,
+                    row,
+                    id,
+                    kind,
+                    quantity,
+                    unit,
+                    nominal,
+                    coordinate_scale,
+                    required_scale,
+                    absolute,
+                    relative,
+                    budget,
+                    engineering
+                );
+                struct Provenance<'a>(&'a [pse_model::numerics::NumericalProvenance]);
+                impl serde::Serialize for Provenance<'_> {
+                    fn serialize<S: serde::Serializer>(
+                        &self,
+                        serializer: S,
+                    ) -> Result<S::Ok, S::Error> {
+                        struct Entry<'a>(&'a pse_model::numerics::NumericalProvenance);
+                        impl serde::Serialize for Entry<'_> {
+                            fn serialize<S: serde::Serializer>(
+                                &self,
+                                serializer: S,
+                            ) -> Result<S::Ok, S::Error> {
+                                let row = self.0;
+                                let mut state =
+                                    serializer.serialize_struct("NumericalProvenance", 6)?;
+                                fields!(
+                                    state,
+                                    row,
+                                    declaration,
+                                    source,
+                                    field,
+                                    selected,
+                                    value,
+                                    description
+                                );
+                                state.end()
+                            }
+                        }
+                        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+                        for row in self.0 {
+                            seq.serialize_element(&Entry(row))?;
+                        }
+                        seq.end()
+                    }
+                }
+                state.serialize_field("provenance", &Provenance(&row.provenance))?;
+                state.end()
+            }
+        }
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for row in self.0 {
+            seq.serialize_element(&Target(row))?;
+        }
+        seq.end()
+    }
+}
+struct DirectAccuracy<'a>(&'a [pse_math::engineering_accuracy::GoalResult]);
+impl serde::Serialize for DirectAccuracy<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeSeq, SerializeStruct};
+        struct Goal<'a>(&'a pse_math::engineering_accuracy::GoalResult);
+        impl serde::Serialize for Goal<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let row = self.0;
+                let mut state = serializer.serialize_struct("GoalResult", 6)?;
+                state.serialize_field("goal", &row.goal)?;
+                let c = &row.classification;
+                state.serialize_field(
+                    "classification",
+                    &(
+                        c.status,
+                        c.resolution,
+                        c.criterion,
+                        c.interval.map(|(a, b)| (a.to_bits(), b.to_bits())),
+                        c.error.map(f64::to_bits),
+                        c.unavailable,
+                    ),
+                )?;
+                struct Evidence<'a>(&'a pse_model::engineering_accuracy::OutputEvidence);
+                impl serde::Serialize for Evidence<'_> {
+                    fn serialize<S: serde::Serializer>(
+                        &self,
+                        serializer: S,
+                    ) -> Result<S::Ok, S::Error> {
+                        let row = self.0;
+                        let mut state = serializer.serialize_struct("OutputEvidence", 14)?;
+                        fields!(
+                            state,
+                            row,
+                            target,
+                            target_kind,
+                            quantity,
+                            unit,
+                            observation,
+                            accuracy,
+                            source,
+                            validity,
+                            interpretation,
+                            method,
+                            limitation
+                        );
+                        state.serialize_field("time_bits", &row.time.map(f64::to_bits))?;
+                        state.serialize_field("value_bits", &row.value.map(f64::to_bits))?;
+                        state.serialize_field(
+                            "interval_bits",
+                            &row.interval.map(|(a, b)| (a.to_bits(), b.to_bits())),
+                        )?;
+                        state.end()
+                    }
+                }
+                state.serialize_field("evidence", &row.evidence.as_ref().map(Evidence))?;
+                struct Demand<'a>(&'a pse_math::engineering_accuracy::GoalWorkDemand);
+                impl serde::Serialize for Demand<'_> {
+                    fn serialize<S: serde::Serializer>(
+                        &self,
+                        serializer: S,
+                    ) -> Result<S::Ok, S::Error> {
+                        let row = self.0;
+                        let mut state = serializer.serialize_struct("GoalWorkDemand", 5)?;
+                        fields!(state, row, product, source);
+                        state.serialize_field(
+                            "physical_output_allowance_bits",
+                            &row.physical_output_allowance.to_bits(),
+                        )?;
+                        state.serialize_field(
+                            "adjoint_backward_error_bits",
+                            &row.adjoint_backward_error.to_bits(),
+                        )?;
+                        struct Rows<'a>(&'a [pse_math::engineering_accuracy::ResidualRowDemand]);
+                        impl serde::Serialize for Rows<'_> {
+                            fn serialize<S: serde::Serializer>(
+                                &self,
+                                serializer: S,
+                            ) -> Result<S::Ok, S::Error> {
+                                let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+                                for row in self.0 {
+                                    seq.serialize_element(&(
+                                        row.row,
+                                        row.physical_allowance.to_bits(),
+                                    ))?;
+                                }
+                                seq.end()
+                            }
+                        }
+                        state.serialize_field("rows", &Rows(&row.rows))?;
+                        state.end()
+                    }
+                }
+                state.serialize_field("work_demand", &row.work_demand.as_ref().map(Demand))?;
+                struct Cause<'a>(&'a pse_math::engineering_accuracy::GoalFailure);
+                impl serde::Serialize for Cause<'_> {
+                    fn serialize<S: serde::Serializer>(
+                        &self,
+                        serializer: S,
+                    ) -> Result<S::Ok, S::Error> {
+                        serializer.collect_str(&self.0.cause)
+                    }
+                }
+                state.serialize_field("failure_description", &row.failure.as_ref().map(Cause))?;
+                state.serialize_field(
+                    "failure_owned_bytes",
+                    &row.failure.as_ref().map(|failure| failure.bytes),
+                )?;
+                state.end()
+            }
+        }
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for row in self.0 {
+            seq.serialize_element(&Goal(row))?;
+        }
+        seq.end()
+    }
+}
+impl serde::Serialize for DirectChecks<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        struct Row<'a>(&'a super::ModelingCheck);
+        impl serde::Serialize for Row<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::SerializeStruct;
+                let row = self.0;
+                let mut state = serializer.serialize_struct("ModelingCheck", 33)?;
+                fields!(
+                    state,
+                    row,
+                    run_id,
+                    step,
+                    sample_index,
+                    target_id,
+                    source_id,
+                    kind,
+                    satisfied,
+                    within_validity,
+                    extrapolation_allowed,
+                    basis,
+                    layer,
+                    claim_id,
+                    claim_owner,
+                    claim_owner_lineage,
+                    coverage_id,
+                    evidence_id,
+                    form_id,
+                    call_id,
+                    selected_records,
+                    dependencies,
+                    applicability_outcome,
+                    applicability_basis,
+                    permission_ids,
+                    unknown_allowed,
+                    observation_instance,
+                    applicability_required,
+                    applicability_reason
+                );
+                state.serialize_field("time_bits", &row.time.map(f64::to_bits))?;
+                state.serialize_field("value_bits", &row.value.to_bits())?;
+                state.serialize_field("tolerance_bits", &row.tolerance.map(f64::to_bits))?;
+                struct Inputs<'a>(&'a [pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldInputValuesItem]);
+                impl serde::Serialize for Inputs<'_> {
+                    fn serialize<S: serde::Serializer>(
+                        &self,
+                        serializer: S,
+                    ) -> Result<S::Ok, S::Error> {
+                        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+                        for item in self.0 {
+                            seq.serialize_element(&(
+                                &item.name,
+                                item.value.to_bits(),
+                                item.quantity_type,
+                            ))?;
+                        }
+                        seq.end()
+                    }
+                }
+                struct Permissions<'a>(&'a [pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldApplicabilityPermissionsItem]);
+                impl serde::Serialize for Permissions<'_> {
+                    fn serialize<S: serde::Serializer>(
+                        &self,
+                        serializer: S,
+                    ) -> Result<S::Ok, S::Error> {
+                        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+                        for item in self.0 {
+                            seq.serialize_element(&(
+                                item.permission_id,
+                                item.scope,
+                                item.target_kind,
+                                &item.targets,
+                                item.allow_unknown,
+                                item.allow_extrapolation,
+                            ))?;
+                        }
+                        seq.end()
+                    }
+                }
+                state.serialize_field("input_values", &Inputs(&row.input_values))?;
+                state.serialize_field(
+                    "applicability_permissions",
+                    &Permissions(&row.applicability_permissions),
+                )?;
+                state.end()
+            }
+        }
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for row in self.0 {
+            seq.serialize_element(&Row(row))?;
+        }
+        seq.end()
+    }
+}
+impl serde::Serialize for DirectReports<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::{SerializeSeq, SerializeStruct};
+        struct Row<'a>(&'a super::ModelingReport);
+        impl serde::Serialize for Row<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let row = self.0;
+                let mut state = serializer.serialize_struct("ModelingReport", 10)?;
+                fields!(
+                    state,
+                    row,
+                    run_id,
+                    step,
+                    target_id,
+                    source_id,
+                    label,
+                    path,
+                    quantity_id,
+                    unit_id,
+                    transfer_context
+                );
+                state.serialize_field("value_bits", &row.value.to_bits())?;
+                state.end()
+            }
+        }
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for row in self.0 {
+            seq.serialize_element(&Row(row))?;
+        }
+        seq.end()
+    }
 }
 #[cfg(feature = "solver-kinsol")]
 pub(in crate::workflow) fn initialization_context(
@@ -1174,6 +1780,200 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn direct_settings_admit_one_conservative_profile_bound_and_refuse_less() {
+        let profile = crate::math::solves::SolverProfile::default();
+        let extent = super::super::replay::profile_extent(&profile).unwrap();
+        assert!(extent > 0);
+        let request = ReviewContextRequest {
+            maximum_bytes: extent + 4096,
+            ..Default::default()
+        };
+        let mut admitted = builder(&request, None, None);
+        admitted.result_settings("/result", &profile).unwrap();
+        assert_eq!(
+            admitted.document.facts[0].codec,
+            "modeling-direct-settings.v1"
+        );
+        let mut refused = builder(&request, None, None);
+        refused.used = request.maximum_bytes - extent + 1;
+        assert!(refused.result_settings("/result", &profile).is_err());
+        let mut declaration = builder(&request, None, None);
+        declaration.settings(&profile).unwrap();
+    }
+    #[test]
+    fn direct_preparation_controls_remain_readable_without_a_numerical_outcome() {
+        let settings = super::super::PreparationSettings::default();
+        let request = ReviewContextRequest {
+            include_sources: false,
+            ..Default::default()
+        };
+        let mut out = builder(&request, None, None);
+        out.fact(
+            "/declared/preparation/controls".into(),
+            "modeling-preparation-settings.v1",
+            &settings,
+        )
+        .unwrap();
+        out.document.validate().unwrap();
+        let restored: ReviewContextDocument =
+            serde_json::from_slice(&serde_json::to_vec(&out.document).unwrap()).unwrap();
+        restored.validate().unwrap();
+        let actual: super::super::PreparationSettings =
+            serde_json::from_slice(&restored.facts[0].payload).unwrap();
+        assert_eq!(actual.compiler, settings.compiler);
+        assert!(restored.run_id.is_none());
+        assert!(restored.failure.is_none());
+    }
+    #[test]
+    fn direct_numerics_preflight_preserves_caloric_contributors_and_actual_accuracy() {
+        use pse_model::generated::enums::*;
+        let id = pse_ids::SemanticId::from_bytes([4; 16]);
+        let contributor = serde_json::json!({
+            "declaration_id":id, "actual_flow_id":id, "science_revision":"rev-a", "science_records":[id],
+            "power_rule_id":id, "exposure_quantity_id":id, "exposure_unit_id":id,
+            "aggregate_exposure":2.0, "power_quantity_id":id, "power_unit_id":id, "power_allowance":3.0
+        });
+        let engineering = serde_json::from_value(serde_json::json!({
+            "rule_id":null, "scale_id":null, "physical_allowance":1.0, "relative_fraction":0.1,
+            "characteristic":2.0, "scale_kind":null, "source":NumericalSource::Model, "budget":1.0,
+            "canonical_fallback":false, "limitation":"original context", "caloric":{
+                "requirement_id":id, "instance_id":null, "source":NumericalSource::Model,
+                "science_revision":"rev-a", "science_records":[id], "response_quantity_id":null,
+                "response_unit_id":null, "response":null, "thermal_quantity_id":null,
+                "thermal_unit_id":null, "thermal_resolution":null, "limiting_consumer":id, "allowance":1.0,
+                "consumers":[{"target_id":id,"declaration_id":id,"power_rule_id":id,"actual_flow_id":id,
+                    "exposure_expression":"feed","power_quantity_id":id,"power_unit_id":id,"power_allowance":3.0,
+                    "exposure_quantity_id":id,"exposure_unit_id":id,"aggregate_exposure":2.0,
+                    "combined_exposure":2.0,"combined_power_allowance":3.0,"contributors":[contributor]}]
+            }
+        })).unwrap();
+        let goal = pse_model::engineering_accuracy::AccuracyGoal {
+            goal_id: id.into(),
+            model_id: None,
+            case_id: None,
+            instance_id: None,
+            fit_id: None,
+            target_id: id,
+            target_kind: NumericalTarget::Variable,
+            quantity_id: id,
+            unit_id: id,
+            subject: AccuracyGoalSubject::SelectedOutput,
+            observation: AccuracyObservation::Steady,
+            time: None,
+            resolution: None,
+            criterion_lower: None,
+            criterion_upper: Some(10.0),
+            required_class: NumericalAccuracyClass::Estimated,
+            use_policy: AccuracyGoalUse::Assess,
+            refine: false,
+            source: NumericalSource::Analysis,
+            priority: 0,
+            provenance: "original".into(),
+        };
+        let mut policy = pse_model::numerics::NumericalPolicy::default();
+        policy.goals.push(goal.clone());
+        let resolved = pse_model::numerics::ResolvedNumericalPolicy {
+            key: policy.key(),
+            policy,
+            targets: vec![pse_model::numerics::ResolvedTarget {
+                id,
+                kind: NumericalTarget::Row,
+                quantity: id,
+                unit: id,
+                nominal: 1.0,
+                coordinate_scale: 2.0,
+                required_scale: true,
+                absolute: 1.0,
+                relative: 0.0,
+                budget: 1.0,
+                engineering: Some(engineering),
+                provenance: vec![],
+            }],
+        };
+        let accuracy = [pse_math::engineering_accuracy::GoalResult::unavailable(
+            goal,
+            AccuracyUnavailableReason::MissingEvidence,
+        )];
+        let native_accuracy = pse_backend_native::solve::ResolvedAccuracy {
+            feasibility: 1e-5,
+            stationarity: 2e-6,
+            complementarity: 3e-7,
+            integrality: 1e-8,
+            gap_absolute: 1e-9,
+            gap_relative: 1e-10,
+            mip_absolute_gap: 1e-11,
+            mip_relative_gap: 1e-12,
+            acceptable: Some(pse_model::numerics::KktTolerances {
+                stationarity: 0.02,
+                complementarity: 0.03,
+            }),
+            native_scaling: true,
+        };
+        let facts = DirectNumerics {
+            policy: &resolved,
+            native_accuracy: &native_accuracy,
+            accuracy: &accuracy,
+        };
+        let mut request = ReviewContextRequest::default();
+        request.maximum_bytes = 512;
+        assert!(
+            builder(&request, None, None)
+                .fact("/numerics".into(), "modeling-direct-numerics.v1", &facts)
+                .is_err()
+        );
+        request.maximum_bytes = 1 << 20;
+        let mut out = builder(&request, None, None);
+        out.fact("/numerics".into(), "modeling-direct-numerics.v1", &facts)
+            .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_slice(&out.document.facts[0].payload).unwrap();
+        assert_eq!(json["key"], serde_json::to_value(resolved.key).unwrap());
+        assert_eq!(json["targets"][0]["required_scale"], true);
+        assert_eq!(json["native_accuracy"]["feasibility"], 1e-5);
+        assert_eq!(json["native_accuracy"]["stationarity"], 2e-6);
+        assert_eq!(json["native_accuracy"]["complementarity"], 3e-7);
+        assert_eq!(json["native_accuracy"]["acceptable"]["stationarity"], 0.02);
+        assert_eq!(json["native_accuracy"]["native_scaling"], true);
+        assert_eq!(
+            json["targets"][0]["engineering"]["caloric"]["consumers"][0]["contributors"][0]["science_revision"],
+            "rev-a"
+        );
+        assert_eq!(
+            json["accuracy"][0]["goal"]["goal_id"],
+            serde_json::to_value(id).unwrap()
+        );
+        assert_eq!(
+            json["accuracy"][0]["classification"][5],
+            serde_json::to_value(AccuracyUnavailableReason::MissingEvidence).unwrap()
+        );
+    }
+    #[test]
+    fn direct_report_serialization_keeps_original_nonfinite_bits_and_identity() {
+        let run = RunId::from_bytes([1; 16]);
+        let target = pse_ids::SemanticId::from_bytes([2; 16]);
+        let bits = 0x7ff8_0000_0000_0001;
+        let row = super::super::ModelingReport {
+            run_id: run,
+            step: 4,
+            target_id: target,
+            source_id: pse_model::generated::identities::DeclarationId::from(target),
+            label: "original".into(),
+            path: "model.output".into(),
+            quantity_id: target,
+            unit_id: target,
+            transfer_context: None,
+            value: f64::from_bits(bits),
+        };
+        let json = serde_json::to_value(DirectReports(&[row])).unwrap();
+        assert_eq!(json[0]["run_id"], serde_json::to_value(run).unwrap());
+        assert_eq!(json[0]["target_id"], serde_json::to_value(target).unwrap());
+        assert_eq!(json[0]["value_bits"].as_u64(), Some(bits));
+        let mut values = std::collections::BTreeMap::new();
+        values.insert(target, f64::from_bits(bits));
+        let json = serde_json::to_value(DirectValues(&values)).unwrap();
+        assert_eq!(json[0][1].as_u64(), Some(bits));
+    }
     #[test]
     fn review_context_ingress_keeps_large_integer_payload_and_rejects_unknown_version() {
         let request = ReviewContextRequest::default();

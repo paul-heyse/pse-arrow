@@ -963,7 +963,7 @@ fn print_block(
                         let c = v.connectivity.as_ref().ok_or_else(|| bad("connectivity maxima"))?;
                         format!("{}, {}", maximum(c.incoming), maximum(c.outgoing))
                     }
-                    (A::Start | A::Nominal | A::Bounds | A::Report | A::Check, arguments) => {
+                    (A::Start | A::Nominal | A::Bounds | A::Report | A::Check | A::CaloricContext | A::EnergyContext, arguments) => {
                         arguments.join(", ")
                     }
                     _ => return Err(bad("an annotation's arguments disagree with its kind")),

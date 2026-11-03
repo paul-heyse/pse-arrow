@@ -23,6 +23,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            20u8, 113u8, 124u8, 95u8, 188u8, 34u8, 210u8, 160u8, 61u8, 164u8, 205u8,
+            201u8, 224u8, 168u8, 165u8, 179u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#AuthoredCaloricRequirements(
+                super::r#authored::r#caloric_requirements::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             169u8, 137u8, 17u8, 254u8, 21u8, 234u8, 253u8, 79u8, 101u8, 32u8, 114u8,
             94u8, 91u8, 80u8, 247u8, 209u8,
         ])
@@ -83,8 +95,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            86u8, 22u8, 65u8, 63u8, 88u8, 0u8, 240u8, 189u8, 117u8, 88u8, 81u8, 167u8,
-            34u8, 157u8, 110u8, 70u8,
+            223u8, 175u8, 37u8, 145u8, 155u8, 147u8, 18u8, 229u8, 61u8, 81u8, 232u8,
+            42u8, 52u8, 90u8, 52u8, 46u8,
         ])
     {
         return Ok(
@@ -2163,8 +2175,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            223u8, 232u8, 152u8, 122u8, 176u8, 96u8, 73u8, 2u8, 12u8, 51u8, 54u8, 169u8,
-            226u8, 173u8, 43u8, 163u8,
+            49u8, 231u8, 159u8, 241u8, 129u8, 172u8, 128u8, 96u8, 47u8, 164u8, 198u8,
+            249u8, 244u8, 216u8, 247u8, 113u8,
         ])
     {
         return Ok(
@@ -2429,6 +2441,9 @@ pub fn encode(
 ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
     match values {
         pse_model::generated::facts::FactBatch::r#AuthoredAccuracyGoals(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#AuthoredCaloricRequirements(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredDocuments(rows) => {

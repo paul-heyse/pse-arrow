@@ -1003,6 +1003,13 @@ fn annotation_kind_dispatch_is_exhaustive() {
             V::Objective(_) => Kind::Objective,
             V::AccuracyGoal(_) => Kind::AccuracyGoal,
             V::EngineeringScale(_) => Kind::EngineeringScale,
+            V::CaloricContext(context) => {
+                if context.thermal {
+                    Kind::CaloricContext
+                } else {
+                    Kind::EnergyContext
+                }
+            }
             V::EngineeringDefault { .. } => Kind::EngineeringDefault,
         })
         .collect::<std::collections::BTreeSet<_>>();
@@ -1012,6 +1019,8 @@ fn annotation_kind_dispatch_is_exhaustive() {
     expected.remove(&Kind::Connectivity);
     expected.remove(&Kind::AccuracyGoal);
     expected.remove(&Kind::EngineeringScale);
+    expected.remove(&Kind::CaloricContext);
+    expected.remove(&Kind::EnergyContext);
     expected.remove(&Kind::EngineeringDefault);
     expected.remove(&Kind::EngineeringRule);
     assert_eq!(values, expected);
@@ -1036,6 +1045,8 @@ fn annotation_kind_dispatch_is_exhaustive() {
                 Kind::Connectivity => Shape::Connectivity,
                 Kind::AccuracyGoal => Shape::AccuracyGoal,
                 Kind::EngineeringScale => Shape::EngineeringScale,
+                Kind::CaloricContext => Shape::CaloricContext,
+                Kind::EnergyContext => Shape::EnergyContext,
                 Kind::EngineeringDefault => Shape::EngineeringDefault,
                 Kind::EngineeringRule => Shape::EngineeringRule,
             }
@@ -1050,6 +1061,121 @@ fn annotation_kind_dispatch_is_exhaustive() {
             foreign.connectivity=Some(pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationConnectivity {incoming:None,outgoing:None});
         }
         assert!(shape(&foreign, at).is_err(), "{:?}", row.kind);
+    }
+}
+
+#[test]
+fn engineering_scale_accepts_a_typed_scalar_equation_row() {
+    let text = "package p { def Root { var area:Area; var other:Area; eq area_match:area==other; annotation engineering_scale area_match(kind=reference_difference,value=1{m^2}); } }";
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    let annotation = model
+        .annotations
+        .iter()
+        .find(|a| matches!(&a.value, annotation::AnnotationValue::EngineeringScale(_)))
+        .unwrap();
+    assert!(
+        model
+            .equations
+            .iter()
+            .any(|row| row.id == annotation.target)
+    );
+    assert!(
+        run(
+            &text.replace("1{m^2}", "1{W}"),
+            "p.Root",
+            Bindings::default()
+        )
+        .is_err()
+    );
+    assert!(
+        run(
+            &text.replace("engineering_scale area_match", "engineering_scale missing"),
+            "p.Root",
+            Bindings::default()
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn caloric_context_binds_consumer_and_rejects_wrong_physical_types() {
+    let text = "package p { entity kind source provenance {attribute title:Text;} enum role {published} entity source s {title=\"policy\"} constant allowance:Delta<Power>=1{W} provenance(s,role.published); annotation engineering_rule p.allowance; def Root { var h:MolarEnthalpy; var power:Power; var flow:Flow; annotation caloric_context h(100{J/(mol*K)},0.1{K},p.allowance,2{mol/s},power,flow); } }";
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    let context = model
+        .annotations
+        .iter()
+        .find_map(|annotation| match &annotation.value {
+            annotation::AnnotationValue::CaloricContext(context) => Some(context),
+            _ => None,
+        })
+        .unwrap();
+    assert!(
+        model
+            .symbols
+            .values()
+            .any(|symbol| symbol.id == context.consumer && symbol.lineage.path.ends_with(".power"))
+    );
+    assert!(
+        context.science_records.is_empty(),
+        "a bare literal cannot manufacture scientific provenance"
+    );
+    assert!(
+        run(
+            &text.replace("2{mol/s}", "2{W}"),
+            "p.Root",
+            Bindings::default()
+        )
+        .is_err()
+    );
+    assert!(
+        run(
+            &text.replace(",power,flow);", ",h,flow);"),
+            "p.Root",
+            Bindings::default()
+        )
+        .is_err()
+    );
+    assert!(
+        run(
+            &text.replace(",power,flow);", ",power,h);"),
+            "p.Root",
+            Bindings::default()
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn caloric_context_resolves_only_a_concrete_interface_equation() {
+    let text = r#"package p {
+        entity kind source provenance { attribute title:Text; }
+        enum role { published }
+        entity source s { title="policy" }
+        constant allowance:Delta<Power>=1{W} provenance(s,role.published);
+        annotation engineering_rule p.allowance;
+        interface State { var h:MolarEnthalpy; }
+        def Actual:State { eq binding:h==0{J/mol}; }
+        def Root {
+            child state:State=Actual();
+            var power:Power;
+            var flow:Flow;
+            annotation energy_context state.binding(p.allowance,2{mol/s},power,flow);
+        }
+    }"#;
+    let model = run(text, "p.Root", Bindings::default()).unwrap();
+    assert!(
+        model
+            .annotations
+            .iter()
+            .any(|a| matches!(&a.value, annotation::AnnotationValue::CaloricContext(_)))
+    );
+    for invalid in [
+        text.replace("state.binding(", "state.missing("),
+        text.replace("eq binding:h==0{J/mol};", "eq binding:1{W}==2{W};"),
+        text.replace("state.binding(", "missing.binding("),
+        text.replace("eq binding:h==0{J/mol};", "var binding:MolarEnthalpy;"),
+    ] {
+        assert!(run(&invalid, "p.Root", Bindings::default()).is_err());
     }
 }
 

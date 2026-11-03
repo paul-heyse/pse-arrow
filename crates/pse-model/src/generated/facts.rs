@@ -7,6 +7,8 @@
 pub enum FactBatch {
     #[doc = stringify!(r#AuthoredAccuracyGoals)]
     r#AuthoredAccuracyGoals(Vec<super::r#authored::r#accuracy_goals::Row>),
+    #[doc = stringify!(r#AuthoredCaloricRequirements)]
+    r#AuthoredCaloricRequirements(Vec<super::r#authored::r#caloric_requirements::Row>),
     #[doc = stringify!(r#AuthoredDocuments)]
     r#AuthoredDocuments(Vec<super::r#authored::r#documents::Row>),
     #[doc = stringify!(r#AuthoredEngineeringDefaultRules)]
@@ -592,6 +594,12 @@ impl FactBatch {
                     53u8, 0u8, 240u8, 171u8, 53u8, 189u8,
                 ])
             }
+            Self::r#AuthoredCaloricRequirements(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    20u8, 113u8, 124u8, 95u8, 188u8, 34u8, 210u8, 160u8, 61u8, 164u8,
+                    205u8, 201u8, 224u8, 168u8, 165u8, 179u8,
+                ])
+            }
             Self::r#AuthoredDocuments(_) => {
                 pse_ids::SemanticId::from_bytes([
                     169u8, 137u8, 17u8, 254u8, 21u8, 234u8, 253u8, 79u8, 101u8, 32u8,
@@ -624,8 +632,8 @@ impl FactBatch {
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    86u8, 22u8, 65u8, 63u8, 88u8, 0u8, 240u8, 189u8, 117u8, 88u8, 81u8,
-                    167u8, 34u8, 157u8, 110u8, 70u8,
+                    223u8, 175u8, 37u8, 145u8, 155u8, 147u8, 18u8, 229u8, 61u8, 81u8,
+                    232u8, 42u8, 52u8, 90u8, 52u8, 46u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
@@ -1662,8 +1670,8 @@ impl FactBatch {
             }
             Self::r#RuntimeResolvedNumerics(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    223u8, 232u8, 152u8, 122u8, 176u8, 96u8, 73u8, 2u8, 12u8, 51u8, 54u8,
-                    169u8, 226u8, 173u8, 43u8, 163u8,
+                    49u8, 231u8, 159u8, 241u8, 129u8, 172u8, 128u8, 96u8, 47u8, 164u8,
+                    198u8, 249u8, 244u8, 216u8, 247u8, 113u8,
                 ])
             }
             Self::r#RuntimeResponseDirections(_) => {
@@ -1792,6 +1800,7 @@ impl FactBatch {
     pub fn len(&self) -> usize {
         match self {
             Self::r#AuthoredAccuracyGoals(rows) => rows.len(),
+            Self::r#AuthoredCaloricRequirements(rows) => rows.len(),
             Self::r#AuthoredDocuments(rows) => rows.len(),
             Self::r#AuthoredEngineeringDefaultRules(rows) => rows.len(),
             Self::r#AuthoredEngineeringScales(rows) => rows.len(),
@@ -2004,6 +2013,11 @@ impl FactBatch {
         hash.id(&self.relation()).u64(self.len() as u64);
         match self {
             Self::r#AuthoredAccuracyGoals(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#AuthoredCaloricRequirements(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3013,6 +3027,10 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredAccuracyGoals(vec![row.clone()]))
             }
+            Self::r#AuthoredCaloricRequirements(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredCaloricRequirements(vec![row.clone()]))
+            }
             Self::r#AuthoredDocuments(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredDocuments(vec![row.clone()]))
             }
@@ -3916,6 +3934,17 @@ impl FactBatch {
             (
                 Self::r#AuthoredAccuracyGoals(left),
                 Self::r#AuthoredAccuracyGoals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredCaloricRequirements(left),
+                Self::r#AuthoredCaloricRequirements(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6051,6 +6080,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#AuthoredCaloricRequirements(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#AuthoredDocuments(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -7456,6 +7492,20 @@ impl FactBatch {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(&left.r#goal_id, &right.r#goal_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredCaloricRequirements(left),
+                Self::r#AuthoredCaloricRequirements(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#requirement_id,
+                            &right.r#requirement_id,
+                        )
                     }
                     _ => false,
                 }
@@ -10108,6 +10158,10 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#goal_id, &mut hash);
             }
+            Self::r#AuthoredCaloricRequirements(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
+            }
             Self::r#AuthoredDocuments(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
@@ -11022,6 +11076,13 @@ impl FactBatch {
             (
                 Self::r#AuthoredAccuracyGoals(left),
                 Self::r#AuthoredAccuracyGoals(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#AuthoredCaloricRequirements(left),
+                Self::r#AuthoredCaloricRequirements(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -12391,6 +12452,9 @@ impl crate::HeapUsage for FactBatch {
     fn heap_bytes(&self) -> usize {
         match self {
             Self::r#AuthoredAccuracyGoals(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredCaloricRequirements(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#AuthoredDocuments(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredEngineeringDefaultRules(rows) => {
                 crate::HeapUsage::heap_bytes(rows)

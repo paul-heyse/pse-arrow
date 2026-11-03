@@ -334,7 +334,17 @@ pub(super) fn conditional_contract_route(
     let normalization =
         pse_math::normalization::Normalization::from_policy(numerics, &structure.variables, rows)?;
     let tolerances = Tolerances::from_policy(numerics, &structure.variables, rows)?;
-    let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+    let accuracy = match solver.selection {
+        SolverSelection::Explicit(backend) => execution::adapter(backend).resolve_accuracy(
+            &numerics.policy,
+            &tolerances,
+            &normalization,
+            contract,
+        )?,
+        SolverSelection::Auto => {
+            ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?
+        }
+    };
     native::routing::Requirements {
         table: &execution::LINKED,
         facts: &facts,
@@ -606,12 +616,18 @@ impl MathService {
                 effective_numerics.targets.extend(projected.targets);
             }
             if !defaults.is_empty() {
+                let mut subset_policy = numerics.policy.clone();
+                subset_policy.caloric_requirements.retain(|r| {
+                    defaults
+                        .iter()
+                        .any(|target| target.id == r.target_id && target.kind == r.target_kind)
+                });
                 let additional = pse_math::numerics::resolve(
                     &quantities,
                     &preconditions,
                     &defaults,
                     &[],
-                    &numerics.policy,
+                    &subset_policy,
                 )?;
                 h.hash(&additional.key);
                 effective_numerics.targets.extend(additional.targets);

@@ -105,6 +105,22 @@ pub(super) const ANNOTATIONS: &[Annotation] = &[
         target: true,
     },
     Annotation {
+        kind: "caloric_context",
+        shape: "CaloricContext",
+        count: 6,
+        grammar: Some(G::Expression),
+        member: None,
+        target: true,
+    },
+    Annotation {
+        kind: "energy_context",
+        shape: "EnergyContext",
+        count: 4,
+        grammar: Some(G::Expression),
+        member: None,
+        target: true,
+    },
+    Annotation {
         kind: "engineering_default",
         shape: "EngineeringDefault",
         count: 0,

@@ -365,6 +365,24 @@ An inherited allowance resolves as `max(F,r*S)`, using the applicable shared phy
 allowance, shared fraction and an independently admitted engineering characteristic scale.
 Explicit requirements retain their existing absolute-plus-relative-times-nominal meaning.
 The scale never follows an iterate or an untagged conditioning nominal.
+An authored scale may target an existing scalar equation row, using its complete
+physical difference quantity, as well as a scalar value.
+
+An explicitly selected caloric requirement composes a frozen admitted local caloric
+response and thermal resolution with every selected consuming power allowance and its
+aggregate molar exposure. It retains source-science revision and consumer identity, full
+quantity and unit semantics, and the limiting reason. The tightest requirement constrains
+the inherited result without widening an independent physical allowance. An exposure is
+not inferred from capacity or an iterate. Differences are datum-independent; a local
+response is an estimate rather than a coupled output-error certificate, and an EOS
+formulation includes its residual contribution. Missing required context is refused.
+An energy-only requirement may omit thermal response, retaining that absence rather
+than inventing a heat capacity. Its frozen exposure bound and separately checked
+actual consuming flow have distinct identities and provenance.
+For these requirements only, a final equation member supplied by the selected
+implementation of a checked interface path may be resolved at specialization.
+The concrete member must be an equation with the complete molar-enthalpy difference
+quantity; missing or incompatible members are refused at the original annotation.
 
 `pse-model::numerics::NumericalPolicy` holds library-neutral controls: ID-keyed
 analysis requirements, `strict_nominals`, `native_scaling`, independent KKT budgets

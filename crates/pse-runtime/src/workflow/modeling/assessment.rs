@@ -11,6 +11,75 @@ use pse_model::diagnostic::DiagnosticProjection;
 use pse_model::generated::identities::RunId;
 use std::sync::Arc;
 
+fn exposure_check(
+    run_id: RunId,
+    source: DeclarationId,
+    target: SemanticId,
+    actual: f64,
+    bound: f64,
+) -> ModelingCheck {
+    let mut check = results::temporal_closure_check(run_id, source, target, 0, 0.0, actual, bound);
+    check.time = None;
+    check.kind = pse_model::generated::enums::ModelingCheckKind::Check;
+    check.satisfied = actual.is_finite() && actual >= 0.0 && actual <= bound;
+    check
+}
+
+struct Exposure {
+    quantity: SemanticId,
+    bound: f64,
+    instance: Option<SemanticId>,
+    dependencies: std::collections::BTreeSet<SemanticId>,
+}
+fn exposure_bounds(
+    registry: &pse_quantity::QuantityRegistry,
+    policy: &pse_model::numerics::NumericalPolicy,
+) -> Result<BTreeMap<(SemanticId, SemanticId), Exposure>, WorkflowError> {
+    let mut exposures: BTreeMap<(SemanticId, SemanticId), Exposure> = BTreeMap::new();
+    for requirement in &policy.caloric_requirements {
+        for consumer in &requirement.consumers {
+            let quantity = registry
+                .quantity_type(consumer.exposure_quantity_id.into())
+                .map_err(|e| contract(e.to_string()))?;
+            let from = registry
+                .unit(consumer.exposure_unit_id.into())
+                .map_err(|e| contract(e.to_string()))?;
+            let to = registry
+                .unit(quantity.canonical_unit)
+                .map_err(|e| contract(e.to_string()))?;
+            let conversion = pse_quantity::convert_spec_for_type(from, to, &quantity.key)
+                .map_err(|e| contract(e.to_string()))?;
+            let bound = consumer.aggregate_exposure * conversion.scale + conversion.offset;
+            if !bound.is_finite() || bound < 0.0 {
+                return Err(contract("energy exposure bound conversion is invalid"));
+            }
+            let instance = requirement.instance_id.map(Into::into);
+            let entry = exposures
+                .entry((consumer.declaration_id, consumer.actual_flow_id))
+                .or_insert_with(|| Exposure {
+                    quantity: consumer.exposure_quantity_id,
+                    bound,
+                    instance,
+                    dependencies: Default::default(),
+                });
+            pse_quantity::admission::require_same_contract(
+                entry.quantity.into(),
+                consumer.exposure_quantity_id.into(),
+                registry,
+            )
+            .map_err(|e| contract(e.to_string()))?;
+            if entry.instance != instance {
+                return Err(contract("conflicting energy exposure instance"));
+            }
+            entry.bound = entry.bound.min(bound);
+            entry
+                .dependencies
+                .extend([consumer.target_id, consumer.power_rule_id]);
+        }
+    }
+    Ok(exposures)
+}
+
 /// One assessed candidate: the complete values it implies, its original-model checks and
 /// reports, and why checks could not be evaluated.
 #[derive(Debug)]
@@ -407,6 +476,27 @@ impl Assessment {
             Some(&self.scope),
             certified,
         )?;
+        // The frozen exposure is a bound, not a solved flow. Check the actual
+        // original candidate variable at the same acceptance owner that settles
+        // all other original-model obligations.
+        let exposures = exposure_bounds(
+            &prepared.source.quantities,
+            &prepared.solve.numerics().policy,
+        )?;
+        for ((declaration, flow), exposure) in exposures {
+            let actual = *values.scalars.get(&flow).ok_or_else(|| {
+                contract("actual energy-exposure flow is absent from the candidate")
+            })?;
+            let mut check =
+                exposure_check(run_id, declaration.into(), flow, actual, exposure.bound);
+            check.dependencies = exposure.dependencies.into_iter().collect();
+            check.observation_instance = exposure.instance;
+            check.input_values.push(pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldInputValuesItem {
+                    name: "frozen_exposure_bound".into(), value: exposure.bound,
+                    quantity_type: exposure.quantity,
+                });
+            checks.push(check);
+        }
         for row in &mut checks {
             row.step = attempt as i64;
         }
@@ -415,5 +505,146 @@ impl Assessment {
         }
         checkpoint()?;
         Ok((checks, reports))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn actual_energy_exposure_is_a_required_attributed_original_check() {
+        let run = RunId::from_bytes([1; 16]);
+        let source = DeclarationId::from_bytes([2; 16]);
+        let target = SemanticId::from_bytes([3; 16]);
+        for (actual, satisfied) in [
+            (0.0, true),
+            (4.0, true),
+            (-0.01, false),
+            (4.01, false),
+            (f64::NAN, false),
+            (f64::INFINITY, false),
+        ] {
+            let check = exposure_check(run, source, target, actual, 4.0);
+            assert_eq!(
+                (check.source_id, check.target_id, check.satisfied),
+                (source, target, satisfied)
+            );
+            assert_eq!(check.tolerance, Some(4.0));
+            assert_eq!(
+                check.kind,
+                pse_model::generated::enums::ModelingCheckKind::Check
+            );
+            let native = crate::workflow::numerics::CandidateDecision {
+                usability: pse_model::generated::enums::CandidateUse::Usable,
+                qualifiers: vec![],
+                refusals: vec![],
+                bound: None,
+            };
+            let completed = crate::workflow::numerics::original_completion(
+                native,
+                crate::workflow::numerics::CompletionEvidence::point(
+                    std::slice::from_ref(&check),
+                    true,
+                    0,
+                ),
+                &pse_model::numerics::NumericalPolicy::default(),
+            );
+            assert_eq!(completed.permits_use(), satisfied);
+        }
+    }
+    #[test]
+    fn every_exposure_bound_remains_conjunctive_in_both_orders() {
+        let run = RunId::from_bytes([1; 16]);
+        let source = DeclarationId::from_bytes([2; 16]);
+        let target = SemanticId::from_bytes([3; 16]);
+        let loose = exposure_check(run, source, target, 3.0, 4.0);
+        let tight = exposure_check(run, source, target, 3.0, 2.0);
+        for checks in [
+            [loose.clone(), tight.clone()],
+            [tight.clone(), loose.clone()],
+        ] {
+            let native = crate::workflow::numerics::CandidateDecision {
+                usability: pse_model::generated::enums::CandidateUse::Usable,
+                qualifiers: vec![],
+                refusals: vec![],
+                bound: None,
+            };
+            let completed = crate::workflow::numerics::original_completion(
+                native,
+                crate::workflow::numerics::CompletionEvidence::point(&checks, true, 0),
+                &pse_model::numerics::NumericalPolicy::default(),
+            );
+            assert!(!completed.permits_use());
+        }
+    }
+    #[test]
+    fn projected_exposure_copies_coalesce_to_one_tightest_check_key() {
+        use pse_model::generated::{
+            authored::caloric_requirements::AuthoredCaloricRequirementsFieldConsumersItem as Consumer,
+            enums::{NumericalSource, NumericalTarget},
+        };
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let flow = match registry.physical_name("Flow").unwrap() {
+            pse_quantity::PhysicalName::QuantityType(id) => id,
+            _ => panic!("flow quantity"),
+        };
+        let unit = registry.quantity_type(flow).unwrap().canonical_unit;
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let mut policy = pse_model::numerics::NumericalPolicy::default();
+        let row = |target, consumer_target, bound| pse_model::numerics::CaloricRequirement {
+            requirement_id: target,
+            instance_id: None,
+            target_id: target,
+            target_kind: NumericalTarget::Variable,
+            quantity_id: id(1),
+            unit_id: id(2),
+            source: NumericalSource::Model,
+            science_revision: "revision".into(),
+            science_records: vec![],
+            response_quantity_id: None,
+            response_unit_id: None,
+            response: None,
+            thermal_quantity_id: None,
+            thermal_unit_id: None,
+            thermal_resolution: None,
+            consumers: vec![Consumer {
+                target_id: consumer_target,
+                declaration_id: id(3),
+                power_rule_id: id(4),
+                actual_flow_id: id(5),
+                exposure_expression: "bound".into(),
+                power_quantity_id: id(6),
+                power_unit_id: id(7),
+                power_allowance: 1.0,
+                exposure_quantity_id: flow.as_id(),
+                exposure_unit_id: unit.as_id(),
+                aggregate_exposure: bound,
+            }],
+        };
+        policy.caloric_requirements = vec![row(id(8), id(10), 4.0), row(id(9), id(11), 2.0)];
+        for _ in 0..2 {
+            let exposures = exposure_bounds(&registry, &policy).unwrap();
+            assert_eq!(
+                exposures.len(),
+                1,
+                "one retained modeling-check primary key"
+            );
+            let exposure = &exposures[&(id(3), id(5))];
+            assert_eq!(exposure.bound, 2.0);
+            assert!(
+                exposure.dependencies.contains(&id(10)) && exposure.dependencies.contains(&id(11))
+            );
+            assert!(
+                !exposure_check(
+                    RunId::from_bytes([1; 16]),
+                    id(3).into(),
+                    id(5),
+                    3.0,
+                    exposure.bound
+                )
+                .satisfied
+            );
+            policy.caloric_requirements.reverse();
+        }
     }
 }

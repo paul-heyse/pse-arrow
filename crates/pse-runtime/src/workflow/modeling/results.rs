@@ -1010,8 +1010,15 @@ pub(in crate::workflow) fn result_bytes(
             .checked_add(1024)
         })
         .ok_or_else(|| contract("modeling accuracy result extent"))?;
+    let exposure_checks = prepared.solve.numerics().policy.caloric_requirements.iter()
+        .try_fold(0usize, |count, requirement| count.checked_add(requirement.consumers.len()))
+        .and_then(|count| count.checked_mul(size_of::<ModelingCheck>()
+            + size_of::<pse_model::generated::runtime::modeling_checks::RuntimeModelingChecksFieldInputValuesItem>()
+            + 2 * size_of::<SemanticId>() + 128))
+        .ok_or_else(|| contract("energy exposure result extent"))?;
     bytes
         .checked_add(accuracy)
+        .and_then(|bytes| bytes.checked_add(exposure_checks))
         .ok_or_else(|| contract("modeling result extent"))
 }
 impl ModelingResult {

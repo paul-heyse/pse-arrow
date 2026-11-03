@@ -9404,6 +9404,14 @@ pub enum ModelingAnnotationKind {
     #[serde(rename = "engineering_scale")]
     #[strum(serialize = "engineering_scale")]
     EngineeringScale,
+    ///caloric_context
+    #[serde(rename = "caloric_context")]
+    #[strum(serialize = "caloric_context")]
+    CaloricContext,
+    ///energy_context
+    #[serde(rename = "energy_context")]
+    #[strum(serialize = "energy_context")]
+    EnergyContext,
     ///engineering_default
     #[serde(rename = "engineering_default")]
     #[strum(serialize = "engineering_default")]
@@ -9420,8 +9428,8 @@ impl crate::SemanticEq for ModelingAnnotationKind {
 }
 impl ModelingAnnotationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 13usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<13usize>() {
+    pub const ALL: [Self; 15usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<15usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -9444,8 +9452,10 @@ impl ModelingAnnotationKind {
             Self::Connectivity => 8usize,
             Self::AccuracyGoal => 9usize,
             Self::EngineeringScale => 10usize,
-            Self::EngineeringDefault => 11usize,
-            Self::EngineeringRule => 12usize,
+            Self::CaloricContext => 11usize,
+            Self::EnergyContext => 12usize,
+            Self::EngineeringDefault => 13usize,
+            Self::EngineeringRule => 14usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -9467,6 +9477,8 @@ impl ModelingAnnotationKind {
             Self::Connectivity => None,
             Self::AccuracyGoal => None,
             Self::EngineeringScale => None,
+            Self::CaloricContext => None,
+            Self::EnergyContext => None,
             Self::EngineeringDefault => None,
             Self::EngineeringRule => None,
         }
@@ -9487,7 +9499,8 @@ impl schemars::JsonSchema for ModelingAnnotationKind {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["start", "nominal", "bounds", "scale",
             "report", "valid", "check", "objective", "connectivity", "accuracy_goal",
-            "engineering_scale", "engineering_default", "engineering_rule"] }
+            "engineering_scale", "caloric_context", "energy_context",
+            "engineering_default", "engineering_rule"] }
         )
     }
 }

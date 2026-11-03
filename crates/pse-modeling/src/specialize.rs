@@ -1061,7 +1061,7 @@ impl Engine<'_, '_> {
     }
     /// The owner and declaration of an equation member reached through child segments, or
     /// `None` when the path names no equation member.
-    fn equation_member(
+    pub(crate) fn equation_member(
         &self,
         instance: InstanceId,
         at: DeclarationId,

@@ -24,6 +24,10 @@ use references @"1.0.0";
 // Reuse the process definitions and original topology; change scientific selections.
 fn component_h(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=if p==chemistry.liquid then ordinary_bt.liquid_h(T,j) else ordinary_bt.vapor_h(T,j);
 interface RecycleModel extends recycle_flash.RecycleLoop {
+override param liquid_caloric_span:Fn()->Delta<MolarEnthalpy>=ordinary_bt.liquid_enthalpy_span;
+override param vapor_caloric_span:Fn()->Delta<MolarEnthalpy>=ordinary_bt.vapor_enthalpy_span;
+override param phase_caloric_span:Fn()->Delta<MolarEnthalpy>=ordinary_bt.phase_enthalpy_span;
+override param liquid_caloric_response:Fn()->MolarCp=ordinary_bt.liquid_precision_response;
 override param components:Set<chemistry.species>=ordinary_bt.aromatics;
 override child feed:units.Feed=units.Feed(pkg=ordinary_bt.Ideal(defined_state=true));
 override child mixer:recycle_flash.RecycleMixer=recycle_flash.RecycleMixer(inlet_pkg=ordinary_bt.Ideal(defined_state=true),outlet_pkg=ordinary_bt.Ideal(defined_state=false),inlets=recycle_flash.mixer_inlets,momentum_mixing=compatibility.MomentumMixingType.none,recycle_package=ordinary_bt.Liquid(defined_state=true));
@@ -31,6 +35,29 @@ override child heater:recycle_flash.RecycleHeater=recycle_flash.RecycleHeater(in
 override child flash:recycle_flash.RecycleEquilibriumFlash=recycle_flash.RecycleEquilibriumFlash(inlet_pkg=ordinary_bt.Ideal(defined_state=true),outlet_pkg=ordinary_bt.Ideal(defined_state=false));
 override child splitter:recycle_flash.RecycleSplitter=recycle_flash.RecycleSplitter(pkg=ordinary_bt.Liquid(defined_state=true),outlets=recycle_flash.liquid_outlets,component_enthalpy=component_h,purge_value=0.25);
 override let tear_energy:Power=feed.state.flow*tear_fraction*ideal_caloric_state.mixture_enthalpy(tear_temperature,feed.state.z,components,ordinary_bt.liquid_h);
+// Frozen conservative exposure is the feed/purge circulation bound, not the
+// solved liquid flow. This local interval-average response is not an output
+// error certificate. The existing Perry record extrapolation permission applies.
+annotation caloric_context splitter.unit.inlet.h(ordinary_bt.liquid_precision_response(),numerical_policy.temperature,numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),splitter.unit.inlet.energy_flow,splitter.unit.inlet.flow);
+annotation caloric_context mixer.unit.inlet[recycle_flash.recycled].h(ordinary_bt.liquid_precision_response(),numerical_policy.temperature,numerical_policy.power,recycle_flash.exposure_bound((1-purge)*recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),mixer.unit.inlet[recycle_flash.recycled].energy_flow,mixer.unit.inlet[recycle_flash.recycled].flow);
+annotation caloric_context splitter.unit.inlet.enthalpy(ordinary_bt.liquid_precision_response(),numerical_policy.temperature,numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),splitter.unit.inlet.energy_flow,splitter.unit.inlet.flow);
+annotation caloric_context mixer.unit.inlet[recycle_flash.recycled].enthalpy(ordinary_bt.liquid_precision_response(),numerical_policy.temperature,numerical_policy.power,recycle_flash.exposure_bound((1-purge)*recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),mixer.unit.inlet[recycle_flash.recycled].energy_flow,mixer.unit.inlet[recycle_flash.recycled].flow);
+// Energy-only contexts constrain each remaining enthalpy without claiming a
+// frozen two-phase heat capacity or a coupled flash-output error bound.
+annotation energy_context feed.state.h(numerical_policy.power,recycle_flash.exposure_bound(feed.state.flow,numerical_policy.molar_flow),feed.state.energy_flow,feed.state.flow);
+annotation energy_context feed.state.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(feed.state.flow,numerical_policy.molar_flow),feed.state.energy_flow,feed.state.flow);
+annotation energy_context mixer.unit.inlet[recycle_flash.fresh].h(numerical_policy.power,recycle_flash.exposure_bound(feed.state.flow,numerical_policy.molar_flow),mixer.unit.inlet[recycle_flash.fresh].energy_flow,mixer.unit.inlet[recycle_flash.fresh].flow);
+annotation energy_context mixer.unit.inlet[recycle_flash.fresh].enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(feed.state.flow,numerical_policy.molar_flow),mixer.unit.inlet[recycle_flash.fresh].energy_flow,mixer.unit.inlet[recycle_flash.fresh].flow);
+annotation energy_context mixer.unit.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),mixer.unit.outlet.energy_flow,mixer.unit.outlet.flow);
+annotation energy_context mixer.unit.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),mixer.unit.outlet.energy_flow,mixer.unit.outlet.flow);
+annotation energy_context heater.unit.inlet.h(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),heater.unit.inlet.energy_flow,heater.unit.inlet.flow);
+annotation energy_context heater.unit.inlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),heater.unit.inlet.energy_flow,heater.unit.inlet.flow);
+annotation energy_context heater.unit.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),heater.unit.outlet.energy_flow,heater.unit.outlet.flow);
+annotation energy_context heater.unit.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),heater.unit.outlet.energy_flow,heater.unit.outlet.flow);
+annotation energy_context flash.unit.inlet.h(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),flash.unit.inlet.energy_flow,flash.unit.inlet.flow);
+annotation energy_context flash.unit.inlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),flash.unit.inlet.energy_flow,flash.unit.inlet.flow);
+annotation energy_context flash.unit.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),flash.unit.outlet.energy_flow,flash.unit.outlet.flow);
+annotation energy_context flash.unit.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(recycle_flash.maximum_circulating_flow(feed.state.flow,purge),numerical_policy.molar_flow),flash.unit.outlet.energy_flow,flash.unit.outlet.flow);
 stage "tear" {override connect recycle:tear_port -> mixer.inlet_ports[recycle_flash.recycled];}
 // Retain the boundary values needed to check conservation independently of the
 // internal balance rows. These reports do not add equations or change the physics.
@@ -62,6 +89,22 @@ stage "overheated_tear" {override connect recycle:overheated_port -> mixer.inlet
 }
 def Exchanger(force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD):exchanger_costing.CostedExchangerModel {
 override child exchanger:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=ordinary_bt.PR(defined_state=true),hot_outlet_pkg=ordinary_bt.PR(defined_state=false),cold_inlet_pkg=ordinary_bt.PR(defined_state=true),cold_outlet_pkg=ordinary_bt.PR(defined_state=false),driving_force=force,cocurrent=true);
+// These reference magnitudes are the selected rating area and fixed coefficient;
+// they supply local numerical context, not a coupled output-error certificate.
+annotation engineering_scale exchanger.area(kind=reference_difference,value=1{m^2});
+annotation engineering_scale cost.area(kind=reference_difference,value=1{m^2});
+annotation engineering_scale costed_area(kind=reference_difference,value=1{m^2});
+annotation engineering_scale exchanger.coefficient(kind=reference_difference,value=100{W/(m^2*K)});
+// These requirements protect actual energy consumers. They do not assert an
+// ideal or EOS heat-capacity response for the relational-density PR state.
+annotation energy_context exchanger.hot.inlet.h(numerical_policy.power,recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow),exchanger.hot.inlet.energy_flow,exchanger.hot.inlet.flow);
+annotation energy_context exchanger.hot.inlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow),exchanger.hot.inlet.energy_flow,exchanger.hot.inlet.flow);
+annotation energy_context exchanger.hot.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow),exchanger.hot.outlet.energy_flow,exchanger.hot.outlet.flow);
+annotation energy_context exchanger.hot.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(exchanger.hot.inlet.flow,numerical_policy.molar_flow),exchanger.hot.outlet.energy_flow,exchanger.hot.outlet.flow);
+annotation energy_context exchanger.cold.inlet.h(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.inlet.energy_flow,exchanger.cold.inlet.flow);
+annotation energy_context exchanger.cold.inlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.inlet.energy_flow,exchanger.cold.inlet.flow);
+annotation energy_context exchanger.cold.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.outlet.energy_flow,exchanger.cold.outlet.flow);
+annotation energy_context exchanger.cold.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(exchanger.cold.inlet.flow,numerical_policy.molar_flow),exchanger.cold.outlet.energy_flow,exchanger.cold.outlet.flow);
 annotation report exchanger.hot.heat("ordinary hot duty");
 annotation report exchanger.cold.heat("ordinary cold duty");
 annotation report exchanger.coefficient("ordinary heat transfer coefficient");
@@ -78,7 +121,7 @@ child root:Recycle=Recycle;
 expect root.overall[chem.benzene]==0{mol/s} tolerance numerical_policy.component_flow;
 expect root.overall[chem.toluene]==0{mol/s} tolerance numerical_policy.component_flow;
 }
-case ordinary_overheated fixture {dof 0;route steady;procedure initialize;stages("overheated_tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);failure numerical members(root.recycle);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};policy {backend ipopt;} } {
+case ordinary_overheated fixture {dof 0;route steady;procedure initialize;stages("overheated_tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);failure trial_rejected members(root.recycle);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};policy {backend ipopt;} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
 permission benzene_liquid_cp_extrapolation records(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit]) allow_unknown false allow_extrapolation true;
 child root:Overheated=Overheated;

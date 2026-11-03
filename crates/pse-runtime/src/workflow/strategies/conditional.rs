@@ -1570,12 +1570,19 @@ impl ModelingPackage {
             })
             .collect();
         if !missing.is_empty() {
+            let missing = missing.into_values().collect::<Vec<_>>();
+            let mut subset_policy = projection_source.policy.clone();
+            subset_policy.caloric_requirements.retain(|r| {
+                missing
+                    .iter()
+                    .any(|target| target.id == r.target_id && target.kind == r.target_kind)
+            });
             let additional = pse_math::numerics::resolve(
                 q,
                 &self.physical.preconditions,
-                &missing.into_values().collect::<Vec<_>>(),
+                &missing,
                 &[],
-                &projection_source.policy,
+                &subset_policy,
             )
             .map_err(crate::workflow::math)?;
             projection_source.targets.extend(additional.targets);

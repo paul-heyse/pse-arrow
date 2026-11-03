@@ -138,6 +138,12 @@ impl Drop for AcknowledgementPublisher {
     }
 }
 impl SourceRecordingSession {
+    /// Record failure to construct the selected factual context independently of science.
+    pub fn review_context_failure(&mut self, error: &crate::workflow::WorkflowError) {
+        if let Some(handoff) = &mut self.handoff {
+            handoff.failure(&CaptureError::Invalid(error.to_string()));
+        }
+    }
     /// Retain original joined facts only when descriptive handoff was explicitly selected.
     /// Optional failure is returned separately; it never changes science or detail coverage.
     pub fn retain_result(
@@ -155,7 +161,7 @@ impl SourceRecordingSession {
             })
             .transpose()
     }
-    /// Retain an actual pre-handle failure/context without reconstructing a run.
+    /// Retain an actual factual context without reconstructing a run.
     pub fn retain_context(
         &mut self,
         context: &crate::workflow::ReviewContextDocument,

@@ -36,6 +36,154 @@ fn preparation(settings: &Settings) -> TestResult<&crate::workflow::PreparationS
         .ok_or_else(|| std::io::Error::other("reference campaign preparation absent").into())
 }
 
+const NUMERICAL_CAMPAIGN_ENV: &str = "PSE_NUMERICAL_CAMPAIGN";
+
+/// One opt-in comparison across the existing first-delivery scientific controls.
+/// Each adjacent variant changes one cost: symbolic work, realization, then curvature.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NumericalCampaign {
+    Baseline,
+    InterpretedLight,
+    CompiledLight,
+    CompiledLightLimitedMemory,
+}
+// A bounded campaign candidate; each actual arithmetic block must still pass
+// native source, object and executable preflight under this complete allowance.
+const CAMPAIGN_MODULE_BYTES: usize = 4 << 20;
+impl NumericalCampaign {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "baseline" => Ok(Self::Baseline),
+            "interpreted-light" => Ok(Self::InterpretedLight),
+            "compiled-light" => Ok(Self::CompiledLight),
+            "compiled-light-limited-memory" => Ok(Self::CompiledLightLimitedMemory),
+            _ => Err(format!(
+                "{NUMERICAL_CAMPAIGN_ENV} requires baseline, interpreted-light, compiled-light or compiled-light-limited-memory"
+            )),
+        }
+    }
+    fn compiled(self) -> bool {
+        matches!(self, Self::CompiledLight | Self::CompiledLightLimitedMemory)
+    }
+    fn prepare(self, preparation: &mut crate::workflow::PreparationSettings) {
+        let optimization = &mut preparation.compiler.optimization;
+        optimization.horner_iterations = 10;
+        optimization.cpe_iterations = if self == Self::Baseline { 10 } else { 1 };
+        optimization.evaluator = if self.compiled() {
+            // This is a per-block preparation bound, independently of worker scratch;
+            // a block that exceeds it refuses rather than changing realization.
+            pse_math::library::Evaluator::CompiledScalar {
+                module_bytes: CAMPAIGN_MODULE_BYTES,
+            }
+        } else {
+            pse_math::library::Evaluator::Interpreted
+        };
+    }
+    fn solver(self, solver: &mut crate::math::solves::SolverProfile) {
+        solver.controls.hessian = if self == Self::CompiledLightLimitedMemory {
+            pse_backend_native::solve::HessianMode::LimitedMemory
+        } else {
+            pse_backend_native::solve::HessianMode::Auto
+        };
+    }
+}
+
+fn numerical_campaign() -> TestResult<Option<NumericalCampaign>> {
+    static SELECTED: std::sync::OnceLock<Result<Option<NumericalCampaign>, String>> =
+        std::sync::OnceLock::new();
+    SELECTED.get_or_init(|| match std::env::var(NUMERICAL_CAMPAIGN_ENV) {
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(std::env::VarError::NotUnicode(_)) => Err(format!("{NUMERICAL_CAMPAIGN_ENV} is not UTF-8")),
+        Ok(value) => {
+            let selected = NumericalCampaign::parse(&value)?;
+            if selected.compiled() && !cfg!(feature = "compiled-evaluator") {
+                return Err(format!("{NUMERICAL_CAMPAIGN_ENV} compiled variants require the compiled-evaluator feature"));
+            }
+            Ok(Some(selected))
+        },
+    }).as_ref().copied().map_err(|error| std::io::Error::other(error.clone()).into())
+}
+
+fn numerical_preparation(settings: &Settings) -> TestResult<crate::workflow::PreparationSettings> {
+    let mut preparation = preparation(settings)?.clone();
+    if let Some(selected) = numerical_campaign()? {
+        selected.prepare(&mut preparation);
+    }
+    Ok(preparation)
+}
+
+pub(super) fn numerical_solver(
+    mut solver: crate::math::solves::SolverProfile,
+) -> TestResult<crate::math::solves::SolverProfile> {
+    if let Some(selected) = numerical_campaign()? {
+        selected.solver(&mut solver);
+    }
+    Ok(solver)
+}
+
+#[test]
+fn numerical_campaign_variants_are_explicit_and_change_only_selected_controls() {
+    let cases = [
+        ("baseline", NumericalCampaign::Baseline, 10, false),
+        (
+            "interpreted-light",
+            NumericalCampaign::InterpretedLight,
+            1,
+            false,
+        ),
+        ("compiled-light", NumericalCampaign::CompiledLight, 1, true),
+        (
+            "compiled-light-limited-memory",
+            NumericalCampaign::CompiledLightLimitedMemory,
+            1,
+            true,
+        ),
+    ];
+    for (text, variant, cpe, compiled) in cases {
+        assert_eq!(NumericalCampaign::parse(text).unwrap(), variant);
+        let mut preparation = crate::workflow::PreparationSettings::default();
+        preparation.compiler.optimization.cores = 3;
+        let original = preparation.clone();
+        variant.prepare(&mut preparation);
+        assert_eq!(preparation.compiler.optimization.cores, 3);
+        assert_eq!(preparation.compiler.optimization.horner_iterations, 10);
+        assert_eq!(preparation.compiler.optimization.cpe_iterations, cpe);
+        assert_eq!(
+            preparation.compiler.optimization.evaluator.module_bytes(),
+            if compiled { CAMPAIGN_MODULE_BYTES } else { 0 }
+        );
+        assert_eq!(
+            preparation.compiler.evaluation,
+            original.compiler.evaluation
+        );
+        assert_eq!(preparation.compiler.assembly, original.compiler.assembly);
+        assert_eq!(
+            preparation.compiler.class_proof_work,
+            original.compiler.class_proof_work
+        );
+        let mut solver = crate::math::solves::SolverProfile::default();
+        solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Pounce,
+        );
+        let original = solver.clone();
+        variant.solver(&mut solver);
+        assert_eq!(solver.selection, original.selection);
+        assert_eq!(solver.numerics.key(), original.numerics.key());
+        assert_eq!(solver.controls.time_limit, original.controls.time_limit);
+        assert_eq!(
+            solver.controls.hessian,
+            if variant == NumericalCampaign::CompiledLightLimitedMemory {
+                pse_backend_native::solve::HessianMode::LimitedMemory
+            } else {
+                pse_backend_native::solve::HessianMode::Auto
+            }
+        );
+    }
+    for unknown in ["", "automatic", "compiled", "BASELINE"] {
+        assert!(NumericalCampaign::parse(unknown).is_err());
+    }
+}
+
 /// Load exact document bytes; unlike the acceptance seed helper, no tests are removed.
 fn documents(root: &Path) -> TestResult<BTreeMap<String, Vec<u8>>> {
     fn visit(root: &Path, directory: &Path, out: &mut BTreeMap<String, Vec<u8>>) -> TestResult<()> {
@@ -156,6 +304,7 @@ pub(super) async fn reference_seed_package() -> TestResult<(
 )> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
     let manifest = Manifest::load(&root.join("conformance.toml"))?;
+    let preparation = numerical_preparation(&manifest.settings)?;
     let source = manifest
         .runs
         .iter()
@@ -163,12 +312,7 @@ pub(super) async fn reference_seed_package() -> TestResult<(
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
     // Recycle/CSTR reference controls execute locally and retain no canonical data.
     let (runtime, package, spill) = package(&manifest.settings, source, &root, false).await?;
-    Ok((
-        runtime,
-        package,
-        spill,
-        preparation(&manifest.settings)?.clone(),
-    ))
+    Ok((runtime, package, spill, preparation))
 }
 
 /// Ordinary scientific input closure, admitted through the same original document owner.
@@ -208,6 +352,7 @@ pub(super) async fn ordinary_delivery_package(
 )> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/reference");
     let manifest = Manifest::load(&root.join("conformance.toml"))?;
+    let preparation = numerical_preparation(&manifest.settings)?;
     let mut source = manifest
         .runs
         .iter()
@@ -225,12 +370,7 @@ pub(super) async fn ordinary_delivery_package(
     }
     source.package = "ordinary-delivery".into();
     let (runtime, package, spill) = package(&manifest.settings, &source, &root, canonical).await?;
-    Ok((
-        runtime,
-        package,
-        spill,
-        preparation(&manifest.settings)?.clone(),
-    ))
+    Ok((runtime, package, spill, preparation))
 }
 
 #[derive(Clone, Serialize)]

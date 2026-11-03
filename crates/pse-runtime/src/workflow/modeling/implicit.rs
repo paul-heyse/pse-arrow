@@ -348,6 +348,10 @@ impl ModelingPackage {
                             .collect::<Vec<_>>();
                         let mut policy = policy.clone();
                         policy.requirements.retain(|r| belongs(&r.target_id));
+                        policy.caloric_requirements.retain(|r| belongs(&r.target_id));
+                        if !policy.caloric_requirements.is_empty() {
+                            return Err(contract("nested caloric or energy-exposure context is unsupported: actual flow must be checked by the nested assessment owner"));
+                        }
                         let declarations = numerical
                             .declarations
                             .iter()

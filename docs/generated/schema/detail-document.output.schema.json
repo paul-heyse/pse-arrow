@@ -138,6 +138,24 @@
           "minimum": 0,
           "type": "integer"
         },
+        "oversized": {
+          "description": "Selected records rejected by the admitted per-record extent.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "queue_closed": {
+          "description": "Selected records refused after the writer receiver closed.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "queue_full": {
+          "description": "Selected records refused because the finite writer queue was full.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
         "queued": {
           "description": "Selected events admitted to the writer queue.",
           "format": "uint64",
@@ -167,7 +185,10 @@
         "acknowledged",
         "unacknowledged",
         "sampled_out",
-        "dropped"
+        "dropped",
+        "oversized",
+        "queue_full",
+        "queue_closed"
       ],
       "type": "object"
     },
@@ -362,8 +383,8 @@
       "type": "boolean"
     },
     "version": {
-      "const": 2,
-      "default": 2,
+      "const": 3,
+      "default": 3,
       "description": "Standalone answer encoding.",
       "type": "integer"
     }

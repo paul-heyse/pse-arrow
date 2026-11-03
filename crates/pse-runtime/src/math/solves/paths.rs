@@ -1095,8 +1095,6 @@ impl MathService {
             .variables
             .push(request.policy.parameter_tolerance);
         tolerances.rows.push(request.policy.hyperplane_tolerance);
-        let accuracy =
-            ResolvedAccuracy::resolve(&original.numerics.policy, &tolerances, &normalization)?;
         let contract = native::OracleContract {
             identity: family.key(),
             variables: family
@@ -1112,6 +1110,12 @@ impl MathService {
             derivatives: DerivativeOrder::First,
             smoothness: actual.smoothness,
         };
+        let accuracy = execution::adapter(corrector_backend).resolve_accuracy(
+            &original.numerics.policy,
+            &tolerances,
+            &normalization,
+            &contract,
+        )?;
         let matrix = pse_math::sparse::AssemblyMatrix::new(
             n + 1,
             n + 1,
