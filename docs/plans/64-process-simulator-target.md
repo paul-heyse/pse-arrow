@@ -3,7 +3,7 @@ title: "Plan64: Process-simulator target"
 status: in-progress
 date: 2026-11-02
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md, docs/plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md]
+review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md, docs/plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md, docs/plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/README.md
 doc_topics: [current-work, design, validation]
@@ -43,6 +43,57 @@ Read source at `crates/pse-runtime/src/workflow/modeling.rs`, `modeling/declared
 
 ## Confirmed rule changes
 
+### Proto integration scope accepted for planning — 2026-11-03
+
+The maintainer selected all six recommendations in the
+[Proto improvement review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md)
+for full planning integration, including breaking replacements of delivered B/C interfaces.
+Both the local engineering service and local scientific worker are working-delivery targets,
+not design-only investigations. This authoring instruction does not authorize their production
+implementation. Existing D–G execution and failure closeout retain their prior authorization.
+
+The baseline is `2550fa665` after scientific/capture integration at `480628c1e`, with the
+remaining capture/native-service tests and D–G checkpoint edits still in progress. Their
+closeout evidence remains owned by those companions; no new qualification is inferred here.
+Core 3.4, heuristics 1.0, ProcessSimulator 1.5 and test-assessment 1.2 apply. The
+[briefing](../library_leverage/libraries/proto/briefing.md) and linked exact library contracts
+inform implementation, rather than treating general Proto capability as local eligibility.
+
+| Proto review rule impact | Operator decision (2026-11-03) | Required route |
+| --- | --- | --- |
+| RC01 | accepted: projections derive from actual registry and Rust operation/document owners | Proposed ADR-0239 and blueprint §4.7/§21.8; 64i settles source annotation/emitted-metadata realization before generation |
+| RC02 | accepted: explicit versioned external/durable boundary breaks | 64i inventories actual readers/writers and retained interpretations; applicable decision and cutover before affected publication; semantic hashes/admission remain owned |
+| RC03 | accepted: explicit local effectful service and optional foreign-client contract | Proposed ADR-0239; 64j uses shared typed handlers, preserving passive-reader boundaries and original operation custody |
+| RC04 | accepted: explicitly prepared local scientific-worker binding | Proposed ADR-0240 and blueprint §9.11; 64k delivers the worker; remote deployment/distributed solving remain separate |
+
+### Proto improvement dispositions
+
+This is the sole scheduled-disposition owner for this review's I01–I06. These are
+review-local references, distinct from the recycle review's I01–I12 and native packet IDs.
+Companion tables own implementation progress. Scheduling is not resolution.
+
+| Finding reference | Disposition | Decision / work owner | Required evidence or trigger |
+| --- | --- | --- | --- |
+| I01 [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I01) | scheduled | 64i; 64a shared decision context | Owner-derived projection reaches complete selected consumer population; independent fidelity/extension controls and replaced mapping deletion |
+| I02 [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I02) | scheduled | 64i; B/C source/edit consumers | Generated local rules and exact-parent edits preserve contextual admission and attributable failure |
+| I03 [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I03) | scheduled | 64j; G scientific operation consumers | Independent generated client completes actual local service journey, reconnect, failure and native settlement |
+| I04 [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I04) | scheduled | 64k; D/F provider consumers | Working authenticated local worker preserves exact science/demand/context and process settlement against in-process controls |
+| I05 [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I05) | scheduled | 64h H02–H04; 64i projections | Independent case/output exchange, semantic mismatch controls and complete required output coverage |
+| I06 [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I06) | scheduled | 64i/64j; C/G/H selected consumers | Selection reaches producer; removed repeated materialization retains extent/interruption guarantees; quantitative benefit requires matched whole-lifetime measurement |
+
+64i/64j co-design one usable engineering slice; they do not wait for a universal catalogue.
+64k consumes exact provider meaning and the required wire slice independently of the full
+engineering service. H reference construction can proceed from settled exchange contracts.
+D–F scientific increments depend only on the slices they consume. A schema, method listing,
+accepted ADR or source projection does not establish prepared capability or scientific permission.
+
+Expanded series completion requires working 64i–64k deliveries, affected B–H consumer
+migrations/deletions and H's selected assembled evidence alongside the original finite scientific
+population. Preserve B/C's original outcomes as historical evidence; explicitly version/migrate
+new interpretations instead of retaining a second production path. Numeric equivalence,
+structural compatibility and scientific usability retain separate checks. Required formal
+decision reviews remain separate from this plan-authoring foundation assessment.
+
 All four directions were explicitly **accepted by the maintainer on 2026-11-02**. Acceptance is a design decision, not evidence the rule documents changed.
 
 | Review item | Decision and consequence | Route and implementation prerequisite |
@@ -66,6 +117,9 @@ Bug fixes restoring declared report and producer-permission guarantees need no p
 | [64f Specialized process families](64f-specialized-process-families.md) | P5 | Configured power, gas-solid, capture and electrochemical/adsorption tracks |
 | [64g Analyses, studies and applications](64g-analyses-studies-and-applications.md) | P6 | Task-specific derived products, control, inference and assessment |
 | [64h Reference coverage and qualification](64h-reference-coverage-and-qualification.md) | P0 finite denominator, D and P7 | Matched independent references, assembled evidence and truthful scope |
+| [64i Engineering contracts and validation](64i-engineering-contracts-and-validation.md) | Proto I01/I02 and shared I06 | Owner-derived projections, typed edit/inspection and complete migration |
+| [64j Engineering services and clients](64j-engineering-services-and-clients.md) | Proto I03 and service/client I06 | Working local engineering journey with original outcome/custody |
+| [64k Prepared scientific workers](64k-prepared-scientific-workers.md) | Proto I04 | Working explicitly prepared local provider worker and selected science controls |
 
 The coordinator owns review dispositions and shared decisions; companions own package state. These document groups are not serial execution lanes. Start with A01 and the finite reference/input inventory in 64h/64b. Settle A02's small shared contracts before affected APIs. Ordinary input A, native interface B/C and independent reference construction D can overlap once their scientific correspondence and consumed contracts agree. Integrate complete first delivery before broadening its completion claim.
 

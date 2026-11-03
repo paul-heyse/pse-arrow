@@ -1768,3 +1768,16 @@ scientific permission. No NumPy product adapter is currently selected.
 
 The independent host and engineering investigation contracts are owned by
 [§21.7](native-host-and-engineering-tools.md#section-21-7).
+
+### 21.8 Proposed local engineering service
+
+> Decision: [ADR-0239](../../adr/0239-owner-derived-engineering-boundaries.md) (proposed; operator-selected planning target).
+
+Plan64j targets a working authenticated local service and independent generated client over
+shared native handlers: describe contracts, inspect exact context, edit, prepare, submit a
+finite study, observe, cancel and read original products. Passive readers retain their existing
+effect boundary. Submission/replay follows the owning operation; disconnect and deadline do
+not prove cancellation or physical settlement. Completion owns scientific permission and
+the canonical owner retains atomic capture/readback. Optional foreign clients do not create
+a required Python product or qualify remote deployment. Existing native operations are the
+implemented baseline; this target is not yet delivered.

@@ -332,7 +332,21 @@ that constraint's own validation query is running. Native checked builders and a
 establish their stated facts, not application correctness. The failure codes belong to
 [§23.2](operations-and-validation.md#section-23-2).
 
+### 4.7 Proposed engineering boundary projections
+
+> Decision: [ADR-0239](../../adr/0239-owner-derived-engineering-boundaries.md) (proposed; operator-selected planning target).
+
+Plan64i adds owner-derived protobuf projections: registry fields retain registry authority,
+while Rust-owned actions/documents retain their actual typed/macro owners. Stable wire tags,
+directions and interpretation are deliberate projection facts. Generated descriptors/types,
+adapters and supported local constraints preserve exact identities, bits, alternatives,
+missingness and effects. Descriptors describe declared structure, not receiving admission,
+selected physical context or readiness. Scientific hashes do not derive from descriptor bytes.
+Plan64i owns generation/migration; existing semantic owners and current boundary
+interpretations remain in force until their explicit cutover.
+
 ## 6. Relation families
+
 
 > Decision: [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md),
 > [ADR-0099](../../adr/0099-modeling-language-and-identities.md) (proposed; implementation authorized).

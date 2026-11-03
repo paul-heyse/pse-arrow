@@ -11,6 +11,18 @@ adrs: [ADR-0238]
 
 # Scientific assets and reusable equipment
 
+## Proto integration consumer obligations
+
+Consume [64i](64i-engineering-contracts-and-validation.md) source-owned descriptors/validation
+for selected property/reaction/equipment boundaries, including exact physical context and
+declared versus prepared capability. [64k](64k-prepared-scientific-workers.md) delivers an
+explicit local CoolProp water worker using the same scientific factory as the in-process
+control; D02 retains physical science, datum, branch and derivative qualification. The worker
+does not replace current native placement or establish additional fluid coverage. D04/D05
+provide actual equipment consumers for the service/worker journeys. Migrate affected adapters
+and tests when the new target replaces them; use the coordinator's Proto disposition owner,
+not a second D-package status table. Existing closeout results retain their actual scope.
+
 ## Target and inspected foundation
 
 **Proposed:** deliver P2/P3 scientific foundations and generic equipment by complete consumer closures and supported configurations. The [coordinator](64-process-simulator-target.md) owns combined scope and review disposition; this companion owns D01–D06. Source baseline is `1acd8c83c`, consuming the [integrated review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), [scientific delivery contracts](../process-simulator-design/delivery/scientific-packages-and-equipment.md) and [finite IDAES scope](../process-simulator-design/delivery/idaes-scope-and-capability-coverage.md). All packages remain planned; authoring ran no scientific qualification.

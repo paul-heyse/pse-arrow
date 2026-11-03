@@ -11,6 +11,17 @@ doc_topics: [current-work, design, validation]
 
 # Specialized process families
 
+## Proto integration consumer obligations
+
+Family-specific clients consume [64i](64i-engineering-contracts-and-validation.md) projections
+and [64j](64j-engineering-services-and-clients.md) typed operations without a parallel science
+catalogue or execution engine. F02 supplies the selected steam/equipment consumer for
+[64k](64k-prepared-scientific-workers.md) same-science worker comparison; retain exact
+implementation/data, physical convention, demand and explicit unsupported capability.
+Other F tracks depend only on the provider/interface slices they actually use. Existing
+finite configuration coverage and scientific acceptance remain required; a generated schema
+does not establish a delivered process family. Replace affected mappings/callers/tests together.
+
 ## Purpose and basis
 
 **Proposed:** realize P5's finite released/configured process-family population as reusable authored science with complete consuming workflows. The [coordinator](64-process-simulator-target.md) owns combined scope, rule decisions and finding disposition; this companion owns F01–F07 package state. These local F package IDs are distinct from the source review's finding IDs.

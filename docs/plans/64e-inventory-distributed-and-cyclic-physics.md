@@ -11,6 +11,17 @@ doc_topics: [current-work, design, validation]
 
 # Inventory, distributed and cyclic physics
 
+## Proto integration consumer obligations
+
+[64i](64i-engineering-contracts-and-validation.md) and [64j](64j-engineering-services-and-clients.md)
+must expose actual selected axes/layout, phase allocation, event transfers, physical context
+and trajectory scope through existing temporal/scientific owners. An event field never implies
+unsupported sensitivity or simultaneous-route capability. Use a lumped-to-distributed/cyclic
+extension as the locality discriminator: value-only edits reuse compatible structure, while
+changed science/layout invalidates its actual dependencies. Preserve independent conservation,
+continuity and unsupported-product checks. E's existing package table remains the physics/status
+owner; interface migrations and deletions are scheduled by the coordinator's Proto dispositions.
+
 ## Purpose and basis
 
 **Proposed:** deliver P4's missing stored-material, distributed accumulation and operating-cycle physics through authored definitions and the existing native dynamic owners. The [coordinator](64-process-simulator-target.md) owns the combined target, rule decisions, finding dispositions and authorization. This companion owns E01–E06; document creation does not authorize their execution.

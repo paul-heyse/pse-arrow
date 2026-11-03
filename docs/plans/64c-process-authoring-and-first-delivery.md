@@ -12,6 +12,19 @@ doc_retention_reason: "Completed native delivery and improvement evidence remain
 
 # Process authoring and first delivery
 
+## Proto boundary replacement scope
+
+The [coordinator's Proto dispositions](64-process-simulator-target.md#proto-improvement-dispositions)
+schedule breaking improvements to delivered C01/C02/C04/C05/C09 surfaces. This plan's original
+Outcome and qualification remain historical evidence at their actual conditions.
+[64i](64i-engineering-contracts-and-validation.md) owns source-derived edit/preparation/product
+projections, local validation and selected producer materialization; [64j](64j-engineering-services-and-clients.md)
+owns shared handlers and the working client/service journey. Migrate actual local/durable/readback
+consumers, versions and generated outputs together; delete replaced adapters, callers and tests
+after targeted proof. Preserve exact-parent ordering, physical interpretation, full unsuccessful
+reports, scoped producer permission, actual invalidation and native custody. Completion of old C
+packages does not close the new migration, nor require keeping the old production mechanism.
+
 ## Resulting engineering behavior
 
 **Implemented and Tested:** one native path lets an engineer inspect selected process structure, edit an admitted definition/case, prepare and run supported operations, and inspect physical outputs or full failures. [64b](64b-native-scientific-intake.md) supplies Packet A's ordinary science; this companion supplies B/C and the native side of D, whose matched reference/closeout owner is [64h](64h-reference-coverage-and-qualification.md). The [coordinator](64-process-simulator-target.md) owns source baseline `1acd8c83c`, rule decisions and F01–F06 dispositions.

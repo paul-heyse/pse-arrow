@@ -11,6 +11,18 @@ adrs: []
 
 # Analyses, studies and applications
 
+## Proto integration consumer obligations
+
+[64j](64j-engineering-services-and-clients.md) delivers the local engineering service/client
+over shared typed operation handlers; [64i](64i-engineering-contracts-and-validation.md) owns
+its generated contracts, constraints and producer selection. G01 remains the scientific product
+permission/applicability owner, and G08 the atomic capture/witness/protection/receipt owner.
+Move affected inference, uncertainty, control and assessment consumers with their exact scope,
+original operation identity, failed siblings and unavailable products. Progress is observational;
+disconnect, timeout and cancel request are not native settlement or permission to reuse science.
+J's persisted journeys consume G08's final versioned-drain and capture closeout rather than a
+parallel capture path. G's existing evidence and pending failure fixes retain their own status.
+
 ## Purpose and foundations
 
 **Proposed:** realize P6's engineering analyses over the same authored physical definitions and exact scientific revisions used by simulation. The [coordinator](64-process-simulator-target.md) owns the combined target, F01–F06 disposition and rule decisions; this companion owns G01–G07. Creation authorizes no execution. The source baseline is `1acd8c83ca8f9e6f6e9b5e9c9cbf98e299d574b8`; Core 3.4, efficiency heuristics 1.0, ProcessSimulator 1.5 and test-assessment 1.2 apply.

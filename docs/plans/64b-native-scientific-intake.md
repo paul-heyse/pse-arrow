@@ -12,6 +12,16 @@ adrs: []
 
 # Native scientific intake
 
+## Proto source-consumer migration
+
+The [coordinator's Proto dispositions](64-process-simulator-target.md#proto-improvement-dispositions)
+schedule [64i](64i-engineering-contracts-and-validation.md) projections for source/provenance
+and typed edits used by the engineering clients. Preserve this plan's completed source-closure
+evidence and ordinary-input eligibility. New wire representations must carry exact parent,
+document/fit ownership and source/physical interpretation; they never admit independent
+science. 64i owns complete consumer migration and deletion of replaced adapters, with original
+source checks retained and affected paths requalified. H owns independent reference exchange.
+
 ## Purpose and foundation
 
 **Proposed:** deliver Packet A's complete selected-source → Rust interpretation/extraction → typed native delta → ordinary admission → guarded SurrealDB publication → ordinary consuming case → exact reopened readback journey. The [coordinator](64-process-simulator-target.md) owns scope, shared decisions and review dispositions; this companion owns B01–B05 and intake evidence. Authoring source is `1acd8c83c`; no acquisition or numerical execution was performed to create this plan.

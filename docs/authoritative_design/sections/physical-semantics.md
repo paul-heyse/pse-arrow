@@ -668,3 +668,14 @@ candidate must pass original equations, declared checks and fixture expectations
 allowing unclosed conservation does not waive arbitrary failed checks. Solver success,
 physical validity, numerical acceptance and empirical adequacy remain distinct observations.
 
+### 9.11 Proposed prepared local scientific worker
+
+> Decision: [ADR-0240](../../adr/0240-prepared-local-scientific-workers.md) (proposed; operator-selected planning target).
+
+Plan64k targets explicitly prepared local workers for existing coherent provider operations.
+Exact physical ports, implementation/data identity, derivative source/order and attempt-local
+context survive transport. The first worker uses ADR-0238 water science as an in-process
+comparison. Unsupported actions refuse; no serialized token grants local linearization proof.
+Cancellation retains owned process/native custody until settlement. This is an optional
+execution placement with working delivery planned, not current capability or remote solving.
+

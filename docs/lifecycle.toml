@@ -6619,6 +6619,51 @@ kind = "depends-on"
 # Plan64: native package state and single review disposition owner.
 
 [[scope_tables]]
+path = "docs/plans/64i-engineering-contracts-and-validation.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64j-engineering-services-and-clients.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(J[0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64k-prepared-scientific-workers.md"
+name = "package-state"
+heading = "Package state"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(K[0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/64-process-simulator-target.md"
+name = "proto-improvement-dispositions"
+heading = "Proto improvement dispositions"
+headers = ["Finding reference", "Disposition", "Decision / work owner", "Required evidence or trigger"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
 path = "docs/plans/64a-scope-and-shared-contracts.md"
 name = "package-state"
 heading = "Package state"
@@ -6756,4 +6801,46 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/64-process-simulator-target.md::finding-dispositions::F06"
 to = "docs/plans/64c-process-authoring-and-first-delivery.md::package-state::C05"
+kind = "depends-on"
+
+# Plan64 Proto recommendation-to-package dependencies.
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I01"
+to = "docs/plans/64i-engineering-contracts-and-validation.md::package-state::I01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I02"
+to = "docs/plans/64i-engineering-contracts-and-validation.md::package-state::I02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I03"
+to = "docs/plans/64j-engineering-services-and-clients.md::package-state::J06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I04"
+to = "docs/plans/64k-prepared-scientific-workers.md::package-state::K06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I05"
+to = "docs/plans/64h-reference-coverage-and-qualification.md::package-state::H03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I05"
+to = "docs/plans/64h-reference-coverage-and-qualification.md::package-state::H04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I06"
+to = "docs/plans/64i-engineering-contracts-and-validation.md::package-state::I06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/64-process-simulator-target.md::proto-improvement-dispositions::I06"
+to = "docs/plans/64j-engineering-services-and-clients.md::package-state::J05"
 kind = "depends-on"

@@ -11,6 +11,25 @@ adrs: []
 
 # Reference coverage and qualification
 
+## Proto reference and assembled acceptance
+
+The coordinator schedules Proto review I05 here under H02–H04. Consume [64i](64i-engineering-contracts-and-validation.md)
+generated case/configuration/output metadata envelopes with exact source, data, formulation,
+units/basis/datum, required coverage and failed/unavailable/not-run states. Retain Arrow/Parquet
+for scientific blocks and independently construct reference calculations and expected results.
+Migrate selected producers/comparators together, deleting the replaced exchange path; shared
+structural schemas never generate expected physical answers or close H01's denominator.
+
+H02/H03's ordinary recycle/exchanger correspondence is the first exchange consumer. Add
+deliberately wrong/omitted/reordered outputs, datum/formulation mismatch, exact bits/presence
+and wire-compatible semantic-change controls alongside structural Buf compatibility checks.
+H04 extends the same meaning to selected scientific families; do not introduce protobuf around
+an adequate exchange merely to add a format. H05/H07 consume working [64j](64j-engineering-services-and-clients.md)
+and [64k](64k-prepared-scientific-workers.md) deliveries and affected native paths, including
+failure, reconnect, cancellation/drain and protected original readback. H06 owns quantitative
+whole-lifetime selection/buffer and complete solve/worker comparisons where benefits are claimed.
+Component passes, descriptor inspection and matched codecs do not qualify the assembled system.
+
 ## Purpose and claim boundary
 
 **Proposed:** establish P0's finite required reference population, Packet D's complete matched comparisons and P7's assembled acceptance. The [coordinator](64-process-simulator-target.md) owns combined scope, rule decisions and finding disposition; this companion owns H01–H07 and actual qualification accounting. Authoring baseline is `1acd8c83ca8f9e6f6e9b5e9c9cbf98e299d574b8`. Core 3.4, efficiency heuristics 1.0, ProcessSimulator 1.5 and test-assessment 1.2 apply.

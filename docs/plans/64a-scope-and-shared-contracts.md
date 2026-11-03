@@ -11,6 +11,18 @@ doc_topics: [current-work, design, validation]
 
 # Scope and shared contracts
 
+## Proto target amendment — 2026-11-03
+
+The coordinator's [Proto dispositions](64-process-simulator-target.md#proto-improvement-dispositions)
+own newly accepted RC01–RC04 and review I01–I06. A02/A03's completed design assessment retains
+its original evidence; the forward target now includes actual Rust-owned actions/documents as
+well as registry projections, versioned breaking migrations and working local service/worker
+delivery. [64i](64i-engineering-contracts-and-validation.md) owns generation/validation and
+shared meanings, [64j](64j-engineering-services-and-clients.md) the engineering journey and
+[64k](64k-prepared-scientific-workers.md) the prepared provider process. Proposed ADR-0239/0240
+route enduring changes before implementation. No global protobuf-first science authority,
+required Python product or remote solving is selected.
+
 ## Target and assessed foundations
 
 **Proposed:** settle the scope and consumed meanings needed by Plan64 without creating a universal simulator IR or moving legitimate runtime binding into the compiler. The [coordinator](64-process-simulator-target.md) owns accepted RC decisions, source baseline `1acd8c83c`, finding correspondence and independent plan boundaries. This companion owns A01–A04 state.
