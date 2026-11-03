@@ -1026,6 +1026,19 @@ receipt reconciliation and supplies no automatic replay right.
 
 #### 20.6.3 Frozen capture and copy fidelity
 
+> Decision: ADR-0230 (proposed Plan64g G08 amendment; maintainer-authorized target).
+
+The replacement target is one bounded atomic transaction over a preexisting global publication
+witness, complete selected membership, immutable captured facts/protections and exact-request
+receipt. Every selector/captured-fact writer participates through its transaction; lease-only
+renewal does not change the witness. Required conflict checks include future matching insertion
+and metadata dependencies. Cancellation has no pending-capture exclusion to wait on. Original
+clock, exact replay/readback, authenticated release and actual reader drain remain required.
+Writable SQL-only Surrealism is conditional on exact-engine rollback/timeout/settlement evidence;
+otherwise the existing authored transaction owner supplies the same contract. This paragraph
+records the selected target, not implemented or qualified G08 behavior. The gate below describes
+the existing realization until its producers and consumers have migrated together.
+
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
 

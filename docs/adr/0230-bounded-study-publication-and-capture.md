@@ -57,6 +57,35 @@ isolation documentation, supply these premises.
 
 ## Outcome
 
+### Plan64g amendment — atomic publication witness
+
+**Proposed, maintainer-authorized 2026-11-03:** G08 replaces the committed open/pending
+publication gate described in the historical realization below with one bounded atomic capture
+transaction. It registers a preexisting global publication witness, evaluates the complete
+selector universe, installs immutable captured facts and protections, and records the exact-request
+receipt together. Every writer of selector membership or captured metadata changes that witness
+inside its own transaction; lease-only renewal does not. A future matching insert or changed
+project/branch/research/outcome dependency must conflict or appear in one complete captured cut.
+Cancellation never waits for an open capture gate. Conflict retry retains the original clock
+and cancellation; it never repeats science or grants new authority.
+
+Retain exact-request idempotency, lost-acknowledgement readback, retained unavailable members,
+authenticated protection release after actual reader drain, and original-owner cleanup. Settle
+legacy pending work before cutover and remove its replaced RPC, busy guard and recovery-incarnation
+path once all producers and consumers move. Release tombstones retain exact replay meaning.
+
+The preferred typed whole-operation realization is a finite SQL-only writable Surrealism export
+only if an actual pinned-engine multi-write/error/timeout probe establishes inherited-transaction
+rollback and completion before ownership release. Module network and module-KV effects are not
+selected. Production artifact/capability attestation must reflect the exact admitted export; the
+existing pure export cannot be relabelled writable. If the probe fails, the existing authored
+transaction owner implements the same contract. Only one production capture path is retained.
+
+The older ungated probe failed and is not acceptance of this replacement. Plan64g G08 owns
+the new exact-engine controls, writer migration and acceptance; this amendment neither changes
+formal ADR status nor retroactively qualifies historical runs. The remaining historical gate
+description records the earlier realization rather than the new target.
+
 Installation owns immutable study/population identity and digest, generation, phase and exact node/
 edge frontiers. Bounded run-and-point pages atomically acknowledge their exact immutable request;
 replay conflicts refuse. Separate edge closure and activation prove complete population. Expired
@@ -134,6 +163,9 @@ resident execution unless all provider and export consumers release their physic
 
 ## More information
 
+[Plan64g G08](../plans/64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
+owns the atomic-witness replacement and its separate qualification.
+
 [Plan56d](../plans/56d-publication-and-workload-fit.md) owns delivery;
 [Plan56](../plans/56-design-principle-alignment.md) owns finding dispositions.
 ADR-0227 retains scientific permission; ADR-0228 retains exact settlement and placement.
@@ -145,3 +177,5 @@ exact pinned source and the active-concurrency probe settle consequential engine
 - 2026-10-26: Proposed for authorized joint 56d/56e execution; formal acceptance remains separate.
 
 - 2026-10-26: Retained failed ungated SSI evidence and selected bounded gated capture after independent reassessment; production qualification remains open.
+- 2026-11-03: Proposed the maintainer-authorized Plan64g atomic publication-witness replacement;
+  exact-engine transactional probe and production qualification remain required before acceptance.

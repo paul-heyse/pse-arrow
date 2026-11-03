@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 343
+revision: 344
 date: 2026-11-03
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 344 | 2026-11-03 | Record the Plan64g atomic capture publication-witness target and conditional SQL-only writable Surrealism qualification boundary (§20.6.3). | Maintainer-authorized Plan64d–g implementation; proposed ADR-0230 amended before production replacement. Exact-engine evidence and complete writer/reader migration remain required; formal ADR status unchanged. |
 | 343 | 2026-11-03 | Retain original native or reconstructed quality separately from declared checks in selected direct-result evidence (§23.1). | Authorized Plan64c C09 correction within proposed ADR-0196; bounded codec and actual rejected-stage offline readback passed. No ADR status or assembled qualification change. |
 | 342 | 2026-11-03 | Record selected detail header/document v3, flushed-prefix acknowledgement, budgeted source tracking and original construction/outcome handoffs (§23.1). | Authorized Plan64c C09 execution within proposed ADR-0196; owning plan retains actual capture conditions, independent scientific outcomes and scope-end qualification. |
 | 341 | 2026-11-02 | Add conjunctive source-attributed caloric or energy-only consumer requirements, distinguishing exposure bounds and checked actual flows (§16.1). | Authorized Plan64c C08 target under proposed ADR-0163; implementation and scientific qualification remain separate. |
