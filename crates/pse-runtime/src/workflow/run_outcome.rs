@@ -34,7 +34,14 @@ pub enum RunRequest<'a> {
 /// Kind-owned lifecycle premises. Positional sources retain distinct context cuts.
 pub(super) struct RequestFacts<'a> {
     pub sources: Vec<&'a crate::workflow::ModelingPackage>,
-    pub identity: Result<(pse_ids::ContentHash, Option<pse_ids::ContentHash>), WorkflowError>,
+    // Executable provider identity is effectful. Descriptive readers consume the
+    // other facts without querying it; only the actual identity consumer calls this.
+    pub identity: Box<
+        dyn FnOnce() -> Result<(pse_ids::ContentHash, Option<pse_ids::ContentHash>), WorkflowError>
+            + Send
+            + Sync
+            + 'a,
+    >,
     pub provenance: Result<Vec<serde_json::Value>, WorkflowError>,
     pub requested_steps: usize,
     pub native_record_coverage: crate::workflow::ReplayNativeRecordCoverage,
@@ -81,7 +88,7 @@ impl<'a> RunRequest<'a> {
         match self {
             Self::Initialization(request) => RequestFacts {
                 sources: vec![&request.source],
-                identity: Ok((request.identity(), None)),
+                identity: Box::new(move || Ok((request.identity(), None))),
                 provenance: request.policy().and_then(|policy| {
                     serde_json::to_value(policy)
                         .map(|value| vec![value])
@@ -94,7 +101,7 @@ impl<'a> RunRequest<'a> {
                 }),
             },
             Self::Modeling(steps) => {
-                let identity = (|| {
+                let identity = Box::new(move || {
                     let mut hash =
                         pse_ids::FramedHasher::new(pse_ids::Frame::DurableModelingRequestV3);
                     hash.u64(steps.len() as u64);
@@ -116,7 +123,7 @@ impl<'a> RunRequest<'a> {
                         [] | [_, _, ..] => None,
                     };
                     Ok((hash.finish_hash(), preparation))
-                })();
+                });
                 RequestFacts {
                     sources: steps.iter().map(|step| &step.source).collect(),
                     identity,
@@ -138,7 +145,9 @@ impl<'a> RunRequest<'a> {
             }
             Self::Simulation(simulation) => RequestFacts {
                 sources: vec![&simulation.source],
-                identity: Ok((simulation.identity(), Some(simulation.identity()))),
+                identity: Box::new(move || {
+                    Ok((simulation.identity(), Some(simulation.identity())))
+                }),
                 provenance: encode(simulation.profile()).map(|value| vec![value]),
                 requested_steps: 1,
                 native_record_coverage: Coverage::IntegrationReportOnly,
@@ -148,7 +157,7 @@ impl<'a> RunRequest<'a> {
             },
             Self::Fit(fit) => RequestFacts {
                 sources: vec![&fit.source],
-                identity: Ok((fit.problem.key, Some(fit.problem.key))),
+                identity: Box::new(move || Ok((fit.problem.key, Some(fit.problem.key)))),
                 provenance: serde_json::to_value(fit.numerical_strategy())
                     .map(|value| vec![value])
                     .map_err(|error| contract(error.to_string())),
@@ -158,7 +167,7 @@ impl<'a> RunRequest<'a> {
             },
             Self::Horizon(horizon) => RequestFacts {
                 sources: horizon.sources.iter().collect(),
-                identity: Ok((horizon.identity, None)),
+                identity: Box::new(move || Ok((horizon.identity, None))),
                 provenance: serde_json::from_slice(&horizon.provenance)
                     .map(|value| vec![value])
                     .map_err(|error| contract(error.to_string())),
@@ -169,10 +178,12 @@ impl<'a> RunRequest<'a> {
             #[cfg(feature = "solver-diffsol")]
             Self::Shooting { problem, initial } => RequestFacts {
                 sources: vec![&problem.simulation.source],
-                identity: Ok((
-                    problem.request_identity(initial.as_deref()).as_id(),
-                    Some(problem.request_identity(None).as_id()),
-                )),
+                identity: Box::new(move || {
+                    Ok((
+                        problem.request_identity(initial.as_deref()).as_id(),
+                        Some(problem.request_identity(None).as_id()),
+                    ))
+                }),
                 provenance: problem
                     .numerical_strategy()
                     .map_err(crate::math::MathRuntimeError::from)

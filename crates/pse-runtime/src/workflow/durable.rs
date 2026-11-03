@@ -1333,7 +1333,7 @@ impl DurableAttempt {
                 .validate_project_context(context)
                 .await?;
         }
-        let identity = facts.identity?;
+        let identity = (facts.identity)()?;
         let selected = serde_json::to_vec(&(
             3_u8,
             identity,
