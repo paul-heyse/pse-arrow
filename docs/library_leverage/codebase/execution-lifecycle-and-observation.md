@@ -5,7 +5,10 @@ observation and telemetry, and the Linux process facts the host and runtime read
 [§18](../../authoritative_design/sections/numerical-execution.md#section-18),
 [§21](../../authoritative_design/sections/workflows-and-results.md#section-21) and
 [§23](../../authoritative_design/sections/operations-and-validation.md#section-23). The baseline is on
-the [entry page](README.md).
+the [entry page](README.md). This page was refreshed on 2026-11-02 against clean source
+`f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`, using framework/base edition 0.2 and
+additional-pattern revision 5. New observations are *Interface-checked* source findings;
+their prospective value is *Proposed*. No workload, test, telemetry service or probe was run.
 
 **System picture.** The runtime owns a process-wide `SharedRuntime`: a DataFusion `FairSpillPool`, a
 shared resource budget, job and CPU semaphores, and a math service that runs native jobs on dedicated OS
@@ -29,14 +32,19 @@ Legitimately custom: the paired CPU and memory permit protocol under which no na
 memory, joining before release, claim fences and leases on the canonical store, the closed
 host-operation catalogue, and the same-host, no-daemon diagnostics model.
 
-**Coverage on this page.** Read closely: `execution_context`, `native_thread`, `cancel`, the `durable`
-lease and streamer, the `study_execution` frontier and closing sets, the `worker` dispatch loop, the
-`math/staged` and `math/initialization` schedulers, the hub's `start`, `update_at` and first part of
-`OperationReader::snapshot`, telemetry loss and registration, and in `pse-host` the manager, admission,
-foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/staged`, `completion`,
-`study_diagnostics`, `reproducer`, `horizon`, `strategies`, `observation_detail` collection start,
-`tooling/inspection*` comparison statements, `capture/cpu.rs`, `manager/subgroup`, and the bodies of
-`pse-host/tests`. `execute_lane` and the publication handoff were not read.
+**Coverage.** Every live entry was reconsidered. Fresh complete-operation inquiry followed worker
+discovery, original claim, native start, publication handoff, durable finish/close/seal and study
+normal/recovery observation; it did not inspect every scientific execution branch or every generated
+transaction. The previously unread publication handoff and complete `serve_owned_lanes` loop were read.
+Fresh telemetry inquiry connected environment settings, process host, metric installation, SDK loss,
+Collector configuration, service inspection and the documented backend-query boundary. ExecutionContext,
+cancellation and paired resource wait bodies were reread; actor, record-family and process-fact coverage
+is representative and identified below. Test bodies/declarations supply consumer evidence only.
+Earlier hub internals and math scheduler reading retain the 2026-10-30 date; no current exhaustive
+spawn census, pool census, telemetry delivery qualification or measured benefit is claimed.
+
+The complete-operation questions are [CBO-180](#cbo-180) and [CBO-181](#cbo-181). Existing
+entries below retain their narrower primary responsibilities rather than being duplicated by them.
 
 <a id="cbo-079"></a>
 
@@ -69,6 +77,12 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   at public entries is a real trust boundary, and Tokio has no task-local inheritance. A small typed
   admission context or one spawn helper may need no library.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained, narrowed to authority/custody composition. Reread
+  `ExecutionContext::{capture,without_request,instrument_with}` and the response-owner/custody scopes
+  and pinned poll/drop wrapper in `canonical_transport.rs`, with worker claim and recovery callers.
+  Inheritance already composes existing grants rather than minting them. The former search counts are
+  2026-10-30 shape indicators, not a refreshed census or proof of missed custody. A proof value must
+  retain actual destruction scope and cannot subsume attribution into authority.
 - **Research questions.** Could one proof-of-admission value, obtained at the public edge, replace the
   repeated preamble? Can a single spawn point absorb capture and reject raw spawns? Do `tracing` span
   extensions or `TaskTracker` serve foreign callbacks, given the hub must work without a subscriber?
@@ -103,6 +117,10 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   honest label, and sparse foreign families may not fit a struct. The proposal concerns the declaration,
   not the wire form. A declaration crate would sit below `pse-math`; `pse-diagnostics` already does.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after revisiting `family_question`, `metric_unit` and the
+  producer/interpreter boundary. Free-form native observations and finite declared operational metrics
+  are different populations. The new end-to-end telemetry question is CBO-181; it does not make an
+  open native metric vocabulary a defect. Literal counts above remain the 2026-10-30 search snapshot.
 - **Research questions.** Could a small derive, a declarative macro or the `pse-schema` registry, which
   already owns diagnostic views, be the single authority? Does registry codegen reach below `pse-math`?
 
@@ -134,6 +152,12 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
 - **Counterevidence and uncertainty.** Polling is simple, restart-safe and truthful. Idle cost is
   unmeasured, long solves may not care, and admission across arbitrary processes has no shared notifier.
 - **Status.** Current promise (polling); wake notification Proposed.
+- **2026-11-02 reassessment.** Retained for durable discovery and study observation after reading the
+  current worker loop, `StudyObserver::poll_checked`, and the native checkpoint follow consumer.
+  Checkpoint follow now carries original source/generation cursors, gaps and reset facts; it is still
+  bounded polling, not a canonical LIVE subscription. Earlier host-loop frequencies are historical
+  observations, not a fresh census after single-service lifecycle changes. Distinguish wake hints from
+  claim authority and from the potentially expensive capture that a study poll performs (CBO-071).
 - **Research questions.** Does LIVE or `CHANGEFEED` deliver under backpressure within the bounded profile?
   Would an in-process `Notify` cover the common case? Does the readiness cursor map onto a native change
   feed?
@@ -168,6 +192,12 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   layering has a stated reason. Retained residents and inline width-one mode are real differences, and a
   shared abstraction could cost more than the copies.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after reading both `Coverage::admit_storage` and
+  `WindowCoverage::admit_storage`: the former checks the parent's opaque-bound policy with zero added
+  charge; the latter checks its prepaid allowance and returns. This is a concrete review question,
+  not an established refusal bug. `math/joined_pool.rs` already centralizes Rayon termination plus
+  actual OS joins, including partial-construction failure; its test body was inspected. Research must
+  identify the residual owner-affine request protocol rather than propose another general join owner.
 - **Research questions.** Does any scoped pool support per-thread non-`Send` state with panic capture and
   drain on failed start? Must the two surrogate layers be two threads?
 
@@ -195,6 +225,12 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   structured-concurrency crates tend to cancel by drop. Result types and rebind steps differ, and Kahn's
   algorithm is about 30 lines. The study-loop half is the report's lowest-confidence candidate.
 - **Status.** Current mechanism. Weak.
+- **2026-11-02 reassessment.** Retained as weak after reading all of `serve_owned_lanes` and
+  `worker/publication.rs::Handoff`. The worker now explicitly distinguishes Running, Waiting and
+  Publishing, limits both stages, drains every pending future and retains independent failures.
+  Borrowed lane ownership is returned after drain. That complete contract is stronger than a generic
+  task-group queue. The math loops' earlier observations were not re-proved as equivalent; no claimed
+  missing drain follows from duplication. Durable engine composition is considered separately in CBO-180.
 - **Research questions.** Does any non-`'static` task scope drain on drop and define simultaneous
   readiness? Is a local drain group over `FuturesUnordered` enough?
 
@@ -218,13 +254,19 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
 - **Patterns.** LOP-09, LOP-X005, LOP-X002.
 - **Evidence.** `cancellation.rs` in full, `pse-columnar/src/resource.rs`, `pse-runtime/src/cancel.rs` and
   `stop.rs`, `ExecutionScope` and the compiler `checkpoint`; bridges counted by file, not each read.
-- **Footprint.** Owners inspected; the cross-crate bridge bodies not.
+- **Footprint.** Owners and the shared `join_native` bridge inspected; the remaining cross-crate
+  bridges were located rather than all traced.
 - **Preservation constraints.** A stop request never releases work. No runtime in scientific code, and the
   wasm study module builds. Register before check. Deadlines are never renewed (§14.4).
 - **Counterevidence and uncertainty.** `dependency-ceilings.semantic` forbids `tokio` in semantic roots,
   `event_listener` fits there, and a tokio-util token has no blocking wait. Consolidation probably adds a
   tree to the runtime-free owner, which is new custom code. Bridge burden may be small.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained, with the bridge burden reduced by counterevidence: reread
+  `Cancellation`, `CancelSource::{child_with_deadline,join_native}` and their registration/child tests.
+  The existing join helper already maps the driver tree into one native leaf using shared
+  signal-and-drain semantics. A hierarchy-capable runtime-free owner is only worth researching if
+  it removes additional real bridges; different token types alone establish no useful replacement.
 - **Research questions.** Is there a runtime-free hierarchical token? What do the bridges actually do?
 
 <a id="cbo-082"></a>
@@ -249,6 +291,11 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   paired try-only admission without a starvation policy. The right owner may be one local primitive in
   `pse-engine`.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after rereading all three named wait regions. They share
+  register-before-check, complete-pair try admission and no tentative hold while waiting. Construction
+  additionally retires idle lanes and retries pool pressure, whereas compute resume does not own a
+  new memory reservation. Any reusable acquisition mechanism must preserve those distinct phases;
+  no starvation/performance claim was tested.
 - **Research questions.** Does any multi-resource acquisition primitive keep try-only pairing and release
   notification? Is a local `pse-engine` primitive smaller than three copies?
 
@@ -278,8 +325,15 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   before any exporter, unavailable stays distinct from zero, and dimensions carry no identity.
 - **Counterevidence and uncertainty.** Spans can be filtered, so they cannot be the only record. A hub fed
   by a `Layer` would sit behind the dispatcher. Eighteen instruments change slowly, and a macro could hide
-  plain code. The remedy is an interval owner, not an event bus.
+  plain code. Research should compare interval ownership and declaration-driven installation at
+  those boundaries.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after rereading the finite metric declarations and
+  `install_runtime_metrics` callbacks. The installer already groups three executor gauges in one loop
+  and retains availability/reset/population distinctions; several other callbacks still manually
+  select builders and independently sample the source. Declaration-driven installation is the
+  research question. The earlier instrument/site counts are not a current census, and subscriber-free
+  hub observations remain a legitimate independent consumer.
 - **Research questions.** Could `MetricDeclaration` drive installation, with `strum` and `enum-map`, which
   the workspace already has? Does the current OpenTelemetry SDK offer batch callbacks?
 
@@ -305,6 +359,12 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
   best available at this pin. An exporter wrapper counts export failures but not queue drops, and an own
   processor reimplements the queue.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after reading the whole loss observer/processor adapter and
+  inspecting its actual pressure/shutdown/abrupt-exit test declarations. The tests extend beyond
+  imitation events: some exercise an SDK processor under pressure. No test was run in this audit.
+  Matching internal names remains a version-sensitive seam, but absent diagnostics are explicitly
+  unknown and successful shutdown is not ingestion. A new typed supplier interface would need to
+  preserve the performing-processor association, not merely expose a global drop counter.
 - **Research questions.** Do later `opentelemetry_sdk` versions publish dropped counts through a typed
   interface or self-metric? Is a small upstream seam plausible?
 
@@ -332,6 +392,11 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
 - **Counterevidence and uncertainty.** Hand parsers are short and may be stricter than a library, `xtask`
   lacks the dependency, and the value is uniformity, not a known bug.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained from representative process-fact and remaining consumer
+  inspection, including the `systemctl` owner check in `canonical_files.rs`. This pass did not reread
+  every parser or revalidate upstream parser semantics; the installed-source capability statements
+  above retain their 2026-10-30 evidence date. Typed parsing must preserve ambiguity and namespace
+  refusal, so a parser's presence is a lead rather than established applicability.
 - **Research questions.** Do the `procfs-core` mount and cgroup parsers keep ambiguity refusal? For
   `owns_listener`, does `sock_diag` or inherited sockets remove the table walk? Identity policy is
   [CBO-004](cross-cutting-mechanisms.md#cbo-004).
@@ -344,12 +409,103 @@ foreground and process-fact parsers. Only skimmed: `workflow/run`, `workflow/sta
 - **Current mechanism.** Separate carriers per supplier. `pse-backend-native/src/pounce.rs` builds a scoped Rayon pool through `ThreadPoolBuilder::build_scoped` when `threads != 1`, and an `Admission` thread-local carries the width. `pse-math/src/implicit.rs` derives `Par::rayon(threads)` from the admitted width and the enclosing pool. `pse-backend-native/src/mkl.rs` saves and restores `omp_set_num_threads`, and `scip.rs` refuses when nested OpenMP defaults are not serial. [CBO-083](#cbo-083) covers owner-affine actors and [CBO-030](native-solver-integration.md#cbo-030) process locks; neither covers pool lifetime, nested width or a shared team owner.
 - **Why it matters.** A new supplier or nested route decides width independently, and a pool constructed per scoped call may be the wrong lifetime for repeated solves (*Proposed*; cost not *Measured*).
 - **Patterns.** LOP-07, LOP-09, LOP-X018.
-- **Evidence.** The sites named above, read at those sites only. Added from the independent challenge; no pass in this audit examined the responsibility as a whole.
-- **Footprint.** Inspected as named. `joined_pool.rs` is a further owner. Other OpenMP and Rayon consumers are suspected but unread.
-- **Preservation constraints.** Admitted widths are enforced; four distinct kinds of concurrency stay explicit (Plan 28); one BLAS and OpenMP per process; reproducibility of scalar sums; no oversubscription of the 16-lane premise.
+- **Evidence.** The named supplier controls and runtime `math/joined_pool.rs` were reread at their
+  actual bodies. The initial occurrence came from the earlier independent challenge.
+- **Footprint.** These supplier and joined-pool boundaries are inspected; a complete census of
+  every transitive OpenMP/Rayon consumer and each solver's native internal teams remains open.
+- **Preservation constraints.** Actual admitted widths remain enforced; distinct concurrency kinds
+  stay explicit; one BLAS and OpenMP per process; scalar reproducibility; no oversubscription relative
+  to the selected admission. The maintainer's unbounded ordinary host mode does not impose a universal
+  sixteen-lane cap on independent work.
 - **Counterevidence and uncertainty.** Each supplier exposes a different control, so a shared owner may reduce to a width value and a convention. Pool construction may be negligible beside the solve.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after revisiting the POUNCE scoped-pool, implicit-factor width
+  and MKL controls, and reading `JoinedPool` in full. A shared joined Rayon owner already exists for
+  retained runtime teams; it does not control OpenMP/MKL or the backend's scoped pool. Research must
+  determine the intended lifetime for repeated solves and transitive team membership before comparing
+  pool abstractions. No pool-start or oversubscription cost was measured.
 - **Research questions.** Can one owner and pool lifetime carry admitted width across these suppliers? Does Rayon's scoped pool have a retained form that fits per-attempt admission?
+
+<a id="cbo-180"></a>
+
+## CBO-180 — Durable execution owns a complete claim-to-settlement engine
+
+- **Operation and consumer.** Execute a recorded study occurrence exactly under its issued authority,
+  retain the scientific outcome, and recover a lost worker without inventing completed or absent
+  numerical effects. Operators consume `work_once`/`serve`; study policy consumes terminal facts.
+- **Observed mechanism.** `worker::work_once_scoped` advances durable readiness, prepares a candidate
+  and admits an original nonce-bound claim. `work_study_candidate` constructs a `DurableAttempt`,
+  starts lease renewal, marks start, refreshes authority, launches the owned scientific supervisor,
+  waits for actual completion, and records policy facts. `serve_owned_lanes` separately admits
+  scientific and publication capacity through a two-way handoff. `DurableAttempt::finish` drains
+  progress, exports relations and seeds, freezes actual append acknowledgments, closes ingestion,
+  stops renewal and seals terminal publication. Unknown acknowledgments have readback/reconciliation
+  paths. Recovery first fences the old writer, then refreshes exact attempt/point facts and publishes
+  a truthful worker-loss receipt; native-start absence is inferred only after that fence.
+- **Why investigate.** This is a maintained durable execution engine, not just several timers and
+  queues. Adding a new durable activity or changing a failure window crosses runtime scheduling,
+  transaction receipts, policy projection and physical publication. A reusable durable-work mechanism
+  might own part of that continuation/settlement protocol or make its state transitions clearer
+  (*Proposed*). The number of states alone is not evidence that another engine is better.
+- **Patterns.** LOP-08, LOP-09, LOP-04, LOP-X005, LOP-X012. Existing narrow opportunities remain
+  CBO-016 (wakeups), CBO-073 (store round trips/policy projection) and CBO-081 (completion-owned groups).
+- **Evidence and coverage.** Read the discovery/claim/native-start chain, complete publication handoff
+  and scheduler, `finish`, `terminate_inner`, `recover_with_study_point`, `recover_study_point` and
+  `record_study_attempt`. Inspected worker tests for publication backpressure, lost acknowledgment,
+  rotating recovery, all-issued-lane drain and independent failures. Generated transaction bodies were
+  sampled through capture/fence owners; the complete execution-state program and all tests were not read.
+- **Preserve.** Canonical SurrealDB authority; no extra always-running coordinator required; short
+  transactions without numerical work; original request clock, nonce and generation fences; scientific
+  completion distinct from durable export; effect uncertainty distinct from retryability; exact manifest
+  acknowledgment; no replay of a started scientific effect; stop means signal then drain; bounded
+  publication backpressure and owned memory. Accepted scope does not promise durable numerical checkpoints.
+- **Counterevidence.** The engine has domain-specific recovery semantics and already shared lease,
+  retry and settlement primitives. A conventional at-least-once job queue or workflow replay engine
+  could violate its core semantics or introduce another persistence authority. Existing tests show why
+  the handoff is substantial; the audit neither executes them nor chooses a replacement.
+- **Research handoff.** Which complete durable-work capability can use the existing transactional
+  store and caller-owned native effect, retain uncertainty until exact settlement, and compose
+  completion-owned cancellation? Which responsibilities would it actually remove, and which remain
+  necessarily scientific? Evaluate that boundary before researching a particular queue API.
+
+<a id="cbo-181"></a>
+
+## CBO-181 — Telemetry delivery has components but no composed passive health/query operation
+
+- **Operation and consumer.** An operator asks whether selected telemetry is configured, producing,
+  exporting and queryable, and retrieves the original owner's traces/metrics without starting science
+  or granting control. This is a proposed extension to the retained native operating surface.
+- **Observed mechanism.** `pse_host::telemetry` resolves private signal settings; the explicit
+  process-owned `tooling::telemetry::Host` installs HTTP/protobuf providers, finite metric callbacks
+  and filtered owner spans. Collector configuration owns batching, persistent file queues, retry,
+  failure metrics, health endpoint and a Prometheus pull endpoint. `telemetry_service::inspect` reports
+  configuration and authenticated service observations. The environment guide explicitly records
+  retirement of Python health/trace lookup/watch wrappers and claims no replacement backend query/watch
+  CLI. Native checkpoint follow now handles copied producer continuity, but it does not query the
+  telemetry backend or prove ingestion.
+- **Why investigate.** Installation/process health and SDK-local loss facts leave the operator to
+  compose backend visibility and pipeline-failure evidence manually. The potential value is one
+  bounded, passive question over existing library/service capabilities, preserving each stage's
+  uncertainty (*Proposed*), rather than adding another signal queue or inferring delivery from flush.
+- **Patterns.** LOP-12, LOP-09, LOP-03, LOP-X022. CBO-013/084/085 retain metric declaration, open
+  record vocabulary and SDK-loss seams; none owns the complete operator question.
+- **Evidence and limits.** Read settings/host and loss interfaces, metric installer, complete
+  `collector_configuration`, service inspection route, `tooling/reader/follow.rs`, environment guide
+  optional telemetry section and blueprint §23 shared telemetry. Inspected service tests for passive
+  inspection, independent stop failures and reconfiguration rollback. No service, endpoint, live queue,
+  backend API, query result or old acceptance receipt was refreshed. Current backend support remains
+  an applicability research question.
+- **Preserve.** Redacted public configuration; private credentials and exact service-generation fences;
+  no implicit install/start/repair; owner population/unit/reset semantics; bounded queries and original
+  time windows; unknown/sampled/lost/expired distinct from zero; successful export distinct from ingest,
+  visibility and crash survival; optional telemetry cannot affect numerical outcomes or drain.
+- **Counterevidence.** OpenObserve's existing user interface may already serve this sole operator;
+  the deliberate retirement may have removed demand as well as code. Source checkpoint investigation
+  already answers many local questions. Establish the recurring missing activity before adding a CLI.
+- **Research handoff.** Can existing health/internal-metric/backend-query interfaces compose a useful
+  passive answer with authenticated source/configuration identity and separate stage availability?
+  What question remains after native checkpoint inspection and the backend UI are used? No library
+  or service adoption is recommended by this observation.
 
 ## Examined and not retained
 

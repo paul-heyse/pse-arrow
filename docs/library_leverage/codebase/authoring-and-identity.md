@@ -11,17 +11,19 @@ the [entry page](README.md). Mechanisms were read statically and are *Interface-
 - **Two grammars on one lexical base.** The expression grammar (`dsl/`) is a token-slice recursive-descent parser with precedence climbing. The declaration language (`language/`) is a second token cursor with a roughly 1k-line renderer and a parse, render, parse round-trip test.
 - **winnow.** It tokenizes (`dsl/lexer.rs`, `grammar.rs`, `language/static_value.rs`), with `LocatingSlice` offsets. Both parsers consume its tokens.
 - **`ParseBudget`.** It bounds bytes and nesting depth before expansion.
-- **Units and dimensions.** A registry-driven domain algebra with rational exponents, offsets, datums and physical-type contracts (ADR-0124). Registry-owned semantics make a generic units or unification library a poor fit, and that is legitimate bespoke work.
+- **Units and dimensions.** A registry-driven domain algebra with rational exponents, offsets, datums and physical-type contracts (ADR-0124). These domain rules constrain any generic units/unification mechanism; no such candidate's fit is established here.
 - **Identity.** blake3 derive-keys with length-prefixed framing. `pse-ids/src/document.rs` frames any serde value through a canonical `Framer` without a hand-written field list. The `vocabulary!` macro derives spellings, serde, `FromStr` and `ALL` from one table.
 - **Already library-native.** Graph work in this area uses petgraph and rustworkx. `pse-structural` delegates matching, DM and BTF. Salsa is used with LRU, durability and interning. Specialization, rewrite and fold operate on authored declarations before `pse-math` and do not overlap Symbolica.
 
 Opportunities cluster in three places: the hand-written language front end ([CBO-113](#cbo-113), [CBO-037](#cbo-037), [CBO-114](#cbo-114), [CBO-038](#cbo-038)), per-type identity framing ([CBO-039](#cbo-039)), and the package loader ([CBO-115](#cbo-115)). The resolved-type wire hierarchies and the second IR belong to [CBO-110](mathematics-and-compilation.md#cbo-110) and [CBO-109](mathematics-and-compilation.md#cbo-109).
 
-**Coverage on this page.** Read closely: `language/parser.rs` (entry points and about 260 lines of `item`), the whole of `dsl/lexer.rs`, `dsl/walk.rs` by function list and counts, `pse-admission` `document/edit.rs` and the load route (`load.rs`, `value.rs`, `decode.rs`, `hydrate.rs`, `spans.rs`, `allocation.rs`), `pse-quantity` `premises`, and `pse-ids` heads. Read at heads or signatures only: `language/render.rs`, `dsl/parser.rs` beyond its prologue and unit grammar, `pse-modeling` `check*`, `expression*` and `resolved*`, `pse-quantity` registry and unit bodies, `pse-admission` `owned.rs`, `physical/*`. Not read: the remaining 1,500 lines of `Cursor::item`, `specialize.rs::instantiate_body`, `check.rs` `inventory_package` and `finish_package`, and the field-by-field bodies of the hand `frame` methods. About 15k lines of domain-dense modeling code were judged from module documents and signatures, which is a claim from structure, not from reading.
+**Refresh baseline and coverage (2026-11-02).** Source `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`, with no product edits included. Framework/base patterns edition 0.2 and the additional patterns at this baseline apply. All six live opportunities were reconsidered. Native source inspection reread declaration parsing and identity assignment, the complete tokenizer, admission's edit path and allocation prologue, checking's phase driver and representative inventory/finish bodies, manual and serde framing, and the host diagnostic projection. `kernel_language.rs` round-trip assertions were read, not executed. Specialization's instance/prelude and selected-function paths were also read to challenge the prior exclusion of that area; their findings are on the mathematics page. The whole grammar, every framing body and all loader decode/hydration paths were not re-audited. Counts and earlier complete-reading descriptions below originate in the 2026-10-30 account; they are not new measurements or refreshed censuses. Per-entry refresh notes identify the current witnesses and limits. No library applicability, defect reproduction or performance result follows from these reads.
 
 <a id="cbo-039"></a>
 
 ## CBO-039 — Identity framing written by hand, with silent omission possible
+
+**Refresh — retained, Interface-checked.** `Scheme::frame` still hand-selects tags and nested values, while `pse-ids::document::frame` delegates field enumeration to serde. `derived.rs` also already has declarative relationship machinery and exhaustive enum matches: those are counterevidence to treating every frame as an omission hazard. The opportunity is explicit completeness decisions for selective framing, not a byte-format migration. No omitted field was demonstrated; golden-vector execution and a complete frame inventory were not performed.
 
 - **Operation and consumers.** Content identity for resolved records, schemes, units, selections, envelopes, derived items and preparation inputs. Consumers are publication, replay, caches and same-point reuse decisions.
 - **Current mechanism.**
@@ -52,6 +54,8 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 
 ## CBO-113 — The modeling language has a semantic parser but no language toolchain
 
+**Refresh — retained, Interface-checked mechanism; Proposed additions.** `dsl::lexer::tokenize` still skips comments, `language::assign_ids_with` still ends in `render(&rows)`, and admission's `document/edit.rs::assign_ids` installs that complete replacement for modeling documents. The read process/physical-language round-trip tests compare normalized semantic rows, not preservation of comments or whitespace. Comment-preserving identity edits therefore remain a concrete need to investigate independently of unrecorded demand for an editor, CST or LSP. The new native Rust code-intelligence tools inspect this Rust implementation; they do not establish a `.pse` language service.
+
 - **Operation and consumers.** Package authors and agents write and revise `.pse` sources. Admission and edit routes need exact field spans, and `assign_ids` rewrites source.
 - **Current mechanism.**
   - Two token-cursor parsers sit on the winnow tokenizer: `language/parser.rs::Cursor` (about 3.7k lines) and `dsl/parser.rs::Cursor` (about 780 lines, with near-duplicate `eat`, `expect` and `error`).
@@ -78,6 +82,8 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 
 ## CBO-037 — Grammar facts in several hand-written forms
 
+**Refresh — retained, Interface-checked.** The current `Cursor::item` still normalizes compound keywords, classifies anonymous declarations and selects generated payload constructors in a hand match; `kernel_language.rs` independently asserts process and physical-form parse/render round trips. That independence is useful assurance. Only mechanical grammar/traversal projections are a delegation question: identity policy, scope-sensitive parsing and physical inference remain domain decisions. Remaining parser arms and every traversal were not reread, so the old footprint counts remain historical.
+
 - **Operation and consumers.** Adding or changing a declaration kind, field or expression form. Consumers are `pse-admission` load and edit, workflow code and tests.
 - **Current mechanism.** Three distinct obligations are maintained by hand.
   - **Concrete syntax.** The registry (`pse-schema/src/catalog/modeling.rs`) generates payload structs, `SemanticEq`, schema and a visitor that follows each field's declared grammar (`SourceGrammar`). Surface syntax is separate: `Cursor::item` has a hand arm per keyword, `render.rs` (17 functions) mirrors them in reverse, and the round-trip tests (`kernel_language.rs`) pin the pair. Literal spellings such as `"big_m"` are refused by hand beside generated enums.
@@ -103,6 +109,8 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 
 ## CBO-114 — Checking reports one failure per cycle
 
+**Refresh — retained, Interface-checked mechanism; Proposed collection.** `check_declarations` still parses rows and checks source-order signatures and inheritance-order members with `?`; `inventory_package` and `finish_package` also stop on errors. Their bodies show why independence cannot be assumed: later types, entity derivation and data verification consume earlier products. Collecting failures is credible only within established independent phase populations; no claim that every declaration can proceed in parallel is made. The existing diagnostic carrier is a lead, not evidence that safe aggregation has been implemented.
+
 - **Operation and consumers.** An author or agent fixing a package; the admission driver and host commands that report check results.
 - **Current mechanism.**
   - Checking and specialization flow as `Result<_, ModelingError>` through `?`. `check_declarations` in `pse-modeling/src/check.rs` stops at its first failure.
@@ -111,7 +119,7 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 - **Why it matters.** Each fix-and-run cycle reveals one problem, so a package with several independent errors needs several full cycles. Declaration-granular Salsa queries are a natural unit for collecting independent failures, and spans are already held (Proposed).
 - **Patterns.** LOP-03, LOP-12.
 - **Evidence.** `rg` over the three crates and the error enum heads, the `CompileError` macro block, the `AuthoringError` head, `check_declarations`. The bodies of the later check phases were not read.
-- **Footprint.** Suspected but unread: `phases.rs::finish`, `check.rs` `inventory_package` and `finish_package`, and whether `pse-runtime` or `BoundaryDiagnostic` aggregates at a higher layer.
+- **Footprint.** Current refresh read representative `inventory_package` branches and the `finish_package` body; these preserve phase dependence and first-error propagation. All inventory branches, `phases.rs::finish` and possible higher-layer runtime aggregation were not completely retraced.
 - **Preservation constraints.** Later phases must not run on invalid prerequisites or emit cascades; deterministic ordering; §23.2 codes; transient refusals stay separate from semantic failures.
 - **Counterevidence and uncertainty.** First-failure reporting keeps cascades out and simplifies determinism. The check phases may order dependencies so that few failures are independent. How collection would compose with the driver that feeds results back into Salsa ([CBO-107](mathematics-and-compilation.md#cbo-107)) is unsettled.
 - **Status.** Proposed.
@@ -122,6 +130,8 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 <a id="cbo-038"></a>
 
 ## CBO-038 — Held spans do not reach human diagnostics
+
+**Refresh — retained with a narrower boundary.** The current host `DiagnosticRecord::from_diagnostic` already inherits `SourceCode`, traverses diagnostic/related children and resolves supplied labels into line/column facts. The missing join to investigate is document text plus authoring/modeling locations at the actual failing command, rather than a missing renderer. `check_with_phases` still attaches row locations. No malformed `.pse` command was run and no complete source-bearing error path was traced, so universal claims about every human diagnostic remain unestablished.
 
 - **Operation and consumers.** Show an author where a parse or check error occurred. Consumers are the CLI and the agent interface.
 - **Current mechanism.**
@@ -144,6 +154,8 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 
 ## CBO-115 — Authoring load takes a long route with parallel span and accounting forms
 
+**Refresh — retained, Interface-checked.** Admission's loader still retains original immutable bytes through `SourcePayload`/`bytes::Bytes::from_owner`, while `allocation.rs` separately estimates parser/declaration storage and retains its allocation lease. The identity-edit consumer reparses a full candidate after applying exact-preimage edits. Those are real custody and validation obligations: a parser limit alone does not prepay all retained DTOs, rows and clones. Research should ask which attribution/accounting projections can be shared without losing that ownership, not assume all loader passes are redundant. Decode and hydration internals remain sampled rather than exhaustively refreshed.
+
 - **Operation and consumers.** Package loading for all model runs (`load_package`, `load_reusing`) in `pse-admission`.
 - **Current mechanism.**
   - YAML passes through `serde_saphyr` into a local `Spanned<Value>` tree (`value.rs`, a custom `Visitor` for duplicate keys). TOML passes through `toml::Spanned<toml::Value>` into the same `Value`.
@@ -162,7 +174,7 @@ Opportunities cluster in three places: the hand-written language front end ([CBO
 
 ## Examined and not retained
 
-- **Physical-type inference and schemes.** `pse-quantity` `infer`, `scheme`, `resolved`, `unit` and `conversion` implement registered operation rules, delta types, datums and contracts. No generic unifier or type-level units library expresses authored registries, and exact canonical bits with datum refusal are contract. The solver loop was not read.
+- **Physical-type inference and schemes.** `pse-quantity` `infer`, `scheme`, `resolved`, `unit` and `conversion` implement registered operation rules, delta types, datums and contracts. These are preservation constraints, not proof that every generic unifier or units capability is unsuitable. No such capability was assessed in this refresh, and no concrete residual delegation opportunity beyond the entries above was established.
 - **`Ratio` against a rational crate.** The checked `i16` canonical form, refusal of unreduced stored bytes and `const` constructors are contract, and the code is small.
 - **`p0.rs` package resolution.** Versions are exact over a complete inventory, so there is nothing for a version solver to solve.
 - **`pse-model` `study_policy`, `strategy`, `numerics`.** Pure typed policy with petgraph for cycle checks. `NumericalPolicy::validate` is hand range-checking that a validation crate could partly type, but the checks are few and cross-field.

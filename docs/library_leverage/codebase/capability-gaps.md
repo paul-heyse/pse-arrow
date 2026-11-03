@@ -14,14 +14,13 @@ store. Its users are a Rust application author calling `pse_runtime::workflow`, 
 `.pse`, the maintainer and agents using `pse` and `pse-project`, and isolated scientific reference
 drivers. There is no end-user product shell.
 
-**The §25 table lags the source.** A search of §25 and the coverage appendix for multistart, pseudo-arclength
-continuation, IBEX root isolation, Latin hypercube designs, study cohorts, reducers and reproducers, and
-project packs found no mention, yet each exists in source: designs (`workflow/sampling.rs`), multistart seeds
-(`math/solves/multistart.rs`), continuation (`math/solves/paths.rs`, `backend-native/kkt/path/arclength.rs`),
-PETSc products (`math/solves/petsc.rs`), IBEX isolation (`root_isolation.rs`), cohorts over DataFusion
-(`workflow/cohort_provider.rs`, `study_workbench.rs`), `workflow/reduction.rs` and `reproducer.rs`, and
-`project_portability.rs`. The appendix row "Surrogates … Not implemented" coexists with a retained egobox actor.
-So a gap read from the documents alone is often false: "no multistart" and "no continuation" are not gaps.
+**Scope and source are now reconciled.** The 2026-10-30 account observed missing descriptions in §25.
+The current owner records multistart, continuation, surrogate proposals and original-model correction,
+study workflows and retained tooling. That documentation issue is resolved; it is not a reason to retire
+the distinct product gaps below. Designs (`workflow/sampling.rs`), multistart starts, arclength paths,
+PETSc products, IBEX root isolation, DataFusion cohorts, reducers, reproducers and project packs already
+exist. None is a fresh absent-capability finding. In particular, a retained surrogate proposal actor is
+not a complete surrogate-model/provider product, and auxiliary path points are not a retained branch diagram.
 
 The real pattern is different ([LOP-X022](../assessment-patterns.md#lop-x022)): many mechanisms stop short of a
 retained product. A strong, library-backed numerical mechanism ends as an auxiliary start, a proposal, an
@@ -33,8 +32,9 @@ smallest retained product and the validity statement it needs.
 **Three statuses, kept apart.** *Promised* means in the target scope or recorded as a limit, with no delivery
 commitment ("Scope is not a delivery commitment", §0.2): transport and Helmholtz properties, surrogates, utility
 minimization and the global-solving envelope contract. *Accepted planned* means a plan or accepted decision
-schedules it. Reading the active-plan index, plans 59, 58 (with 58a, d, e, f, g, h), 54, 53, 40, 32 and 28 by topic
-found none that schedules a scientific entry below; the one accepted-planned item among the gaps examined is
+schedules it. The refreshed active-plan index keeps scientific qualification and existing remaining work
+separate from completed Plans 59–63; no newly accepted scientific extension below was identified there.
+The accepted-planned item among the gaps examined is
 application backup and restore, an obligation of Plan 58h before non-regenerable data, homed at
 [CBO-074](persistence-and-transport.md#cbo-074). Plan 57d (sampling and statistical workflows) is superseded and
 authorizes nothing. *Proposed* is everything else.
@@ -45,17 +45,17 @@ authorizes nothing. *Proposed* is everything else.
 ([CBO-137](numerical-workflows.md#cbo-137)), language tooling for `.pse` ([CBO-113](authoring-and-identity.md#cbo-113)),
 and backup ([CBO-074](persistence-and-transport.md#cbo-074)) were first found as gaps and live on those pages.
 
-**Coverage on this page.** Read closely: §25, the coverage appendix and §26; the provider route from `.pse`
-`external` through `modeling_package_registered` to `prepare_selected_providers`; `workflow/uncertainty.rs`,
-`workflow/sampling.rs`, `study_workbench.rs::aggregate`; `canonical_explanations.rs`; the solver paths for
-bounded roots and the adjoint profile (`execution/petsc.rs`, `dynamics.rs::admit_adjoint`, `integrator/adjoint.rs`,
-`dynamics/idas.rs`, `anchored.rs`). Representative: continuation (`paths.rs`, `arclength.rs` heads and
-`PathRequest`), `scip.rs` expression vocabulary, `kinsol/block.rs`, authoring and `.pse` tooling. Skimmed: the
-global-certification bodies behind `grep -il ibex`, `diagnostic_request.rs` and `normalization.rs`, and unit-model
-breadth, which is document-level only and not source-verified. Not read: active plan bodies beyond the topic hits,
-`project_portability.rs` in full, `pse-math::continuation`, and the IDAES algorithms beyond signatures and docstrings;
-parmest bootstrap lies outside this checkout. Absence claims rest on case-insensitive `rg` over `crates/` and do not
-prove absence under another name. Several statements about demand are inferred from IDAES behaviour, not recorded.
+**Refresh coverage, 2026-11-02.** All 13 entries were reconsidered against current scope and unchanged
+production source in the scientific/runtime owners. Fresh body reads covered §25, the active-plan index,
+the continuation/event-policy head, PETSc contract admission, adjoint admission, IDAS settings and linear
+solver admission, KINSOL block preparation, canonical graph request/response types, normalization and the
+explicit diagnostic request/result surface. Continuous-axis and temporal composition were sampled to
+challenge the old index-analysis search. Other detailed scientific, provider, reporting and native-export
+observations inherit the 2026-10-30 source inspection, whose relevant production files are unchanged;
+old upstream release comparisons and IDAES docstring observations were not refreshed. No integrator,
+provider, solver prefix or scientific workload was prepared or run. Absence is bounded by these owners
+and the named searches, not proved for every equivalent name, external embedder or generated form.
+Consumer archetypes explain possible value; recorded demand is still missing for several extensions.
 
 <a id="cbo-141"></a>
 
@@ -72,7 +72,7 @@ prove absence under another name. Several statements about demand are inferred f
   and `Runtime::modeling_package_registered(rows, physical, providers)`, documented as "source names load no code".
   Outside tests, `impl Provider` is wrappers and implicit-block factories only, `pse-kernels/src/feos/` is empty,
   FeOS is reference-only, and no reference package uses `external`. The seam has never carried a scientific external
-  function in production code.
+  function in the production paths inspected; external library embedders are outside this search.
 - **Why it matters.** Sizing-oriented unit models need transport properties, and this is a promised property gap. Real fluids are otherwise inaccessible. Two routes are distinct: a provider for Helmholtz fluids, and
   authored correlation-style transport (mixing rules, DIPPR-class forms) as `.pse` laws plus data documents that need
   no new library. Neither covers the other.
@@ -122,7 +122,8 @@ prove absence under another name. Several statements about demand are inferred f
 - **Counterevidence and uncertainty.** A user interface is a later port and this is a linked-library product with no
   shell. Agents may prefer structured output over drawings. Whether Symbolica LaTeX works on expressions as retained,
   or only at compile time, is unchecked.
-- **Status.** Proposed. The `tables` cell of the coverage appendix is generous and is arguably a current promise.
+- **Status.** Proposed. The appendix's checked Arrow table coverage does not promise an authored stream-table
+  projection or a drawing surface.
 - **Research questions.** Which retained fact would carry a stream's membership? Does a pure-Rust layout crate meet
   the need without a Graphviz install?
 
@@ -138,8 +139,9 @@ prove absence under another name. Several statements about demand are inferred f
   completion owner and numeric turning indicators do not certify folds; the path is a derived strategy rung, not a
   retained branch relation. No hit for eigen or spectral analysis of a system Jacobian; eigen uses found are
   reduced-Hessian, convexity and covariance PSD checks, and `square_response.rs` holds rank only.
-- **Why it matters.** The costly numerics exist and a multiplicity answer is unreachable though the corrector and
-  tangent machinery could produce it.
+- **Why it matters.** The corrector and tangent machinery could support a retained branch/stability investigation
+  without reimplementing continuation. Existing numeric events already expose useful turning evidence;
+  the opportunity concerns their retained interpretation and composition, not absence of that numerics.
 - **Patterns.** LOP-12, LOP-X022.
 - **Evidence.** Read `paths.rs` head and `PathRequest`, `arclength.rs` head, the `Path` variant in `derived.rs`, greps
   across `workflow`, `math` and `backend-native/dynamics`. Interface-checked.
@@ -147,9 +149,10 @@ prove absence under another name. Several statements about demand are inferred f
 - **Preservation constraints.** An auxiliary point grants no result permission; fold and Hopf labels are estimated, not
   certified; a stability statement carries validity under PS-12 and the index-1 restriction; the branch relation needs
   its own schema and identity, and each point may need original assessment at a cost.
-- **Counterevidence and uncertainty.** The restriction may be deliberate, to keep one completion owner. No consumer is
-  named. Tracing a branch up to a turning point is possible today by seeded continuation, so only the fold-passing and
-  stability parts are absent.
+- **Counterevidence and uncertainty.** The restriction may be deliberate, to keep one completion owner. No recorded
+  demand was found for the reactor/recycle archetype. Pseudo-arclength and bounded turning-event localization
+  already exist: absence of fold-passing numerics is not established. A retained branch relation and a
+  dynamic-stability statement are distinct additional responsibilities.
 - **Status.** Proposed (the underlying risk is recorded in §26).
 - **Research questions.** Does a generalized eigen routine on the fixed `diag(I,0)` pencil suit small and medium sizes?
   For large sparse pencils, see [CBO-119](native-solver-integration.md#cbo-119) on densification of sparse operators.
@@ -159,8 +162,8 @@ prove absence under another name. Several statements about demand are inferred f
 ## CBO-142 — Provider envelopes and global solving through providers
 
 - **Operation and consumers.** A user of the explicit `certify` intent, or of MINLP, whose model contains a property
-  provider inside a nonlinear term. Thermodynamics-bearing models are the main workload, so global claims are mostly
-  unavailable to them.
+  provider inside a nonlinear term. This is a dependent opportunity for future opaque property providers;
+  authored factorable thermodynamic models are not excluded merely because they express thermodynamics.
 - **Current mechanism.** §25 refuses global solving where a provider output without a declared envelope enters a
   nonlinear term, noting "no production provider declares one yet". `ProviderFactory::envelope` is a declaration;
   nothing derives one, and an opaque worker cannot be interval-evaluated. `scip.rs` maps a fixed vocabulary
@@ -232,8 +235,9 @@ prove absence under another name. Several statements about demand are inferred f
 - **Why it matters.** Structural index detection could turn opaque failures on high-index models into authored, located
   diagnostics. Index reduction would widen the admitted class.
 - **Patterns.** LOP-12, LOP-01.
-- **Evidence.** The search above and the §25 Dynamics row. Interface-checked; `continuous.rs`, `temporal.rs` and the runtime
-  dynamics path were not read.
+- **Evidence.** The earlier bounded search and current §25 Dynamics row. Fresh `continuous.rs` supplies stencil
+  validation and `temporal.rs` supplies temporal child composition; neither sampled body establishes
+  structural DAE index detection. The full runtime dynamics path was not traced for an equivalent check.
 - **Footprint.** Absence limited to Rust source in `crates/` and the architecture `sections/`.
 - **Preservation constraints.** Index-1 profile refusals; one model across analyses; authored equations remain the authority,
   so any differentiated equation needs lineage.
@@ -308,13 +312,19 @@ prove absence under another name. Several statements about demand are inferred f
 - **Current mechanism.** Resolved policy, nominals and reversible normalization (`pse-math::normalization`); an Ipopt
   gradient-based option; conic Ruiz equilibration inside solvers; bounded Jacobian SVD diagnostics. No hit for a suggestion
   surface in `conditioning.rs`, `diagnostics.rs` or `workflow/numerics.rs`. Diagnostics describe poor scaling; nothing
-  proposes authored nominals back.
+  proposes authored nominals back in those inspected surfaces. The explicit diagnostic document already
+  returns actual row/variable nominals, findings, statistics and completion/failure state, so exposing
+  diagnostics to agents is delivered and is not itself the gap.
 - **Why it matters.** Scaling is a top practical failure source, and the Jacobian and SVD are already computed on the
   diagnostic path. IDAES scales variables by current magnitude and constraints by Jacobian norm; the algorithm is small,
   so the value lies in the proposal surface.
 - **Patterns.** LOP-12.
-- **Evidence.** Greps; §16 numeric text; the coverage appendix; IDAES `AutoScaler` at docstring level. Interface-checked.
-- **Footprint.** `diagnostic_request.rs` and `normalization.rs` not read; search limited to the stated words.
+- **Evidence.** Fresh `Normalization::{from_policy,validate,with_row_budgets,key}` and the
+  `DiagnosticExecutionRequest`/`DiagnosticExecutionDocument` plus `diagnose_documents` composition;
+  conditioning entry points and the current coverage appendix. The older IDAES docstring comparison
+  remains dated awareness, not a current applicability assessment.
+- **Footprint.** Coordinate transport and diagnostic publication sampled directly; no complete search
+  of all authored-tool consumers or algorithm assessment was made.
 - **Preservation constraints.** One resolved policy with recorded precedence; original-space acceptance; a proposed nominal
   is advice to the author, never silently applied, and relaxing hard guards is refused.
 - **Counterevidence and uncertainty.** This may belong to small generic custom code with little library value, and may be
@@ -365,7 +375,9 @@ prove absence under another name. Several statements about demand are inferred f
 - **Why it matters.** Flowsheet DAEs are stiff and sparse with block structure, and a structural block-triangular witness already
   exists for roots. Better preconditioning would make the Krylov routes usable at scale.
 - **Patterns.** LOP-12, LOP-07, LOP-X001.
-- **Evidence.** Read `layout.rs::linear_bytes`, `idas.rs::linear_solver`, `kinsol/block.rs`, the `coupled_probe.rs` header.
+- **Evidence.** Fresh `idas.rs::linear_solver` refusal and `kinsol/block.rs::Blocks::admit` show
+  retained projection/factor ownership and finite admission. Prior `layout.rs::linear_bytes`,
+  `Blocks::setup` and `coupled_probe.rs` header observations retain their unchanged-source basis.
   Interface-checked; the POUNCE checkout's `vendor/feral/src/lu/sparse_factor.rs` shows refactor counters whose use was not read.
 - **Footprint.** `petsc.rs` read at its head only.
 - **Preservation constraints.** Analytic Jacobian-vector products stay exact and approximate preconditioners stay separate;
@@ -414,8 +426,11 @@ prove absence under another name. Several statements about demand are inferred f
 - **Why it matters.** Maximum step is a common control for sharp inputs and sparse sampling. When Newton fails, step-level history is
   what a user needs and currently requires local instrumentation.
 - **Patterns.** LOP-12, LOP-03.
-- **Evidence.** Search of crate `src` for those option names; `vendor/sundials-sys/build.rs` (`.define` listing, head only);
-  `idas.rs::statistics`; `kinsol.rs::solve_application`; `local_error.rs`. Interface-checked.
+- **Evidence.** Fresh `IdasSettings` version 3 and `IdasInitialConditions`: native initial-step selection,
+  Newton/line-search IC controls and sensitivity/linear selections already exist. The earlier option-name
+  search concerns additional physical stepping/linear controls, not an unconfigurable integrator.
+  `idas.rs::statistics`, `kinsol.rs::solve_application`, `local_error.rs` and build-define observations
+  retain their unchanged-source inspection and original limits.
 - **Footprint.** `build.rs` was searched, not read in full; an option could be reachable through a name the list missed.
 - **Preservation constraints.** Getter currency rules are real (stale linear counters; `IDAGetLastStep` exposing the artificial
   initial-condition step); bounded, non-stderr output; profile identity must cover any new control.
@@ -439,8 +454,9 @@ prove absence under another name. Several statements about demand are inferred f
   drain-before-apply), frozen declarations under `pse-operations/src/migrations/`, and the §20 forward rollout (ADR-0182). The
   leverage question is hand-frozen steps against a schema tool, which belongs to
   [CBO-069](persistence-and-transport.md#cbo-069).
-- **Delivered but understated.** Multistart, continuation in general, adaptive surrogate, infeasible-subsystem analysis, structural
-  diagnostics, sensitivities, project packs and reducers exist; the documents understate them.
+- **Delivered mechanisms.** Multistart, continuation in general, adaptive surrogate proposals,
+  infeasible-subsystem analysis, structural diagnostics, sensitivities, project packs and reducers exist;
+  current scope documentation now records their bounded roles.
 - **Not scheduled and without named demand.** Electrolytes, eNRTL, broader reactions and costing tables are authored-knowledge ports
   needing no library beyond what is linked, and the thermodynamic data work is recorded as far-off. A live plant connection for
   rolling-horizon control (the horizon has a `Measured` contract) and stochastic or multi-period problems have hypothetical demand;

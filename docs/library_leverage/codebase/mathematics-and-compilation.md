@@ -8,7 +8,7 @@ binds these products is on [modeling and preparation workflows](modeling-and-pre
 is on the [entry page](README.md). Mechanisms below are Interface-checked by static reading; every value claim is
 Proposed, and nothing was built, run or measured.
 
-**System picture.** Library use here is the strongest in the workspace.
+**System picture.** Established libraries own substantial mathematical and structural work here.
 
 - **Symbolica / Numerica.** Coefficient extraction, derivatives, `replace_multiple`, certified real-root isolation and
   refinement, univariate polynomials, evaluator optimisation (Horner, CSE, Dualizer) and C++ export. `jets.rs` states
@@ -32,21 +32,13 @@ CBO-104, CBO-105, CBO-109, CBO-110); and a second incremental or lifetime system
 CBO-022). The prediction and retained-size accounting that surrounds all of these is on
 [cross-cutting mechanisms](cross-cutting-mechanisms.md#cbo-001).
 
-**Coverage on this page.** `pse-math` was read closely in `library.rs`, `library/admission.rs`, the vendored delta and
-its notes, `native_compiled.rs`, `jets.rs`, `construction.rs`, `rational_binary64.rs` and `implicit_cubic.rs`. Read
-in part: `execution.rs` (regions, `analyze`, block compile, `direct_product_shape`; not `compile_scope`, `prune` or
-the lift tail), `reverse.rs` and `products.rs` (compile halves, not `evaluate_pullbacks`), `assembly.rs` (evaluation
-loop; not weighted Hessian products), the implicit layer (`implicit_reconstruction.rs` accuracy and refinement
-bodies at outline) and `factorable.rs` (4k lines, outlined and sampled). `typed.rs`, `guarded.rs`, `typed_provider.rs`
-and `facts.rs` were skimmed at specific paths. In `pse-modeling`, `pse-compiler` and `pse-quantity`: `granular.rs` and
-`workspace.rs` were read to specific sections and `premises.rs` fully; `specialize.rs` `instantiate_body`,
-`specialize/{functions,process,operations,transformations}`, `check.rs` `inventory_package` and `finish_package`,
-`resolved/{selection,region_composition,fragment}` and `implicit::project` (about 15k lines together) were not read.
-No candidate depends on them except that the site count in CBO-109 is a lower bound.
+**Refresh baseline and coverage (2026-11-02).** Source `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`; no product edits included. Framework/base patterns edition 0.2 and additional patterns at the baseline apply. All fifteen live opportunities were reconsidered using current native source searches/reads: exponential staging and supplier normalization, abort/evaluator inspection, granular checking, physical-premise capture, wire declarations, compiled evaluator/cache, derivative route dispatch, retention, matching, the instance evaluation loop, support propagation, polynomial/interval consumers, resolved construction and document admission. Fresh exploration read representative `instantiate_body` phases and `selected_function_call` type binding, prelude and fragment selection, plus inventory/finish checking phases omitted in the previous account. `granular_tests`, the tape-construction refusal assertions and language round-trip tests were read, not executed. Not a complete audit of every rewrite, restore body, derivative sweep or physical inference rule. Prior site counts, archive comparisons and upstream capability assertions retain their original 2026-10-30 evidence scope unless explicitly renewed below; they are not current library assessments. Nothing was compiled, probed, tested or measured in this refresh.
 
 <a id="cbo-106"></a>
 
-## CBO-106 — The exponential barrier compensates for a live supplier defect
+## CBO-106 — Exponential staging protects against a suspected normalization defect
+
+**Refresh — retained as a source-supported hypothesis.** `BodyBuilder` still materializes every `Unary::Exp` argument, and the vendored `simplify_exp_log` still passes one mutable `out` through factors before constructing a power from it. This reread supports investigating the interference premise; it does not reproduce a wrong authored result or establish reachability through a flat product. Existing stage controls therefore do not close the broader question, but neither should this entry call the suspected flat-route error an established defect. Candidate fixes and release comparisons remain research work.
 
 - **Operation and consumers.** `BodyBuilder` unary `Exp` (`typed.rs`) always materializes its argument as a stage and
   evaluates `E^slot`. Every body containing an exponential, and the flat routes that substitute the exponent back, are
@@ -73,6 +65,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-021"></a>
 
 ## CBO-021 — Caller-side seams around the already vendored Symbolica
+
+**Refresh — retained, Interface-checked caller obligations.** Current `library.rs` still uses `CURRENT_ABORT`, detaches retained producer state and exports instructions to derive evaluator facts; `FloatingEvaluator::new` explicitly obtains that export. The workspace still selects the maintained Symbolica 3.0.1 source and its hold. This establishes the caller-side cancellation/census seam, not that a newer release or supplier modification can discharge it. The 3.0.2 archive observations below are dated research leads, not a refreshed compatibility conclusion; program/stack sharing, abort semantics and retained sizes remain unsettled.
 
 - **Operation and consumers.** Run every Symbolica construction under the repository's budgets and cancellation, keep
   evaluators reusable across attempts, and inspect them: evaluator build, `vectorize`, derivative, export and root
@@ -120,6 +114,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 
 ## CBO-107 — Salsa memoizes around a driver that feeds results back as inputs
 
+**Refresh — retained with dependency-context correction.** Current `granular.rs::resolved` still reads a staged resolution input, and `occurrence` returns the staged checked expression; the phase driver still orchestrates them. Read granular tests compare the result with fresh checking and assert sibling cutoff, real counterevidence to assuming incorrect incrementality. Salsa is now a vendored 0.28.5 supplier with opt-in descendant cancellation groups (`vendor/salsa/pse-patch.md`), added for native analysis; the compiler accounting hold remains. This local capability does not by itself remove staged inputs or establish pull-query/rollback fit. No parallel-checking benefit was measured.
+
 - **Operation and consumers.** Incremental modeling check for a live revision (`workspace/modeling/granular.rs`,
   `check/phases.rs::Phases`), consumed by every admission and preparation path.
 - **Current mechanism.**
@@ -159,6 +155,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 
 ## CBO-108 — Physical dependency tracking on thread-local capture beside Salsa
 
+**Refresh — retained, Interface-checked.** `premises.rs` still holds a thread-local capture stack and revalidates positive/absent/population reads through `PhysicalPremises::matches`; capture rejects foreign owners and discards partial failed closures. Those exportable semantic premises serve a different lifetime from a Salsa memo. The new Salsa cancellation patch changes neither that requirement nor accessor completeness. A generated observing surface remains a worthwhile question, but no missed accessor or unsound reuse was found and no claim that Salsa can replace durable premises is made.
+
 - **Operation and consumers.** Narrowed reuse of checked and specialized products when the physical registry or
   preconditions change, and capture of receipts for durable recipes.
 - **Current mechanism.**
@@ -193,6 +191,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-110"></a>
 
 ## CBO-110 — Parallel wire hierarchies with hand capture and restore
+
+**Refresh — retained, Interface-checked representative projection.** Runtime `project_preparation_wire.rs` still mirrors structural `Value`/`Fact`/formulation shapes with explicit serde tags and hand `From` conversions in both directions; number/coordinate payloads explicitly carry bits. This is a concrete mechanical projection with a stable external contract. It does not establish that all portable receipt restore logic is mechanical: qualification, ordinal rebinding and trust checks must remain independently understood. The old aggregate line count and all capture/restore bodies were not recounted or reread.
 
 - **Operation and consumers.** Durable restoration of resolved values, types, contracts, graphs and provider
   specifications, and the public serialized form of preparation bindings. Consumers are portable recipes, replay and
@@ -229,6 +229,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 
 ## CBO-101 — C++ compiler driver and code cache beside an in-process JIT
 
+**Refresh — retained, Interface-checked existing realization.** Current `native_compiled.rs` still instantiates worker functions from a shared loaded module; `cache.rs` retains explicit magic/header/checksum, entry/byte/scan limits and bounded directory scanning. Thus private worker state and shared immutable compiled code are already separated on this route. Replacing the process/cache lifecycle is a credible research question, but supplier JIT cancellation, ambient configuration and arithmetic claims below retain their earlier assessment date. This refresh did not acquire APIs or run the prior realization probe; no JIT superiority is asserted.
+
 - **Operation and consumers.** Optional scalar native evaluation (`compiled-evaluator`, `Evaluator::CompiledScalar`)
   for arithmetic blocks.
 - **Current mechanism.** `native_compiled.rs` and `native_compiled/cache.rs` (about 1,465 lines with tests): C++
@@ -262,6 +264,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-100"></a>
 
 ## CBO-100 — Derivative product construction has several routes
+
+**Refresh — retained, Interface-checked route portfolio.** `PreparedSupport::compile_product_inner` still dispatches Direct, Reverse and Regional products; only Direct invokes bounded `flat_expressions`, while Regional compiles selected support. Original stage/guard execution remains the authority even when a temporary expression is rebuilt. This justifies researching reusable generic AD transforms within the portfolio, not removing routes because their code shapes overlap. No replacement library's fallible-provider, guarded-order or sparse-product semantics were assessed and the complete reverse evaluation sweep was not reread.
 
 - **Operation and consumers.** Produce value, partials, Jacobian actions, weighted Hessians and Hessian actions for a
   guarded body, for solvers and for implicit-function products.
@@ -297,6 +301,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-022"></a>
 
 ## CBO-022 — Which prepared-mathematics lifetimes should share one eviction policy
+
+**Refresh — retained with distinct lifetimes.** `retention::Pressure` still coordinates a `DefaultCache`, `WeightedCache` and two publication fences, while the native scalar disk cache has separate checked byte artifacts and eviction limits. These are observed compatible-policy questions, not proof that one cache can replace them all. Current work is complete in the CLI plans but does not resolve mathematical retention. Loader cancellation, producer survival and pressure publication are preservation constraints whose candidate fit remains unassessed; no residency or hit-rate data was collected.
 
 - **Operation and consumers.** Avoid repeating evaluator preparation and native compilation across cases, rebinds and
   sessions, and release retained products when an allocation fails. Consumers are compiler preparation, runtime
@@ -340,6 +346,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 
 ## CBO-111 — Structural analysis caps set by the matching kernel's recursion
 
+**Refresh — retained, Interface-checked.** `MATCHING_ROWS` remains 100,000 and `MATCHING_STACK` 32 MiB. `CaseIncidence::analyze` still spawns its scoped matching thread, while the shared `dense::decompose` explicitly never spawns and validates caller input/library output. The distinction matters: generic decomposition is already consolidated, and the residual is the supplier stack/cap contract plus selected caller placement. The long-augmenting-path control is present in `incidence_tests`; it was not run. No current model above the cap or iterative supplier replacement was demonstrated.
+
 - **Operation and consumers.** `CaseIncidence::analyze` for case diagnostics, Dulmage-Mendelsohn and block-triangular
   decomposition, and automatic blocks; implicit reconstruction through `prepare_reduced_supplier`.
 - **Current mechanism.** `pse_structural::dense::decompose` is the one decomposition owner and validates the library's
@@ -367,6 +375,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 
 ## CBO-102 — Case evaluation runs identical programs one instance at a time
 
+**Refresh — retained with existing reuse as counterevidence.** The current assembly loop already tries same-point pure reuse, same-program instance projection and compatible-demand projection before scalar evaluation. Provider stages explicitly disable pure cache skipping, and failures retain instance/source attribution. The remaining collective opportunity is unequal-input instances of a shared program after those exits, rather than repeated evaluation of identical inputs generally. No batch API was assessed and no workload established how many such misses occur.
+
 - **Operation and consumers.** `CaseWorker` evaluation for solvers. Many instances share one compiled program
   (`group.request`; identical local demands share a program, §14.1).
 - **Current mechanism.** The loop over `structure().instances()` fills inputs, compares bits, tries
@@ -393,6 +403,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-104"></a>
 
 ## CBO-104 — Support analysis is a generic sparsity propagator with repeated symbolic work
+
+**Refresh — retained with domain boundaries.** `execution::analyze` still propagates fact sets recursively through applicability/domain stages and records controls and obligations; provider second-order support still has a conservative dense path. Product construction separately rebuilds bounded flattened expressions on its Direct route. These witnesses support investigating reusable arithmetic support/partials, while source attribution, all-branch conservatism and failed optional-tightening semantics remain domain contracts. No duplicated-cost total or completeness proof for a library instruction analysis is established.
 
 - **Operation and consumers.** `PreparedBody::support_with_allowance` via `analyze`; every plan pattern and demand
   depends on it.
@@ -422,6 +434,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-103"></a>
 
 ## CBO-103 — Polynomial and affine recognition repeated by consumers
+
+**Refresh — retained as a partially shared-responsibility inquiry.** Coefficient projection still expands to a library polynomial in explicit formals; curvature's degree-two recognizer instead walks factorable nodes and memoizes a local polynomial. These are different representations and purposes, so a common conversion must earn its place rather than force flattening of the DAG. The scope is shared exactness/variable-eligibility policy where it is actually equivalent; the current source does not establish every recognizer is redundant. No new polynomial API research was performed.
 
 - **Operation and consumers.** Answer "what polynomial is this, in these variables?" for class facts, coefficient
   programs, accelerators, cone recognition and branch identity.
@@ -453,6 +467,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 
 ## CBO-105 — Several interval and constant sweeps over one factorable DAG
 
+**Refresh — retained, Interface-checked.** Presolve still builds per-root tapes and calls the library forward pass; curvature separately owns per-node intervals and constant/polynomial facts. Read tape-construction assertions require a late optional refusal to preserve prior tapes and visit the candidate population, showing why whole-population sharing cannot erase per-row admission behavior. The opportunity is reusable graph traversal/interval machinery under those contracts. Whether one supplier offers a shared multi-root realization remains unknown.
+
 - **Operation and consumers.** Enclosures for presolve admission, FBBT, DCP signs, projection ranges and constant
   evaluation.
 - **Current mechanism.** There is one project-owned factorable projection (`factorable::FactorableProgram`), with
@@ -482,6 +498,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-109"></a>
 
 ## CBO-109 — Specialization builds two representations in lockstep
+
+**Refresh — retained, strengthened by previously omitted paths.** `Construction::Rewritten` still couples inspection syntax with executable roots. Fresh reads of `instantiate_body` show phased accumulator/symbol/child/implicit construction and temporal ownership rules; `selected_function_call` performs physical scheme binding then selects a complete `FunctionFragmentInput`. Prelude and function fragments already provide reuse, and the fragment recipe carries retained selections/permissions. This refutes a blanket uncached-specialization premise. The remaining opportunity is mechanical synchronized representation construction, preserving those domain phases and independent pre-specialization type checking; no generic compiler framework fit was assessed.
 
 - **Operation and consumers.** `specialize` producing a `SpecializedModel` consumed by `executable.rs::projection`,
   checks and tests.
@@ -514,6 +532,8 @@ No candidate depends on them except that the site count in CBO-109 is a lower bo
 <a id="cbo-112"></a>
 
 ## CBO-112 — Tabular knowledge hydrated to scalars and admitted by a private engine
+
+**Refresh — retained, Interface-checked conversion boundary.** `document::admit` still finds typed columns, materializes default or converted value vectors, then transposes them into row-wise keys/values. `finish_package` orders data admission, entity derivation and row verification explicitly. A columnar/generic relational mechanism could be investigated for the mechanical portions; it cannot inherit authority over canonical units, derived domain values or named-row refusals. No complete data-bank size census, peak-memory observation or DataFusion applicability check was performed.
 
 - **Operation and consumers.** Package tables and data documents, including Parquet, entering checked packages
   (`data.rs` at 2.4k lines, `document.rs`, `entity.rs`): keys, uniqueness, foreign references, completeness up to

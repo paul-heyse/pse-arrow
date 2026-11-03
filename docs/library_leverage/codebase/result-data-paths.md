@@ -4,7 +4,10 @@ This page covers how retained scientific results are projected, sealed, selected
 `pse-runtime/src/workflow/`, `pse-relations` and `pse-columnar`. Contracts are owned by
 [§20](../../authoritative_design/sections/identity-and-publication.md#section-20) and
 [§21](../../authoritative_design/sections/workflows-and-results.md#section-21). The baseline is
-on the [entry page](README.md).
+on the [entry page](README.md). Refreshed 2026-11-02 against clean source
+`f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`, using framework/base edition 0.2 and
+additional-pattern revision 5. Current mechanism claims are *Interface-checked*; prospective gains
+are *Proposed*. No tests, probes, builds or measurements were performed in this refresh.
 
 **System picture.** Typed relation rows are projected into Arrow batches, sorted, and sealed as
 uncompressed Arrow IPC files with recorded per-batch statistics. Their metadata is appended to
@@ -31,16 +34,17 @@ decoder and DataFusion are told about a read ([CBO-076](#cbo-076), [CBO-077](#cb
 [CBO-078](#cbo-078)), in the local IPC admission layer ([CBO-005](#cbo-005)), and in sidecar JSON
 payloads ([CBO-008](#cbo-008)).
 
-**Coverage on this page.** Closely read: `connected_results`, `result_snapshot`, `result_selection`,
-`result_files` (to `open_file_reader`), `durable.rs` (lease, streamer, seeds, chunks, table export,
-termination), `project_portability` and `portable_payload` (export, archive, import), `modeling/trajectory.rs`
-(`project_impl`, `live_projection`), the relation codec (`columnar/row.rs`, `collection.rs`, `codec.rs`),
-and `pse-columnar` (`ipc_stream` through its reader, `ipc_file` reader and writer). Read at representative
-depth: `cohort_provider` (the provider and `CohortPartition`), `study_workbench` (`aggregate`),
-`result_projection`, `result_export` (the cursor poll body was not read), `result_blocks` and the
-modeling result emitters. Skimmed or unread: `result_inspection` (head and function list), `access_block`
-and the interior of `scan`, `ipc_admission::layout` (skimmed), `physical/decode.rs` (head), and the
-tail of durable settlement. Nothing was run and no cost is measured.
+**Coverage.** Every live entry was reconsidered. Fresh reads cover trajectory relation/range
+production, `SelectedCollection` push/skip/charging, complete durable table selection, representative
+modeling/shooting projection dispatch, selected metadata paging, the protected file/decode/admission
+boundary, both provider `scan`/partition execution bodies, cohort `next_body`, IPC file decode and
+progress serialization. Result-pruning and hostile-stream tests were inspected as contract consumers,
+not executed. The previously unread `access_block` and provider interiors are now covered; tails of
+some multi-relation emitters, the complete relation-codec generator, `ipc_admission::layout`, physical
+decode and all portability callers remain outside fresh detailed coverage. Their earlier observations
+retain the 2026-10-30 date. Numeric footprint/search counts below are that earlier snapshot unless
+explicitly refreshed. The 2026-10-27 upstream IPC probe remains historical evidence for its exact pin,
+not a new test result or a check of present upstream releases.
 
 <a id="cbo-075"></a>
 
@@ -89,6 +93,13 @@ tail of durable settlement. Nothing was run and no cost is measured.
   not survive the prepay-safe admission layer. Trajectory size is bounded by `max_cells`, and small `Rows` emitters do not
   warrant change. The per-cell cost relative to solving is unknown.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after rereading `trajectory::project_impl` through output
+  lineage and sample/sensitivity loops, plus `SelectedCollection::{ensure,skip_next,push_ref,push}`.
+  The canonical sample route already sorts output identity and directly seeks the requested range;
+  it does not scan the whole sample prefix. Each selected cell still constructs the long-form row
+  and enters the generic collection/charging boundary. That narrower mechanism motivates bulk
+  production independently of a physical-format change. Other producer/consumer counts above were
+  not refreshed, and fit/study emitter-wide applicability remains unestablished.
 - **Research questions.** Can the generator emit a per-relation struct-of-columns bulk form from the same declaration?
   Which of `FixedSizeList`, dictionary or run-end columns and IPC body compression survive bounded admission and still prune?
   Does a `serde_arrow`-style route add a second projection (LOP-X007)?
@@ -140,6 +151,14 @@ tail of durable settlement. Nothing was run and no cost is measured.
   A fix that turns an abort into an error could still allocate advertised sizes, and portable payloads can arrive from outside,
   so a checksum does not cover every route.
 - **Status.** Current promise. The upstream-tracking work is *Proposed*.
+- **2026-11-02 reassessment.** Retained after reading current `AdmittedFile::read_batch` and
+  inspecting stream framing and disposable-process hostile-stream tests. Decode still reserves the
+  encoded block plus header/alignment allowances, validates metadata/layout, attaches the input
+  grant to escaped buffers and retains working ownership. The tests cover advertised lengths,
+  compression, malformed spans and schema-only scanning, but were not run here. No upstream release
+  or issue was consulted, so this refresh neither declares any guard obsolete nor requalifies the
+  old library-abort findings against a new version. Policy, preallocation and corruption checks
+  remain separate research units.
 - **Research questions.** For each corrupt-input check, the arrow-rs issue and first fixed version. Is `read_record_batch` or
   an equivalent public for framed stream messages, so the lookahead state could go? Arrow's prepaid-extent mirrors in general
   are [CBO-001](cross-cutting-mechanisms.md#cbo-001).
@@ -170,8 +189,10 @@ tail of durable settlement. Nothing was run and no cost is measured.
   `cohort_provider.rs` (head and provider sites), `study_workbench.rs::aggregate`, `ipc_file.rs::read_batch`,
   `result_inspection.rs` (`inspect_result`, `selected_cell`) and `connected_results.rs` (`results`, `result_reader_body`). A search of
   both provider files for `statistics`, `output_ordering`, `with_sort`, `EquivalenceProperties` and `LexOrdering` had no match.
-- **Footprint.** The `CohortPartition` body, the interior of `access_block` and `scan`, and `pse-relations::result_batch` are
-  unread.
+- **Footprint and refresh.** On 2026-11-02 read both provider `scan`/partition bodies,
+  `Cohort Scan::next_body`, `ProtectedResultDecode::access_block` and file `read_batch`.
+  A complete search of the two provider files found no statistics/output-ordering implementation;
+  recorded statistics are consumed by pruning. `pse-relations::result_batch` was not fully reread.
 - **Preservation constraints.** `FieldCheckedBatch::admit_owned` and `validate_scalar_keys` currently see all fields, so a
   projected read needs a defined narrower admission, and `inspect_result` documents full-batch validation. Original row
   coordinates, exact bits, prepaid decode grants and the same deployment pool; pruned blocks are still validated
@@ -181,12 +202,18 @@ tail of durable settlement. Nothing was run and no cost is measured.
   span, so projection saves array construction and checks rather than I/O. The payload digest covers the whole file anyway. The
   decoder turn may be deliberate memory control.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained. Projection still reaches `StreamingTable` after the
+  partition's full decode/admission, and each provider creates one partition. Snapshot pushdown is
+  Inexact; cohort pushdown is Unsupported, so these two paths must not be described as equivalent
+  planner support. The protected decoder serializes cache access before reserving file-shaped
+  memory, an intentional resource constraint any parallel plan must preserve. The pruning test body
+  requires residual filtering before limit and refuses a foreign pool; no performance was measured.
 - **Research questions.** Can `FileDecoder::with_projection` and `TableProvider::statistics` plus ordering be used with field-level
   admission and several partitions under one reservation model?
 
 <a id="cbo-078"></a>
 
-## CBO-078 — Selected result tables re-walk the whole report once per relation
+## CBO-078 — Per-relation result projection repeats setup and selected report walks
 
 - **Operation and consumers.** `store_tables` at attempt finish, plus `RunResult` cursors for in-process readers.
 - **Current mechanism.** `store_tables` loops over advertised relations. Each creates `cursor_by_id_range_controlled`, whose producer
@@ -194,21 +221,31 @@ tail of durable settlement. Nothing was run and no cost is measured.
   construct `Rows<T>` for every relation they own and walk the report, with `request.wants(id)` and `skip_next()` filtering at row
   level. Resuming a range after a memory refusal re-walks with skips, except `simulation_samples`, which seeks. A tokio channel, a
   yield primitive, `ProjectionRetention`, the append queue and a cold-retry path sit between walk and append.
-- **Why it matters.** Cost scales with relations times report size, and adding a relation means editing a multi-relation function that
-  mixes row construction, demand checks and working-memory charges. Each relation's physical layout and sort are decided after row
-  construction, in `store_result_chunk` (*Proposed*; walk cost unmeasured).
+- **Why it matters.** A new relation changes a multi-relation function mixing construction, demand
+  and working-memory charges. Where a shared walk traverses unrelated report structure, selecting
+  relations separately can repeat it; guarded whole loops and direct sample seeking already avoid
+  some such work. Physical layout and sort are decided later in `store_result_chunk` (*Proposed*
+  opportunity; no projection cost or scaling law measured).
 - **Patterns.** LOP-05, LOP-07, LOP-02, LOP-08.
 - **Evidence.** Read `durable.rs::store_tables`, `results.rs` (`cursor_by_id_range_controlled`, `encode`),
   `result_export.rs` (`Projection::wants`, `Rows::skip_next`, `yield_delivered_chunk`, `ProjectionRetention`),
   `fitting/results.rs` (`encode_fit`, `uncertainty`) and `result_projection.rs::append_run_result_table_queued`.
-- **Footprint.** Fit and simulation producers and append are inspected. `encode_modeling`, `encode_shooting` and `project_common` are
-  suspected to share the shape and were read only as dispatch targets. Per-cell production inside each walk is
-  [CBO-075](#cbo-075).
+- **Footprint and refresh.** The durable relation-selection loop and representative bodies of
+  `modeling_results.rs::encode_modeling` and `simulation_results.rs::encode_shooting` were read on
+  2026-11-02, extending the earlier fit/simulation coverage. Modeling constructs several typed row
+  owners around one projection; shooting already dispatches trajectory relations into the shared
+  trajectory projection. Not every emitter branch was traced. Per-cell production is [CBO-075](#cbo-075).
 - **Preservation constraints.** Lazy per-relation availability; per-relation failure recording (`encodings.record`); pull
   backpressure; prepaid working memory; deterministic canonical order; retained-prefix replay; typed row validation.
 - **Counterevidence and uncertainty.** Walks may be cheap against solver time and many reports are small. Laziness exists so unread
   relations cost nothing. A per-relation producer table may be a purely local refactor with no library involved.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained, narrowed: multi-relation entrypoints still repeat setup and
+  some report traversal, but `wants` often guards a whole loop, and sample projection already seeks.
+  The blanket formula "relations times report size" is therefore a worst-shape lead, not an
+  established cost model. A worthwhile producer boundary must remove repeated work without eagerly
+  projecting unrequested relations or creating a second scientific encoding authority. No walk cost
+  or library stream fit is established.
 - **Research questions.** Would a DataFusion `StreamingTable` or `PartitionStream` be the per-relation producer boundary, replacing
   the channel, or would it fight prepay and completion ownership (LOP-X005)?
 
@@ -229,7 +266,11 @@ tail of durable settlement. Nothing was run and no cost is measured.
 - **Patterns.** LOP-09, LOP-05, LOP-10.
 - **Evidence.** Read `connected_results.rs` (`next_checked_body`, `select_original_rows`, `export_ipc_with_prefix`) and
   `result_snapshot.rs` (`NativeResultSelection`, with `FrozenSnapshot::next` by signature).
-- **Footprint.** The two read paths are inspected; the other drivers are suspected only.
+- **Footprint and refresh.** Freshly read selected metadata paging, protected `access_block`,
+  both provider scan bodies and cohort `Scan::next_body`. Cohort explicitly calls the same
+  `select_original_rows` helper and decoder, so it is a third metadata/lifecycle driver with shared
+  semantic kernels, rather than a third independent implementation of scientific selection.
+  Result-inspection types were read; its entire value projection was not traced.
 - **Preservation constraints.**
   - Dense window overlap across outputs is decided by the store's output index (`result_output_page`, on `result_output_range`),
     so a shared driver must sit below metadata paging and not replace it with DataFusion pruning.
@@ -243,6 +284,12 @@ tail of durable settlement. Nothing was run and no cost is measured.
 - **Counterevidence and uncertainty.** `select_original_rows` carries real semantics that generic filter execution does not, and
   `Exact` pushdown semantics would need care. The right unit may be a block stream below the two drivers rather than a plan.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained at the block-stream/driver boundary. Existing code already
+  shares scientific predicates, physical decode and original-row selection; the opportunity concerns
+  repeated paging/cache/exhaustion composition above those kernels. Any plan-backed realization must
+  still retain capture versus terminal-read authority and the selected-row witness. Cohort's
+  availability knowledge distinguishes unvisited/partial from unavailable, so early termination and
+  out-of-order partition completion cannot silently complete its classification.
 - **Research questions.** Can a custom `ExecutionPlan` or `DataSourceExec`/`FileSource` for the block stream, with `FilterExec` above
   it, carry the selected-row record and coordinate checks without bespoke escape hatches?
 
@@ -275,6 +322,13 @@ tail of durable settlement. Nothing was run and no cost is measured.
 - **Counterevidence and uncertainty.** Seeds are small for most problems and an existing test covers long bit patterns. JSON is
   debuggable. Nested, heterogeneous progress events map poorly onto a stable schema, and a JSON column may suit them better.
 - **Status.** Current mechanism. Weak to moderate.
+- **2026-11-02 reassessment.** Retained as three distinct codec questions after rereading
+  `Streamer::new`, `PublicationAcks` and durable completion close/seal. Progress serialization still
+  halves a bounded range on sink overflow and checks actual appended row counts; close reconciles
+  queued-versus-acknowledged uncertainty before sealing. A registered analytical projection must
+  preserve original progress loss/sequence meaning rather than replace it with a clean table that
+  implies completeness. Completion remains a genuine document contract. Seed size and conversion
+  costs were not measured, and no new binary-format applicability is asserted.
 - **Research questions.** Would Arrow `FixedSizeBinary` or `Float64` for seeds, and a registered `runtime.*` relation for progress,
   be adopted by existing permissions and manifests?
 

@@ -494,10 +494,7 @@ fn dependency_source_evidence(
     }
     Ok(sources)
 }
-fn extraction_environment(
-    root: &Path,
-    environment: &Environment,
-) -> Result<Environment, ApiError> {
+fn extraction_environment(root: &Path, environment: &Environment) -> Result<Environment, ApiError> {
     let mut selected = crate::correctness::standalone_adapter_environment(
         &crate::environment::preparation_inputs(environment),
     )?;

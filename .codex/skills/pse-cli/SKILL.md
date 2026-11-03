@@ -5,8 +5,8 @@ description: Consider pse-arrow's advanced Rust code intelligence for resolved r
 
 # Choose tools by the question
 
-Use standard search and reading tools for routine file discovery, text matching and source
-inspection. `rg`, `rg --files` and ordinary source readers are usually sufficient.
+Use whatever search and reading tools you think is preferred for routine file discovery, text matching and source
+inspection. 
 
 Consider native code intelligence when resolved identity, inferred types, relationships,
 structured API information, guarded edit previews or original compiler evidence could answer

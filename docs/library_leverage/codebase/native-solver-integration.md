@@ -46,7 +46,7 @@ patches (patch hunks were read for Uno, PETSc and the SUNDIALS sites cited; othe
 | SUNDIALS `idaa.c`, `idaa_io.c`, `idas.c`, `idas_io.c`, `idas_impl.h`, `idas.h` | Checkpoint population limit, accepted-step budget, replay step limit | Admission and accounting hooks | none |
 | `vendor/sundials-sys` wrapper | `build.rs` freshness, namespaced 7.9 options, bindgen | Build and provenance; native tree is 7.9.0 with ten locally modified files | none |
 | `vendor/diffsol`, `diffsol-la`, `diffsol-nl`, `suitesparse-sys` | Manifest path selection, `build.rs` freshness | Build and provenance; numerical sources unchanged | [CBO-027](#cbo-027) |
-| POUNCE and FERAL fork (`paul-heyse/pounce`) | 15 commits ahead, 441 behind upstream | Mostly admission and diagnostics, by commit subject only | [CBO-121](#cbo-121) |
+| POUNCE and FERAL fork (`paul-heyse/pounce`) | Prior 2026-10-30 comparison: 15 commits ahead, 441 behind upstream | Mostly admission and diagnostics, by commit subject only; not a current upstream comparison | [CBO-121](#cbo-121) |
 | `symbolica` | Bounded square-free and VAS-CF overloads with callbacks | Admission integration | [CBO-021](mathematics-and-compilation.md#cbo-021) |
 | `paste`, `pest_derive`, `py_literal` | Input-channel refusal, inlined grammar | Assurance integration | [CBO-061](developer-tooling.md#cbo-061) |
 | `scripts/surrealdb-source/*.patch` | Connection ownership, admission, SSI controls, rollback | Mostly integration; one changes transaction outcome semantics | [CBO-070](persistence-and-transport.md#cbo-070) |
@@ -55,21 +55,13 @@ The size of `vendor/deltas/sundials-sys.patch` (about 172,000 lines) overstates 
 measured against the published 7.1.1-bundling wrapper archive, and the local native integration
 relative to 7.9.0 is the ten files above.
 
-**Coverage on this page.** Mechanisms are *Interface-checked* by static reading; every value claim is
-*Proposed*; nothing was built, run or measured. Read closely: `root_isolation.rs` and
-`native/root_isolation.cpp` (IBEX itself only at symbol and header level, its `.cpp` sources being
-unavailable), the Uno patch and bridge solve path, the HiGHS lifecycle, all production code of
-`dynamics/idas.rs`, `integrator.rs`, `integrator/adjoint.rs`, `linear.rs`, `layout.rs`, `anchored.rs`
-and `kinsol.rs`, and the SUNDIALS integration sites cited. Read representatively: `scip.rs`, `pounce.rs`,
-`tnlp.rs`, `presolve/*`, `ipopt*`, `petsc*`, `kkt/*`, `conditioning`, `square_response`, `solve/*`,
-`docker/solvers/build.sh`. Skimmed: `conic*` and `execution/pounce_convex` (heads), PETSc bridge bodies,
-`kinsol/restarts.rs`. Not read: test modules (names only), `solve.rs` line by line, the `HiGHS`
-`solve_inner` body, the Diffsol 0.16.2 to 0.18.0 source diff beyond its file list, and POUNCE fork
-commit bodies or hunks.
+**Refresh baseline and coverage (2026-11-02).** Source `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`, with no product edits included; framework/base patterns edition 0.2 and additional patterns at that baseline. All nineteen live entries were reconsidered. Native source queries/reads sampled actual gates and consumers, current supplier pins/notes, point-interval transport and C++ graph construction, dynamic pattern preparation, KLU construction, IDAS partial/replay/storage paths, presolve admission, Ipopt restart options, dense response admission, C ABI declarations and oracle forwarding. Compact/shared-oracle assertions and IDAS workspace rebind/failure assertions were read, not executed. The active native-solver skill supplied boundary guidance, not a candidate assessment. Prior patch-size/divergence/version comparisons, `nm` output and claims about supplier internals retain their 2026-10-30 scope and were not refreshed externally. No complete ABI proof, solver execution, defect reproduction, performance result or current upstream-eligibility conclusion follows. Full backend ordering loops, every vendor delta and all tests were not reread.
 
 <a id="cbo-030"></a>
 
 ## CBO-030 — Process-wide library state makes independent solves exclude each other
+
+**Refresh — retained, Interface-checked local gates.** Current Uno still enters the exclusive HiGHS lifecycle scope; SCIP still owns its concurrent-process gate/failed state, and IBEX point arithmetic acquires the same proof-library guard. That is concrete cross-operation serialization, not measured contention. Serial SCIP's ordinary route does not always acquire the concurrent gate; failure quarantine and nested ownership must remain explicit. The earlier IBEX symbol census is historical evidence only, and whether safe point evaluation can narrow its gate remains a consequential supplier question.
 
 - **Operation and consumers.** Any parallel workload (16 lanes, studies, sweeps, implicit selection
   inside evaluation, accuracy evidence) that reaches IBEX, PETSc, concurrent SCIP or Uno.
@@ -112,6 +104,8 @@ commit bodies or hunks.
 
 ## CBO-116 — The faer arithmetic fork: enforced per supplier, with no stack-wide statement of coverage
 
+**Refresh — retained, with a corrected arithmetic premise.** Current `vendor/faer-arithmetic.md` still specifies `pulp::Scalar`, nonfused operations and removal of independent GEMM dispatch for the consumed binary64 closure. It also explicitly distinguishes LM's scalar route from mere `matrixmultiply` dependency presence. Therefore current fit/response inputs must not be described as ordinary runtime-SIMD/FMA faer results. The note still names the deleted Python inspection driver, leaving reproduction-route ownership worth investigating. A lane-preserving realization and full supplier-stack coverage remain Proposed; no throughput or LLVM inspection was performed.
+
 - **Operation and consumers.** All consumed binary64 faer work: sparse and dense LU, rank and covariance
   SVD, PSD EVD, matrix products. Consumers are response actions, arclength, fitting covariance and Diffsol.
 - **Current mechanism.** `vendor/faer` and `vendor/faer-traits` select `pulp::Scalar` (one lane) and delete
@@ -135,7 +129,7 @@ commit bodies or hunks.
 - **Preservation constraints.** No FMA contraction in the consumed closure, faer `Par` and algorithms,
   stable rank and pivot verdicts within tolerance, and arithmetic source in native build identity.
 - **Counterevidence and uncertainty.** Cross-CPU identity may be deliberate, and a host change would then
-  alter lane-dependent results. Faer 0.24.4 is still newest, so rebase pressure is nil. Small
+  alter lane-dependent results. The pinned source is faer 0.24.4; current release currency was not checked in this refresh. Small
   factorizations may gain little.
 - **Status.** Current mechanism.
 - **Research questions.** Does the promise need "no FMA" or "same result on this host"? Which faer kernels
@@ -143,7 +137,9 @@ commit bodies or hunks.
 
 <a id="cbo-121"></a>
 
-## CBO-121 — The POUNCE fork is far behind upstream
+## CBO-121 — The pinned POUNCE fork carries supplier deltas awaiting assessment
+
+**Refresh — retained with dated upstream scope.** `Cargo.toml` still pins the POUNCE family and direct FERAL to `141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe`, preserving one coherent source. The comparison counts/subjects below describe the earlier 2026-10-30 observation, not today's upstream head. A deliberate hold is not itself a defect; the opportunity is understanding which maintained delta obligations or upstream changes improve current presolve/factorization consumers. No commit-body comparison, release search or upgrade suitability was established here.
 
 - **Operation and consumers.** NLP, presolve, QP, sensitivities and FERAL factorization for
   `pse-backend-native`, `pse-math` and `pse-structural`, all at one fork revision (`141a9d00`, recorded in
@@ -173,6 +169,8 @@ commit bodies or hunks.
 <a id="cbo-028"></a>
 
 ## CBO-028 — Supplier deltas with numerics inside integration: Uno, and upstream-eligible fixes
+
+**Refresh — retained with upstream acceptance unknown.** Current supplier notes still distinguish numerically unchanged Diffsol Rust sources from modified bundled SUNDIALS 7.9.0 and the separate faer arithmetic realization. They describe authenticated source receipts and named native correction/integration sites. Those distinctions prevent treating every vendor tree as a solver fork or every correction as removable scaffolding. Uno numerical-hunk and upstream-fix claims below retain their earlier inspected patch scope; no newer supplier was checked, and no current upstream acceptance is claimed.
 
 - **Operation and consumers.** The pinned supplier numerics under every dynamics, QP and NLP solve.
 - **Current mechanism.**
@@ -205,6 +203,8 @@ commit bodies or hunks.
 <a id="cbo-027"></a>
 
 ## CBO-027 — Diffsol's infallible traits force panic control flow and local workarounds
+
+**Refresh — retained, Interface-checked local control flow.** `integrator::Shared::abort` still records the typed cause then unwinds with `Abort`; `contain` distinguishes that boundary from ordinary errors and unexpected panics. Local `linear.rs` still owns sparse setup/admission and recoverable numerical failures. Thus replacing the unwind seam would not delete all local linear-solver integration. The current pin remains 0.16.2, and no current upstream fallibility claim is renewed from the earlier 0.18 inspection. First-cause/statistics preservation remains mandatory.
 
 - **Operation and consumers.** Delivering cancellation, deadline, evaluation failure and step-limit outcomes
   through Diffsol, and running Newton linear solves, for every Diffsol trajectory and adjoint.
@@ -239,6 +239,8 @@ commit bodies or hunks.
 
 ## CBO-129 — A Diffsol supplier move is worth assessing on its contents
 
+**Refresh — retained as an applicability question, not an upgrade recommendation.** The current selected family remains `diffsol=0.16.2`, `diffsol-la=0.1.1` with maintained source selection. Current adapter bodies still construct mode-specific operators and recover typed failures, so any move must assess those concrete consumers. The 0.18.0 change list below is dated prior research; it is not evidence of the newest release, local bug reachability or compatibility. The bounded next question is which identified behavior/capability would change for an actual current model.
+
 - **Operation and consumers.** The Diffsol route, which `Method::Auto` tries first.
 - **Current mechanism.** Pinned at 0.16.2; 0.18.0 was current on crates.io at audit. By changelog and targeted source:
   - Fix: 0.18.0 re-evaluates the IC Jacobian at the current iterate (#392). The pinned code calls `reset_jacobian` in an outer
@@ -265,6 +267,8 @@ commit bodies or hunks.
 <a id="cbo-126"></a>
 
 ## CBO-126 — Three KLU owners with different reuse and observation
+
+**Refresh — retained, Interface-checked caller distinction.** IDAS still creates `SUNLinSol_KLU` for forward and backward problems; Diffsol's `linear.rs` still owns its direct symbolic/numeric lifecycle, while supplier notes retain the fixed-pattern SUNDIALS hook consumed by KINSOL. These mechanisms serve different embedding boundaries, so one Rust factor owner is not automatically appropriate. Current IDAS reuse tests retain native pointers across ordinary/forward requests, counterevidence to a blanket rebuild claim; symbolic work across restarts and adjoint samples remains unmeasured.
 
 - **Operation and consumers.** Sparse Newton factorization in KINSOL, IDAS and Diffsol.
 - **Current mechanism.** KINSOL uses the locally patched `SUNLinSol_KLUFixedPattern` (symbolic reuse, counters, phase observer, memory
@@ -293,6 +297,8 @@ commit bodies or hunks.
 
 ## CBO-125 — Direct-factor admission charges dense fill
 
+**Refresh — retained, Interface-checked finite-admission limit.** `PreparedLayout::direct_bytes` still explicitly uses a dense-fill allowance independent of sparse nonzeros, and IDAS's selected KLU storage consumes it. The local unbounded ordinary mode means this is a finite/scientific-admission capability question, not a claim that normal workstation work is globally capped. Symbolic estimates cannot silently replace a hard conservative bound; allocation ownership and failure behavior remain the settling supplier contract. No rejected real model or actual factor-size ratio was measured.
+
 - **Operation and consumers.** Admitting direct factorization before native work: IDAS forward and backward KLU, sample elimination,
   the Diffsol faer scratch ceiling and the KINSOL block preconditioner.
 - **Current mechanism.** `PreparedLayout::direct_bytes` charges `n * n * 32` as an allowance "independent of sparse input nonzeros".
@@ -320,6 +326,8 @@ commit bodies or hunks.
 
 ## CBO-127 — Diffsol rebuilds patterns and symbolic analysis per segment
 
+**Refresh — retained, Interface-checked representative construction.** `Operator::for_mode` still requests owned support, builds source/state/parameter patterns and maps scheduled columns into the selected physical-axis layout. `FaerLu::set_sparsity` still starts a fresh symbolic analysis and scratch admission. Those are stable-work leads, but selected mode, initial-condition widening and current axis demand can change the pattern legitimately. Reuse must compare those complete inputs; neither a per-trajectory cache nor a supplier move has been assessed or benchmarked.
+
 - **Operation and consumers.** Trajectories with scheduled inputs or event modes, shooting windows, and Diffsol adjoints.
 - **Current mechanism.** `integrator.rs::build_problem` constructs five `Operator`s per segment. `Operator::for_mode` calls `oracle.support()` (an owned
   `Vec`) and builds source, state and parameter patterns, two transposes and four refill maps. Each new solver takes `LS::default()` and `set_sparsity`,
@@ -342,6 +350,8 @@ commit bodies or hunks.
 <a id="cbo-128"></a>
 
 ## CBO-128 — IDAS gradients and sensitivities repeat preparation
+
+**Refresh — retained with existing ordinary reuse as counterevidence.** Current backward/sensitivity callbacks still obtain full `c.partials`, and source explicitly states that nonfinal adjoint segments replay because reinitialization frees checkpoints. The read workspace test separately asserts retained native memory/linear pointers across None/Forward requests, current value rebinding and detached callback userdata. Therefore the opportunity concerns adjoint/checkpoint and partial-product lifetimes, not all IDAS gradients or sessions indiscriminately. Full-partial cache hits, replay cost and alternative retention were not measured.
 
 - **Operation and consumers.** IDAS forward sensitivities, backward residuals and quadratures, and repeated gradient evaluations in fitting and shooting.
 - **Current mechanism.** Two manifestations:
@@ -366,6 +376,8 @@ commit bodies or hunks.
 
 ## CBO-118 — Point interval enclosures rebuilt per call under the proof lock
 
+**Refresh — retained, Interface-checked complete boundary sample.** `point_arithmetic_core` still validates the program, encodes transport and acquires `IBEX`; the C++ `pse_ibex_point_arithmetic` then constructs `Graph` and evaluates values/Jacobian under per-request guards. This is an actual reusable-structure lead for a value-varying consumer, but guards and admitted derivative shape remain request-dependent. No evidence establishes that an IBEX graph is safely reusable or concurrent, and no alternative interval library's outward-rounding contract was assessed.
+
 - **Operation and consumers.** `Ibex::{enclose_point_arithmetic*, enclose_arithmetic_box*}`, consumed by `pse-runtime` `engineering_accuracy/arithmetic.rs`,
   `kkt_accuracy/arithmetic.rs`, `certified_accuracy.rs`, `objective_accuracy.rs`, `dynamics_accuracy.rs::point_uncertainty` and `output_program.rs` to certify original outputs and KKT quantities.
 - **Current mechanism.** Three manifestations of one need:
@@ -389,6 +401,8 @@ commit bodies or hunks.
 
 ## CBO-117 — Covering proofs consume an unseeded process-lifetime random stream
 
+**Refresh — retained with supplier-state uncertainty.** Current `GuardContractor` still selects `LinearizerXTaylor::RANDOM_OPP`; the local C++ transport has no seed call in the inspected complete file search. That re-establishes the local policy choice, not all IBEX random-state internals or an observed differing result. Soundness and resource-limit repeatability are distinct: a request-local policy is a research lead only, and no proof-cell or replay experiment was run.
+
 - **Operation and consumers.** `pse_ibex_certify`, through `exclude`, and every consumer of selection charts, cell counts and refusal outcomes.
 - **Current mechanism.** `GuardContractor` configures `LinearizerXTaylor::RANDOM_OPP` under `CtcPolytopeHull`. By symbol reference the linearizer draws from the global `RNG`. A search of
   `native/root_isolation.cpp` and `root_isolation.rs` finds no `RNG::srand`. The corners taken therefore depend on how many draws earlier proofs in the process consumed, in an order that varies across lanes with lock order.
@@ -406,6 +420,8 @@ commit bodies or hunks.
 
 ## CBO-120 — NLP presolve bound passes disabled for lack of multiplier recovery
 
+**Refresh — retained, Interface-checked acceptance boundary.** Current `pipeline.rs` explicitly permits interval work to establish source infeasibility while preventing tightened bounds, removed rows or multipliers from escaping that analysis wrapper. This supports the residual opportunity: additional presolve geometry needs an honest original-coordinate dual recovery contract. It does not show that a newer supplier already has that contract, and the historical upstream subjects in CBO-121 do not resolve it. No postsolve algorithm was selected or exercised.
+
 - **Operation and consumers.** Continuous NLP through `presolve::pipeline` for Ipopt and POUNCE.
 - **Current mechanism.** §18.3 records that the pinned binding cannot recover general original-bound multipliers from `LinearBounds` or `Fbbt` tightening, so both passes are ineligible. `Auto` records a reason, and interval analysis reduces to an infeasibility check whose geometry is discarded.
 - **Why it matters.** Tightening is a common generic presolve step, and the library is the maintainer's own fork, so the gap may be closable at its source. Tightened domains could improve start quality and conditioning. Upstream subjects about handing back transferred bound multipliers ([CBO-121](#cbo-121)) may bear on the premise.
@@ -420,6 +436,8 @@ commit bodies or hunks.
 <a id="cbo-122"></a>
 
 ## CBO-122 — Ipopt reuse keeps objects but discards numerical preparation
+
+**Refresh — retained as a constrained reuse question.** The sequence bridge still sets `warm_start_same_structure=no` before `ReOptimizeTNLP` and documents refreshing spaces, dependency maps, gradient scaling and numerical initialization. The setting therefore protects a real freshness obligation, not accidental missing reuse. Potential structural reuse must preserve that distinction and bound-class validity; this refresh neither inspected every Ipopt linear solver's internals nor measured symbolic setup cost.
 
 - **Operation and consumers.** Staged sequences and sweeps of one structure through the Ipopt adapter.
 - **Current mechanism.** The bridge retains the C++ application and TNLP and calls `ReOptimizeTNLP`, but every call sets `warm_start_same_structure=no`, so spaces, scaling and linear-solver symbolic state are rebuilt. POUNCE contrasts: `pounce/retained.rs` keeps reset-safe baseline symbolics of leased FERAL backends across applications. Bound updates pass through the classification-preserving `update_bounds`.
@@ -436,6 +454,8 @@ commit bodies or hunks.
 
 ## CBO-119 — Rank and spectral diagnostics densify sparse operators
 
+**Refresh — retained, Interface-checked demand limit.** `square_response` still separately admits a dense spectrum workspace and full SVD, while response products already share same-point sparse numeric factors. `pse-math::diagnostics::analyze_matrix` likewise explicitly requests full singular spaces. That is a credible sparse-extreme-mode capability inquiry, not evidence that a partial spectrum can replace all rank/null-space decisions. No smallest-singular-value library capability, convergence guarantee or large-case demand was established.
+
 - **Operation and consumers.** Arclength fold and branch probing, regular-square response spectrum, Jacobian degeneracy rank and general matrix diagnostics, for continuation and structural diagnostics on large Jacobians.
 - **Current mechanism.** `kkt/path/arclength.rs::svd` computes a full dense SVD with full U and V. `square_response.rs` `spectrum` and `rank_scratch` are dense. `jacobian_diagnostics.rs::rank` goes to `pse_math::diagnostics::analyze_matrix` behind a hard `dense_entries` gate, building dense Grams; beyond it an investigation gets no answer. The pinned faer tree carries `operator::{partial_svd, partial_eigen, partial_self_adjoint_eigen, lsmr}`, unused here by grep. FERAL LU and inertia give a rank signal elsewhere.
 - **Why it matters.** Near-singular analysis matters most on large cases, where the dense gate refuses. A few extreme singular triplets answer dependence, null direction and fold test function. The response path also has no condition estimate: it uses a local `matrix_norms` for backward-error bounds, while `conditioning.rs` uses FERAL's `condition_estimate_1`. These answer different questions, so whether the FERAL estimator (a Hager–Higham operator is public) could run over other factors is a lead, not a defect.
@@ -450,6 +470,8 @@ commit bodies or hunks.
 <a id="cbo-123"></a>
 
 ## CBO-123 — Native boundary declarations exist twice with no generated link
+
+**Refresh — retained, Interface-checked representative ABI duplication.** `pse-ipopt-sys/src/sequence.rs` still hand-declares callback signatures and C-layout bridge records beside its C++ header contract, and IBEX retains Rust request fields beside the C++ transport. A declaration-generation/layout-validation mechanism is a generic opportunity. These source forms do not establish an actual ABI mismatch or a complete absence of indirect native tests. Exception/panic containment and unavailable-prefix builds must remain explicit in any assessed realization.
 
 - **Operation and consumers.** Every change to the project-owned C ABIs: the IBEX transport and the PETSc, Uno and Ipopt-sequence bridges.
 - **Current mechanism.** Only upstream Ipopt C uses committed bindgen (`xtask/src/codegen/ipopt.rs`). Others are duplicated by hand: `pse-petsc-sys/src/lib.rs` against `bridge/pse_petsc.h`, `pse-uno-sys/src/lib.rs` against `pse_uno.h`, `pse-ipopt-sys/src/sequence.rs` against `pse_ipopt_sequence.h`, including struct layouts and integer status spaces. IBEX is weakest: `root_isolation.rs` has seven `repr(C)` types duplicating `PseRootNode` and others in `native/root_isolation.cpp`, with no shared header and bare integer op codes. `NativeRequest` is spelled field by field in at least four read paths. A search for `offset_of!` in the sys crates and `root_isolation.rs` found none.
@@ -466,6 +488,8 @@ commit bodies or hunks.
 
 ## CBO-124 — Oracle wrappers forward by hand, and optional facts default silently
 
+**Refresh — retained, Interface-checked exact representative.** `NlpOracle` still defaults structural/presolve facts to `None`; `transform::Pinned` forwards normalization, separator, sources and derivative facts while omitting those two facts. That is a real silent-decision surface, but the pin changes the contract and may correctly invalidate them. The opportunity is mandatory explicit forwarding/omission decisions when traits evolve, not automatic delegation of all facts. No incorrect solver eligibility was demonstrated.
+
 - **Operation and consumers.** Wrappers over `NlpOracle` and `NleOracle`: `transform::{Pinned, Unconstrained}`, `structural::{NlpWitness, RootsWitness}`, `callback::CountedNlp`, `initialization::LeastDeviationOracle`, `transport::Roots` and `presolve/pipeline::Transport`.
 - **Current mechanism.** Each hand-forwards the trait, about 15 methods. Six NLP methods have default `None`-style bodies, so a wrapper that omits a forward loses a fact with no compile error. In outline, `transform::Pinned` forwards `solve_separator`, `normalization`, `constraint_sources` and `derivative_facts` but not `structural_analysis` or `presolve_facts`.
 - **Why it matters.** Each new optional capability needs a decision in every wrapper, and the failure mode is silent loss, not an error. The translators themselves are not duplicated: one `tnlp::Adapter` and one `foreign_nlp` dispatch serve the three NLP solvers.
@@ -481,6 +505,8 @@ commit bodies or hunks.
 
 ## CBO-130 — Hybrid trajectory ordering written separately per backend
 
+**Refresh — retained as domain-semantic duplication.** Current Diffsol and IDAS run loops still independently check event limits and order coincident roots/scheduled changes; the Diffsol comment explicitly places roots before scheduled changes. These decisions must remain domain-owned even if generic state-transition/driver machinery is delegated. Shared method-contrast tests provide a relevant independent witness, not proof that the complete loops are equivalent. Full loop and adjoint-order correspondence was not re-established and no library state-machine fit was assessed.
+
 - **Operation and consumers.** Segment-by-segment trajectory semantics: coincident roots, scheduled changes, ambiguous guards, sample-at-transition, event limits, terminal events, conservation settlement and endpoint capture.
 - **Current mechanism.** `idas.rs::{run, segment}`, `integrator.rs::{run, drive, record_start, capture_endpoint}` and `integrator/adjoint.rs::Passes::run` each encode these decisions, with near-identical branches for `max_events` and the deferred post-transition sample. Shared helpers (`observe_conservation`, `settle_transition`, `guards_at_zero`, `sample_jump`) cover conservation and jumps, not ordering. The backward sweeps repeat too: `Session::backward` and `Passes::run` have the same structure (latest sample first, jump at stop, restart, step, carry the adjoint, initial-value correction).
 - **Why it matters.** A semantic change to event ordering needs parallel edits and differences can hide. `dynamics/method_contrast_tests.rs` exists to catch drift. The backward-sweep driver is the more mechanical duplication.
@@ -488,12 +514,14 @@ commit bodies or hunks.
 - **Evidence.** Both `run` bodies, `drive` and all of `Passes`, read.
 - **Footprint.** Inspected as above.
 - **Preservation constraints.** IDAS's NORMAL-mode output service differs from Diffsol's step-driven loop and `state_mut_back`. IDAS restarts one native memory while Diffsol builds a new problem, and sensitivity seeding differs.
-- **Counterevidence and uncertainty.** No library owns this: it is a local consolidation with an owned trait or state machine, and shared tests may be the better remedy. Keeping both backends is deliberate, because their capabilities are not nested (§13 method table).
+- **Counterevidence and uncertainty.** No library's fit for this ordering contract was assessed. A local consolidation with an owned trait/state machine or independent shared tests remain alternatives for later comparison. Keeping both backends is deliberate, because their capabilities are not nested (§13 method table).
 - **Status.** Current mechanism.
 
 <a id="cbo-131"></a>
 
 ## CBO-131 — SUNDIALS resource ownership hand-written per adapter
+
+**Refresh — retained, Interface-checked detailed lifecycle sample.** `NativeStorage` still mirrors session resources through `take`, `install` and a manual destructor that frees integrator memory, solvers/matrices, vectors and context in order. The read IDAS workspace test asserts pointer reuse, userdata detachment and failure discard, substantial counterevidence to assuming careless ownership. Generic typed ownership may reduce mechanical change burden while preserving aliases, owner-thread affinity and callback lifetime; no existing safe wrapper's coverage was researched.
 
 - **Operation and consumers.** Creating, attaching, parking, reinstalling and freeing native objects, and entering Rust from native callbacks, in IDAS and KINSOL.
 - **Current mechanism.** `NativeStorage` in `idas.rs` holds 18 fields with hand-written `take`, `install` and `Drop`, and reuse branches through `prepare_storage` and `new_storage`. `Session` has parallel fields. `kinsol.rs::Session` has its own `Drop`, `check`, `index`, `values` and `publish`, and `local_error.rs::Scratch` another context. The callback disciplines differ: KINSOL uses `CallbackState::evaluate` with preallocated buffers, IDAS uses `catch_unwind` per callback plus `finish_callback`, typed `input!` guards and mostly per-call `Vec`s.
@@ -502,7 +530,7 @@ commit bodies or hunks.
 - **Evidence.** `idas.rs` session and storage sections, sample callbacks, `kinsol.rs::Session` and callbacks, `local_error.rs::Scratch`, `bbd.rs`.
 - **Footprint.** Inspected as above.
 - **Preservation constraints.** Free order (integrator memory, solvers, matrices, vectors, context last), owner-thread affinity, no oracle pointer surviving while parked, aliased outputs published after input borrows end, panic containment.
-- **Counterevidence and uncertainty.** The code is careful and tested, and a generic layer can hide the aliasing rules. The benefit is change cost, not behaviour. Whether a maintained safe Rust SUNDIALS crate covers IDAS adjoints was not researched, and is doubted.
+- **Counterevidence and uncertainty.** The code has explicit ownership assertions and retained tests, and a generic layer can hide aliasing rules. The proposed benefit is change cost. Whether a maintained safe Rust SUNDIALS crate covers the consumed IDAS adjoint contract was not researched and remains unknown.
 - **Status.** Current mechanism.
 
 ## Examined and not retained

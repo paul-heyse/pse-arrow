@@ -24,30 +24,22 @@ certification uses SCIP; point uncertainty uses IBEX with library-reported works
 cache traits and `quick_cache`. Cancellation is completion-owned, and ordered conformance merge is careful and
 tested. Opportunities cluster in four places: a hand-built dependency tracker beside the compiler's Salsa database
 (CBO-087); long orchestration bodies that interpret a compiler product by shape (CBO-088, CBO-089, CBO-090);
-stable preparation rebuilt at the wrong lifetime (CBO-096, CBO-097, CBO-098); and mechanisms with no production
-consumer (CBO-099).
+stable preparation rebuilt at the wrong lifetime (CBO-096, CBO-097, CBO-098); and implemented tiers whose
+production consumers need confirmation (CBO-099).
 
-**Coverage on this page.** Read closely: `dynamics.rs` production (`prepare_simulation_mode`, `state_signs`,
-`integrate_sample_attempt`), `dynamics_accuracy.rs`, `dynamics_checks.rs`, `dynamics_events.rs`, `trajectory.rs`,
-`cases.rs`, `implicit.rs`, `views.rs`, `canonical.rs` and `canonical/{delta,reload,local,rebind}.rs`,
-`project_comparison.rs`, the linear and nonlinear diagnostics, and in the runtime math layer `staged/driver.rs`,
-`solves/paths.rs`, `solves/{causal,multistart,starts}.rs`, the accuracy files, `strategy/admission.rs` and
-`native_child.rs`. Read in part: `conformance.rs` (report projections outlined), `declared_requests.rs` (first part), `results.rs`, `diagnostics.rs` (second half unread), `solves.rs`, `solves/petsc.rs` (block preparation and
-setup partly unread), `portable.rs`, `retention*`, `modeling.rs` and `surrogate*`. Skimmed or outlined only:
-`project_preparation*`, `documents.rs`, `knowledge.rs`, `engagement.rs`, `declared.rs`, `engines.rs`,
-`pure.rs`, `flows.rs` and `settings.rs`. Test files were classified by name and sample, not read. The numerical
-accuracy logic in `dynamics_accuracy.rs` beyond intervals, hash field completeness and `force_validate` activation
-were not checked, and no performance was measured.
+**Refresh baseline and coverage (2026-11-02).** Source `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`; no product edits included. Framework/base patterns edition 0.2 and additional patterns at that baseline apply. Every live entry was reconsidered against current source. Native searches/source reads covered source-index invalidation, typed local objects, dynamic preparation and repeated observations, observation assessment, project snapshots/ancestry, PETSc point/Jacobian callbacks, solve identities, portable callers, replay capture, duplicated operation identities and the nonlinear deletion filter. Related compiler granular tests and backend compact/shared-oracle assertions were read. These tests were not run. Whole dynamic preparation, all replay constructors, all cache lifetimes and every comparison consumer were not retraced. Earlier line/site counts and descriptions of complete reads remain the 2026-10-30 account, not a new census. Absence claims below are scoped source observations, not proof about indirect dispatch or external API consumers. No contention, solve or preparation cost was measured.
 
 <a id="cbo-099"></a>
 
-## CBO-099 — The durable body tier and child route have no production consumer
+## CBO-099 — Confirming the consumers of portable mathematics and child execution
+
+**Refresh — retained as a consumer/lifetime inquiry.** Current source still captures portable bodies in compiler `typed_math/direct.rs::Request::admit`; runtime search witnesses `publish_body`, `reuse_body` and child solves primarily in their test modules. A bounded search is insufficient to renew the old universal absence claim, so a production-consumer census remains an explicit settling question. Completed Plan28/Plan58 assertions are neither new callers nor leverage closure evidence. The opportunity covers either connecting an intended portable workflow or removing unconsumed preparation; it selects neither outcome.
 
 - **Operation and consumers.** Publish an admitted mathematical body to the canonical store and reconstruct it in
   another process, so a restarted runtime or a study worker avoids parse, admission, specialization,
   differentiation and evaluator construction for a model compiled elsewhere. A private child process solving a root
   from the same recipe is the second consumer.
-- **Current mechanism.**
+- **Current mechanism (caller census from the 2026-10-30 account; current refresh confirmed representative capture/test witnesses, not an exhaustive negative).**
   - In `math/portable.rs`, every reference outside the file to `publish_body`, `publish_unqualified_body`,
     `reuse_body`, `reuse_body_current`, `describe_body`, `product_candidate_presence` and `qualify_replay` is in a
     `#[cfg(test)]` module. `workflow/canonical.rs` imports only `ReplayAdmission`.
@@ -73,10 +65,10 @@ were not checked, and no performance was measured.
   strict re-admission in `reconstruct_portable`, D14 (a digest never substitutes for semantic admission), the symbol
   registration-order universe (§14.3), and no native handle in durable state.
 - **Counterevidence and uncertainty.** This is an absence claim by name search, limited to `crates/` and `xtask`;
-  indirect dispatch and external embedders of a `pub` API are invisible. Tests exercise the tier thoroughly, so it is
-  implemented and unconsumed. Reconstruction repeats evaluator construction, so the saving may be small, and no
+  indirect dispatch and external embedders of a `pub` API are invisible. Test bodies exercise the tier, establishing
+  implementation but not a fresh universal non-use claim. Reconstruction repeats evaluator construction, so the saving may be small, and no
   compile timing was read.
-- **Status.** Current promise in the architecture and in Plan 28b's Outcome, with the implementation unconsumed in production. The overview says the substrate stores portable compilation descriptions, §18.8 refers to "the implemented child route", and Plan 28b records "consumer migration" as implemented. That conflict between owners and code belongs to the plan-completion route as well as to leverage.
+- **Status.** Current promise in the architecture and Plan 28b's Outcome; production consumption was not established in the earlier scoped caller search or this representative refresh. The overview says the substrate stores portable compilation descriptions, §18.8 refers to "the implemented child route", and Plan 28b records "consumer migration" as implemented. Those claims require a concrete production composition witness; an actual owner/code conflict would also belong to the plan-completion route. This audit does not pronounce the whole plan incomplete from a negative name search.
 - **Research questions.** What would a warm restart save against reconstruction cost, and is the store the right
   layer? Can the supplier's exported instruction forms or serialized evaluators be persisted and reloaded, and how
   does Salsa persistence stand at the pinned version?
@@ -84,6 +76,8 @@ were not checked, and no performance was measured.
 <a id="cbo-088"></a>
 
 ## CBO-088 — Dynamic preparation interprets the compiler's product in orchestration
+
+**Refresh — retained, Interface-checked.** Current `prepare_simulation_mode` still derives terminal integral rows, dynamic ports and schedule agreement and issues observations from the compiled product. These are not all generic tasks: authored schedule authority, physical time scaling and integral endpoint rules are domain policy. The useful leverage question is the generic dependency/plan construction surrounding those rules and whether its result can have one reusable owner. This refresh read representative branches rather than the whole function; no lower-owner redesign or library fit is selected.
 
 - **Operation and consumers.** `ModelingPackage::prepare_simulation_mode`, consumed by simulation, shooting,
   consistent initialization and fitting, plus the numerical-requirement derivations in `cases.rs` shared with the
@@ -117,11 +111,13 @@ were not checked, and no performance was measured.
   meaning of derived scales and is not a defect.
 - **Status.** Current mechanism.
 - **Research questions.** Which derivations depend only on the product, which on method choice, which on values?
-  Could the lower owner publish a typed plan that the orchestrator binds? No library applies.
+  Could the lower owner publish a typed plan that the orchestrator binds? No specific library capability has been assessed.
 
 <a id="cbo-087"></a>
 
 ## CBO-087 — Source selection carries a hand-built query engine beside Salsa
+
+**Refresh — retained, Interface-checked.** `SourceIndex` still has traced reads, pending references, probing state and `member_memo`; `invalidate_members` still clears that memo wholesale. `canonical/local.rs::TypedSourceInputs` already retains typed/parsed source objects, so repeated parsing is not a blanket premise. Adjacent compiler `granular_tests` compare updated checked products with a fresh checker. New workspace Salsa descendant cancellation support does not establish immutable branching or prepaid acquisition fit; those remain the decisive research questions.
 
 - **Operation and consumers.** Select the minimal source closure for a root (`select_local`, consumed by
   `selected_revision`, `checked_selection` and `prepare`), and on a delta recompute only the declarations whose
@@ -160,6 +156,8 @@ were not checked, and no performance was measured.
 
 ## CBO-090 — Observation crossings and demand discovered in stages
 
+**Refresh — retained, Interface-checked.** `dynamics.rs` still separately observes initial, original-initial and nominal rows, then extracts accuracy-related hints. Their consumer is one prepared simulation, but different points and provider obligations can justify separate programs. The opportunity is a complete demand/point grouping contract that reveals valid collective work, not automatic batching of all calls. No crossed-program count or repeated preparation cost was measured, and the steady preparation path was not completely retraced.
+
 - **Operation and consumers.** Preparing a case or simulation: observing rows at a point, and deciding derivative
   order and provider demand.
 - **Current mechanism.** Two manifestations, kept distinct.
@@ -192,6 +190,8 @@ were not checked, and no performance was measured.
 <a id="cbo-091"></a>
 
 ## CBO-091 — Revision comparison and diff implemented per operation
+
+**Refresh — retained with operation-specific equality.** `project_merge_preview` still obtains three complete typed snapshots before `merge_objects`; snapshot construction decodes and classifies admitted documents/fits. The same file's ancestry consumer separately walks stored revisions. Persistent sharing or content versions could exclude definitely identical objects, but cannot replace the span/package normalization policy for semantically equal objects. A structural-diff facility and query-side selection remain research leads; no available library diff or observed hydration bottleneck is established.
 
 - **Operation and consumers.** Deciding what changed between source states, for comparison, merge, edits, reload and
   publication; CLI and agent inspection of revisions.
@@ -231,6 +231,8 @@ were not checked, and no performance was measured.
 
 ## CBO-096 — Runtime numerics rebuild stable preparation at the wrong lifetime
 
+**Refresh — retained, conditional path value.** `PreparedPath::supplier`, `correct` and `correct_target` remain separate source mechanisms; current root-response work also retains a `root_layout` and admits a `SquareScope` before attempting compatible symbolic reuse. That existing reuse narrows the opportunity to omitted lifetimes/consumers, not all numerical preparation. Path public API consumption still needs the CBO-099 census, and assessment-versus-correction costs were not measured. Fresh numeric factors and current bounds remain separate from reusable structural work.
+
 - **Operation and consumers.** Path corrections, path curvature and original-point assessment, consumed by paths,
   events and the engineering, KKT and certified accuracy routes.
 - **Current mechanism.** Three manifestations.
@@ -265,6 +267,8 @@ were not checked, and no performance was measured.
 
 ## CBO-089 — Assessment reinterprets outputs at every observed point
 
+**Refresh — retained, Interface-checked.** `assess_observations` still builds expectation/check rows, scans admitted hints into maps and resolves validity endpoints by searching outputs. Some domain assessment already delegates to `PreparedModeling::assess_expectations_for`; it is not wholly reimplemented here. A prepared row/index projection and generated construction ergonomics are separable generic leads. Per-point applicability and missing-value refusal must still execute. No typical output population or sample-time cost is known.
+
 - **Operation and consumers.** `assess_observations`, called per candidate, per trajectory sample
   (`SampleCheckWorker::check` in `dynamics_checks.rs`) and in fitting.
 - **Current mechanism.** Each call scans `admitted.outputs` and annotations, looks up closures and expectations by
@@ -293,6 +297,8 @@ were not checked, and no performance was measured.
 
 ## CBO-097 — Identity hashes recomputed from full data at every use
 
+**Refresh — retained, Interface-checked.** `PreparedSolve::original_identity` and `preparation_identity` still construct fresh framed hashes; the former branches over original representations and the latter includes snapshot/profile/numerics. Other prepared types, including PETSc, already expose stored identities, so the opportunity is local to types whose mutation/freeze boundary permits memoization. No cache is recommended without complete builder invalidation, and the prior caller count is not renewed.
+
 - **Operation and consumers.** `PreparedSolve::original_identity`, `preparation_identity`, `strategy_profile` and
   `profile_key`, about 131 calls in non-test `math/` by search. Uses include `decision_key` per driver iteration,
   `direct_batch_candidate`, refined-step comparison and trace construction.
@@ -320,6 +326,8 @@ were not checked, and no performance was measured.
 
 ## CBO-098 — PETSc callbacks evaluate through a map-keyed point
 
+**Refresh — retained specifically for PETSc.** `LocalBlock::point` still inserts local and ghost values into a semantic map; `jacobian` still allocates a temporary scatter vector after calling the map-based worker. By contrast, native `AlgebraicOracle::compact` and `refill_inputs` already bind compact inputs, and `assembled_tests::shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private` asserts current-point isolation and recovery. That is an existing integration lead, not evidence that PETSc can adopt it unchanged or that map work dominates callback time.
+
 - **Operation and consumers.** `solves/petsc.rs` `LocalBlock::{point, residual, jacobian}` and
   `CompiledDomain::check`, called from inside PETSc on every callback.
 - **Current mechanism.** Each callback inserts every coordinate, ghosts by `binary_search`, into
@@ -343,6 +351,8 @@ were not checked, and no performance was measured.
 <a id="cbo-092"></a>
 
 ## CBO-092 — Project ancestry walked one guarded round trip per revision
+
+**Refresh — retained, Interface-checked.** The complete current `project_is_ancestor` body still uses a pending stack/seen set, checks cancellation per node, refuses beyond 8,192 visited revisions and awaits both revision lookup and parent lookup. Its merge caller needs a Boolean ancestry answer. This supports investigation of collective guarded traversal while preserving unavailable-source refusal; it does not establish the database's recursion capability or a latency benefit.
 
 - **Operation and consumers.** `Runtime::project_is_ancestor`, used by merge decision, undo and publication, with two
   ancestry checks per decision.
@@ -368,6 +378,8 @@ were not checked, and no performance was measured.
 <a id="cbo-094"></a>
 
 ## CBO-094 — One requested operation in several serialized request languages
+
+**Refresh — retained with distinct authorities.** `OriginalCaseInputs` still captures the actual preparation inputs; its descriptive replay constructor is separate from the executable replay predicate, which explicitly refuses retained implicit capabilities. The source comment confirms that decoding bindings grants no runtime capability. Mechanical shared projections and byte accounting are worth investigating, but intent, descriptive history and executable reconstruction must not be collapsed because their shapes overlap. No complete field-coverage audit was performed.
 
 - **Operation and consumers.** Durable studies, scientific replay, reproducers and review tooling.
 - **Current mechanism.** `StudyOperation` and `OperationRequest` (`StoredPoint` JSON) drive reconstruction in workers.
@@ -398,6 +410,8 @@ were not checked, and no performance was measured.
 
 ## CBO-093 — Logical keys and identities cross boundaries as formatted strings
 
+**Refresh — retained, Interface-checked.** Current worker and recovery code independently derive the same `scientific.attempt.lineage.v1` frame; worker/study execution parse `run:` strings back to typed IDs, and canonical/project snapshots still spell document/record/fit keys locally. These concrete duplicate meaning projections remain; the old total count is not renewed. Stable persisted strings and operation-specific authority make this primarily a typed-boundary/derivation inquiry, with library value still unassessed.
+
 - **Operation and consumers.** Object identity inside admitted revisions, and claims, recovery, seeds, block keys and
   operation receipts.
 - **Current mechanism.**
@@ -427,13 +441,14 @@ were not checked, and no performance was measured.
 
 ## CBO-095 — Nonlinear explanation runs a sequential deletion filter
 
+**Refresh — retained after correcting independence.** `explain_nonlinear` still iterates a baseline plus row candidates under a shared deadline/attempt budget and builds each trial from the current `omitted` set. Trials are therefore not all independent: accepted omissions affect later questions. A collective or conflict-isolation mechanism must preserve an explicitly chosen sequential/adaptive meaning, or deliberately change the explanation contract. No faster algorithm, parallel execution benefit or equivalent conflict minimality is established.
+
 - **Operation and consumers.** `explain_nonlinear`, an infeasibility diagnosis for modelers.
-- **Current mechanism.** One attempt per outer equation in row order, one at a time. Each trial sets
+- **Current mechanism.** One attempt per outer equation in row order, one at a time, with later trials depending on retained omissions. Each trial sets
   `Formulation.omitted` and goes through `prepare_analysis_attempt`, then the POUNCE ell-1 method, seeded only with
   base values. The budget is `maximum_attempts`. `certify_infeasibility` delegates global IIS to SCIP, which is the
   strong route.
-- **Why it matters.** This is a known conflict-isolation family, and the trials are independent solves on a
-  many-lane workstation. Parallel trials, a divide-and-conquer order, or reuse of the prior candidate could reach a
+- **Why it matters.** This is a conflict-isolation family with an adaptive sequence of solves. A suitable divide-and-conquer order, carefully specified parallel batches, or reuse of the prior candidate could reach a
   smaller candidate within the same budget. The omission structure changes per trial, so structural preparation is
   repeated.
 - **Patterns.** LOP-01, LOP-07, LOP-12.

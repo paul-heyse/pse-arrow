@@ -5,7 +5,9 @@ This page covers `pse-operations` (the canonical SurrealDB store and its owned p
 [§20](../../authoritative_design/sections/identity-and-publication.md#section-20),
 [§4](../../authoritative_design/sections/schema-and-relations.md#section-4) and
 [§3.3](../../authoritative_design/sections/workspace-and-dependencies.md#section-3-3). The baseline is
-on the [entry page](README.md). These opportunities share one premise: SurrealDB stays canonical,
+on the [entry page](README.md). Refreshed 2026-11-02 at clean source
+`f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`, with framework/base edition 0.2 and
+additional-pattern revision 5. These opportunities share one premise: SurrealDB stays canonical,
 and durability spans multiple processes without a daemon. Every opportunity here is judged within
 that premise.
 
@@ -41,17 +43,16 @@ The opportunities cluster in three places: a large embedded program without stor
 ([CBO-071](#cbo-071), [CBO-072](#cbo-072)), and supplier burden at the client wire and the server
 patch series ([CBO-066](#cbo-066), [CBO-070](#cbo-070)).
 
-**Coverage on this page.** Closely read: the client path (`canonical_client*`, `owned.rs` in full,
-`outbound.rs`, `errors.rs`), the study capture path and its generated functions, the bodies of
-`canonical_projects`, `canonical_results`, `canonical_artifacts`, `canonical_analyses` and
-`canonical_project_imports` (long lines truncated), and the Rust of the retention and lifecycle
-modules. Read at representative depth: `canonical_script`, `canonical_transport`, `transport_retry`,
-`transport_lifetime`, `canonical.rs`, `canonical_selection`, `canonical_studies`, migration and
-maintenance heads, and six of the 14 server patches in full. Skimmed or unread: `canonical_staging`
-and `canonical_files` (heads only), `progression*.rs`, test modules, the generated retention and
-lifecycle function bodies (which hold the actual retention logic), and the tails of the partially read
-patches. Nothing was run and no cost is measured. [CBO-011](#cbo-011) and [CBO-012](#cbo-012) were
-carried forward and rechecked at heads and by search only.
+**Coverage.** Every formerly live entry was reconsidered. This pass followed study status through
+capture open/commit/page/release, local failed-release custody, exact capture recovery and file-owner
+drain; read the authored SurrealQL owners rather than editing generated output. It also read guarded
+script envelope sites, current gRPC deframing, source-reclaimer and guard samples, worker normal/recovery
+study outcome projection, the offline helper's operation surface, and single-flight/nested I/O bodies.
+Relation-local and cross-relation occurrence callers were traced far enough to correct CBO-012's
+premise. Schema-rollout and patch-series refresh is bounded to current declarations, source-build
+responsibilities and retained consumers; the earlier detailed six-patch reading remains dated
+2026-10-30. Earlier source-size counts in the system picture are that date's orientation, not a new
+census. No service, test or probe ran; mechanisms are *Interface-checked*, prospective value *Proposed*.
 
 <a id="cbo-071"></a>
 
@@ -82,8 +83,10 @@ carried forward and rechecked at heads and by search only.
   `release_capture_as`, `CaptureOwner::drop`, `workbench_script`), the generated `open_capture`,
   `commit_capture`, `capture_page`, `recover_capture`, `release_capture` and `publication`, and
   `study_observation.rs` (`status_page`, `poll_checked`, `follow`). Record counts are from reading.
-- **Footprint.** Inspected. `tooling/reader/canonical.rs` and `bin/project/runtime.rs` were read at the
-  call line only.
+- **Footprint.** Fresh challenge and coordinator reading followed `tooling/reader/canonical.rs::encode`:
+  the Study branch constructs an observer, polls, retains the typed capture through encoding, drops
+  that custody and drains the connection. Thus the native retained-observation query also consumes
+  this internal canonical capture. `bin/project/runtime.rs` remains call-line coverage only.
 - **Preservation constraints.** The context check and attempt discovery in `poll_checked`; bounded
   response; exact `metadata_revision` per point; refusal on an incomplete population; capture semantics
   for KPI export and cohort pages, which need completeness and result protection; capture-versus-publication
@@ -93,8 +96,22 @@ carried forward and rechecked at heads and by search only.
   have been built on capture to reuse one bounded response owner rather than for its semantics. Whether one
   read script gives header-plus-member consistency under MX needs confirming.
 - **Operational gap, suspected from reading and not run.** The gate clears only in `commit_capture` and `recover_capture`, and ADR-0230 states that an expired timestamp never permits writers to bypass an unchanged gate. A process death between open and commit therefore appears to leave the gate set. `open_capture` itself calls `publication`, so the next poll or capture refuses as well as all 64 publication sites. No complete recovery route was found. `recover_study_capture` has no non-test caller, and no route reads the gate row's stored `capture` key, although one `SELECT` would supply it. The key would not be enough: `release_capture` by a different custodian throws `study_capture_original_owner_not_drained` unless the owner row is drained, and `fn::pse_files_v1::drain_owner` is reached only from a live process's own `disconnect`. A refusal text names `recover_file_owners`, which exists only in that string, and `pse-canonical-recovery --operation owner-observations` reports death without writing. §20.4 says interrupted capture state "retains its declared recovery meaning". The search covered non-generated `crates/` and `xtask`, so dynamically composed SurrealQL could escape it.
-- **Status.** Current promise in §20.4 without a complete recovery route found; polling through capture is a current mechanism.
-- **Research questions.** Does a single read script satisfy the observer's consistency need? Can exact
+- **2026-11-02 reassessment.** Retained and deepened. Reread the full capture lifecycle in
+  `surreal_study_workbench.rs`, `CaptureOwner::drop`, `release_capture_as`,
+  `recover_study_capture`, `ResultReadDrain::recover` and file-owner drain. Live original owners do
+  have an automatic release path and retryable local failed-release custody; a normal poll is not
+  assumed to strand the gate. A different custodian still requires the original owner row's
+  authenticated `drained` fact. `pse-canonical-recovery` exposes physical owner observations, not
+  store mutation. A process-death recovery composition was not found in these owners or the
+  non-generated caller search. Capture tests cover original-holder recovery and lost cleanup ACKs;
+  their presence does not establish dead-holder recovery, and none was executed here.
+- **Status.** Retained: current polling-through-capture mechanism and a statically suspected
+  interrupted-owner recovery gap. No actual blocked deployment or runtime failure was observed.
+- **Research questions.** Does a single read script satisfy the observer's consistency need? The
+  environment guide reserves public capture/export effects for explicit `investigate`, while this
+  passive query uses internal canonical freeze/protection writes. Which internal custody effects are
+  part of passive reading, and are they necessary for this observer? That distinction needs an owner
+  clarification rather than inferring an observed permission failure. Can exact
   tombstones expire after the original grant window? Timer-driven waiting around this call is
   [CBO-016](execution-lifecycle-and-observation.md#cbo-016).
 
@@ -141,6 +158,12 @@ carried forward and rechecked at heads and by search only.
   server move or patch, and Arrow would suit only row-shaped results, not the receipt-shaped returns of
   guarded functions.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after rereading `WireBody::poll_frame`, cumulative wire
+  checking/response collection interfaces and response-custody scopes. The body bounds the encoded
+  pending buffer as well as advertised frame length before checking shapes. This is real admission
+  work; another codec must retain it and complete-response/error precedence. The earlier counts of
+  generated arms and decoders were not recounted, and this pass did not verify tonic or upstream
+  server capabilities. A typed codec seam remains a focused research question, not a fit finding.
 - **Research questions.** Can a stateful codec hold cumulative `Counts` and remove the second framing path?
   Do later server versions serve Arrow or a bounded-verification encoding (see [CBO-070](#cbo-070))? Is there
   a prost-adjacent decoder with allocation budgets, or a descriptor source that keeps bail-on-new-form? The
@@ -178,6 +201,13 @@ carried forward and rechecked at heads and by search only.
   opening need no store round trips, so absolute cost may be irrelevant. Multi-process coordination without a
   daemon needs durable state of some kind. No library is implied; this may be a pure design question.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after reading `ResultReadDrain` and capture custody/release
+  bodies, the protected decode caller, and authored source-reclaimer predicates. Reader registration
+  protects more than an MVCC snapshot: current source reclamation checks captures, protection pages
+  and physical ticket openness before deletion. The complete-operation question is which ownership
+  granularity could discharge those obligations, not whether durable reader state is inherently
+  wasteful. Rare-open cost remains unknown; source/result reclamation was sampled, not exhaustively
+  analyzed per lease kind.
 - **Research questions.** Which reclamation guarantees need a per-read lease and which could be proved by
   epoch? The write-for-read pattern is shared with [CBO-071](#cbo-071).
 
@@ -215,6 +245,12 @@ carried forward and rechecked at heads and by search only.
 - **Counterevidence and uncertainty.** Upstream state is unknown. The pin is deliberate, and a newer server
   also needs a protocol bump, wire-schema regeneration and full qualification.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after checking the fourteen current patch files and their
+  authored responsibility map in `scripts/surrealdb-source/source-build.md`, together with server
+  publication and reuse boundaries. No patch-series change was found in the inspected baseline diff;
+  this does not establish upstream absorption. Earlier per-hunk classifications retain their
+  2026-10-30 coverage limits. Source preparation only establishes executable identity; schema readiness
+  and physical settlement remain with `NativeCanonicalService` and the application.
 - **Research questions.** For each patch, the first upstream release, if any, with the same guarantee. Which
   are suitable to contribute?
 
@@ -253,6 +289,12 @@ carried forward and rechecked at heads and by search only.
   "orphaned" applies only to `database/` and SurrealKit. "Fresh only" may be out of date rather than the
   migration, and SurrealKit may be an intended, not yet wired, tool.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after checking live SurrealKit pending fields and settlement
+  path validation, predecessor `include_str!` declarations, maintenance consumers and frozen rollout
+  files. Current native-service predecessor fixtures still consume migration declarations; those
+  declarations must not be called orphaned solely because the rollout producer is absent. The gap is
+  one understandable installation/evolution operation with exact witnesses. This pass did not execute
+  a migration, recompute frozen-schema hashes or establish a supported SurrealKit command route.
 - **Research questions.** Does an established rollout tool meet the fencing needs above, or is local AST
   comparison the right owner?
 
@@ -293,6 +335,12 @@ carried forward and rechecked at heads and by search only.
   and not a defect. A generic retry crate would add little, since classification must be step-supplied after
   settlement.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained after revisiting `GuardedScript::returning`, current call
+  sites and retry/settlement consumers. The envelope evaluates the result before the authority
+  postlude and commits before exposing it; its ownership is already shared. Moving stable business
+  bodies under activation could reduce two authoring homes, but parse cost remains unmeasured and
+  function/Run transaction semantics remain unresearched. The durable engine's larger operation is
+  [CBO-180](execution-lifecycle-and-observation.md#cbo-180), not a new generic retry opportunity.
 - **Research questions.** Does 3.3.4's executor cache parses or plans for repeated query text? What does `Run` do
   about transactions and timeouts? Which inline bodies should join the stored functions? Unchecked correspondence of
   signatures, binds and decoders across the language boundary is [CBO-046](registry-generation-and-python-boundary.md#cbo-046).
@@ -305,10 +353,11 @@ carried forward and rechecked at heads and by search only.
   `work_study_candidate` in `workflow/worker.rs`, `record_study_attempt` and `recover_study_point` in `workflow/study.rs`,
   and `observe_study_point` in `canonical_studies.rs`.
 - **Current mechanism.**
-  - The observed sequence is `progress_studies`, `canonical_study_point`, `canonical_study`, an optional seed read,
-    `prepared_claim`, `mark_study_started`, `renew_attempt`, appends, close and seal, a second `canonical_study`
-    (only for `cancelled`) and `observe_study_point`: about ten round trips. The scope already carried `cancelled`
-    and `generation` at discovery.
+  - `progress_studies` supplies a prepared scope; preparation may read a seed before the original
+    claim. The claim-to-completion path still calls `mark_study_started`, `renew_attempt`, result
+    appends, close/seal, a fresh cancellation read and `observe_study_point`. Some discovery facts
+    are already present in the prepared scope, while later freshness checks serve new boundaries.
+    There is no measured or universal round-trip count for one occurrence.
   - `record_study_attempt` and `recover_study_point` build `PointFacts` and `PointOutcome` with near-identical hand
     merges. Native code calls `study_policy::may_retry` and passes a bare `settled` boolean into
     `fn::pse_study_v1::observe`, while the same Rust policy runs inside the database as a WASM module.
@@ -333,6 +382,13 @@ carried forward and rechecked at heads and by search only.
   - Typed columns may complicate schema migration, and page volume is low (128 rows), so the module's benefit may be
     mostly clarity. Small points may be rare in the real workload.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained with corrected execution detail after rereading
+  `work_study_candidate`, `record_study_attempt` and `recover_study_point`. Discovery now carries a
+  prepared scope; the worker does not blindly repeat every old discovery read. Normal and recovery
+  still separately merge completion into `PointFacts`/`PointOutcome` and ask shared policy about
+  retry, and normal completion deliberately rereads fresh study cancellation. Unknown ACK settlement and
+  post-fence recovery freshness rule out collapsing calls merely by count. Module wire details were
+  not re-researched.
 - **Research questions.** Can an `observe` evaluated by the module decide settlement inside the transaction, and can
   `RETURN` blocks fold claim, start and renew into one guarded call? Is `Decimal` a type with a direct integer
   conversion, and can `SurrealValue` be implemented on shared types?
@@ -373,7 +429,14 @@ carried forward and rechecked at heads and by search only.
   inventories, so it would be at most one component. Selected-closure exchange has domain semantics no generic export
   provides. Development stores are declared regenerable, and offline is an accepted contract. A generic backup tool
   cannot own quiesce or identity rebinding.
-- **Status.** Current promise before non-regenerable data, with no implementation owner found. Plan 58h lists backup, restore and disaster recovery as a qualification obligation and 58d places related owners, but no package that builds the composition was found.
+- **2026-11-02 reassessment.** Retained after reading the operational limits, the offline helper's
+  Inventory/Backup/VerifyLive/Verify/Restore surfaces and the recovery binary's dispatch. Physical
+  backup/restore and exact-request checkpoints exist; the missing operation is application-wide
+  database/configuration/credential/module/external-file composition and new-authority adoption.
+  The helper's `offline_complete_inventory_backup_and_lockless_archive_restore` test is narrower
+  than that product, and was not run. A provider's snapshot/export alone cannot complete it.
+- **Status.** Current operational gap before non-regenerable data. Qualification and placement owners
+  remain [Plan58](../../plans/58-rust-owned-system.md); this audit creates no implementation package.
 - **Research questions.** Could SurrealDB export and import through the admin connection, filesystem reflink or
   snapshots for immutable sealed payloads, or a deduplicating backup engine as transport for a quiesced tree serve as
   components? Would a standard container serve project packs (random access to members, inspection)?
@@ -402,6 +465,12 @@ carried forward and rechecked at heads and by search only.
   outside any transaction (fence tokens held by writers), which SSI does not provide. Absence-premise protection is
   called out as needing `FOR UPDATE`. Many guards are probably real generation fences read by later transactions.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained as a bounded per-guard question after reading authored
+  `touch`, `register`, `source_creator`, `result_creator` and source-reclaimer samples. Registration
+  explicitly records absent-key conflict reads without incrementing a row; touch also advances a
+  generation. These are not interchangeable operations, and current retention uses both. The audit
+  did not establish that SSI subsumes any named fence or repeat engine race qualification. No blanket
+  guard removal follows from the engine's SSI support.
 - **Research questions.** Does MX 1.0 range-read tracking cover the absent-key and range-predicate premises these
   functions use? Is there a test that distinguishes a fence from a read-set substitute?
 
@@ -434,6 +503,11 @@ carried forward and rechecked at heads and by search only.
   scan or cascade. Reference maintenance under SSI, and its write amplification, is unknown. The string discipline was a
   reaction to coercion bugs. Applicability may be limited to immutable-parent relations.
 - **Status.** Proposed.
+- **2026-11-02 reassessment.** Retained, narrowed by the authored source-reclaimer sample:
+  membership intervals, active stages, product roots, capture protections, live tickets and retained
+  receipts jointly decide bounded deletion. A simple parent reference cannot express that operation.
+  Native references might still supply a backstop for a subset of immutable-parent edges; upstream
+  SSI/MX behavior and write cost remain unresearched. Schema counts above retain their 2026-10-30 date.
 - **Research questions.** What are the semantics and cost of `REFERENCE ON DELETE REJECT` under explicit SSI in MX 1.0:
   does the check register a conflict key, and is it bounded?
 
@@ -462,35 +536,16 @@ carried forward and rechecked at heads and by search only.
   guards, so "beside caching libraries" is not a replacement claim. `LimitStore` may not compose with the nested-scope
   re-entrancy `SharedIo` implements.
 - **Status.** Current mechanism.
+- **2026-11-02 reassessment.** Retained as narrow after reading `Flights::load_owned_until` and
+  `SharedIo::{acquire,retain,gated}`, plus their named cancellation/nesting tests. A stopped last
+  flight waiter waits for the producer's actual exit; another waiter can leave independently.
+  Shared I/O walks its task-local parent chain to reuse the same gate and releases list admission
+  between yields while body reads retain custody. These semantic obligations are now traced, not
+  merely guessed from heads. A generic limiter/single-flight API is not known to cover them; cache
+  load admission and all physical-cache callers were not completely traced.
 - **Research questions.** Can a library single flight retain its producer through waiter cancellation? Does
   `object_store::limit::LimitStore` compose with `SharedIo`'s nested scopes? Eviction policy across math lifetimes is
   [CBO-022](mathematics-and-compilation.md#cbo-022).
-
-<a id="cbo-012"></a>
-
-## CBO-012 — Imperative nested-occurrence traversal beside the plan route (weak)
-
-- **Operation and consumers.** Relation admission: find the rows and nested occurrences that violate declared
-  obligations, with exact occurrence paths for diagnostics.
-- **Current mechanism.**
-  - `pse-relations/src/validate/occurrences.rs` (612 lines; `CHUNK = 4096`, `Node::prepare`, `visit`, `take`, `ranges`)
-    walks nested paths and is called from `validate/prepared.rs`.
-  - `validate/obligations/nested_values.rs` expresses nested-value checks as DataFusion plans (`Occurrence`, `range`,
-    `UnnestOptions`).
-  - `validate/predicates.rs` carries an adapter for Delta's pinned SQL parser, used for CHECK text.
-- **Why it matters.** Two routes may answer a similar "which rows violate" question, and the adapter ties one of them to
-  a parser version.
-- **Patterns.** LOP-09, LOP-05, LOP-11.
-- **Evidence.** Heads and signatures of the three files. The module comments differ: `occurrences.rs` says kernels see
-  visible values before evaluation, while `nested_values.rs` retains source columns, multiplicity and actual nested
-  indices. That suggests different stages and at most partial overlap, a reading of comments and not a trace.
-- **Footprint.** Heads and signatures of the three files only; bodies of the 5.4k-line `validate/` tree are mostly unread.
-- **Preservation constraints.** Exact diagnostics per occurrence path; memory bounded by the pool; visible-value semantics.
-- **Counterevidence and uncertainty.** Whether the routes overlap was not traced. The imperative path may supply location
-  detail the plan route cannot. The plan route already builds occurrence ordinals by unnesting a `range` beside the list,
-  and DataFusion has no native ordinality (library assessment, 2026-10-27; see [datafusion](../libraries/datafusion/README.md)).
-- **Status.** Current mechanism. Weak.
-- **Research questions.** Does the plan route yield occurrence coordinates for every case the imperative walk serves?
 
 ## Examined and not retained
 
@@ -514,6 +569,19 @@ carried forward and rechecked at heads and by search only.
   surface.
 
 ## Retired opportunities
+
+<a id="cbo-012"></a>
+
+- **CBO-012 — Imperative nested-occurrence traversal beside the plan route.** Retired 2026-11-02
+  on corrected premises at `f8b7d74d8`: `occurrences::Node::prepare/visit` and
+  `PreparedLocalContract::evaluate_selected` perform bounded field-local checks after selecting
+  visible values. `obligations/nested_values::occurrences`, consumed by references, source spans,
+  quantities and ordinals, preserves relation context for cross-relation plans; `references::plans`
+  performs anti-joins against admitted targets. Similar traversal does not establish a duplicated
+  complete obligation. This agrees with the existing
+  [comparative retain-current disposition](../reviews/result-data-and-prepaid-accounting.md#cbo-012).
+  No implementation change or universal optimality is claimed; the original weak occurrence remains
+  available at [publication revision 4b48509b5](https://github.com/paul-heyse/pse-arrow/blob/4b48509b5966c32b50f232dc75694cddec156ada/docs/library_leverage/codebase/persistence-and-transport.md#cbo-012).
 
 <a id="cbo-009"></a>
 

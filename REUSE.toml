@@ -9,7 +9,9 @@ SPDX-PackageSupplier = "Paul Heyse <paul@heyse.io>"
 SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
 
 [[annotations]]
-path = ["packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json"]
+path = [
+  "packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json",
+]
 precedence = "override"
 SPDX-FileCopyrightText = "2021-2026 feos-org and Contributors"
 SPDX-License-Identifier = "MIT"

@@ -33,22 +33,13 @@ exist; the workflows that compose them do not. Demand for any of them is unrecor
 architecture owners and unmeasured. The surrogate and multistart entry points are qualified Rust
 APIs whose callers under `crates/` are tests; studies are the only live public consumer of designs.
 
-**Coverage on this page.** Read closely: `fitting/covariance.rs`, `fitting/profile.rs`
-(`Chains::solve`, `ChainPolicy::run`), `fitting/{preparation,foreign,experiments,regression}.rs`,
-`workflow/uncertainty.rs` with `uncertainty/psd.rs`, and `workflow/sampling.rs` with
-`math/sampling.rs`. Read to a stated depth: `fitting/oracle.rs` through its non-test code except the
-`NlpOracle` gradient and Hessian bodies and the transient half of `evaluate_experiment`;
-`fitting/oracle/residual.rs` (eligibility, `solve_using`, `termination`); `math/surrogate.rs` to the
-actor and handle; `math/surrogate/library.rs` options and `Worker`. Only skimmed or read by outline:
-`fitting/modeling.rs` (experiment construction), `fitting/results.rs`
-(`encode_fit` and exports), `fitting/sparse.rs` (Gram refill), `workflow/analyses.rs` (about 1,500
-lines), `study_variants.rs` and `shooting.rs::ShootingProblem::new`. Tests were read by name. The
-parmest and `parameter_sweep` comparisons come from reading IDAES behaviour at class and docstring
-level; no parity test was run.
+**Refresh baseline and coverage (2026-11-02).** Source `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7`, no product edits included; framework/base patterns edition 0.2 and additional patterns at that baseline. All eleven live entries were reconsidered. Native source reads/queries covered residual/LM eligibility, covariance and quantiles, profile stopping and retained point evidence, fit observation/response export, propagation, design kinds/mapping, cohort aggregate, surrogate worker/proposal and shooting contracts. The missing-sigma covariance assertion and related native reuse assertions were read, not run. Full transient fitting, every sparse Gram refill, study overlay composition and every shooting constructor branch were not retraced. Prior supplier API comparisons, external parity observations, line counts and the 2026-10-27 design probe retain their original dates; they are not refreshed fit assessments or new execution evidence. Proposed workflow demand remains unrecorded. No new solver/statistics test, performance campaign or library applicability research was performed.
 
 <a id="cbo-036"></a>
 
 ## CBO-036 — Fit quality, identifiability and the unknown-sigma model
+
+**Refresh — retained with statistical-model boundaries.** Current result export still publishes prediction, residual, standardized residual and per-row objective contribution; covariance still uses a normal quantile for Wald intervals. The read `covariance_withheld_without_declared_sigma` assertion expects preparation refusal when an included deviation is missing. Thus aggregate declared-sigma diagnostics and guidance are additive research leads, while estimated sigma is an explicitly different Proposed model requiring authority changes. The focused export/read scope does not prove that no external consumer computes these diagnostics already.
 
 - **Operation and consumers.** Anyone reading a fit report: a kinetics or thermodynamic fitter
   deciding whether the declared model and sigmas are adequate, a modeller with a rank-deficient fit
@@ -68,8 +59,7 @@ level; no parity test was run.
 - **Evidence.** Read `fitting/covariance.rs`, `oracle.rs::{decompose, rank_scratch,
   response_rank_admitted, observe}`, `results.rs::uncertainty`, generated `fit_observations` column
   names, `modeling.rs::prepare_fit_problem_bound`, §19.4, §25 Fitting row. Interface-checked.
-- **Footprint.** Inspected as above. `results.rs::encode_fit` unread, so a test helper or relation may
-  already compute a statistic the search did not see.
+- **Footprint.** The current refresh additionally read the observation/response export branch in `results.rs`; the complete `encode_fit` and every relation consumer were not reread, so broader external diagnostics remain possible.
 - **Preservation constraints.** Three obligations stay apart. (1) Additive diagnostics against declared
   sigma need no contract change. (2) Identifiability guidance advises and never alters the fit;
   parameter-scale dependence is stated and global identifiability is not claimed. (3) An estimated-variance
@@ -89,6 +79,8 @@ level; no parity test was run.
 <a id="cbo-034"></a>
 
 ## CBO-034 — Non-local uncertainty: sampled propagation, global sensitivity and cohort statistics
+
+**Refresh — retained as three Proposed compositions.** `propagate_checked` still computes first-order covariance, `DesignCoordinate` still carries physical ranges/levels without a probability model, and the cohort `aggregate` still selects count/min/max/mean. The closed design producer is distinct from the public point-overlay boundary: external callers can author realized points and external engines can analyze exported cohorts. The residual opportunity is a coherent in-product distribution/estimator/failed-member policy, not an assertion that these activities are impossible externally. No demand or nonlinear accuracy benefit was measured.
 
 - **Operation and consumers.** A fitter or flowsheet engineer wanting the distribution of a KPI through
   the nonlinear model, with percentile bands or a limit-exceedance probability. A sweep user ranking
@@ -116,9 +108,10 @@ level; no parity test was run.
   give variance squared units, and decide exact versus approximate percentiles. Realized points govern replay.
 - **Counterevidence and uncertainty.** IDAES propagation is itself first-order, so parity does not require
   this, and §19.8 scopes propagation as first-order. A frozen cohort already exports to IPC, so external
-  engines can compute quantiles now; the design and its distributions cannot be done externally. Each
-  sample is a full solve. Sampled draws from a faer factor plus `statrs` reproduce on one CPU class only
-  (runtime SIMD and FMA dispatch, platform libm); realized values as identity make that tolerable.
+  engines can compute quantiles now; callers can also supply realized point overlays. Each sample is a full solve.
+  Portable seeded-distribution behavior has not been established. The maintained faer closure uses scalar nonfused
+  arithmetic, while platform transcendental and composed-library behavior still need an explicit reproducibility
+  contract; realized values remain the replay authority.
 - **Status.** Current mechanism (first-order propagation, fixed aggregates); Proposed (non-local routes).
 - **Research questions.** Which consumer needs nonlinear propagation, at what solve budget? How are
   correlated non-Gaussian inputs expressed? Do maintained low-discrepancy sequences meet the recorded-point
@@ -128,11 +121,13 @@ level; no parity test was run.
 
 ## CBO-135 — Train, validate and embed a surrogate as a product
 
+**Refresh — retained, Proposed product boundary.** The current surrogate worker retains `EgorSolver` and `EgorState` across `advance`, and its public output remains a `SurrogateProposal` requiring original screening. This reread does not prove that every internally trained GP is discarded; it establishes that no reloadable trained-model/predict contract is exposed by that inspected worker surface. Model training/export, validity/fidelity and provider embedding remain separate research questions, with no candidate derivative/serialization fit or durable-worker registration established.
+
 - **Operation and consumers.** A modeller replacing an expensive implicit block or property calculation
   with a trained approximation and optimizing through it; a sweep user training a cheap model of a KPI
   on cohort rows, validating it and querying it with uncertainty.
 - **Current mechanism.** `egobox-ego`, `egobox-moe` and `egobox-gp` are linked, but the only entry is
-  `EgorSolver` (`math/surrogate/library.rs`). The GPs trained at each iteration are discarded; the result
+  `EgorSolver` (`math/surrogate/library.rs`). Trained GPs are not exposed as a retained model product by the inspected worker API; its result
   is a `SurrogateProposal` screened by the original solve, and `SurrogateSnapshot` exposes `EgorState`
   only. No source calls a GP predict method. The embedding seam exists: `pse_kernels::ProviderFactory`,
   `Registration`, the optional output `envelope`, and a linked Rust author can reach it through
@@ -168,6 +163,8 @@ level; no parity test was run.
 
 ## CBO-133 — Repeated-fit statistics over one prepared fit
 
+**Refresh — retained with structural variation explicit.** Profile code still solves a prepared fit with one pinned coordinate, while residual fitting retains the same underlying weighted-residual authority. This supports a reusable repeated-fit workflow inquiry, but changes in included observations can alter sparse support and covariance eligibility. Bootstrap/resampling would therefore need a declared replication unit, structural key and failed-replicate policy; a pin API alone does not establish safe reuse for it. End-to-end repeated-fit study composition and any statistics library fit were not established.
+
 - **Operation and consumers.** Parameter-estimation users who want bootstrap intervals, leave-experiments-out
   influence, objective maps over a parameter grid and joint confidence regions. Parmest-class behaviour is
   known for these from general knowledge; not checked against the pinned reference.
@@ -182,7 +179,7 @@ level; no parity test was run.
 - **Patterns.** LOP-12, LOP-07, LOP-09.
 - **Evidence.** Read `profile.rs::{Chains::solve, ChainPolicy::run, PreparedFit::profiles}`, `residual.rs::
   solve_using`, `oracle.rs::observe_pin`, `preparation.rs::finish`, `FitOperation` comment. Interface-checked.
-- **Footprint.** `transform::Pinned` in the backend and `study_variants.rs` fit handling unread.
+- **Footprint.** The current refresh read `transform::Pinned` forwarding; its changed-contract omissions require explicit decisions. `study_variants.rs` fit handling remains untraced end to end.
 - **Preservation constraints.** Each replicate independently assessed against original checks; failed
   replicates reported, never dropped; resampling seeds recorded; prepared-context identity includes anything
   that changes the problem. Non-unit importance withholds covariance, which is correct per replicate and
@@ -200,6 +197,8 @@ level; no parity test was run.
 
 ## CBO-134 — Fit multistart and local-minimum detection
 
+**Refresh — retained after correcting evidence loss.** In `ChainPolicy::run`, a lower objective is appended to `ProfilePoint` with qualification, termination, residual evidence and an explanatory detail before the chain stops. It is therefore already surfaced as evidence; the complete alternative parameter candidate is not retained by this point record or promoted into a multistart result. The opportunity is a deliberate alternate-candidate/start-comparison workflow, not repairing silent suppression of the lower objective. A design-to-fit-start journey and its preparation reuse remain untraced.
+
 - **Operation and consumers.** A kinetics or thermodynamic regression with a nonconvex objective: the fitter
   wants more than one start and wants to know whether the reported optimum was beaten.
 - **Current mechanism.** §19.4 refuses fit seeds and makes declared values the start. A fit can already be a
@@ -208,9 +207,9 @@ level; no parity test was run.
   traced end to end). Missing are the design-to-parameter-point bridge, reuse of one preparation, and
   comparison of optima. `workflow/fitting` has no multistart match, though `math/solves/multistart.rs` is a
   declared-seed specification elsewhere. `ChainPolicy::run` detects a pinned fit that reaches a lower objective
-  than the estimate and only stops that chain with `IntervalOutcome::Stopped`; the better point is not surfaced.
-- **Why it matters.** Local minima are plausible for nonconvex regressions, though not established on models here. Today the outcome comparison is manual, and a discovered
-  better point is discarded.
+  than the estimate, records that objective and qualification in `ProfilePoint`, and stops the chain with
+  `IntervalOutcome::Stopped`; the full alternative solution is not a separate fit candidate product.
+- **Why it matters.** Local minima are plausible for nonconvex regressions, though not established on models here. Today comparison of complete alternate candidates is manual, even when a profile chain already reports evidence of a lower objective.
 - **Patterns.** LOP-12, LOP-09.
 - **Evidence.** Read `profile.rs::ChainPolicy::run` (the `below` branch), the head of `multistart.rs`,
   `modeling.rs::prepare_fit_problem_bound`, §19.4. Interface-checked.
@@ -228,6 +227,8 @@ level; no parity test was run.
 <a id="cbo-136"></a>
 
 ## CBO-136 — Measurement-error models beyond independent absolute sigma
+
+**Refresh — retained, Proposed model extension.** `FitOracle::residual` still divides prediction error by declared sigma and derives its response weight from `sqrt(importance)/sigma`; current result export uses the same fixed per-row quadratic contribution. Correlation/whitening, robust loss and estimated variance would affect more than this scalar kernel: support, covariance, likelihood-profile interpretation and units must move coherently. The existing refusal is intentional, and no data set or user demand here establishes a need for one particular alternative error model.
 
 - **Operation and consumers.** Analysts with correlated measurements (one instrument across a transient, a
   shared calibration offset), outliers, or heteroscedastic errors; plant-data users who also want
@@ -257,6 +258,8 @@ level; no parity test was run.
 
 ## CBO-138 — Propagation demand: variances, bands and dense kernels
 
+**Refresh — retained, Interface-checked demand mismatch.** Current propagation still validates parameter/output inventories, materializes `J·Sigma` and then full output covariance with explicitly ordered scalar sums. The fit exporter separately checks demand before emitting propagated rows; that publication selectivity does not provide diagonal-only numerical preparation. Variance-only output and arbitrary-grid bands remain distinct Proposed capabilities. The nonfused scalar policy is real; no SIMD/FMA-based faer premise or reassociated dense-kernel gain is asserted, and no large-grid request was run.
+
 - **Operation and consumers.** `FitUncertainty.predictions` and `SensitivityRequest.propagation` callers; a
   transient fit predicting a dense time grid is the natural large case.
 - **Current mechanism.** `propagate_checked` computes and stores the full `m × m` `Σ_y` with closure-indexed
@@ -275,8 +278,8 @@ level; no parity test was run.
   negative variance withholds rather than clamping; cancellation checkpoints; prepaid working memory; the
   `propagated_covariances` relation keeps its meaning for callers who ask for the full matrix.
 - **Counterevidence and uncertainty.** The max-cells refusal is honest and bounded, so this is a capability
-  limit, not a memory risk. The bit contract may rule out BLAS-style reassociation, and the inputs already come
-  from runtime-dispatched faer kernels. Replacing the kernel alone is low value; the demand shape is the point.
+  limit. The bit contract may rule out BLAS-style reassociation, and upstream faer inputs use the maintained scalar
+  nonfused realization. Replacing the kernel alone has no established benefit; demand shape is the concrete lead.
 - **Status.** Current mechanism; Proposed.
 - **Research questions.** Can a diagonal-only request keep the sequential-sum contract? Where would a band on
   a caller-chosen grid get its sensitivities?
@@ -284,6 +287,8 @@ level; no parity test was run.
 <a id="cbo-139"></a>
 
 ## CBO-139 — Multiple-shooting parameter estimation
+
+**Refresh — retained, Proposed cross-workflow composition.** Current shooting still declares continuity/path rows over controls and inner node states, while fitting evaluates experiment predictions and their responses. The shared integrated-experiment contract is existing infrastructure, not a new measurement-residual/covariance product. This supports investigation of reusable window assembly, but not a claim that adding observation rows alone yields statistically valid parameter uncertainty. No unstable fit demonstrating need, reduced covariance derivation or complete constructor census was established.
 
 - **Operation and consumers.** A fitter of an unstable or stiff transient system, where single-shooting fits
   commonly diverge and multiple shooting is the standard remedy.
@@ -311,6 +316,8 @@ level; no parity test was run.
 <a id="cbo-137"></a>
 
 ## CBO-137 — Experiment design and data reconciliation
+
+**Refresh — retained as explicitly speculative, with narrower value.** Current fitting still publishes response/rank material and current design production emits finite point overlays; these are usable primitives for an information-based experiment-selection workflow. They do not establish recorded demand for one. Reconciliation may already be authored as constrained least squares or reached through MHE; the Proposed residue is a named measurement-adjustment/gross-error product with provenance, not an absent optimization solver. No candidate-design criterion or statistics capability was assessed.
 
 - **Operation and consumers.** (a) An experimentalist choosing the next run that most reduces parameter
   uncertainty, from a rank-deficient or qualified fit. (b) A plant analyst reconciling measurements to balance
@@ -340,6 +347,8 @@ level; no parity test was run.
 <a id="cbo-132"></a>
 
 ## CBO-132 — Design generator family: sequences and classical forms
+
+**Refresh — retained, Interface-checked closed producer; Proposed extension.** The current `DesignKind` match still contains the four Latin-hypercube forms, Random and Grid; `construct` delegates normalized generation then performs physical-level mapping and validates endpoints. That establishes this producer's missing sequence/augmentation forms, not absence from all possible external point authors. The native algebraic grid intentionally preserves declared levels and ordering. No new supplier-source currency check, reproducibility experiment or demanding progressive-sweep consumer was obtained.
 
 - **Operation and consumers.** `generate_design` callers planning sweeps, initial surrogate data and multistart
   starts. The Rust API is the public path; studies consume the points.
@@ -372,6 +381,8 @@ level; no parity test was run.
 
 ## CBO-035 — Least-squares route: value, eligibility and dense-algebra split (weak)
 
+**Refresh — retained as a weak empirical comparison question.** The current `eligible_inputs` still requires no finite variable bounds/general bounds plus admitted dense workspace; `request_eligible` additionally preserves route/options/composition limitations. This is an intentionally restricted library route, not evidence of missing bounded optimization because native NLP already serves that shape. Any comparative value claim needs representative fit evidence before extending or removing it. No current replacement, runtime timing or dependency-removal benefit was established.
+
 - **Operation and consumers.** `FitOptimizer::Automatic`, which selects the `levenberg-marquardt` residual route
   whenever a fit is eligible, so this route is the default for its shape. Fitters with unbounded parameters.
 - **Current mechanism.** `oracle/residual.rs::eligible_inputs` requires no finite parameter bounds and no general
@@ -399,10 +410,10 @@ level; no parity test was run.
 
 ## Examined and not retained
 
-- **Small dense products.** The covariance sandwich, Gauss-Newton covariance and response assembly are scalar loops
-  on purpose: bit-reproducible, FMA-free summation with cancellation checkpoints, on parameter-count-sized
-  matrices. The loops fix summation order but not portability, since their inputs come from faer kernels with
-  runtime SIMD and FMA dispatch. The demand shape is [CBO-138](#cbo-138).
+- **Small dense products.** The covariance sandwich, Gauss-Newton covariance and response assembly retain explicit
+  FMA-free summation order and cancellation checkpoints on parameter-count-sized matrices. Their faer inputs use
+  the maintained scalar nonfused closure; that alone does not prove whole-stack portability. The demand shape is
+  [CBO-138](#cbo-138).
 - **Source reduction.** `workflow/reduction.rs` implements a ddmin-style loop whose anchors, spans, protected bytes
   and evidence leasing dominate. Not re-read in this pass.
 - **Profile-chain end-root iteration.** Once bracketed, `ChainPolicy::run` uses plain false position with a clamped

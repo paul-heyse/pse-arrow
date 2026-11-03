@@ -4,7 +4,9 @@ This page covers how the repository establishes its correctness claims: test cod
 [§23](../../authoritative_design/sections/operations-and-validation.md#section-23) and
 [§24](../../authoritative_design/sections/operations-and-validation.md#section-24) of `operations-and-validation.md`. The separate diagnostic account under `docs/design_review/test-audit` is not used here. The baseline is on the [entry page](README.md). Mechanisms were read statically and are *Interface-checked*; every value claim is *Proposed*, and nothing is *Measured*. Counts are `rg` heuristics over `crates`, `tests`, `benches` and `xtask`, so read them as orders of magnitude.
 
-**System picture.** There are about 6,350 `#[test]` and `#[tokio::test]` attributes in about 940 files, mostly inline `#[cfg(test)]` modules or sibling `_tests.rs` files, with several test files over 5k lines. The practice prefers real owners: a real server, real solvers and production constructors, with `pse-testkit` thin. Nextest is the runner, Criterion lives in `benches/`, `packages/reference` is authored scientific data run by a separate `xtask conformance` runner, and independent Python oracles feed exchange tests. There are 12 `proptest!` blocks in 11 files, `insta` at 5 call sites in 2 crates, and one fuzz target.
+**Refresh baseline: 2026-11-02, `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7` (clean source at inspection).** Criteria: framework/base patterns edition 0.2 and additional patterns revision 5. Current dispositions and the explicitly dated rechecks below use this baseline. Detailed counts, earlier reachability scans and upstream-version leads retained from 2026-10-30 at `c8244cff5` keep that date and their original limits; they were not rerun as current measurements. Native source reads and text searches establish written mechanisms, not semantic reachability or passing tests. No provider was prepared, no code generated, and no product test or benchmark was run. Concurrent assessment-document edits are outside the inspected product baseline.
+
+**System picture (original October 30 census).** There are about 6,350 `#[test]` and `#[tokio::test]` attributes in about 940 files, mostly inline `#[cfg(test)]` modules or sibling `_tests.rs` files, with several test files over 5k lines. The practice prefers real owners: a real server, real solvers and production constructors, with `pse-testkit` thin. Nextest is the runner, Criterion lives in `benches/`, `packages/reference` is authored scientific data run by a separate `xtask conformance` runner, and independent Python oracles feed exchange tests. There are 12 `proptest!` blocks in 11 files, `insta` at 5 call sites in 2 crates, and one fuzz target.
 
 Already strong, and not argued against here:
 
@@ -17,11 +19,15 @@ Already strong, and not argued against here:
 
 Opportunities cluster where assurance depends on whoever remembered to write a case ([CBO-157](#cbo-157), [CBO-158](#cbo-158), [CBO-159](#cbo-159), [CBO-160](#cbo-160)), where one test identity covers many cases ([CBO-161](#cbo-161)), and where measurement and fixtures are assembled by hand ([CBO-162](#cbo-162), [CBO-163](#cbo-163)). The nextest group declarations that nothing assigns are [CBO-049](developer-tooling.md#cbo-049), and the two test front doors are [CBO-052](developer-tooling.md#cbo-052).
 
-**Coverage on this page.** Read closely: the canonical client fault seam (`canonical_client.rs::execute`, `canonical_client/owned.rs`, `canonical_grpc_peer.rs` start-up and dispatch, the control and execution hook sites), `pse-testkit`, `.config/nextest.toml`, the heads of all 13 governance tests, the benchmark measurement paths (`k4/preparation.rs`, `native_process.rs` and `phases.rs`, `results_analysis::measure_complete`), and the observation hub's `Budget`, `Reservation` and `Metric`. Representative: conformance acceptance journeys (`global_certification`, `vessel_fit`), proptest blocks, test-support inclusion sites. Skimmed or unread: the bodies of the concurrency owners (`stop`, `cancellation`, `transport_lifetime`), host-side crash tests, `canonical_settlement` classification, parser bodies, most test modules (shape and counts only), `benches` `compact`, `review_cases`, `extended` and `restart`, and the `xtask` conformance runner. No test was run, so no claim here is about whether any test passes.
+**Original 2026-10-30 coverage.** Read closely: the canonical client fault seam (`canonical_client.rs::execute`, `canonical_client/owned.rs`, `canonical_grpc_peer.rs` start-up and dispatch, the control and execution hook sites), `pse-testkit`, `.config/nextest.toml`, the heads of all 13 governance tests, the benchmark measurement paths (`k4/preparation.rs`, `native_process.rs` and `phases.rs`, `results_analysis::measure_complete`), and the observation hub's `Budget`, `Reservation` and `Metric`. Representative: conformance acceptance journeys (`global_certification`, `vessel_fit`), proptest blocks, test-support inclusion sites. Skimmed or unread: the bodies of the concurrency owners (`stop`, `cancellation`, `transport_lifetime`), host-side crash tests, `canonical_settlement` classification, parser bodies, most test modules (shape and counts only), `benches` `compact`, `review_cases`, `extended` and `restart`, and the `xtask` conformance runner. No test was run, so no claim here is about whether any test passes.
+
+**Current refresh coverage.** Production/test owners for CBO-157/158/161/162/163 are unchanged against October 30; re-read representative effect flags, transport lifetime state, direct-poll stop tests, corpus loading, benchmark phase accounting and `pse-testkit` factory assembly. Rechecked property/fuzz/tool declarations including new host record-framing property coverage, current fixture-input owner and completed-report test infrastructure. Reviewed the new protocol conversion and generator tests as fresh assurance mechanisms, not a reason to enlarge this inquiry into a diagnostic audit or campaign. No test was executed. The existing patterns are sufficient for the observed opportunities; no additional pattern is proposed from this scope.
 
 <a id="cbo-157"></a>
 
 ## CBO-157 — Durable-effect fault injection is per-site flags in production modules
+
+- **Current evidence basis (2026-11-02).** Retained. Canonical control/execution/artifact/file task-local hook owners and testing wrappers are unchanged. Current text witnesses still show `CONTROL_ACK_LOST`, `CONTROL_READBACK_FAILED`, `APPEND_GROUP_REPLY_LOSS`, `ARTIFACT_APPEND_REPLY_LOSS` and named effect pauses, while the original exact-set/count remains October 30 evidence. New host proto-generation publication-stage fault tests guard another boundary; they do not supply a systematic canonical-store effect-window sweep. Independent real-peer and real-server tests remain necessary.
 
 - **Operation and consumers.** Tests of unknown-outcome, lost-acknowledgement and failed-readback settlement in the canonical store (a central contract, §20.6) and in native lifecycle: execution, artifacts, control, progression, projects, files and pacing.
 - **Current mechanism.**
@@ -48,9 +54,11 @@ Opportunities cluster where assurance depends on whoever remembered to write a c
 
 ## CBO-158 — Ownership and settlement concurrency has no schedule exploration
 
+- **Current evidence basis (2026-11-02).** Retained with stronger counterevidence. Native reads of `transport_lifetime::{Phase,State,PhysicalLifetime}` and `stop::{stop_first,drain_on_stop}` show concrete small state and custody boundaries. The stop tests manually poll ready work and demonstrate stop precedence and guard retention without relying on wall-clock scheduling, so the former blanket description that tests cover only whichever order the scheduler picks was too broad. Remaining shared-state interleavings are a bounded research question; no explorer dependency was found in the examined manifests/source scope.
+
 - **Operation and consumers.** Hand-built concurrency owners whose correctness is architectural: `pse-diagnostics::{stop, cancellation}`, `pse-operations::transport_lifetime`, `pse-engine::resources::ReleaseNotifyingSemaphore`, `pse-columnar::resource`, the observation hub's `Reservation`, budget and `Weak` links, and single-flight preparation.
 - **Current mechanism.** Tests use real threads and tasks, barriers, gates and short sleeps. A manifest search found no `loom`, `shuttle` or `turmoil`, and the workspace pins none. One narrow Miri recipe exists (`scientific-replay-miri`, on `pse-ids`).
-- **Why it matters.** "Release only after actual settlement" and "a ready stop wins" are interleaving claims. A test run covers whatever order the scheduler picked, and the failure mode is a rare leak or hang. Controlled-schedule testing of small extracted kernels could establish orderings that integration tests only sample (Proposed).
+- **Why it matters.** "Release only after actual settlement" and "a ready stop wins" are interleaving claims. Concurrent task/thread tests sample scheduler orders, while direct-poll unit tests already establish selected stop orders; the remaining shared-state failure mode can be a rare leak or hang. Controlled-schedule testing of small extracted kernels could establish orderings that integration tests only sample (Proposed).
 - **Patterns.** LOP-X021, LOP-12, [LOP-X005](../assessment-patterns.md#lop-x005).
 - **Evidence.** `observation.rs` (`Budget`, `Reservation`, `Node`), `Metric`, manifest search, the `justfile` Miri recipe. For `stop.rs`, `cancellation.rs` and `transport_lifetime.rs`, only atomic and condvar counts and the `Cancellation::wait_until` signature were read.
 - **Footprint.** The primitives were identified; their bodies were not all read.
@@ -64,6 +72,8 @@ Opportunities cluster where assurance depends on whoever remembered to write a c
 <a id="cbo-159"></a>
 
 ## CBO-159 — Fuzz, mutation and coverage tools are pinned with no standing route
+
+- **Current evidence basis (2026-11-02).** Retained. The `frozen-inspection-fuzz`/seed bins and `fuzz-inspection` feature remain in `xtask/Cargo.toml`; the three tools remain pinned. Native search across current Cargo/source/just scopes did not reveal a standing campaign invocation. New native source, proto/CEL, compiler and rustdoc ingress enlarge plausible bounded-input targets but do not themselves justify adding campaigns or claim a test failure. Parser/protocol decoding has dedicated refusal tests; that is positive counterevidence, not equivalent to fuzz or mutation exploration.
 
 - **Operation and consumers.** Bounded readers of untrusted or corrupt input: authored `.pse` parsing (`language::parser`, `dsl::parser`), package and YAML admission, frozen documents, review-pack readers, handoff readback, Arrow IPC table reads and `/proc` parsing. Also assessing how much of the test mass constrains behavior.
 - **Current mechanism.**
@@ -83,27 +93,22 @@ Opportunities cluster where assurance depends on whoever remembered to write a c
 
 <a id="cbo-160"></a>
 
-## CBO-160 — Property testing stops at leaf crates
+## CBO-160 — Property coverage exists beyond leaves; model and invariance coverage remains selective
 
-- **Operation and consumers.** Admission, retention, windowed-counter and comparison logic, and scientific invariance claims such as unit scaling, component permutation and identity hashing under reordering.
-- **Current mechanism.**
-  - `proptest` is declared in five crates (`pse-authoring`, `pse-ids`, `pse-math`, `pse-quantity`, `pse-runtime`). Blocks cover encodings, floats, DSL round trip, dimension and unit algebra, `implicit_product_tests` and `workflow/uncertainty`. One `.proptest-regressions` file exists.
-  - Hand-rolled generators elsewhere: LCG and SplitMix-style streams in `highs/mip_tests`, `scip_tests` and `factorable_tests`.
-  - No state-machine testing was seen. `Metric::{delta, elapsed, recent}` has a non-trivial wrap, partial and out-of-order contract and is tested by examples in the 1,300-line hub test module.
-- **Why it matters.** Model-based checking suits a bounded ring with an exact cumulative count, reservation accounting and cursor paging. Metamorphic relations are a strong oracle where analytic references are scarce, and they complement the analytic, exhaustive or independently generated references that §24.1 asks for (Proposed).
+- **Operation and consumers.** Bounded record, admission, retention, metric and comparison logic, plus scientific invariances with independently meaningful generators.
+- **Current mechanism (2026-11-02).** Proptest is now a dev dependency of `pse-host` as well as the original scientific/authoring owners. `stream_records::tests::arbitrary_bytes_chunks_bounds_and_eof_preserve_independent_record_expectations` varies bytes, chunk widths and bounds and checks independent expected complete records, reconstruction and truncated tails. `pse-runtime/tests/product_reader.rs` also contains a property block. The original title claiming property testing stops at leaves is withdrawn. `pse-diagnostics::observation::Metric::{delta,elapsed,recent}` still has hand-authored examples; no model-based sequence harness was found in the inspected owner.
+- **Why investigate.** The useful remainder is coverage of operation sequences and scientific invariance, not increasing a repository property-test count. A bounded ring's exact cumulative total, paging/cursor behavior and reservation accounting are candidates for an independent model; scientific transformations need well-posed domains and meaningful reference relations.
 - **Patterns.** LOP-X021, LOP-12, LOP-03.
-- **Evidence.** The `proptest!` file list and config, `Metric`, `implicit_property_tests.rs` head, `RngSeed::Fixed` configurations, the LCG lines by search.
-- **Footprint.** Example shapes were sampled, not surveyed, and the hub test module was skimmed by name only.
-- **Preservation constraints.** Fixed seeds and committed regressions, already practised; slow native oracles need small case counts.
-- **Counterevidence and uncertainty.** Scientific generators need well-posed inputs, which is real work. Hand-rolled streams in native solver tests may be deliberate, to reproduce solver instances without depending on a library's stream stability ([LOP-X006](../assessment-patterns.md#lop-x006)); a pinned proptest stream is already treated as evidence in `implicit_product_tests` ("ChaCha seed 5202").
-- **Status.** Proposed.
-- **Research questions.**
-  - Can a state-machine harness check the hub's metric kernel against a simple model?
-  - Which scientific invariances have well-posed generators at small case counts?
+- **Evidence and coverage.** Complete native text search of non-generated `crates`, `xtask`, root `Cargo.toml` and `justfile` returned fourteen `proptest!` occurrences plus the fuzz metadata line; native read of the host framer property and source inspection of metric functions/test declarations. That is written occurrence coverage, not complete compiled property population or executed cases. Scientific generator bodies retain the earlier representative October 30 coverage.
+- **Preservation and counterevidence.** Existing independent expectations are already strong and should survive. Fixed seeds/regressions remain a scientific reproducibility concern, not an assumption that every ProptestConfig already fixes them: the host property uses defaults. Native test generators may intentionally fix their own stream for solver reproduction (LOP-X006). Cheap framer properties do not establish that complex scientific state spaces admit useful cheap generators.
+- **Status.** Interface-checked partial adoption; targeted model/invariance extensions Proposed.
+- **Research questions.** Can the metric/reservation kernel be compared with a small independent sequence model without reimplementing the same algorithm? Which scientific invariances have well-posed low-case generators and explicit oracles? Would the host framing example transfer to other bounded ingress contracts while retaining each protocol's distinct truncation meaning?
 
 <a id="cbo-161"></a>
 
 ## CBO-161 — Corpora and tables run inside one test identity; test mass and burden
+
+- **Current evidence basis (2026-11-02).** Retained. Native read of `pse-modeling::domain_schema` confirms authored reference sources and its corpus owner; refusal cases are still collected within Rust tests, and nextest captures their harness identities rather than individual loop members. Current retained selection/reruns improve test-level history but do not split corpus-case identity. Old table/mass/resource counts retain October 30 provenance; the 128-GiB fixture premise is not a recommendation to cap this workstation or force independent tests to serialize.
 
 - **Operation and consumers.** Developers selecting or re-running a failing case, and nextest and `scripts/pse affected` reports. Maintainers working in the modeling-workflow tests.
 - **Current mechanism.** Two related manifestations.
@@ -127,6 +132,8 @@ Opportunities cluster where assurance depends on whoever remembered to write a c
 
 ## CBO-162 — Benchmarks use Criterion for scheduling and keep the measurement beside it
 
+- **Current evidence basis (2026-11-02).** Retained. `benches/benches/native_process/phases.rs` still collects selected span names into a private `serde_json::Value` report, and benchmark source is unchanged. Current native unit accounting supplies whole-unit CPU/current-memory facts (CBO-048), not Criterion sample membership or per-operation attribution; it does not resolve the measurement join. No benchmark, span-population census or timing was rerun; the missing delta-span producer remains the original October 30 search observation.
+
 - **Operation and consumers.** Maintainers making *Measured* claims about complete scientific operations (§24.3).
 - **Current mechanism.**
   - `native_process`, `modeling_preparation` and `native_cache` use `iter_custom` with `sample_size(10)`, flat sampling and a tiny warm-up. Each iteration builds a fresh runtime, runs one workload and writes untyped `serde_json::Value` records and `*-memory.json`, read from case specs in `.config/preparation-cases.json` through about 90 `spec["..."]` lookups across about 29 `bench_function` and `iter_custom` sites.
@@ -147,6 +154,8 @@ Opportunities cluster where assurance depends on whoever remembered to write a c
 <a id="cbo-163"></a>
 
 ## CBO-163 — Shared test support is included by path, with repeated fixture assembly
+
+- **Current evidence basis (2026-11-02).** Retained but distinguish demand resolution from shared support. Reopened `pse-testkit::{factory,NativeFixture::with_settings}`: both still construct CPU admission around production engine owners. Current `fixtures/execution::PreparedExecution` resolves source-built tools and selected original inputs, so the previous suggestion that each caller must always assemble fixture environment by hand is superseded for that route. Existing path-included support and literal-source coupling remain. Re-read independent scientific-reference support and covariance exchange as intentional reference isolation, not a shared-product-model opportunity.
 
 - **Operation and consumers.** Test authors across crates and benches.
 - **Current mechanism.**

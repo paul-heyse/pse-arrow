@@ -19,15 +19,14 @@ OOM incidents and need first-class owners. Already strong:
 
 Opportunities cluster where the same obligation is restated per library, per module or per consumer.
 
-**Coverage on this page.** Prepay accounting was read in `pse-math` (`library/admission`, `reverse`,
-`native_compiled`, parts of `execution`), `pse-runtime` `result_selection` in full and `math/` admission
-paths, `pse-columnar` `allocation_extent`, `owned_buffer` and `ipc_file`, `pse-relations` `columnar`,
-and `pse-backend-native` dynamics layout. Unread: the `workflow` multipliers beyond a sample, the
-`pse-modeling` `workspace` bound methods, and no census of the hand-written walkers was taken. File
-publication was read in the host (`invocation`, `server`, `telemetry_service`, `native`, `admission`,
-`product_reader`), runtime export, pack and capture code, and the canonical store write and verify paths.
-`study_module::exact_path`, `admission::read_private_json`, `generation/bootstrap` and `local_claim` were
-skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `ancestry` and `leader`.
+**Refresh coverage, 2026-11-02.** The coordinator reread the result-selection extents, shared bounded
+sink and its tests, retained modeling-container accounting, host invocation publication and private
+readers, native-pointer publication, telemetry publication, process-facts and supervised-child ownership,
+and representative residual writers. The broader math/columnar/native footprint below inherits the
+2026-10-30 inspection: its production source is unchanged at the new baseline, but it was not all reread.
+No complete allocation/writer census or current kernel/systemd probe was performed. Changes to host
+lifecycle do not by themselves discharge these cross-cutting obligations; the host-specific opportunities
+are on [Host and invocation](host-and-invocation.md).
 
 <a id="cbo-001"></a>
 
@@ -46,11 +45,17 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
   - Native solvers: SUNDIALS formulas in `pse-backend-native` (`linear_bytes`, `bbd_bytes`), fitting
     sampling, residual and surrogate sizes, and `rank_admission`.
   - Graph and std layouts: `pse-structural/dense.rs`, `semantic_extent.rs`, parser extents.
-  - Workflows: literal multipliers beside about 73 `reserve` calls.
-- **Why it matters.** A pin move can invalidate a mirror, and there is no general drift detector. Some Symbolica paths reconcile after the fact, and no equivalent was found on the Arrow and DataFusion formulas (a regular-expression search, so weak evidence). A Salsa citation already lags its pin. Conservative factors can refuse feasible work (*Proposed*).
+  - Workflows: literal multipliers beside reservations; the prior count was a search-shape estimate,
+    not a current census.
+- **Why it matters.** A pin move can invalidate a mirror. The freshly read selection formulas explicitly
+  name Arrow 59.3 and DataFusion 55.1 and their allocation shapes; checked arithmetic tests protect overflow,
+  not agreement with future supplier layouts. Some Symbolica paths reconcile after the fact. No general
+  cross-supplier drift detector was established. Conservative factors can refuse feasible work (*Proposed*).
 - **Patterns.** LOP-X001 (primary), LOP-03, LOP-09, LOP-10.
-- **Evidence.** The functions above were read; counts are `rg` shape indicators.
-- **Footprint.** About two dozen sites in seven crates inspected; remaining workflow multipliers unread.
+- **Evidence.** Fresh `workflow/result_selection.rs::{selection_window_extent,partition_working_extent,
+  pruning_working_extent,trajectory_index_extent}` and its overflow test; other named functions retain
+  the unchanged-source 2026-10-30 inspection.
+- **Footprint.** Several crates share the obligation; remaining workflow multipliers were not exhaustively inspected.
 - **Preservation constraints.** The real constraint is prepay. A prediction must exist before allocation
   and refuse deterministically, in the conservative direction, with a typed error. Counting must not
   allocate without bound. One pool identity (DataFusion `MemoryPool` through `AllocationLease`). No OS RSS
@@ -74,7 +79,7 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
   locks and generations, result export, review packs, capture handoff, build identity and the canonical
   file store.
 - **Current mechanism.** Each module carries its own helpers. Host private-directory, bounded-read and
-  publication helpers recur in about ten modules with different rules: some `chmod` an existing
+  publication helpers recur with different rules: some `chmod` an existing
   directory to 0700, `study_module` refuses, others accept anything without group or other write bits.
   Parent fsync follows publication in `server` and `telemetry_service` and not in `native::publish_pointer`,
   export or capture acknowledgement. Routes differ: `hard_link` plus `remove_file`, `O_TMPFILE` plus
@@ -82,13 +87,16 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
   `create_new` alone. `openat2` appears once (`server/release_import.rs`); elsewhere symlink refusal is a
   path walk before a later open (`diagnostic_tools::no_symlinks`). The canonical file store adds its own
   fsync ordering, verifying read and a polled `try_lock` instance lock.
-- **Why it matters.** Strictness, durability and race handling are separate decisions per site, and a fix
-  has dozens of sites (Proposed). Export writes block inside an async function.
+- **Why it matters.** Strictness, durability and race handling are separate decisions per site. A shared
+  capability might remove repeated decisions while keeping explicit durability classes (Proposed).
 - **Patterns.** LOP-09, LOP-X008, LOP-X011, LOP-01.
-- **Evidence.** Read: `invocation::publish`, `server`, `telemetry_service::write_atomic`, `native`,
-  `product_reader`, `export_ipc_with_prefix`, `review_pack`, `capture/{recording,handoff}`,
-  `canonical_files` and `offline`.
-- **Footprint.** Located only: `generation/bootstrap`, `local_claim`, `native_service` private helpers.
+- **Evidence.** Fresh `invocation::{directory,evidence_file,read_metadata,publish}` distinguishes passive
+  inspection from namespace initialization and syncs a no-replace publication; `telemetry_service::write_atomic`
+  syncs file and parent, while `native::publish_pointer` syncs its file then replaces the pointer without
+  a parent sync. Capture handoff retains explicit `.pending` staging. Store/export evidence inherits
+  the unchanged 2026-10-30 inspection.
+- **Footprint.** Representative host, capture, export and store boundaries; no current claim that every old
+  generation/bootstrap helper survives the completed host changes.
 - **Preservation constraints.** Interrupted `.incomplete` and `.pending` residue is promised (§23.1), so
   RAII temporaries would remove it. No-clobber winner detection, 0400 evidence, non-UTF-8 paths, size
   checks before decode, and passive readers that never change modes. Sealed-store crash order (data
@@ -109,8 +117,8 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
   and released with its last reader. Consumers are prepared math bodies and plans, solve reports,
   compiler state and retention snapshots. This is measurement of built values; prediction is
   [CBO-001](cross-cutting-mechanisms.md#cbo-001).
-- **Current mechanism.** `pse_model::HeapUsage` has about 835 impls in about 230 files, mostly in generated
-  paths, with B-tree impls. Beside it are about 206 hand-written non-generated `fn retained_bytes`:
+- **Current mechanism.** Generated `pse_model::HeapUsage`, including B-tree accounting, coexists with
+  hand-written retained-size visitors. The old implementation counts are not refreshed measurements:
   - `pse-math`: `stage_retained_bytes` (pointer-keyed dedupe), `allocation_components`,
     `Constant::allocated_bytes`, and `numerics/retained.rs`, which lists fields by hand.
   - `pse-backend-native`: three `Extent` visitors (`solve/retention.rs`, `solve/record.rs`,
@@ -122,10 +130,12 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
 - **Why it matters.** A field added to a retained type needs an unaided edit, and a miss under-charges
   silently. `own_preparation` rebuilds sharing that `Arc` already expresses (Proposed).
 - **Patterns.** LOP-02, LOP-X001, LOP-03, LOP-09.
-- **Evidence.** `stage_retained_bytes`, `numerics/retained.rs`, `solve/retention.rs`, `extent.rs`,
-  `known_bytes`, `observe_retention` and `own_preparation`, some read in part.
+- **Evidence.** Fresh `pse-modeling/src/extent.rs` uses capacity-aware recursive accounting and conservative
+  map allowances; its module explicitly allows repeated counting of shared values. Other named walkers
+  retain their unchanged-source 2026-10-30 inspection, some read only in part.
 - **Footprint.** Remaining walkers and `shared_product` located by search only.
-- **Preservation constraints.** Capacity, not length. Shared `Arc` values counted once, deliberately.
+- **Preservation constraints.** Capacity, not length. Sharing semantics differ: some owners deliberately
+  deduplicate `Arc` payloads, while conservative modeling estimates allow repeated counting.
   Owner wrapper charges separate from payload, foreign payload through library APIs, conservative
   direction, typed overflow, and no claim over foreign heaps.
 - **Counterevidence and uncertainty.** Symbolica evaluator internals are private, so a derive stops there.
@@ -153,16 +163,17 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
 - **Why it matters.** A rule added to one mechanism does not reach the other, and `/proc` re-reads guard
   races a handle would remove (Proposed).
 - **Patterns.** LOP-X008 (primary), LOP-09, LOP-08.
-- **Evidence.** `supervised_child.rs`, `ancestry::ancestors`, `validate_live_controller`,
-  `leader::current_payload`, `manager_process` and `process_facts` were read. Kernel 7.0 and systemd 255
-  were checked.
+- **Evidence.** Fresh `supervised_child.rs::{members,drain}`, `process_facts.rs` coherent identity reads,
+  `managed/supervisor/leader.rs` executable comparison and `canonical_files.rs::ProcessIdentity`.
+  Kernel/systemd observations belong to the earlier audit, not a current environment check.
 - **Footprint.** `manager/subgroup` was read partly. Identity also travels in re-exec records.
 - **Preservation constraints.** A nested PID namespace refuses. Serialized identity records affect recovery
   of live older records. Absence stays distinct from change. An unproved drain never releases the caller
   (`DrainFailurePolicy`: the compiler parks, capture refuses after an allowance). `pse-diagnostics` stays
   independent of the manager.
-- **Counterevidence and uncertainty.** Boot, namespace and start ticks are already sound (`pid_max`
-  4194304, `CLK_TCK` 100), so the gain is modest. Host children run inside an authenticated scope.
+- **Counterevidence and uncertainty.** Boot, namespace and start ticks already distinguish absence,
+  unknown identity and changed identity. Supervision holds pidfds for discovered members and keeps the
+  leader unreaped; this is not merely signalling numeric PIDs. Host children run inside an authenticated scope.
   A probe recorded on 2026-10-27 (evidence kept, not re-run) showed that delegated leaf containment works in a `Delegate=yes` user scope but the
   user manager sets no `user.delegate` xattr and `+memory` cannot be enabled while the supervisor sits in
   the scope root. `native_child` needs no group drain.
@@ -173,23 +184,30 @@ skimmed. Process supervision was read in `SupervisedChild`, host `manager`, `anc
 
 <a id="cbo-002"></a>
 
-## CBO-002 — Residual bounded and counting sinks (weak)
+## CBO-002 — Residual bounded writers beside the shared typed sink
 
 - **Operation and consumers.** Bound or measure serialized output (JSON documents, Arrow IPC, exports,
   progress payloads) while it is written, with a typed refusal at the limit.
-- **Current mechanism.** `BoundedSink` and `SinkFailure` (`pse-ids/src/sink.rs`) are used in about eight
-  files across runtime, columnar, operations and math, and `result_blocks::can_split` matches
-  `SinkFailure::LimitReached` by type. About 30 non-test `impl Write` sinks remain (a count that depends
-  on the pattern), in `pse-runtime` `workflow` and `tooling`, plus halving loops over row ranges in
-  `result_blocks::visit_blocks_async` and `result_files::result_prefix_rows`.
-- **Why it matters.** Some remaining sinks may restate a cap that `BoundedSink` already owns (Proposed).
+- **Current mechanism.** `BoundedSink` already supports retained, forwarded and counting destinations,
+  cancellation/deadline checkpoints, checked counts and typed failures through serde/Arrow wrappers.
+  Three freshly read counterparts still impose their own byte allowance: `observation::BoundedImage`,
+  `connected_results::BoundedExportFile` (with cancellation) and capture `handoff`'s `Limited` (with expiry).
+  `study_variants::document_extent` separately counts, bounds and classifies exhaustion. Other writers
+  hash, translate or frame output; their existence is not duplication of this operation.
+- **Why it matters.** These specific counterparts repeat an already-owned cap/checkpoint contract and
+  recover exhaustion through local state or text errors. Reuse could reduce separate error and partial-write
+  decisions (Proposed); no incorrect current result or performance loss was demonstrated.
 - **Patterns.** LOP-09, LOP-01.
-- **Evidence.** `sink.rs`, `can_split`, `result_prefix_rows`; the sinks were counted by `rg`.
-- **Footprint.** Not classified: how many sinks cap, hash, count or check cancellation.
+- **Evidence.** Fresh shared sink production code and typed-error tests, plus the four counterparts above.
+  Trial encoding/splitting remains a separate question in `result_blocks` and `result_files`.
+- **Footprint.** A classified sample, not a census of every `Write` implementation.
 - **Preservation constraints.** Limit errors stay distinct from I/O errors. Some modes count or hash
   without a cap, and durable block boundaries split deterministically.
-- **Counterevidence and uncertainty.** The shared type is local because of cancellation and typed recovery,
-  and no library writer adapter carries those. The residue may be mostly non-capping sinks.
-- **Status.** Current mechanism. Weak.
-- **Research questions.** How many remaining sinks are caps? Could size-targeted chunking avoid trial
-  encoding?
+- **Counterevidence and uncertainty.** The local sink carries repository-specific typed recovery and
+  checkpoints; an upstream adapter need not improve it. `BoundedExportFile` exposes remaining/written
+  counters and uses `u64`, while the shared sink uses `usize`; these consumer contracts need examination.
+  The observational writer's simple failure path may justify retaining a tiny implementation.
+- **Status.** Current mechanism; reuse benefit Proposed.
+- **Research questions.** Can the existing sink express each counterpart's counter, expiry and error-mapping
+  contract without additional policy? Could supplier size planning avoid trial encoding without changing
+  deterministic durable block boundaries?

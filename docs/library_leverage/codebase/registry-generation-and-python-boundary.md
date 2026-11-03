@@ -6,17 +6,23 @@ This page covers `pse-schema` (the registry), `pse-codegen`, `pse-relations`, `p
 [§23](../../authoritative_design/sections/operations-and-validation.md#section-23). The baseline is
 on the [entry page](README.md). Codegen is not disfavoured; each generation hop is judged on its merits. Mechanisms were read statically and are *Interface-checked*; every value claim is *Proposed*, and nothing here is *Measured* except where a dated probe is cited. Counts come from `rg`, `wc` and two read-only reachability scripts, and they show shape.
 
+**Refresh baseline: 2026-11-02, `f8b7d74d8232da58bf485e6e16f5bfde969c2dd7` (clean source at inspection).** Criteria: framework/base patterns edition 0.2 and additional patterns revision 5. Current dispositions and the explicitly dated rechecks below use this baseline. Detailed counts, earlier reachability scans and upstream-version leads retained from 2026-10-30 at `c8244cff5` keep that date and their original limits; they were not rerun as current measurements. Native source reads and text searches establish written mechanisms, not semantic reachability or passing tests. No provider was prepared, no code generated, and no product test or benchmark was run. Concurrent assessment-document edits are outside the inspected product baseline.
+
 **System picture.** The registry catalog is the single declaration for relations, enums, identities, documents and invariants. Codegen renders Rust with `quote`, `syn` and `prettyplease`, JSON Schema through schemars contexts, and SurrealQL, which is concatenated and substituted from Rust raw strings. The standard registry is baked into `pse-schema/src/generated/standard_registry.rs`. `pse-relations` holds an Arrow view, builder and codec module per relation (about 199k generated lines over 215 files). `pse-engine` is a governed DataFusion session. `pse-rules` lowers invariants to DataFusion plans.
 
 Already strong: predicate validators lower declarations to ordinary DataFusion `Expr` and `PhysicalExpr`; physical reconciliation and invariant programs are native `LogicalPlan` work; the extension-type mechanism implements Arrow's `ExtensionType` and registers with DataFusion; the result pipeline uses `FileWriter`, `FileDecoder`, `RowConverter` and Arrow kernels directly; resources use `FairSpillPool` and `TrackConsumersPool`; refusal codes are a closed, declared set. Legitimately custom: framed identity, compatibility and migration semantics, and the strict unknown-field policy.
 
 With the Python reader gone, the premise that every relation must have a uniform Arrow boundary form for a foreign reader no longer holds. Three Arrow forms still earn their keep: durable IPC result blocks with their witnesses, DataFusion relational admission, and `FieldCheckedBatch` as the admission capability. Several generated and engine forms now look like residue of the universal premise ([CBO-153](#cbo-153), [CBO-154](#cbo-154), [CBO-156](#cbo-156)). Prepaid columnar accounting is [CBO-001](cross-cutting-mechanisms.md#cbo-001) and IPC admission is [CBO-005](result-data-paths.md#cbo-005).
 
-**Coverage on this page.** Traced: the `pse-schema` obligations, `field_contract` and `compatibility` modules; `pse-columnar` IPC and owned-buffer code; `pse-engine` entry points, `operation*`, `provider/*`, `resolution/*` and `capture` (caller and trait-implementation reachability); the canonical call modules of `pse-operations` (non-test bodies, long lines truncated); `pse-rules` `program.rs` and `references.rs`. Representative: `pse-schema` builder, products and standard registry; `pse-engine` cache, admission and scalar adapters (heads only, so [CBO-155](#cbo-155) rests on heads); `pse-codegen/src/codegen/surreal*.rs` (heads and sampled output); the diagnostics macro and both `vocabulary!` definitions. Skimmed or unread: `pse-model` generated rows, the `pse-codegen` Rust emitters beyond the registry emitter, `admission/derive.rs`, the generated retention and lifecycle SurrealQL functions, `canonical_staging`, and test modules throughout. Reachability claims are name-based or regex-based and show absence under their assumptions, not proof of non-use.
+**Original 2026-10-30 coverage.** Traced: the `pse-schema` obligations, `field_contract` and `compatibility` modules; `pse-columnar` IPC and owned-buffer code; `pse-engine` entry points, `operation*`, `provider/*`, `resolution/*` and `capture` (caller and trait-implementation reachability); the canonical call modules of `pse-operations` (non-test bodies, long lines truncated); `pse-rules` `program.rs` and `references.rs`. Representative: `pse-schema` builder, products and standard registry; `pse-engine` cache, admission and scalar adapters (heads only, so [CBO-155](#cbo-155) rests on heads); `pse-codegen/src/codegen/surreal*.rs` (heads and sampled output); the diagnostics macro and both `vocabulary!` definitions. Skimmed or unread: `pse-model` generated rows, the `pse-codegen` Rust emitters beyond the registry emitter, `admission/derive.rs`, the generated retention and lifecycle SurrealQL functions, `canonical_staging`, and test modules throughout. Reachability claims are name-based or regex-based and show absence under their assumptions, not proof of non-use.
+
+**Current refresh coverage.** Compared the named schema/codegen/engine/rules/diagnostics and boundary-document owners against the prior baseline; these production owners are unchanged. Reopened representative declarations, actual consumers and test declarations: registry hydration and its fresh-owner test, relation emission and `typed_collection`, invariant execution and obligation binding, the workbench's direct `SessionContext`, field-transfer/admission tests, diagnostic projection/governance, and document wires. Plans59–63 add source/API/schema intelligence and generated host-local protobuf contracts, but do not attach the engine or restore a Python product. Their actual mapping burden is [CBO-195](developer-tooling.md#cbo-195) and [CBO-196](developer-tooling.md#cbo-196). No new whole-program liveness proof or current size census is claimed.
 
 <a id="cbo-046"></a>
 
 ## CBO-046 — The canonical store program: SurrealQL in Rust strings with no semantic toolchain
+
+- **Current evidence basis (2026-11-02).** Retained. `surreal_execution::append` still performs placeholder replacement; `surreal::relations` generates native codecs while `surreal::append` owns DDL publication. The store callers and maintenance parser are unchanged. Existing server-backed tests remain the independent behavior oracle; the new host protobuf/CEL toolchain does not analyze this SurrealQL program. Original string/call/refusal counts remain October 30 observations.
 
 - **Operation and consumers.** The store's transactional behaviour (admission, fencing, deadlines, retention, study readiness) is a SurrealQL program in the generated `surreal.surql` (about 4.7k lines) and its rollouts. Authors are the `pse-codegen` templates and the `pse-operations` call modules; every workflow caller depends on it.
 - **Current mechanism.**
@@ -43,28 +49,32 @@ With the Python reader gone, the premise that every relation must have a uniform
 
 ## CBO-156 — Recorded contracts, obligations and invariants: overlapping and unattached routes
 
+- **Current evidence basis (2026-11-02).** Retained with the original reachability limitation. Native search reopened `EngineSession::bind_obligation*`, its test caller, `registry().invariants()` and the `xtask::codegen::physical` call to `run_invariants`; compatibility tests still construct verified recorded contracts. No changed production caller in the named owners attaches the former route. The limited search is positive evidence of those paths, not a new proof that all other callers are absent. Which current interpretation checks discharge the same obligations remains a research question.
+
 - **Operation and consumers.** §4.3 describes durable opening that verifies a recorded witness and directional consumer admission; §4.6 says publication admission consumes declaration-owned keys and visible references through `pse_schema::obligations`. The registry declares 260 `InvariantSpec`s, largely generated unique and foreign-key integrity plus native row checks.
 - **Current mechanism.**
-  - **Recorded contracts.** `compatibility.rs` plus `compatibility/recorded.rs` (about 760 lines). By name-based reachability, `select_roots`, `admit_exact_write`, `verify_recorded`, `execution_schema` and `durable_execution_schema` are unreached in production. `VerifiedRecordedContract`, `RecordedProvider` and `DomainEnvironment::recorded` are used only by `schema_transform.rs` and tests. Result blocks use `ExpectedContract` and the file schema check in `AdmittedFile::open` instead.
+  - **Recorded contracts.** `compatibility.rs` plus `compatibility/recorded.rs` (about 760 lines). In the earlier bounded name-based reachability account, `select_roots`, `admit_exact_write`, `verify_recorded`, `execution_schema` and `durable_execution_schema` were not reached in production. `VerifiedRecordedContract`, `RecordedProvider` and `DomainEnvironment::recorded` appeared in `schema_transform.rs` and tests. Result blocks use `ExpectedContract` and the file schema check in `AdmittedFile::open`. Current `CanonicalStore::open` independently verifies recorded interpretation, schema digest, payload incarnation and study-module identity; this is positive exact-interpretation admission, not an absence of semantic checking.
   - **Obligations.** `ObligationTemplates` and `BoundObligation` are unseen from production; `validate/obligations.rs` is unreached for 169 of 192 lines; `EngineSession::bind_obligation*` is unreached. `RelationObligations` is nevertheless compiled and hydrated into the standard registry.
   - **Invariants.** `pse_rules::invariants::run_invariants` has one non-test caller, `xtask/src/codegen/physical.rs`. `pse_rules::references::admit_entities` (pure Rust) is the only production `pse-rules` path. `pse-engine/src/session/obligation.rs` reads `registry().invariants()` for declared-obligation dependencies and receipts. `result_batch::validate_keys` and physical `reconcile_units` check keys and units elsewhere.
-- **Why it matters.** The architecture states guarantees through a route that is not the executing one, so a reader looks for key and witness enforcement in the wrong owner. Removing or wiring the unattached routes would also shrink hydrated product volume ([CBO-040](#cbo-040)) and the SQL-string assembly in `obligations.rs`. If the guarantee is wanted, there is a real gap: a durable file read does not compare recorded semantic meaning (Proposed).
+- **Why it matters.** The architecture names a recorded/directional route whose actual production attachment needs clarification beside current exact-interpretation admission. Resolving that responsibility could remove unconsumed forms or connect a genuinely unmet consumer, shrinking hydrated product volume ([CBO-040](#cbo-040)) and SQL-string assembly where appropriate (Proposed). No general durable semantic-safety gap follows without tracing a concrete read that bypasses the required check.
 - **Patterns.** LOP-X020, LOP-09, LOP-12.
 - **Evidence.** `compatibility.rs`, the head of `recorded.rs` and its function list, `obligations.rs`, `validate/obligations.rs` function list, `field_contract.rs`, `pse-rules/src/invariants.rs` and `program.rs`, `native.rs` head, `obligation.rs` around `invariants()`, a reachability script and `rg` over the named crates.
-- **Footprint.** How `obligation.rs` compiles its plans (the dependency half only) and whether `pse-operations` interpretation checks discharge the same meaning by another route were not traced.
+- **Footprint.** `obligation.rs` compilation was read at its dependency half only. Independent challenge and coordinator rereading established `canonical.rs::CanonicalStore::open` checks, but not their equivalence to every directional recorded-schema promise or every standalone file consumer.
 - **Preservation constraints.** Actual key and reference refusal in publication; immutable result identity; refusal of incompatible history; candidate-scope distinctions (`Affected`, `Required`, `SidecarRelation`); findings as typed diagnostics; negative reads and unknown predicates retaining occurrence keys.
 - **Counterevidence and uncertainty.**
-  - The canonical store's versioned interpretation fingerprint may have replaced the witness deliberately, which would make §4.3 the stale part. ADR-0164 is proposed and in flux.
+  - The canonical store's versioned interpretation/schema checks may replace part of the witness contract deliberately; exact compatibility and directional compatibility are distinct. ADR-0164 remains proposed.
   - Tests exercise all of this machinery, so it is unattached, not broken. Integrity may legitimately differ per stage, and `compile_individual` or `bind_declared_queries` may be consumed through a route a literal search missed.
   - The reader's independence from the live registry is deliberate (§4.3), so any typed shared model must not couple recorded interpretation to current declarations.
-- **Status.** Current promise (documentation) versus current mechanism (not attached).
+- **Status.** Current promise (recorded/directional documentation) versus an incompletely mapped execution responsibility; exact canonical interpretation admission is Interface-checked.
 - **Research questions.**
   - Which route should be the one executor of declared obligations, and what remains for `pse-rules` if it is not?
-  - Does any durable read today need the recorded-meaning comparison?
+  - Which exact-interpretation and directional-compatibility obligations does each current read discharge, and is any concrete consumer missing a required check?
 
 <a id="cbo-154"></a>
 
 ## CBO-154 — Engine SQL, DML and export surfaces have no production door
+
+- **Current evidence basis (2026-11-02).** Retained. `workflow::study_workbench` still creates a `SessionContext` from `relation.session_state()`; session/operation/provider/schema-transform owners are unchanged. Plans59–63 expose developer source/API queries and document associations, not a scientific-result SQL or format-export consumer of this engine. Original unreachable-function counts are historical, and this pass does not promote the proposed product query/export door into a requirement.
 
 - **Operation and consumers.** `EngineSession` and `EngineFactory` offer SQL, native commands, `INSERT`, isolated DML, PREPARE/EXECUTE retention, round providers, workspace and role inputs, provider capture, a frozen catalog hierarchy, the `Cache` logical node, obligation binding and `prepare_schema_transform`. Retained results leave the workstation as Arrow IPC (`export_ipc`) or cohort JSON lines; DataFusion is reachable only from Rust.
 - **Current mechanism.**
@@ -88,6 +98,8 @@ With the Python reader gone, the premise that every relation must have a uniform
 <a id="cbo-040"></a>
 
 ## CBO-040 — Registry products baked as Rust, JSONL and IPC
+
+- **Current evidence basis (2026-11-02).** Retained. Reopened the emitter's `standard-data.jsonl`, `native_text` and `hydrate` output; `pse-codegen` still re-exports `pse-schema`. `builder/products::hydrate`, IPC `batch` and JSON `decode` remain, with `completed_registry_products_hydrate_every_meaning_with_fresh_runtime_owners` as source-level assurance. The October 27 failed-generation/timing probe was not rerun; build coupling is the concrete maintenance premise, not a current latency claim.
 
 - **Operation and consumers.** `registry()` and `shared_registry()` hydrate the standard `Registry` once per process for every consumer, and `pse-codegen` itself. ADR-0210 records the design and is still `status: proposed`.
 - **Current mechanism.**
@@ -114,6 +126,8 @@ With the Python reader gone, the premise that every relation must have a uniform
 
 ## CBO-153 — Arrow projection generated for every relation regardless of consumers
 
+- **Current evidence basis (2026-11-02).** Retained. `rust/relation.rs` still emits per-row allocation/building forms, `semantic.rs` emits the universal fact route, and `typed_collection` explicitly consumes `FactBatch` encode/decode. `workflow::analyses` still builds the canonical Arrow projection. The emitter and production consumers are unchanged; the seven-of-ninety inventory is the original October 30 name-based walk, not a fresh semantic census.
+
 - **Operation and consumers.** Each relation in the catalog receives a `pse-relations/src/generated` module with an `ArrowValue` impl, `RelationRow`, view, builder, `allocation_size` and validation entry points. Consumers are engine admission and result files for scientific and authored relations. The canonical store's rows travel as `pse_model` values to SurrealDB and do not use these forms.
 - **Current mechanism.**
   - Generation is uniform. The 90 `runtime/canonical_*.rs` modules account for 52,234 of about 199k generated lines.
@@ -136,6 +150,8 @@ With the Python reader gone, the premise that every relation must have a uniform
 
 ## CBO-155 — Field metadata re-established around DataFusion by a family of adapters
 
+- **Current evidence basis (2026-11-02).** Retained. Reopened `session/field_transfer.rs` and admission-test call sites; the test `ordinary_native_functions_carry_input_fields_without_parallel_sql_names` remains. These owners and the DataFusion pin are unchanged. No newer supplier release was inspected in this pass, so the mention of a locally available 55.2.0 remains an October 30 lead rather than an upgrade assessment.
+
 - **Operation and consumers.** Every declared extension or facet must survive planning and execution for admission at outputs and nested fields.
 - **Current mechanism.**
   - `session/admission.rs` (`admit_plan`, `restore_semantic_fields*`, `derive.rs`, `FieldAdmissions`) checks and restores fields after optimization.
@@ -155,6 +171,8 @@ With the Python reader gone, the premise that every relation must have a uniform
 <a id="cbo-045"></a>
 
 ## CBO-045 — Two diagnostic-code authorities and macro noise
+
+- **Current evidence basis (2026-11-02).** Retained. `CanonicalError` still derives miette with `runtime::infrastructure`, both vocabulary macro owners remain, and governance still recognizes either the macro or derive. New host types also demonstrate an intentional aligned pair (`api::query::pattern::QueryError`), so dual implementation alone is not a defect: the opportunity concerns divergent authority and mechanical default arms, not eliminating every derive.
 
 - **Operation and consumers.** Every public error's §23.2 code, read through `TypedDiagnostic` or `miette::Diagnostic::code`. `pse-kernels/src/lib.rs` records the miette code as an observation `failure_code`, and `pse-worker.rs::report` prints it beside `diagnostic_report`.
 - **Current mechanism.**
@@ -179,6 +197,8 @@ With the Python reader gone, the premise that every relation must have a uniform
 <a id="cbo-042"></a>
 
 ## CBO-042 — Document wire envelopes after the foreign reader retired
+
+- **Current evidence basis (2026-11-02).** Retained, narrowed to existing Rust documents and persisted/public wires. Reopened `Versioned<T,N>` and the document generator; their strict-header/directional-schema mechanisms are unchanged. Plans61–63 add proto-authored local RPC while preserving Serde/Schemars presentation, so Rust-only consumption no longer implies one universal encoding would be appropriate. Persistence/compatibility must be established per wire before simplifying the old four-way table; its counts retain October 30 provenance.
 
 - **Operation and consumers.** Boundary-document versioning and schema publication for the CLI, host and schemas under `docs/generated/schema` (497 files).
 - **Current mechanism.**
