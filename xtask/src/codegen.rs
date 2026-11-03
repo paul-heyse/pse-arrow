@@ -13,7 +13,7 @@ mod private_store;
 
 #[cfg(feature = "native-abi")]
 mod ipopt;
-#[cfg(feature = "evidence-tools")]
+#[cfg(feature = "product-schemas")]
 mod private_documents;
 #[cfg(feature = "product-schemas")]
 mod schemas;
