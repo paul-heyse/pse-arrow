@@ -1,10 +1,11 @@
 ---
 title: "Plan64b: Native scientific intake"
-status: in-progress
+status: complete
 date: 2026-11-02
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
-doc_topics: [current-work, design, validation]
+doc_topics: [design, validation]
+doc_retention_reason: "Completed native intake evidence and exact source handoff remain dependencies of Plan64 and H02/H03."
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md, docs/plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md]
 adrs: []
 ---
@@ -56,11 +57,11 @@ Discovery answers only consumer questions: what exact selected definitions/recor
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| B01 | in-progress | 64a selected first-case/reference scope | Exact ordinary data closure and source-role decisions recorded; unresolved records have bounded source-selection work |
-| B02 | in-progress | B01 selected sources and interpretations | Bounded Rust extraction/reconciliation produces typed deltas with faithful values, provenance and refusal behavior |
-| B03 | in-progress | B02; existing publication contracts applicable | Ordinary contextual admission, guarded publication and reopened scientific selection work through existing owners |
-| B04 | in-progress | B03 selected revisions; 64c case binding and C08 context contract | Both first-case closures and meaningful scientific/flow context reach ordinary consuming cases with exact retained readback |
-| B05 | in-progress | B03/B04 outputs; C01 ordered-read contract | Required discovery/update-impact questions use proportionate shared reads with exact coverage; failed/unchanged/changed imports discriminate authority and identity |
+| B01 | complete | 64a selected first-case/reference scope | Exact selected source closure, provenance roles and applicability limits retained in the bounded source account |
+| B02 | complete | B01 selected sources and interpretations | Bounded Rust extraction/reconciliation produces typed deltas with faithful values, provenance and refusal behavior |
+| B03 | complete | B02; existing publication contracts applicable | Ordinary contextual admission, guarded publication and reopened scientific selection work through existing owners |
+| B04 | complete | B03 selected revisions; 64c case binding and C08 context contract | Both first-case closures and meaningful scientific/flow context reach ordinary consuming cases with exact retained readback |
+| B05 | complete | B03/B04 outputs; C01 ordered-read contract | Required discovery/update-impact questions use proportionate shared reads with exact coverage; failed/unchanged/changed imports discriminate authority and identity |
 
 ### B01 — Resolve sources and ordinary eligibility
 
@@ -164,10 +165,10 @@ capsule and authored source retain the source bytes separately.
 design, same-case accepted-design-to-rating and compatible-closure science/readback
 controls passed. [64c's verification](64c-process-authoring-and-first-delivery.md#verification-to-date)
 owns their commands, conditions, complete selected recordings and intentional refusals.
-Its scope-end qualification remains the shared completion prerequisite. H02/H03 matched
-reference execution is separate.
+Its shared scope-end qualification is complete, including the final-source feature refresh
+and affected warning rechecks. H02/H03 matched reference execution is separate.
 
-## Outcome — native scope, qualification pending
+## Outcome
 
 **Implemented:** B01–B05 supply the selected ordinary BT source closure, bounded Rust
 FeOS interpretation, contextual parented admission, guarded canonical publication,
@@ -194,4 +195,6 @@ its published envelope and explicit extrapolation; unknown empirical envelopes a
 predictive-zero interaction policy remain qualified as such. No stable quantitative
 speedup is claimed for intake/read optimizations. Broader source population, H02/H03
 execution, assembled P0–P7 acceptance and the collective dependency upgrade remain with
-their existing owners. Package status stays in progress until shared final qualification.
+their existing owners. B01–B05 are complete for this selected native scope. The completed
+record and source account remain while the coordinator and H02/H03 consume this handoff;
+their retention authorizes no additional work.

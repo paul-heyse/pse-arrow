@@ -3,11 +3,13 @@
 The [recycle preparation and convergence review](recycle-preparation-performance-2026-11-02.md)
 investigates Plan64's slow recycle and first-delivery controls. A preparation-only recycle
 control took 84.9 seconds and approximately 6 GiB RSS; profiles identify repeated owned field
-projection before shared cache lookup. Five recommendations cover selector placement,
-representation and recipe work, preparation/test lifetimes, and evidence-led numerical
-configuration and completion of the existing shared engineering-precision interpretation.
-Recommendations remain proposals; [64c](../plans/64c-process-authoring-and-first-delivery.md)
-owns accepted work and status.
+projection before shared cache lookup. Its follow-up develops twelve recommendations covering
+selection and shared representations, preparation lifetimes, meaningful engineering precision,
+numerical configuration and complete bounded diagnostics. The
+[Plan64 coordinator](../plans/64-process-simulator-target.md#recycle-improvement-dispositions)
+owns their adopted dispositions; [64b](../plans/64b-native-scientific-intake.md) and
+[64c](../plans/64c-process-authoring-and-first-delivery.md) own implementation and acceptance.
+The review's original measurements retain their original conditions.
 
 The [Plan60 engineering-intelligence review](plan60-engineering-intelligence-2026-11-01.md)
 reconciles the remaining consumer work with Plan61 and ongoing Plan62 foundations. Eight

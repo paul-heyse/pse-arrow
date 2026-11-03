@@ -1,19 +1,20 @@
 ---
 title: "Plan64c: Process authoring and first delivery"
-status: in-progress
+status: complete
 date: 2026-11-02
 adrs: [ADR-0163, ADR-0196, ADR-0236, ADR-0237]
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md, docs/plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md]
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
-doc_topics: [current-work, design, validation]
+doc_topics: [design, validation]
+doc_retention_reason: "Completed native delivery and improvement evidence remain dependencies of Plan64, H02/H03 and proposed ADR-0196."
 ---
 
 # Process authoring and first delivery
 
 ## Resulting engineering behavior
 
-**Proposed:** one native path lets an engineer inspect selected process structure, edit an admitted definition/case, prepare and run supported operations, and inspect physical outputs or full failures. [64b](64b-native-scientific-intake.md) supplies Packet A's ordinary science; this companion supplies B/C and the native side of D, whose matched reference/closeout owner is [64h](64h-reference-coverage-and-qualification.md). The [coordinator](64-process-simulator-target.md) owns source baseline `1acd8c83c`, rule decisions and F01–F06 dispositions.
+**Implemented and Tested:** one native path lets an engineer inspect selected process structure, edit an admitted definition/case, prepare and run supported operations, and inspect physical outputs or full failures. [64b](64b-native-scientific-intake.md) supplies Packet A's ordinary science; this companion supplies B/C and the native side of D, whose matched reference/closeout owner is [64h](64h-reference-coverage-and-qualification.md). The [coordinator](64-process-simulator-target.md) owns source baseline `1acd8c83c`, rule decisions and F01–F06 dispositions.
 
 The first supported interface is a Rust domain-operation surface using existing `ModelingPackage` and workflow/result owners. A graphical application, new language binding or compulsory CLI wrapper is not needed to establish it. Typed declaration editing is the first edit representation; text documents can still be admitted as source, but editing declarations does not promise regenerated authoritative text. Preserve draft diagnostics without claiming an invalid draft can solve.
 
@@ -62,15 +63,15 @@ follow the existing decision route before implementation.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| C01 | in-progress | A02/A03 meaning; B01 selected definitions | Selected source/declaration/instantiated process views and typed edits over existing immutable identities |
-| C02 | in-progress | C01; RC03 contract slice | Label/numeric/topology edits preserve or invalidate the appropriate artifacts and match clean admitted reconstruction |
-| C03 | in-progress | B ordinary-input path; admitted initialization/solve | Complete success and intended failure reports survive public native operations and restoration/readback |
-| C04 | in-progress | Protected result/producer completion contract | Export selection derives exact scientific usability; affected readers/writers migrate together |
-| C05 | in-progress | RC04; completion and local-analysis contracts | Exposed product applicability and exact governing scope are consistent across native/recorded consumers |
-| C06 | in-progress | C01–C05 selected behavior; B delivery; C08 precision and C09 evidence slices; H02 matched reference contracts and inputs | Recycle/exchanger native journeys, efficiency refinements and independent-reference handoff retain complete scoped acceptance |
-| C07 | in-progress | 64a A04 ordinary-interval disposition | Quality-owned tolerance semantics integrated into affected ordinary/conditional/initialization acceptance without relaxing hard domains or fixed specifications |
-| C08 | in-progress | B01/B02 scientific premises as needed; B04 exact case context; existing numerical policy | Shared meaningful precision covers governing first-case targets, with attributable fallback decisions and original physical acceptance |
-| C09 | in-progress | Existing source recording/result owners; C03–C05 report and permission contracts | Real journey capture, retained outcomes and bounded offline analysis preserve truthful coverage and proportionate diagnostic work |
+| C01 | complete | A02/A03 meaning; B01 selected definitions | Selected source/declaration/instantiated process views and typed edits over existing immutable identities |
+| C02 | complete | C01; RC03 contract slice | Label/numeric/topology edits preserve or invalidate the appropriate artifacts and match clean admitted reconstruction |
+| C03 | complete | B ordinary-input path; admitted initialization/solve | Complete success and intended failure reports survive public native operations and restoration/readback |
+| C04 | complete | Protected result/producer completion contract | Export selection derives exact scientific usability; affected readers/writers migrate together |
+| C05 | complete | RC04; completion and local-analysis contracts | Exposed product applicability and exact governing scope are consistent across native/recorded consumers |
+| C06 | complete | C01–C05 selected behavior; B delivery; C08 precision and C09 evidence slices; native/reference correspondence for H02 | Recycle/exchanger native journeys, efficiency refinements and independent-reference handoff retain complete scoped acceptance |
+| C07 | complete | 64a A04 ordinary-interval disposition | Quality-owned tolerance semantics integrated into affected ordinary/conditional/initialization acceptance without relaxing hard domains or fixed specifications |
+| C08 | complete | B01/B02 scientific premises as needed; B04 exact case context; existing numerical policy | Shared meaningful precision covers governing first-case targets, with attributable fallback decisions and original physical acceptance |
+| C09 | complete | Existing source recording/result owners; C03–C05 report and permission contracts | Real journey capture, retained outcomes and bounded offline analysis preserve truthful coverage and proportionate diagnostic work |
 
 ## C01 — Native inspection and editing
 
@@ -319,7 +320,7 @@ Migrate affected C03–C06 readers/writers together; version actual changed dura
 representations through the existing registry/decision route. Diagnostic visibility never
 strengthens scientific permission.
 
-## Remaining execution order
+## Execution sequence
 
 Start narrow C09 activation/loss attribution and C02 pre-reset observations alongside field
 and prelude corrections. C01/B inventory work and B/C08 scientific context can proceed
@@ -332,13 +333,15 @@ new planning scope does not reopen or erase previously verified narrower behavio
 
 ## Current checkpoint — 2026-11-03
 
-Implementation and the selected native journeys have advanced across C01–C09. Current
+Implementation and selected native qualification are complete across C01–C09. Current
 historical interpreted success and intended failure, original-quality readback, ordinary
 delivery and canonical readback have passed their scoped controls below. The current
 compiled limited-memory candidate instead refuses its constructor budget; interpreted
-execution is the selected supported realization for the current case. Package status
-remains in progress while the feature powerset qualification settles; selected-feature
-native clippy has passed. H02/H03 own independent matched-reference construction and
+execution is the selected supported realization for the current case. The 495-command
+feature population passed its final-source prefix/suffix checks; nine warning-bearing
+xtask configurations passed affected reruns after correcting their private-generator gate.
+Selected-feature native clippy and generator preservation checks passed.
+H02/H03 own independent matched-reference construction and
 execution, and the coordinator owns assembled A–D acceptance. The scientific fixture
 baseline is `c20a865b0`;
 the quality/readback correction and test opt-in are `a323ef4ec`, following transitive
@@ -504,25 +507,48 @@ speedup. The retained source/specification and no-commit assertions remain autho
 
 **Interface-checked — static and manual scope:** `run-all` invocation
 `01a1a05c-5621-7126-b580-10a831f33dfb` passed selected default/no-default clippy and
-codegen checks with zero failures. Earlier manual governance, documentation and native
+codegen checks with zero failures. The original `just hygiene` campaign
+(`01a1a012-fe69-7231-81ab-8c6a9cb5bf45`) ran 19 recipes: 15 passed and four failed
+against the zero-failure target (`register-lint`, `lint-typos`, `clippy-default` and
+`clippy-no-default`). Register/typo corrections passed their affected reruns in
+`01a1a01d-ebb6-776e-9ef1-8b0a25532965`; the current clippy/codegen rerun is named
+above. These corrected checks do not turn the original aggregate into a passing run.
+Earlier manual governance, documentation and native
 lints passed. The additional `cargo-pse-correctness clippy -p pse-runtime --all-targets`
 with the seven qualified native/test features and `-D warnings` passed after correcting
 45 reported test-helper findings. Diagnostic output remains explicitly permitted at its
 test-evidence functions; fallible inventory helpers return descriptive errors.
 The final `just governance` rerun also passed governance tests, code generation comparison
-and the one-family check (`01a1a090-788b-7287-b5bf-f6bdef811d37`). The feature
-powerset is still running and has no terminal result in this checkpoint. The original
-incremental campaign was deliberately stopped after its first 248 required combinations
-had completed without compiler errors: per-feature incremental state had reached 113 GiB.
-Cargo-hack's printed command lists establish that its `--partition 2/2` is exactly the
-remaining 247-command suffix of the same 495-command population. That suffix is running
-through the existing managed native owner with `CARGO_INCREMENTAL=0`
-(`01a1a083-e845-765a-b786-f0601f4379ca`); compiler arguments confirm incremental output
-is disabled. The separate no-default workspace campaign completed all 34 members.
-`/tmp/pse-bc-powerset-coverage.json` retains the command-list identity and partition check.
-The stopped original aggregate remains a stopped/failed aggregate, not a pass. Completion
-requires the suffix's actual terminal success; there is no new resume cache, copied
-working tree, cache deletion, host cap or Rust optimization-level change.
+and the one-family check (`01a1a090-788b-7287-b5bf-f6bdef811d37`).
+
+**Interface-checked — composite feature qualification, 2026-11-03:** Cargo-hack's
+workspace depth-two powerset compiled all 495 required configurations with zero compiler
+errors. The exact 247-command `--partition 2/2` suffix passed in
+`01a1a083-e845-765a-b786-f0601f4379ca`; the 248-command `--partition 1/2` prefix
+was refreshed against the final modeling/runtime source and passed in
+`01a1a0f1-6d6b-711d-aeac-4fbebd3840ed`. Both selected `CARGO_INCREMENTAL=0`,
+the same native providers and correctness adapter. Actual executed commands and ordinal
+ranges match the original printed 495-command population exactly; the temporary coverage
+check is `/tmp/pse-bc-powerset-coverage.json`. The separate no-default workspace campaign
+passed all 34 members (`01a1a084-bd37-755c-99b4-f5a0e03148ea`).
+
+The suffix reported two unused private-schema functions in nine xtask configurations.
+Their module now uses `product-schemas`, matching both consumers; that feature already
+includes `evidence-tools`. All nine affected checks passed with zero warnings or errors
+in `01a1a11f-bf12-74de-a9ed-edfff858906d`. This is composite qualification with
+affected reruns, not a claim that the original warning-bearing suffix was warning-free.
+**Tested:** `scripts/pse test xtask --bin xtask --features full-codegen -E
+'test(runtime_catalogue_sidecar_retains_every_private_source_relationship)'` passed one
+test, zero failures, with 107 tests filtered, in nextest's default profile
+(`01a1a120-c4af-75a8-9d8f-22c3e5e0cee8`). `just codegen` and `just codegen-check`
+then passed with no tracked generated-output changes; the comparison owner is
+`01a1a126-0067-70ac-a526-ac979ad783ab`.
+
+The original incremental campaign was deliberately stopped after per-feature incremental
+state reached 113 GiB. Its early prefix preceded final source corrections and was
+superseded by the refreshed prefix above. The stopped original aggregate remains a
+stopped/failed aggregate, not a pass. No cache deletion, copied working tree, host cap
+or Rust optimization-level change was used.
 The existing `features-combinations` recipe now selects Cargo's
 `--config build.incremental=false` for future one-shot permutations. Pure `pse-ids`
 and Arrow-consuming `pse-columnar` Cargo-hack checks passed through the same correctness
@@ -531,7 +557,14 @@ selection, validation and ordinary editing profiles; it is not a numerical optim
 These checks do not replace
 the scientific journeys or independent references.
 
-## Outcome to date — not final acceptance
+**Interface-checked — closeout:** root `just turn-end` passed ADR indexing and formatting
+(`01a1a12b-a7c2-77ba-9e43-8974e7048a95`). The prepared native
+`target/debug/xtask lifecycle validate` reported 1,963 valid scope items and zero errors;
+`target/debug/xtask docs build` published 1,026 chapters with scoped search. The completed
+B/C records leave current-work selection while their coordinator/reference dependencies
+retain them. Unrelated host-source bytes were unchanged by formatting.
+
+## Outcome
 
 **Implemented:** C01/C02 move field, prelude, declaration and membership selection ahead
 of costly projections, retain structurally shared revision history and expose bounded
@@ -548,6 +581,11 @@ readback. Direct reports preserve the actual original native quality rows, bound
 integrality independently of modeling checks. The native scalar candidate packs up to 32 named functions per module under the
 existing per-member admission and output bounds; its physical representation and cache
 identity changed together.
+
+**Tested:** the named owner controls, selected native delivery and intended-rejection
+journeys, original-quality/offline readback and scope-end checks above establish this
+plan's bounded native acceptance. They establish no unexecuted independent reference,
+unselected solver or broader Plan64 population.
 
 **Mistakes corrected:** the first preparation handoff omitted a supported codec and a later
 initialized handoff multiplied an already conservative settings bound twice. Both failures
@@ -574,7 +612,8 @@ There is no new universal enthalpy floor, host cap, automatic fallback, or resto
 factor policy. Ordinary PR/relational-density evaluation in this route is an outer NLP
 consumer; no inner KINSOL work is inferred or forced. Shared native-cache hits, different
 evidence selections and shared-host conditions prevent a cold-cache or causal
-packing-speedup claim. The feature powerset remains open; report its actual terminal
-result before changing package status. Current native
-journey evidence is bounded to the named paths, inputs and modes; H02/H03 independent
-reference execution and coordinator-level acceptance remain separate.
+packing-speedup claim. Current native journey evidence is bounded to the named paths,
+inputs and modes; H02/H03 independent reference execution and coordinator-level
+acceptance remain separate. C01–C09 are complete for this native scope. The completed
+record remains while the coordinator, H02/H03 and proposed ADR-0196 consume its evidence;
+enduring contracts remain with the architectural owners and ADRs linked above.

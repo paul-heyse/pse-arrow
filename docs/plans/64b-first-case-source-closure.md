@@ -1,10 +1,11 @@
 ---
 title: "Plan64b first-case scientific source closure"
-status: in-progress
+status: complete
 date: 2026-11-02
 doc_role: plan
 doc_owner: docs/plans/64b-native-scientific-intake.md
-doc_topics: [current-work, design, validation]
+doc_topics: [design, validation]
+doc_retention_reason: "Exact first-case source decisions remain part of the completed B handoff to Plan64 and H02/H03."
 ---
 
 # First-case scientific source closure
@@ -15,9 +16,9 @@ or H01's full finite population. The table records the selected source decisions
 the owning plan records their executed admission, publication and consuming-case evidence.
 Source roles are transitive admission meaning, not editable badges.
 
-## Selected cases and exact outstanding inputs
+## Selected cases and source decisions
 
-| Consumer | Actual selected input/owner | Existing source/eligibility | Ordinary-source decision and remaining work |
+| Consumer | Actual selected input/owner | Existing source/eligibility | Ordinary-source decision and limits |
 |---|---|---|---|
 | Recycle and exchanger | Selected pressure rows | Original RPP4 pressure rows are oracle-only | Select acquired Poling Wagner2.5,5 rows for both CAS identities through the exact Chemicals artifact/revision recorded in `ordinary_bt.wagner_source`. A new authored2.5,5 evaluator preserves the actual coefficients' meaning; using them with the old3,6 evaluator is forbidden. This is explicit changed science, not fixture-default parity. |
 | Recycle BTIdeal/BTLiquid | Liquid Cp | Original IDAES liquid rows are oracle-only | Select the existing independently published Perry seventh-edition DIPPR100 rows for both species. Preserve their original units and envelopes; consuming cases must explicitly disposition extrapolation rather than widening those bounds. |

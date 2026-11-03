@@ -9,7 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [64: Process-simulator target](64-process-simulator-target.md) | P0–P7 series with 64a design decisions and authorized 64b/64c native delivery under final qualification. Companion tables own acceptance; matched references and broader qualification remain separately scoped. |
+| [64: Process-simulator target](64-process-simulator-target.md) | P0–P7 series with 64a design decisions and completed 64b/64c native delivery. Companion tables own acceptance; matched references and broader qualification remain separately scoped. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |
 | [53: Test architecture](53-test-architecture-target.md) | Test architecture and existing remaining qualification/decision scope. |

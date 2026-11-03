@@ -14,7 +14,13 @@ current_work = [
   "plans/53*.md",
   "plans/54*.md",
   "plans/58*.md",
-  "plans/64*.md",
+  "plans/64-process-simulator-target.md",
+  "plans/64a-*.md",
+  "plans/64d-*.md",
+  "plans/64e-*.md",
+  "plans/64f-*.md",
+  "plans/64g-*.md",
+  "plans/64h-*.md",
 ]
 assets = [
   "functional_reviews/probes/rust-agent-cli-log-miner-2026-10-29.py",

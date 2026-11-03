@@ -69,12 +69,12 @@ Logical dependencies, shared editing surfaces and physical work placement differ
 
 | Finding | Disposition | Work owner | Completion or settling evidence |
 |---|---|---|---|
-| F01 / DA-039 manifestation | planned | 64c C03 | Full initialization evidence on success/failure and local/selected recorded readback; intended failure reaches its actual stage and restores specifications. Broader DA-039 remains outside this manifestation. |
-| F02 / DA-049 | planned | 64c C04 | Exact producer-derived selection permission; label changes cannot upgrade unknown/unusable science; coordinates/coverage reconcile. |
-| F03 / DA-048 | planned | 64c C05; 64g consumers | Product identity includes actual step/member/reference point and assumptions; structural analyses use their own applicability. Exposed consumers migrate together. |
+| F01 / DA-039 manifestation | resolved | 64c C03 | Tested native success/intended failure and selected original-report readback in 64c's verification; specifications and no-commit assertions survive. Broader DA-039 remains outside this manifestation. |
+| F02 / DA-049 | resolved | 64c C04 | Tested producer-derived selection permission and affected native readback; label changes cannot upgrade unknown/unusable science. See 64c's verification. |
+| F03 / DA-048 | scheduled | 64c C05; 64g consumers | C05's native applicability/identity consumers are complete and tested; remaining analysis-family consumers belong to 64g. Structural analyses retain separate applicability. |
 | F04 / DA-006 | unresolved | 64a A03; all consumers preserve its constraint | Identify an actual duplicate interpretation or missing consumed distinction before refactoring; otherwise retain existing lowering and close the investigation with that reason. No compiler-migration prerequisite. |
-| F05 | planned | 64a A02; 64c C02 | Same semantic question with incompatible consumed method settings does not collide; value-only edits can preserve compatible structure. |
-| F06 | planned | 64a A02; 64c C05; 64g | Task-level analysis with zero numerical members; consistent owner/owning lists; point-based products retain their real point. |
+| F05 | resolved | 64a A02; 64c C02 | Tested C02 reuse/invalidation controls preserve consumed method distinctions and compatible value-only structure; see 64c's verification and A02's shared identity contract. |
+| F06 | scheduled | 64a A02; 64c C05; 64g | C05's native structural/task-level exposure is complete and tested; remaining task-family consumers belong to 64g. Point-based products retain their real point. |
 
 ## Recycle improvement dispositions
 
@@ -89,31 +89,34 @@ Keep first-party Rust at opt-level 2; a 2→3 increase is explicitly excluded.
 
 | Finding | Disposition | Primary work owner and consumers | Completion or settling evidence |
 |---|---|---|---|
-| [I01](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I01) | scheduled | 64c C02 | Exact field selection reaches tracked reuse before construction; semantic/refusal and construction controls, with time/RSS and retained-working-set refinement. |
-| [I02](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I02) | scheduled | 64c C02 | Indexed actual-instance discovery, shared membership/materialization and recipes preserve the same dependency closure without repeated owned projection. |
-| [I03](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I03) | scheduled | 64c C02; C03/C06 consumers | Valid preparation survives compatible lifecycle changes; original/tear/design/rating, independent attempts and default-start evidence retain their distinct premises. |
-| [I04](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I04) | scheduled | 64c C06; C02/C08/C09 inputs | Evaluator/numerical refinements use actual work and fixed meaningful requirements; original physical checks and failed alternatives retained; no Rust opt-level increase. |
-| [I05](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I05) | scheduled | 64c C08; 64b B01/B02/B04 inputs | Shared context covers governing targets using caloric/energy/flow and relevant goals; unit/datum invariance, missing-context refusal and coupled original acceptance. C07 stays distinct. |
-| [I06](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I06) | scheduled | 64c C09; C03–C06 and 64b consumers | Preconstruction activation and async propagation; successful/failed original reports retained and readable; diagnostic and scientific outcomes independent. |
-| [I07](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I07) | scheduled | 64c C09 | Selected interval completeness, recent history and bounded analysis stay distinct; loss/expiry/prefix limits and managed child coverage discriminate. |
-| [I08](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I08) | scheduled | 64c C01; 64b B03–B05 consumers | Selected/full ordered reads avoid edit products; exact order/custody/refusals and subsequent edit/CAS/publication survive, with real work counts. |
-| [I09](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I09) | scheduled | 64c C02; 64b B03/B05 consumers | Pre-reset census/cause, improved keys/history and owned extents; complete equality/negative premises, A/B/A, growing history and escaped products survive rotation. |
-| [I10](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I10) | scheduled | 64c C09 | Buffered/batched recording and retain-once analysis preserve nonblocking offers, truthful flushed prefixes and stop/drain; measured diagnostic perturbation. |
-| [I11](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I11) | scheduled | 64c C02 | Exact selector/bindings reach prelude reuse before premises/maps; shadowing, membership, inherited context, permission and retained-extent controls. |
-| [I12](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I12) | scheduled | 64c C02; 64b B03/B04 consumers | Qualified selection is carried while invocation/context premises hold; changed-context/provenance/cancellation/force-validation controls preserve receiving guarantees. |
+| [I01](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I01) | resolved | 64c C02 | Exact field selection reaches tracked reuse before construction; semantic/refusal and construction controls, with time/RSS and retained-working-set refinement. |
+| [I02](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I02) | resolved | 64c C02 | Indexed actual-instance discovery, shared membership/materialization and recipes preserve the same dependency closure without repeated owned projection. |
+| [I03](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I03) | resolved | 64c C02; C03/C06 consumers | Valid preparation survives compatible lifecycle changes; original/tear/design/rating, independent attempts and default-start evidence retain their distinct premises. |
+| [I04](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I04) | resolved | 64c C06; C02/C08/C09 inputs | Evaluator/numerical refinements use actual work and fixed meaningful requirements; original physical checks and failed alternatives retained; no Rust opt-level increase. |
+| [I05](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I05) | resolved | 64c C08; 64b B01/B02/B04 inputs | Shared context covers governing targets using caloric/energy/flow and relevant goals; unit/datum invariance, missing-context refusal and coupled original acceptance. C07 stays distinct. |
+| [I06](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I06) | resolved | 64c C09; C03–C06 and 64b consumers | Preconstruction activation and async propagation; successful/failed original reports retained and readable; diagnostic and scientific outcomes independent. |
+| [I07](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I07) | resolved | 64c C09 | Selected interval completeness, recent history and bounded analysis stay distinct; loss/expiry/prefix limits and managed child coverage discriminate. |
+| [I08](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I08) | resolved | 64c C01; 64b B03–B05 consumers | Selected/full ordered reads avoid edit products; exact order/custody/refusals and subsequent edit/CAS/publication survive, with real work counts. |
+| [I09](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I09) | resolved | 64c C02; 64b B03/B05 consumers | Pre-reset census/cause, improved keys/history and owned extents; complete equality/negative premises, A/B/A, growing history and escaped products survive rotation. |
+| [I10](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I10) | resolved | 64c C09 | Buffered/batched recording and retain-once analysis preserve nonblocking offers, truthful flushed prefixes and stop/drain; measured diagnostic perturbation. |
+| [I11](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I11) | resolved | 64c C02 | Exact selector/bindings reach prelude reuse before premises/maps; shadowing, membership, inherited context, permission and retained-extent controls. |
+| [I12](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I12) | resolved | 64c C02; 64b B03/B04 consumers | Qualified selection is carried while invocation/context premises hold; changed-context/provenance/cancellation/force-validation controls preserve receiving guarantees. |
 
-The companion package tables own progress; a scheduled row is not implemented, resolved or
-measured benefit. No new rule exception is selected. Existing architectural/durable-contract
-decision routes still apply when an actual implementation triggers them. The review's
-restored field/recorder prototypes and incomplete captures are evidence for implementation,
-not shipped changes. Increased prototype RSS, reset cause and boundary waits are refinements
-to address during C02/C06/C09. Recover the exact historical exchanger inconclusive check
-through C06's existing report export rather than infer its cause from the aggregate result.
+**Implemented and Tested:** the companion package tables and
+[64c's verification](64c-process-authoring-and-first-delivery.md#verification-to-date)
+own evidence for these resolutions, including selection/custody controls, complete selected
+native journeys and independent offline readback. **Measured:** that same account retains
+actual preparation, callback/evaluator/factor work, retention observations and diagnostic
+perturbation under their named conditions. No stable general speedup follows from the
+shared-host samples. The current compiled alternative refuses its constructor allowance;
+interpreted execution is qualified. The historical exchanger's earlier inconclusive cause
+was not recoverable, while its current complete fixture report passes; neither is recast
+as evidence of an inferred repair. The review's prototypes and incomplete captures retain
+their historical scope. No new rule exception or Rust optimization-level increase is selected.
 
-Start narrow C09 and retention observations alongside C02 selection corrections; C01/64b
-reads and B/C08 context can proceed independently. C06 consumes the relevant policy/report
-slices for numerical tuning and final native acceptance, without making all diagnostics a
-barrier to structural fixes. Existing Plans40/53/54/58 retain their responsibilities; the
+The integrated native work combines C09/retention observations, C02 selection corrections,
+C01/64b reads and B/C08 context. C06 consumes their policy/report slices for numerical
+selection and native acceptance. Existing Plans40/53/54/58 retain their responsibilities; the
 collective dependency upgrade, H02/H03 references and wider qualification remain separate.
 
 ## Complete recommendation and investigation coverage
@@ -170,21 +173,23 @@ No stable general speedup is claimed. The current compiled candidate's construct
 is retained; the passing interpreted realization is selected without an allocation-cap or
 Rust optimization-level increase.
 
-Final feature qualification is still running: the completed first half and Cargo-hack's
-verified exact suffix retain one required population, with incremental output disabled for
-the remainder to stop per-permutation cache growth. Other scope-end checks and current
-native-feature Clippy passed. The I01–I12 dispositions remain scheduled until C06's required
-qualification settles; this does not mean their implementations are absent. C07 owns the
+**Interface-checked:** final-source prefix/suffix qualification covers all 495 depth-two
+feature configurations and 34 no-default workspace members. Nine warning-bearing xtask
+configurations passed affected clean reruns after their generator gate was corrected;
+the private-catalogue preservation test and generated-output comparison also passed.
+Current native-feature Clippy and the other scope-end checks passed. The companion
+verification records the composite runs and corrected failures; the stopped original
+aggregate remains stopped/failed. I01–I12 are resolved for their selected native scope.
+C07 owns the
 selected DA-062 correction and G08 the DA-063 atomic publication-witness replacement.
 H02/H03 execution, broader H01/P7 qualification, G08 and the collective library upgrade
 retain their separate owners. This checkpoint does not close A–D or the full series.
 
 64a's [library-informed decisions](64a-scope-and-shared-contracts.md#executed-design-assessment--2026-11-02) govern the subsequent target: library-owned incremental/symbolic/structural operations, mixed CPU ownership, registry-generated native wire projections and an atomic witness capture rather than durable pending exclusion. Writable Surrealism is a preferred bounded prototype, not an approved capability widening: record its purity/attestation rule impact as a proposed decision before G08 adopts it. Ordinary dependency upgrades need no special approval; actual architecture/durable-contract changes retain their decision routes. The operator intends a separate coordinated upgrade of the latest compatible library set; current pins are not fixed target constraints.
 
-**Improvement-integration checkpoint — 2026-11-02:** I01–I12 now have the scheduled owners
-above. 64c adds planned C08/C09 and extends C01/C02/C06; 64b carries exact source/context and
-consumer migrations. **Implemented, documentation only:** the ownership, target and execution
-sequence are integrated into these plans. **Proposed:** their new production changes and
-verification. Earlier focused receipts and the review's diagnostic measurements keep their
-original conditions; no new native run, scientific population, precision default or adopted
-performance benefit follows from this plan revision.
+**Completed native handoff:** B01–B05 and C01–C09 are complete under their companion
+outcomes. Their records and B's source-selection account remain dependencies of this
+coordinator, H02/H03 and proposed ADR-0196; owner release is not established. They are
+removed from current-work selection and retained for that handoff. Enduring contracts
+remain with the architectural owners and ADRs referenced by those plans. This closes no
+other companion or broader scientific population.
