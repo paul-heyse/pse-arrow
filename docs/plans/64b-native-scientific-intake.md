@@ -156,8 +156,13 @@ shared resolver's own calculation.
 
 **Current checkpoint — 2026-11-02:** the selected ordinary source artifacts, typed scientific definitions and bounded two-species FeOS adapter are implemented. Unchanged reimport, ordinary admission and the guarded canonical publication/fresh source-to-consuming-case/readback journey pass their focused controls. The unused one-row Poling prototype was deleted after replacement validation. B05's selected-consumer impact, unchanged/changed source, missing-record and oracle-only refusal controls now pass. The shared specialization owner preserves typed provenance, resource and cancellation refusals; typed source edits retire stale authoritative text rather than claiming regenerated source. Discovery retains exact positive and negative source-selection premises and introduces no global catalog. Complete numerical delivery and scope-end qualification remain open. The [native/reference correspondence](../../packages/reference/ordinary-delivery/sources.md) supplies exact H02/H03 inputs and required outputs without claiming reference execution.
 
-The I05/I08/I09/I12 contributions and selected C09 evidence integration above are newly
-scheduled planning scope, not additional implemented/tested intake claims. Existing focused
-receipts remain valid at their original scope; the new context and migrated consumers still
-require their named verification. No source artifact, precision default or storage contract
-was changed by this plan revision.
+**Current checkpoint — 2026-11-03:** the I05 scientific context and I08/I09/I12 read/admission
+consumers are implemented. The shared policy retains selected response records, exact source
+revision, physical units and independently admitted exposure expressions; PR consumers use
+energy-only requirements without an unsupported frozen heat-capacity claim. C08's strict
+ordinary recycle, exchanger and rating inventory passes, as do the actual canonical
+publication/reopen/consuming-case journey and its bounded offline recording readback.
+The native design, same-case design-to-rating composition and arithmetic-closure controls
+pass with the new context. The correspondence above owns exact source and numerical limits.
+Scope-end qualification and H02/H03 matched references remain separate; these focused
+results do not close broader scientific population or full P0–P7 acceptance.

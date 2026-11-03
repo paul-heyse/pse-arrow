@@ -65,6 +65,8 @@ CACE = "CACE"     # Computers & Chemical Engineering.
 LOCA = "LOCA"     # Trilinos continuation package.
 SER = "SER"       # Switched evolution relaxation controller.
 RTO = "RTO"       # Real-time optimization.
+HDA = "HDA"       # Hydrodealkylation flowsheet family.
+hda = "hda"       # Exact notebook and source-path spelling.
 Comput = "Comput" # Standard abbreviated journal titles.
 Numer = "Numer"   # Standard abbreviated journal titles.
 Thm = "Thm"       # Mathematical theorem references.
@@ -103,6 +105,8 @@ thr = "thr"                             # Thread-count column abbreviation in ca
 clonable = "clonable"                   # Exact dyn-clonable package spelling in Cargo graph evidence.
 
 [default.extend-identifiers]
+# Exact molecular formula in the retained CRC vaporization source artifact.
+ClFO3 = "ClFO3"
 # Exact commit identifiers in retained review evidence.
 84a1caf17 = "84a1caf17"
 52b0caf1e = "52b0caf1e"

@@ -109,15 +109,34 @@ the same ordinary-input allowance, but its 500K tear still violates the original
 An independent reference must reproduce the explicit liquid-Cp extrapolation, while
 retaining its limited evidence claim.
 
-For these ordinary inputs, the selected Ipopt attempt terminates with
-`Restoration_Failed` (-2), numerical category and unqualified candidate. The failure
+With the shared physical-budget stopping projection, the selected Ipopt attempt
+terminates with `Infeasible_Problem_Detected` (2), infeasible category and an
+unqualified candidate. The failure
 control requires that actual native outcome, an executed `overheated_tear` result,
 the compiled 500K source coordinate, the receiver's unchanged 450K upper bound,
 the resulting approximately50K temperature-connection violation and failed recycle
-transport closure. This is an attributed native numerical stop at the contradictory
-physical stage, not a native mathematical infeasibility certificate. The original
-oracle witness retains its separate `trial_rejected` expectation and is not changed
-to match this ordinary configuration.
+transport closure. This is an attributed local native stop at the contradictory
+physical stage, not a mathematical infeasibility certificate. The original oracle
+witness retains its separate method and `trial_rejected` expectation.
+
+The selected native profiles require strict engineering context. Enthalpy variables
+and their physical binding rows use the shared power requirement and independently
+frozen flow-exposure bounds. Each final contribution includes the selected
+`numerical_policy.molar_flow` margin before the allowance is derived; the original
+candidate must satisfy that expanded bound. This margin neither changes physical
+circulation capacities nor relaxes the consuming power budget. Shared consumers
+account for all distinct contributions and use their actual resolved power budget,
+including characteristic magnitudes and stricter requirements.
+
+Single-phase liquid targets also use the sourced interval-average caloric response
+and shared thermal resolution. The 300–450 K response endpoints require the same
+explicit Perry-record extrapolation permission; this local estimate is neither an
+empirical interval proof nor a propagated output-error certificate. The PR states
+use energy-only context because no independently qualified frozen EOS density branch
+supplies a thermal response. Temperature keeps its separate shared resolution.
+The exchanger's selected 1 m² rating reference and fixed 100 W/(m² K) coefficient
+supply its area/area-equality and coefficient characteristics. These choices are
+local numerical context, not equipment-size or purchase-price qualification.
 
 ## Required outputs and independent controls
 
