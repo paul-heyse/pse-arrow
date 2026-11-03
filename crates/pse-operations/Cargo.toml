@@ -130,6 +130,7 @@ inputs = ["predecessor-module-state"]
 scope.tests = [
   "native_service_original_v2_target_and_old_module_resume_after_restart",
   "native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target",
+  "native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target",
 ]
 
 [[package.metadata.pse.test-fixtures]]
@@ -141,6 +142,7 @@ ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.modules = [
   "canonical::canonical_server_unit",
+  "canonical::migration::legacy_capture::tests",
   "canonical_analyses::canonical_analyses_server_unit",
   "canonical_analyses::race_tests",
   "canonical_artifacts::canonical_artifact_tests",

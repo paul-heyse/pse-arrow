@@ -51,6 +51,25 @@ Implemented source declarations do not establish numerical solver execution,
 derivative accuracy or IDAES equivalence. Formula tests must exercise actual
 parsed expressions and independently sourced values or thermodynamic identities.
 
+`equilibrium-reactions.pse` owns dimensionless activity equilibrium constants and
+their constant-heat van't Hoff temperature law. Each record selects its exact
+reaction extent and reference-temperature log constant. The thermal correction is
+`delta H/R * (1/T_ref - 1/T)`; an endothermic positive heat increases the log
+constant with temperature. Heat is required only by the constant-heat model, not
+invented for an invariant constant. No empirical temperature envelope follows from
+the formula: missing record applicability remains unknown and needs the consuming
+case's explicit permission. A positive-temperature mathematical domain is separate
+and cannot be relaxed by extrapolation permission.
+
+Reaction quotients use the checked reaction's actual participating species and
+signed stoichiometry. The supplied log activities are dimensionless relative to
+their selected standard-state conventions; raw concentration, pressure or molality
+values are not interchangeable inputs. The equilibrium projection supplies equations
+but neither kinetic rates nor an additional reaction-energy source. Parameterizations
+must carry compatible activity conventions and their actual data provenance. Analytic
+constant-heat controls in compiler tests are synthetic and establish no measured
+hydrolysis equilibrium parameterization or ordinary-data eligibility.
+
 Caloric definitions bind temperature and reference temperature explicitly. Interface
 defaults subtract the primitive at the reference temperature and add the supplied
 enthalpy or entropy datum. Their physical contracts are checked before specialization.

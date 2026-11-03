@@ -147,6 +147,9 @@ enum Cmd {
         /// Exact authored fixture identity; selecting fixtures requires one run.
         #[arg(long = "fixture")]
         fixtures: Vec<String>,
+        /// Explicit prepared native property capability; source declarations never load one.
+        #[arg(long = "provider", value_enum, default_value = "none")]
+        providers: xtask::development::conformance::NativeProviders,
         #[arg(long)]
         report_dir: Option<PathBuf>,
     },
@@ -378,6 +381,7 @@ fn conformance_command(
     manifest: &Path,
     selected_run: Option<&str>,
     fixtures: Vec<String>,
+    providers: xtask::development::conformance::NativeProviders,
     report_dir: Option<&Path>,
 ) -> Result<()> {
     use pse_model::generated::{enums::ConformanceExecution, identities::DeclarationId};
@@ -401,6 +405,7 @@ fn conformance_command(
         )
     };
     let campaign = Campaign::load(manifest, selected_run, fixtures)?;
+    providers.validate()?;
     if let Some(directory) = report_dir {
         std::fs::create_dir_all(directory)?;
     }
@@ -426,7 +431,7 @@ fn conformance_command(
                     factory.bind_model(pse_schema::shared_registry()?)?,
                 )?;
                 let result = catch_unwind(AssertUnwindSafe(|| {
-                    executor.block_on(campaign.run_native(run, &runtime, &cancel))
+                    executor.block_on(campaign.run_native(run, &runtime, providers, &cancel))
                 }));
                 runtime.close();
                 runtime.clear_program_cache();
@@ -674,8 +679,15 @@ fn main() -> Result<()> {
             manifest,
             run,
             fixtures,
+            providers,
             report_dir,
-        } => conformance_command(&manifest, run.as_deref(), fixtures, report_dir.as_deref()),
+        } => conformance_command(
+            &manifest,
+            run.as_deref(),
+            fixtures,
+            providers,
+            report_dir.as_deref(),
+        ),
         #[cfg(feature = "physical-admission")]
         Cmd::ScientificInputs { catalog, output } => {
             scientific_inputs::run(&root, &catalog, &output)

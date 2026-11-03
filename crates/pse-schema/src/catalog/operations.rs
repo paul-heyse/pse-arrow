@@ -10,14 +10,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     for (name, members, transitions) in [
         (
             "CanonicalStudyCaptureState",
-            &["pending", "frozen", "abandoned", "releasing", "released"][..],
-            &[
-                ("pending", "frozen"),
-                ("pending", "abandoned"),
-                ("abandoned", "releasing"),
-                ("frozen", "releasing"),
-                ("releasing", "released"),
-            ][..],
+            &["frozen", "releasing", "released"][..],
+            &[("frozen", "releasing"), ("releasing", "released")][..],
         ),
         (
             "CanonicalStudyInstallationPhase",

@@ -68,7 +68,6 @@
     "canonical_stages",
     "canonical_studies",
     "canonical_study_admission_outcomes",
-    "canonical_study_capture_gate",
     "canonical_study_capture_headers",
     "canonical_study_capture_members",
     "canonical_study_capture_protections",
@@ -377,10 +376,6 @@
       "backup": "Required"
     },
     "canonical_study_admission_outcomes": {
-      "retention": "Durable",
-      "backup": "Required"
-    },
-    "canonical_study_capture_gate": {
       "retention": "Durable",
       "backup": "Required"
     },

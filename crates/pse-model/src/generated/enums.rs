@@ -3650,11 +3650,7 @@ impl CanonicalStudyCaptureState {
         self.ordinal() == next.ordinal()
             || matches!(
                 (self, next),
-                (Self::Pending, Self::Frozen)
-                | (Self::Pending, Self::Abandoned)
-                | (Self::Abandoned, Self::Releasing)
-                | (Self::Frozen, Self::Releasing)
-                | (Self::Releasing, Self::Released)
+                (Self::Frozen, Self::Releasing) | (Self::Releasing, Self::Released)
             )
     }
 }
@@ -3689,18 +3685,10 @@ impl CanonicalStudyCaptureState {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum CanonicalStudyCaptureState {
-    ///pending
-    #[serde(rename = "pending")]
-    #[strum(serialize = "pending")]
-    Pending,
     ///frozen
     #[serde(rename = "frozen")]
     #[strum(serialize = "frozen")]
     Frozen,
-    ///abandoned
-    #[serde(rename = "abandoned")]
-    #[strum(serialize = "abandoned")]
-    Abandoned,
     ///releasing
     #[serde(rename = "releasing")]
     #[strum(serialize = "releasing")]
@@ -3717,8 +3705,8 @@ impl crate::SemanticEq for CanonicalStudyCaptureState {
 }
 impl CanonicalStudyCaptureState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -3730,11 +3718,9 @@ impl CanonicalStudyCaptureState {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::Pending => 0usize,
-            Self::Frozen => 1usize,
-            Self::Abandoned => 2usize,
-            Self::Releasing => 3usize,
-            Self::Released => 4usize,
+            Self::Frozen => 0usize,
+            Self::Releasing => 1usize,
+            Self::Released => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -3745,9 +3731,7 @@ impl CanonicalStudyCaptureState {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
-            Self::Pending => None,
             Self::Frozen => None,
-            Self::Abandoned => None,
             Self::Releasing => None,
             Self::Released => None,
         }
@@ -3766,8 +3750,7 @@ impl schemars::JsonSchema for CanonicalStudyCaptureState {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["pending", "frozen", "abandoned", "releasing",
-            "released"] }
+            { "type" : "string", "enum" : ["frozen", "releasing", "released"] }
         )
     }
 }

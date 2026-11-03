@@ -434,7 +434,10 @@ async fn native_service_retained_nonempty_v2_reopens_then_migrates_with_original
                     .await?;
                 let ready = closed.apply().await?;
                 service.retain_connection(ready.store().clone())?;
-                assert_eq!(ready.fence().version(), 3);
+                assert_eq!(
+                    ready.fence().version(),
+                    pse_schema::catalog::substrate::SCHEMA_VERSION
+                );
                 assert_eq!(
                     ready.fence().issuer(),
                     recorded["predecessor"]["issuing_store"].as_str().unwrap()
@@ -496,7 +499,7 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                     .await?;
                 let maintenance = service.maintenance().await?;
                 // Decode the exact historical wire shape; current constructors correctly
-                // issue v3. No effect has yet been dispatched under this original intent.
+                // issue the current target. No effect has yet been dispatched under this original intent.
                 let mut wire =
                     serde_json::to_value(maintenance.request_current(uuid::Uuid::new_v4()).await?)
                         .unwrap();
@@ -560,7 +563,7 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                         .apply_receipt()
                         .await
                         .is_err(),
-                    "the same old module must still refuse v3 activation"
+                    "the same old module must still refuse current activation"
                 );
                 assert!(maintenance.reconcile_receipt(&current).await?.is_none());
                 Ok(())
@@ -574,6 +577,15 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
 
 #[tokio::test]
 async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target() {
+    retained_old_module_upgrade(false).await;
+}
+
+#[tokio::test]
+async fn native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target() {
+    retained_old_module_upgrade(true).await;
+}
+
+async fn retained_old_module_upgrade(schema_v3: bool) {
     let mut spec = fixture_spec().unwrap();
     spec.module_source = NativeModuleSource::RecordedState(PathBuf::from(
         std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE")
@@ -593,7 +605,11 @@ async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_tar
                 .expect("explicit new module source state required"),
         ))
     };
-    let mut service = NativeCanonicalService::new_v2_upgrade_fixture(spec, target).unwrap();
+    let mut service = if schema_v3 {
+        NativeCanonicalService::new_v3_upgrade_fixture(spec, target).unwrap()
+    } else {
+        NativeCanonicalService::new_v2_upgrade_fixture(spec, target).unwrap()
+    };
     let state = service.state().to_path_buf();
     let configuration: serde_json::Value =
         serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
@@ -669,7 +685,10 @@ async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_tar
                 let recovered = maintenance.reconcile_receipt(&request).await?.unwrap();
                 service.promote_activated_module(&recovered)?;
                 let ready = service.connect().await?;
-                assert_eq!(ready.fence().version(), 3);
+                assert_eq!(
+                    ready.fence().version(),
+                    pse_schema::catalog::substrate::SCHEMA_VERSION
+                );
                 let marker =
                     serde_json::to_value(maintenance.inspect().await?.predecessor).unwrap();
                 assert_eq!(marker["study_module_sha256"], target_hash);
@@ -803,7 +822,10 @@ async fn native_service_pre_epoch_checkpoint_lost_ack_restarts_and_resumes_origi
                     .await?;
                 let ready = closed.apply().await?;
                 service.retain_connection(ready.store().clone())?;
-                assert_eq!(ready.fence().version(), 3);
+                assert_eq!(
+                    ready.fence().version(),
+                    pse_schema::catalog::substrate::SCHEMA_VERSION
+                );
                 let receipt = maintenance.reconcile_receipt(&request).await?.unwrap();
                 assert_eq!(serde_json::to_vec(receipt.request()).unwrap(), recorded);
                 let original = serde_json::to_value(receipt.request()).unwrap();

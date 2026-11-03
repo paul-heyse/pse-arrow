@@ -77,7 +77,7 @@ const BUILD_ENV: &[&str] = &[
 /// Qualification identities are never admissible as production modules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Variant {
-    /// Sole readonly `study::readiness` export.
+    /// Readonly readiness and the exact transactional capture export.
     Production,
     /// Retained rollback, timeout, memory and trap controls.
     Qualification,
@@ -100,7 +100,7 @@ impl Variant {
         }
     }
     fn exports(self) -> BTreeSet<&'static str> {
-        let mut exports = BTreeSet::from(["study::readiness"]);
+        let mut exports = BTreeSet::from(["study::readiness", "study_capture::capture"]);
         if self != Self::Production {
             exports.extend([
                 "qualification::busy",
@@ -270,7 +270,7 @@ fn declaration(variant: Variant) -> Result<(Value, Limits, String), HostError> {
     };
     let config: toml::Value = toml::from_str(source).map_err(invalid)?;
     let config = serde_json::to_value(config).map_err(invalid)?;
-    validate_pure(&config)?;
+    validate_scope(&config)?;
     let mut capabilities = config["capabilities"]
         .as_object()
         .ok_or_else(|| invalid("capabilities absent"))?
@@ -308,12 +308,15 @@ fn declaration(variant: Variant) -> Result<(Value, Limits, String), HostError> {
         .to_owned();
     Ok((config, limits, sdk))
 }
-fn validate_pure(config: &Value) -> Result<(), HostError> {
+fn validate_scope(config: &Value) -> Result<(), HostError> {
+    let declared: toml::Value =
+        toml::from_str(include_str!("../../pse-study-module/surrealism.toml")).map_err(invalid)?;
+    let declared = serde_json::to_value(declared).map_err(invalid)?;
     if config["target"] != "rust"
         || config["abi"] != 2
         || config["capabilities"]["allow_scripting"] != false
-        || config["capabilities"]["allow_arbitrary_queries"] != false
-        || config["capabilities"]["allow_functions"] != json!([])
+        || config["capabilities"]["allow_arbitrary_queries"] != true
+        || config["capabilities"]["allow_functions"] != declared["capabilities"]["allow_functions"]
         || config["capabilities"]["allow_net"] != json!([])
         || config["capabilities"]["max_kv_entries"] != 0
         || config["capabilities"]["max_kv_value_bytes"] != 0
@@ -321,7 +324,9 @@ fn validate_pure(config: &Value) -> Result<(), HostError> {
             .get("attach")
             .is_some_and(|value| value != &json!({}))
     {
-        return Err(invalid("module must have no host grants or attachment"));
+        return Err(invalid(
+            "module must retain its exact SQL-only grants and no external attachments",
+        ));
     }
     Ok(())
 }
@@ -338,10 +343,13 @@ fn validate_exports(source: &[u8], variant: Variant) -> Result<(), HostError> {
             .get("name")
             .and_then(toml::Value::as_str)
             .ok_or_else(|| invalid("export name absent"))?;
-        if item.get("writeable").and_then(toml::Value::as_bool) != Some(false)
+        if item.get("writeable").and_then(toml::Value::as_bool)
+            != Some(name == "study_capture::capture")
             || !names.insert(name)
         {
-            return Err(invalid("exports must be unique and readonly"));
+            return Err(invalid(
+                "exports must be unique with only exact transactional capture writable",
+            ));
         }
     }
     if names != variant.exports() {
@@ -1394,7 +1402,12 @@ mod tests {
         variant
             .exports()
             .iter()
-            .map(|name| format!("[[functions]]\nname = {name:?}\nwriteable = false\n"))
+            .map(|name| {
+                format!(
+                    "[[functions]]\nname = {name:?}\nwriteable = {}\n",
+                    name == &"study_capture::capture"
+                )
+            })
             .collect()
     }
 
@@ -1415,14 +1428,14 @@ mod tests {
     }
 
     #[test]
-    fn study_module_exports_and_grants_preserve_pure_variant_contracts() {
+    fn study_module_exports_and_grants_preserve_exact_variant_contracts() {
         for variant in [
             Variant::Production,
             Variant::Qualification,
             Variant::LongHold,
         ] {
             let (config, _, _) = declaration(variant).unwrap();
-            validate_pure(&config).unwrap();
+            validate_scope(&config).unwrap();
             validate_exports(exports(variant).as_bytes(), variant).unwrap();
             assert!(
                 validate_exports(
@@ -1442,10 +1455,10 @@ mod tests {
             );
             let mut granted = config.clone();
             granted["capabilities"]["allow_scripting"] = json!(true);
-            assert!(validate_pure(&granted).is_err());
+            assert!(validate_scope(&granted).is_err());
             let mut attached = config;
             attached["attach"] = json!({"fs":"secret"});
-            assert!(validate_pure(&attached).is_err());
+            assert!(validate_scope(&attached).is_err());
         }
         assert!(
             validate_exports(

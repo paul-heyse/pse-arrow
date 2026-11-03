@@ -15,10 +15,6 @@ pub struct RuntimeCanonicalStudyCapturesRow {
     pub r#owner: String,
     ///request
     pub r#request: crate::Bytes,
-    ///incarnation
-    pub r#incarnation: String,
-    ///issued_expires_at
-    pub r#issued_expires_at: u64,
     ///state
     pub r#state: crate::generated::enums::CanonicalStudyCaptureState,
     ///header_count
@@ -31,11 +27,7 @@ impl crate::SemanticEq for RuntimeCanonicalStudyCapturesRow {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#owner, &other.r#owner)
             && crate::SemanticEq::semantic_eq(&self.r#request, &other.r#request)
-            && crate::SemanticEq::semantic_eq(&self.r#incarnation, &other.r#incarnation)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#issued_expires_at,
-                &other.r#issued_expires_at,
-            ) && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
+            && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
             && crate::SemanticEq::semantic_eq(
                 &self.r#header_count,
                 &other.r#header_count,
@@ -61,10 +53,6 @@ impl crate::SemanticFrame for RuntimeCanonicalStudyCapturesRow {
         crate::SemanticFrame::frame(&self.r#owner, hash);
         hash.str(stringify!(r#request));
         crate::SemanticFrame::frame(&self.r#request, hash);
-        hash.str(stringify!(r#incarnation));
-        crate::SemanticFrame::frame(&self.r#incarnation, hash);
-        hash.str(stringify!(r#issued_expires_at));
-        crate::SemanticFrame::frame(&self.r#issued_expires_at, hash);
         hash.str(stringify!(r#state));
         crate::SemanticFrame::frame(&self.r#state, hash);
         hash.str(stringify!(r#header_count));
@@ -79,8 +67,6 @@ impl crate::HeapUsage for RuntimeCanonicalStudyCapturesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#owner))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#request))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#incarnation))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#issued_expires_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#header_count))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_count))

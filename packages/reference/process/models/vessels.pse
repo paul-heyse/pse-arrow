@@ -10,12 +10,16 @@
 @id("8ecb40e0ed434f0e813e36f937b48c71") use pure_properties @"1.0.0";
 @id("fb3524e88c784b649eb2ec69c8759454") use math @"1.0.0";
 @id("5ae4821f97574d13a6ccf312208799be") use distributed_volumes @"1.0.0";
+@id("64e02000000000000000000000000300") use control_volumes @"1.0.0";
 @id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<chemistry.species>,law:Fn(T:Temperature,V:Volume,n:Amount[chemistry.species],members:Set<chemistry.species>)->ResidualHelmholtzEnergy,ideal_h:Fn(T:Temperature,j:chemistry.species)->DeltaH,composition:Fn(j:chemistry.species)->Scalar,V:Volume=0.1{m^3}) {
 @id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<chemistry.species>=selected;
 @id("6ff9152d6ade4e98af547589b315da58") param volume:Volume=V;
 @id("c2430aba81344a0fa7af49930b3fb097") var amount:TotalAmount;
 @id("56c585b73992411c9a1f9681a9a87d47") var energy:Energy;
 @id("e0ba0aaafe234f4b96d4a311ba185dc5") child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
+// The Helmholtz phase amounts specify composition on their own normalization.
+// Allocate the actual vessel amount using that same normalized composition.
+@id("64e02000000000000000000000000301") let component_amount[j in components]:Amount=phase.amount[j]*(amount/phase.total);
 @id("914319bb395943818a2d41088e35c17c") eq composition_binding[j in components]:phase.amount[j]==constants.amount_unit*composition(j);
 @id("92a6ea6bcdcd405cafabd829c2d6cfad") let enthalpy:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
 @id("2453286052414d4a85a522d821531e43") let pressure:Pressure=phase.pressure;
@@ -73,5 +77,17 @@
 @id("b8985d9cef2942e1b039e67761699e40") eq energy_initial:cell[0{s}].energy==initial_energy;
 @id("848d4d8b34f64405b8d89cca63de00cf") let accumulated_amount:TotalAmount=integral(i in t | amount_rate[i]);
 @id("5ce3aafc64a84e74b62a2121b82ecd68") let accumulated_energy:Energy=integral(i in t | energy_rate[i]);
+}
+// A supplied closed material-transfer law, not a phase-equilibrium or energy
+// model. The owner of the time domain supplies the initial allocation and each
+// phase conservation law. A receiving phase gains exactly what the source loses.
+@id("64e02000000000000000000000000302") def ClosedTwoPhaseInventory(selected:Set<chemistry.species>,source_phase:chemistry.phase,receiving_phase:chemistry.phase,transfer_law:Fn(j:chemistry.species)->ComponentFlow,selected_elements:Set<chemistry.element>={}):control_volumes.PhaseInventory {
+@id("64e02000000000000000000000000303") require source_phase!=receiving_phase : "closed phase transfer requires distinct source and receiving phases";
+@id("64e02000000000000000000000000304") override param components:Set<chemistry.species>=selected;
+@id("64e02000000000000000000000000305") override param phases:Set<chemistry.phase>={source_phase,receiving_phase};
+@id("64e02000000000000000000000000306") override param elements:Set<chemistry.element>=selected_elements;
+@id("64e02000000000000000000000000307") let transfer_rate[j in components]:ComponentFlow=transfer_law(j);
+@id("64e02000000000000000000000000308") override let phase_flux[p in phases,j in components]:ComponentFlow=if p==source_phase then -transfer_rate[j] else transfer_rate[j];
+@id("64e02000000000000000000000000309") annotation check transfer_rate(transfer_rate[j]>=0{mol/s});
 }
 }

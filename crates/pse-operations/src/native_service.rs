@@ -416,6 +416,7 @@ enum InitialSchema {
     Current,
     PreEpoch,
     SchemaV2,
+    SchemaV3,
 }
 
 /// Retained ownership of one newly constructed service. Not cloneable and no Drop cleanup claims.
@@ -603,6 +604,15 @@ impl NativeCanonicalService {
         target_source: NativeModuleSource,
     ) -> Result<Self, NativeServiceError> {
         Self::new_with_target(spec, InitialSchema::SchemaV2, Some(target_source))
+    }
+    /// Create a private frozen v3 store with its original module and a prepared target.
+    /// # Errors
+    /// Private artifact admission, immutable copy or fixture construction fails.
+    pub fn new_v3_upgrade_fixture(
+        spec: NativeServiceSpec,
+        target_source: NativeModuleSource,
+    ) -> Result<Self, NativeServiceError> {
+        Self::new_with_target(spec, InitialSchema::SchemaV3, Some(target_source))
     }
     fn new_with_schema(
         spec: NativeServiceSpec,
@@ -854,7 +864,9 @@ impl NativeCanonicalService {
                     self.connections.push(ready.store().clone());
                     self.ready = Some(ready);
                 }
-                InitialSchema::PreEpoch | InitialSchema::SchemaV2 if self.reopening => {
+                InitialSchema::PreEpoch | InitialSchema::SchemaV2 | InitialSchema::SchemaV3
+                    if self.reopening =>
+                {
                     let maintenance = SchemaMaintenance::connect(&options).await?;
                     self.maintenances.push(maintenance.clone());
                     maintenance.inspect().await?;
@@ -864,6 +876,9 @@ impl NativeCanonicalService {
                 }
                 InitialSchema::SchemaV2 => {
                     CanonicalStore::install_schema_v2_fixture(&options).await?
+                }
+                InitialSchema::SchemaV3 => {
+                    CanonicalStore::install_schema_v3_fixture(&options).await?
                 }
             }
             self.initialized = true;
@@ -1695,7 +1710,7 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
         InitialSchema::Current => {
             WorkerConnection::Current(CanonicalStore::connect_ready(&options).await?)
         }
-        InitialSchema::PreEpoch | InitialSchema::SchemaV2 => {
+        InitialSchema::PreEpoch | InitialSchema::SchemaV2 | InitialSchema::SchemaV3 => {
             let connection = SchemaMaintenance::connect(&options).await?;
             let inspected = connection.inspect().await;
             if let Err(error) = inspected {

@@ -15,7 +15,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v10";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "56871005a52697e9e619f4a9ebe63df9447a292489481550fea14e76d4d5beb8";
+pub const SCHEMA_DIGEST: &str = "a41d06769bad92d20e2e6165b1122be9ed5db5fcc1af0ef0e7b562e9f00dd3c0";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -5941,76 +5941,6 @@ pub fn decode_canonical_study_admission_outcomes(
     Ok(row)
 }
 ///Encode the registry row using native exact values.
-pub fn encode_canonical_study_capture_gate(
-    row: &pse_model::generated::runtime::canonical_study_capture_gate::RuntimeCanonicalStudyCaptureGateRow,
-) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
-    let mut object = surrealdb_types::Object::new();
-    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
-    object
-        .insert(
-            "incarnation",
-            crate::canonical_codec::encode_string(row.r#incarnation.clone())?,
-        );
-    if let Some(value) = &row.r#capture {
-        object.insert("capture", crate::canonical_codec::encode_string(value.clone())?);
-    }
-    if let Some(value) = &row.r#owner {
-        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
-    }
-    if let Some(value) = &row.r#request {
-        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
-    }
-    object
-        .insert(
-            "issued_expires_at",
-            crate::canonical_codec::encode_uint(row.r#issued_expires_at)?,
-        );
-    Ok(object)
-}
-///Decode the registry row; native id metadata is distinct from the declared key.
-pub fn decode_canonical_study_capture_gate(
-    mut object: surrealdb_types::Object,
-) -> Result<
-    pse_model::generated::runtime::canonical_study_capture_gate::RuntimeCanonicalStudyCaptureGateRow,
-    crate::canonical_codec::CodecError,
-> {
-    let native_id = object.remove("id");
-    let row = pse_model::generated::runtime::canonical_study_capture_gate::RuntimeCanonicalStudyCaptureGateRow {
-        r#key: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "key")?,
-        )?,
-        r#incarnation: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "incarnation")?,
-        )?,
-        r#capture: match object.remove("capture") {
-            None | Some(surrealdb_types::Value::None) => None,
-            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
-        },
-        r#owner: match object.remove("owner") {
-            None | Some(surrealdb_types::Value::None) => None,
-            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
-        },
-        r#request: match object.remove("request") {
-            None | Some(surrealdb_types::Value::None) => None,
-            Some(value) => Some(crate::canonical_codec::decode_bytes(value)?),
-        },
-        r#issued_expires_at: crate::canonical_codec::decode_uint(
-            crate::canonical_codec::required(&mut object, "issued_expires_at")?,
-        )?,
-    };
-    if let Some(native_id) = native_id {
-        crate::canonical_codec::check_record_identity(
-            native_id,
-            "canonical_study_capture_gate",
-            &row.r#key,
-        )?;
-    }
-    if !object.is_empty() {
-        return Err(crate::canonical_codec::CodecError::UnknownFields);
-    }
-    Ok(row)
-}
-///Encode the registry row using native exact values.
 pub fn encode_canonical_study_capture_headers(
     row: &pse_model::generated::runtime::canonical_study_capture_headers::RuntimeCanonicalStudyCaptureHeadersRow,
 ) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
@@ -6222,16 +6152,6 @@ pub fn encode_canonical_study_captures(
         .insert("request", crate::canonical_codec::encode_bytes(row.r#request.clone())?);
     object
         .insert(
-            "incarnation",
-            crate::canonical_codec::encode_string(row.r#incarnation.clone())?,
-        );
-    object
-        .insert(
-            "issued_expires_at",
-            crate::canonical_codec::encode_uint(row.r#issued_expires_at)?,
-        );
-    object
-        .insert(
             "state",
             crate::canonical_codec::encode_string(row.r#state.as_str().to_owned())?,
         );
@@ -6264,12 +6184,6 @@ pub fn decode_canonical_study_captures(
         )?,
         r#request: crate::canonical_codec::decode_bytes(
             crate::canonical_codec::required(&mut object, "request")?,
-        )?,
-        r#incarnation: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "incarnation")?,
-        )?,
-        r#issued_expires_at: crate::canonical_codec::decode_uint(
-            crate::canonical_codec::required(&mut object, "issued_expires_at")?,
         )?,
         r#state: crate::canonical_codec::decode_string(
                 crate::canonical_codec::required(&mut object, "state")?,

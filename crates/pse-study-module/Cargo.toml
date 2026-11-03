@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 [package]
 name = "pse-study-module"
-description = "Read-only Surrealism boundary for shared Rust study policy."
+description = "Surrealism boundaries for pure study policy and transactional capture."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,8 @@ publish.workspace = true
 module-qualification = []
 # Separate finite window for observing global saturation across cold runtime compilation.
 module-qualification-long-hold = ["module-qualification"]
+# Isolated SQL transaction feasibility artifact; never production activation.
+module-write-qualification = []
 
 [lib]
 doctest = false

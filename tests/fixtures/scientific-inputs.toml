@@ -42,6 +42,7 @@ documents = [
   "packages/reference/thermodynamics/models/phase-stability.pse",
   "packages/reference/thermodynamics/models/helmholtz.pse",
   "packages/reference/thermodynamics/models/ideal-caloric-state.pse",
+  "packages/reference/thermodynamics/models/state-coordinates.pse",
   "packages/reference/process/models/pressure-changer.pse",
   "packages/reference/seed-data/models/pressure-fixtures.pse",
   "packages/reference/data/oracles/idaes-2.13/models/parameters.pse",
@@ -56,6 +57,7 @@ documents = [
   "packages/reference/domain/models/provenance.pse",
   "packages/reference/methods/models/pure-properties.pse",
   "packages/reference/methods/models/reaction-forms.pse",
+  "packages/reference/methods/models/equilibrium-reactions.pse",
   "packages/reference/thermodynamics/models/reactions.pse",
   "packages/reference/process/models/reactors.pse",
   "packages/reference/data/references/models/references.pse",
@@ -115,6 +117,7 @@ documents = [
   "packages/reference/domain/models/provenance.pse",
   "packages/reference/methods/models/pure-properties.pse",
   "packages/reference/methods/models/reaction-forms.pse",
+  "packages/reference/methods/models/equilibrium-reactions.pse",
   "packages/reference/thermodynamics/models/reactions.pse",
   "packages/reference/process/models/reactors.pse",
   "packages/reference/data/references/models/references.pse",
@@ -374,3 +377,45 @@ roots = ["packages/reference/campaign"]
 documents = ["packages/reference/campaign/models/recycle-flash.pse"]
 projection = "parser-fields"
 consumers = ["pse-compiler"]
+
+[[families]]
+name = "state-coordinates"
+extends = "bounded-reference"
+roots = ["packages/reference/seed-data"]
+documents = ["packages/reference/seed-data/models/state-coordinate-fixtures.pse"]
+consumers = ["pse-compiler"]
+
+[[families]]
+name = "equilibrium-reactions"
+extends = "reaction"
+roots = ["packages/reference/methods"]
+documents = []
+consumers = ["pse-compiler"]
+
+[[families]]
+name = "inventory"
+extends = "bounded-reference"
+roots = ["packages/reference/seed-data"]
+documents = ["packages/reference/seed-data/models/inventory-fixtures.pse"]
+consumers = ["pse-compiler", "pse-runtime"]
+
+[[families]]
+name = "steam"
+extends = "bounded-reference"
+roots = ["packages/reference/thermodynamics", "packages/reference/process", "packages/reference/seed-data"]
+documents = [
+  "packages/reference/thermodynamics/models/steam.pse",
+  "packages/reference/process/models/steam-equipment.pse",
+  "packages/reference/seed-data/models/steam-fixtures.pse",
+]
+consumers = ["pse-runtime"]
+
+[[families]]
+name = "exchanger-inference"
+extends = "state-coordinates"
+roots = ["packages/reference/process", "packages/reference/seed-data"]
+documents = [
+  "packages/reference/process/models/heat-exchanger.pse",
+  "packages/reference/seed-data/models/exchanger-inference.pse",
+]
+consumers = ["pse-runtime"]

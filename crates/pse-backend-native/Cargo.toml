@@ -39,6 +39,7 @@ workspace = true
 
 [features]
 default = []
+coolprop = ["dep:coolprop-sys", "dep:sha2"]
 ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
 uno = ["dep:pse-uno-sys", "pse-uno-sys/link", "dep:highs-sys"]
 petsc = ["dep:pse-petsc-sys", "pse-petsc-sys/link"]
@@ -75,6 +76,8 @@ native-solvers = [
 ]
 
 [dependencies]
+coolprop-sys = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
 pse-model.workspace = true
 diffsol.workspace = true
 diffsol-la = { workspace = true, optional = true }

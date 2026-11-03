@@ -161,8 +161,10 @@ DEFINE FUNCTION fn::pse_execution_v1::operation($rpc_expiry: int, $key: string, 
     RETURN $rpc_result;
 };
 
+// Authority reads and lease renewal carry no global capture dependency. Actual
+// fact mutations advance field-projected events; withdrawal predicates register
+// publication explicitly before inspecting capture-protection absence.
 DEFINE FUNCTION fn::pse_execution_v1::available($rpc_expiry: int, $run: string) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'run-cancel:' + $run);
@@ -328,7 +330,6 @@ DEFINE FUNCTION fn::pse_execution_v1::install_runs($rpc_expiry:int,$items:array<
 // This fence is separate from worker freshness: current immutable replays still work
 // after cancellation, closure or a later attempt.
 DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;

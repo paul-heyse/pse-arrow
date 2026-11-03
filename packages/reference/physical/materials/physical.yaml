@@ -2648,6 +2648,32 @@
       "extensive": false,
       "addition_kind": "additive",
       "doc": "Explicit phase_stability_ratio physical meaning; no implicit dimension-only conversion."
+    },
+    {
+      "quantity_kind_id": "64e02000000000000000000000000001",
+      "name": "element_amount",
+      "extensive": true,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {
+            "quantity_kind_id": "7999d370cdbf409f807a7c0f49ad6e47",
+            "num": 1,
+            "den": 1
+          },
+          {
+            "quantity_kind_id": "46e7ff5d8b2e4a00b21e0b5c2ae28296",
+            "num": 1,
+            "den": 1
+          }
+        ],
+        "canonical_unit_id": "251f95b98b987a2bc752342c7d386fea",
+        "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b"
+      },
+      "doc": "Molar element inventory: the time integral of an explicitly element-projected flow, preserving the element subject."
     }
   ],
   "quantity_operations": [
@@ -6054,6 +6080,141 @@
         "64428d3d91014e2b9c34a9dfe9a5c631",
         "0d9e62fd7c15458d8c52d07b59b4b48c"
       ]
+    },
+    {
+      "operation_id": "64e02000000000000000000000000010",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "4ae5c1106e204702a2fe6cb653624850",
+        "ce8890dca55e4b7f9d23a4330298657d"
+      ],
+      "result_kind_id": "64e02000000000000000000000000001",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "64e02000000000000000000000000100",
+        "64e02000000000000000000000000101"
+      ]
+    },
+    {
+      "operation_id": "64e02000000000000000000000000011",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "64e02000000000000000000000000001",
+        "46e7ff5d8b2e4a00b21e0b5c2ae28296"
+      ],
+      "result_kind_id": "7999d370cdbf409f807a7c0f49ad6e47",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "64e02000000000000000000000000102",
+        "64e02000000000000000000000000103"
+      ]
+    },
+    {
+      "operation_id": "64e02000000000000000000000000012",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "7999d370cdbf409f807a7c0f49ad6e47",
+        "46e7ff5d8b2e4a00b21e0b5c2ae28296"
+      ],
+      "result_kind_id": "64e02000000000000000000000000001",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "64e02000000000000000000000000104",
+        "64e02000000000000000000000000105"
+      ]
+    },
+    {
+      "operation_id": "64e02000000000000000000000000013",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "b85f796885db43b3ae2b706d9922d0c1",
+        "64e02000000000000000000000000001"
+      ],
+      "result_kind_id": "7999d370cdbf409f807a7c0f49ad6e47",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "64e02000000000000000000000000106",
+        "64e02000000000000000000000000107"
+      ]
+    },
+    {
+      "operation_id": "64e02000000000000000000000000014",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "64e02000000000000000000000000001",
+        "b85f796885db43b3ae2b706d9922d0c1"
+      ],
+      "result_kind_id": "7999d370cdbf409f807a7c0f49ad6e47",
+      "basis_rule": "declared_result",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
+      "result_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "64e02000000000000000000000000108",
+        "64e02000000000000000000000000109"
+      ]
     }
   ],
   "quantity_types": [
@@ -7905,6 +8066,19 @@
       "canonical_unit_id": "cd44727295e77c03f21ac3117e36df23",
       "nominal_magnitude": null,
       "doc": "Declared phase_stability_ratio contract."
+    },
+    {
+      "quantity_type_id": "64e02000000000000000000000000002",
+      "name": "ElementAmount",
+      "quantity_kind_id": "64e02000000000000000000000000001",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": "1fe263f6a81d4a9fb4584520b4dd4a0b",
+      "canonical_unit_id": "251f95b98b987a2bc752342c7d386fea",
+      "nominal_magnitude": null,
+      "doc": "Element-subjected molar stock; complete chemical composition is required by its authored projection."
     }
   ],
   "reference_states": [
@@ -11002,6 +11176,106 @@
       ],
       "required_basis_id": null,
       "required_quantity_type_id": "8ce2f0977877ae56c3712f710201be89",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000100",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "12c45d05b6a64dd2ac6eb2f06ec816b1",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000101",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "bfb69b620cc244389ed413a3a52054fe",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000102",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "64e02000000000000000000000000002",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000103",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e2ccf6d0a394403db967f4f35b83cb7c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000104",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "dec8e0f2063a46b79e62db4cd1b35714",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000105",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "e2ccf6d0a394403db967f4f35b83cb7c",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000106",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "368c7ebb44ee45318fa572df5fe706b9",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000107",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "64e02000000000000000000000000002",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000108",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        0
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "64e02000000000000000000000000002",
+      "match_shape": false
+    },
+    {
+      "invariant_id": "64e02000000000000000000000000109",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [
+        1
+      ],
+      "required_basis_id": null,
+      "required_quantity_type_id": "368c7ebb44ee45318fa572df5fe706b9",
       "match_shape": false
     }
   ],

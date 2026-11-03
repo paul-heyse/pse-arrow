@@ -13,6 +13,29 @@
 @id("63442c817f054f09a2d35a050423f701") reconstruction elemental_projection for elemental_coordinates(count:Count,j:chemistry.species,e:chemistry.element)->ElementCountPerSpecies reference elemental_projection_reference=1;
 @id("2006f8dd9f0a4be7b80200666011aa6e") fn reduced_elemental_projection(coefficient:Coordinate<elemental_coordinates.coefficient>,j:chemistry.species,e:chemistry.element)->Reduced<elemental_projection>=coefficient;
 @id("04f7049de5394192964d37196fb1b115") fn element_coefficient(count:Count,j:chemistry.species,e:chemistry.element)->ElementCountPerSpecies=reconstruct(elemental_projection,reduced_elemental_projection,count,j,e);
+// Explicit phase amounts are physical state coordinates. Their projected stocks
+// and fluxes retain the same species/element subjects; they are not phase fractions
+// inferred from a transport state. Consumers must supply an allocation law and
+// initial conditions before using these coordinates as a stored model.
+@id("64e02000000000000000000000000200") interface PhaseInventory {
+@id("64e02000000000000000000000000201") param components:Set<chemistry.species>;
+@id("64e02000000000000000000000000202") param phases:Set<chemistry.phase>;
+@id("64e02000000000000000000000000203") param elements:Set<chemistry.element>={};
+@id("64e02000000000000000000000000204") require sum(p in phases | 1)>0 : "phase inventory requires a nonempty explicit phase allocation";
+@id("64e02000000000000000000000000205") require sum(j in components | 1)>0 : "phase inventory requires a nonempty component set";
+@id("64e02000000000000000000000000206") require sum(e in elements | 1)==0 or sum(j in components | if j.composition==chemistry.CompositionKnowledge.Complete then 0 else 1)==0 : "IncompleteComposition: elemental inventory requires complete component composition";
+@id("64e02000000000000000000000000207") var phase_amount[p in phases,j in components]:Amount;
+@id("64e02000000000000000000000000208") let component_amount[j in components]:Amount=sum(p in phases | phase_amount[p,j]);
+@id("64e02000000000000000000000000209") let total_amount:TotalAmount=sum(j in components | component_amount[j]);
+@id("64e0200000000000000000000000020a") let element_amount[e in elements]:ElementAmount=sum(j in components | component_amount[j]*element_coefficient(chemistry.element_count(j,e),j,e));
+@id("64e0200000000000000000000000020b") let phase_flux[p in phases,j in components]:ComponentFlow;
+@id("64e0200000000000000000000000020c") let component_flux[j in components]:ComponentFlow=sum(p in phases | phase_flux[p,j]);
+@id("64e0200000000000000000000000020d") let total_flux:Flow=sum(j in components | component_flux[j]);
+@id("64e0200000000000000000000000020e") let element_flux[e in elements]:ElementFlow=sum(j in components | component_flux[j]*element_coefficient(chemistry.element_count(j,e),j,e));
+@id("64e0200000000000000000000000020f") annotation start phase_amount(1{mol});
+@id("64e02000000000000000000000000210") annotation nominal phase_amount(1{mol});
+@id("64e02000000000000000000000000211") annotation bounds phase_amount(0{mol},1000000{mol});
+}
 @id("0ce1490219af5196a661ffdf251e8a20") use kinds @"1.0.0";
 @id("090b2b2f6cd55055afb4be968183220f") entity kinds.port_set inlet_boundary {}
 @id("88de8f99f09f52cda6269f23f2b4cdc8") entity kinds.port_set outlet_boundary {}

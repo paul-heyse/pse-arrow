@@ -1353,21 +1353,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `projection` | `Binary` | false | `payload` | — | — |
 
-## `canonical_study_capture_gate`
-
-Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `incarnation` | `Utf8` | false | `payload` | — | — |
-| `capture` | `Utf8` | true | `payload` | — | — |
-| `owner` | `Utf8` | true | `payload` | — | — |
-| `request` | `Binary` | true | `payload` | — | — |
-| `issued_expires_at` | `UInt64` | false | `payload` | — | — |
-
 ## `canonical_study_capture_headers`
 
 Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
@@ -1417,7 +1402,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 
 ## `canonical_study_captures`
 
-Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
+Atomic exact-request capture receipt and immutable population counts; protections remain until authenticated owner cleanup and actual scan drain.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 
@@ -1426,8 +1411,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `owner` | `Utf8` | false | `payload` | — | — |
 | `request` | `Binary` | false | `payload` | — | — |
-| `incarnation` | `Utf8` | false | `payload` | — | — |
-| `issued_expires_at` | `UInt64` | false | `payload` | — | — |
 | `state` | `enum:CanonicalStudyCaptureState` | false | `payload` | — | — |
 | `header_count` | `UInt64` | false | `payload` | — | — |
 | `member_count` | `UInt64` | false | `payload` | — | — |

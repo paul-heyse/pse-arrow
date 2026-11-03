@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64d03000000000000000000000000001") package steam {
+@id("64d03000000000000000000000000002") use chemistry @"1.0.0";
+@id("64d03000000000000000000000000004") use equilibrium @"1.0.0";
+@id("64d03000000000000000000000000005") use provenance @"1.0.0";
+// Provider release: https://github.com/CoolProp/CoolProp/tree/ae81610e7d23efc57f9d051c8e70a4d66e87537f
+// Water source JSON SHA256: 85021d3803d2b02edb1d3e90bd60f4eee4a70380e06ed6b7b44e57716b4c2266.
+// Authored stock convention: ideal-only water h/s zero at stock T,p; no formation
+// or third-law claim. The prepared provider uses its fitted R for p/(R*T),
+// and applies the identical enthalpy offset to native internal energy.
+// Values/analytic partials use one explicit T,rhomolar state. No phase is imposed
+// during physical evaluation; mismatched, critical and two-phase trials refuse.
+@id("64d03000000000000000000000000006") entity provenance.source iapws_water {title="IAPWS95 water through exact CoolProp8 HEOS data and explicit ideal-gas stock reference translation; original formulation https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf; fixed release ae81610e7d23efc57f9d051c8e70a4d66e87537f"}
+@id("64d03000000000000000000000000007") fn liquid_pressure(T:Temperature,rho:Density)->Pressure external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 0 derivatives 2 source analytic smoothness 2;
+@id("64d03000000000000000000000000008") fn liquid_enthalpy(T:Temperature,rho:Density)->MolarEnthalpy external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 1 derivatives 2 source analytic smoothness 2;
+@id("64d03000000000000000000000000009") fn liquid_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 2 derivatives 2 source analytic smoothness 2;
+@id("64d0300000000000000000000000000a") fn vapor_pressure(T:Temperature,rho:Density)->Pressure external "coolprop8-water-vapor" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "57d9eceb4f994921eedbd4f47a015df62e2cfaa967da36122a55939ba02f3ba8" output 0 derivatives 2 source analytic smoothness 2;
+@id("64d0300000000000000000000000000b") fn vapor_enthalpy(T:Temperature,rho:Density)->MolarEnthalpy external "coolprop8-water-vapor" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "57d9eceb4f994921eedbd4f47a015df62e2cfaa967da36122a55939ba02f3ba8" output 1 derivatives 2 source analytic smoothness 2;
+@id("64d0300000000000000000000000000c") fn vapor_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-vapor" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "57d9eceb4f994921eedbd4f47a015df62e2cfaa967da36122a55939ba02f3ba8" output 2 derivatives 2 source analytic smoothness 2;
+@id("64d0300000000000000000000000000d") fn supercritical_pressure(T:Temperature,rho:Density)->Pressure external "coolprop8-water-supercritical" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "23a36dfd43bd0546b2e755868d91c8104c5f86c5c1f274f5ed4fb1f76aedc7eb" output 0 derivatives 2 source analytic smoothness 2;
+@id("64d0300000000000000000000000000e") fn supercritical_enthalpy(T:Temperature,rho:Density)->MolarEnthalpy external "coolprop8-water-supercritical" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "23a36dfd43bd0546b2e755868d91c8104c5f86c5c1f274f5ed4fb1f76aedc7eb" output 1 derivatives 2 source analytic smoothness 2;
+@id("64d0300000000000000000000000000f") fn supercritical_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-supercritical" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "23a36dfd43bd0546b2e755868d91c8104c5f86c5c1f274f5ed4fb1f76aedc7eb" output 2 derivatives 2 source analytic smoothness 2;
+@id("64d03000000000000000000000000010") interface WaterState extends equilibrium.EntropyThermoPackage {
+@id("64d03000000000000000000000000070") param water:chemistry.species;
+@id("64d03000000000000000000000000071") require if present(water.cas) then water.cas==Id<chemistry.cas>("7732-18-5") else false : "HEOS Water state requires an explicitly identified water component";
+@id("64d03000000000000000000000000011") override param components:Set<chemistry.species>={water};
+@id("64d03000000000000000000000000012") param selected_phase:chemistry.phase;
+@id("64d03000000000000000000000000013") override param phases:Set<chemistry.phase>={selected_phase};
+@id("64d03000000000000000000000000014") param pressure_law:Fn(T:Temperature,rho:Density)->Pressure;
+@id("64d03000000000000000000000000015") param enthalpy_law:Fn(T:Temperature,rho:Density)->MolarEnthalpy;
+@id("64d03000000000000000000000000016") param entropy_law:Fn(T:Temperature,rho:Density)->MolarEntropy;
+@id("64d03000000000000000000000000017") param density_start:Density;
+@id("64d03000000000000000000000000018") param temperature_start:Temperature;
+@id("64d03000000000000000000000000019") param enthalpy_start:MolarEnthalpy;
+@id("64d0300000000000000000000000001a") var rho:Density;
+@id("64d0300000000000000000000000001b") eq pressure_binding:pressure==pressure_law(T,rho);
+@id("64d0300000000000000000000000001c") eq enthalpy_binding:h==enthalpy_law(T,rho);
+@id("64d0300000000000000000000000001d") override let s:MolarEntropy=entropy_law(T,rho);
+@id("64d0300000000000000000000000001e") let volume_flow:VolumeFlow=flow/rho;
+@id("64d0300000000000000000000000001f") override let phase_enthalpy[p in phases]:MolarEnthalpy=h;
+@id("64d03000000000000000000000000020") override let phase_flow[p in phases]:Flow=flow;
+@id("64d03000000000000000000000000021") override let phase_component_flow[p in phases,j in components]:ComponentFlow=component_flow[j];
+@id("64d03000000000000000000000000022") annotation start flow(1{mol/s});
+@id("64d03000000000000000000000000023") annotation nominal flow(1{mol/s});
+@id("64d03000000000000000000000000024") annotation start T(temperature_start);
+@id("64d03000000000000000000000000025") annotation nominal T(temperature_start);
+@id("64d03000000000000000000000000026") annotation bounds T(273.16{K},1200{K});
+@id("64d03000000000000000000000000027") annotation valid T(273.16{K},1200{K});
+@id("64d03000000000000000000000000028") annotation start rho(density_start);
+@id("64d03000000000000000000000000029") annotation nominal rho(density_start);
+@id("64d0300000000000000000000000002a") annotation bounds rho(1e-8{mol/m^3},70000{mol/m^3});
+@id("64d0300000000000000000000000002b") annotation valid rho(1e-8{mol/m^3},70000{mol/m^3});
+@id("64d0300000000000000000000000002c") annotation start h(enthalpy_start);
+@id("64d0300000000000000000000000002d") annotation nominal h(50000{J/mol});
+@id("64d0300000000000000000000000002e") annotation start pressure(100000{Pa});
+@id("64d0300000000000000000000000002f") annotation nominal pressure(100000{Pa});
+@id("64d03000000000000000000000000030") annotation bounds pressure(1{Pa},100000000{Pa});
+@id("64d03000000000000000000000000031") annotation start z(1{1});
+@id("64d03000000000000000000000000032") annotation bounds z(0{1},1{1});
+}
+@id("64d03000000000000000000000000033") def Liquid(water_component:chemistry.species,defined_state:Boolean=true):WaterState {
+@id("64d03000000000000000000000000072") override param water:chemistry.species=water_component;
+@id("64d03000000000000000000000000034") override param defined:Boolean=defined_state;
+@id("64d03000000000000000000000000035") override param selected_phase:chemistry.phase=chemistry.liquid;
+@id("64d03000000000000000000000000036") override param pressure_law:Fn(T:Temperature,rho:Density)->Pressure=liquid_pressure;
+@id("64d03000000000000000000000000037") override param enthalpy_law:Fn(T:Temperature,rho:Density)->MolarEnthalpy=liquid_enthalpy;
+@id("64d03000000000000000000000000038") override param entropy_law:Fn(T:Temperature,rho:Density)->MolarEntropy=liquid_entropy;
+@id("64d03000000000000000000000000039") override param density_start:Density=55320{mol/m^3};
+@id("64d0300000000000000000000000003a") override param temperature_start:Temperature=300{K};
+@id("64d0300000000000000000000000003b") override param enthalpy_start:MolarEnthalpy=-44000{J/mol};
+}
+@id("64d0300000000000000000000000003c") def Vapor(water_component:chemistry.species,defined_state:Boolean=true):WaterState {
+@id("64d03000000000000000000000000073") override param water:chemistry.species=water_component;
+@id("64d0300000000000000000000000003d") override param defined:Boolean=defined_state;
+@id("64d0300000000000000000000000003e") override param selected_phase:chemistry.phase=chemistry.vapor;
+@id("64d0300000000000000000000000003f") override param pressure_law:Fn(T:Temperature,rho:Density)->Pressure=vapor_pressure;
+@id("64d03000000000000000000000000040") override param enthalpy_law:Fn(T:Temperature,rho:Density)->MolarEnthalpy=vapor_enthalpy;
+@id("64d03000000000000000000000000041") override param entropy_law:Fn(T:Temperature,rho:Density)->MolarEntropy=vapor_entropy;
+@id("64d03000000000000000000000000042") override param density_start:Density=250{mol/m^3};
+@id("64d03000000000000000000000000043") override param temperature_start:Temperature=500{K};
+@id("64d03000000000000000000000000044") override param enthalpy_start:MolarEnthalpy=7000{J/mol};
+}
+}

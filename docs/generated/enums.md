@@ -334,9 +334,7 @@ Member names are canonical string values; declaration order is presentation only
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
-| `pending` | `` | false |
 | `frozen` | `` | false |
-| `abandoned` | `` | false |
 | `releasing` | `` | false |
 | `released` | `` | false |
 

@@ -915,8 +915,8 @@ mod tests {
             .collect();
         assert_eq!(
             expected.len(),
-            1,
-            "the generated terminal publication backstop is declared once"
+            2,
+            "the terminal seal and exact capture witness each have one declaration"
         );
         async fn observed(store: &CanonicalStore) -> Definitions {
             let mut response = bounded_query(store.db.query("INFO FOR TABLE canonical_attempts;"))

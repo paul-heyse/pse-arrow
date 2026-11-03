@@ -20,6 +20,8 @@ pub use profile::{ProfileChain, ProfileFailure, ProfilePoint, ProfileWorkerFailu
 #[cfg(test)]
 pub(in crate::workflow) mod regression;
 mod results;
+#[cfg(all(test, feature = "solver-ipopt"))]
+mod scientific_equipment_tests;
 mod sparse;
 use super::integrated::{Binding, IntegratedExperiment};
 use super::{WorkflowError, contract, math};

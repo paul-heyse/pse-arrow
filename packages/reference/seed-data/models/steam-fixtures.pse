@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64d03000000000000000000000000200") package steam_fixtures {
+@id("64d03000000000000000000000000201") use steam @"1.0.0";
+@id("64d03000000000000000000000000202") use steam_equipment @"1.0.0";
+@id("64d03000000000000000000000000203") use chem @"1.0.0";
+@id("64d03000000000000000000000000204") use provenance @"1.0.0";
+@id("64d03000000000000000000000000205") entity provenance.source iapws_table {title="IAPWS R6-95(2018), Table7: T300 K, density996.556 kg/m3, pressure0.0992418352 MPa; https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf"}
+@id("64d03000000000000000000000000206") entity provenance.source released_turbines {title="IDAES2.13.0 pressure-changer tests TestIAPWS.test_verify, first two single-phase turbine cases; core84532d7f99a9f976b05170948147afdd69cfa5f6/idaes/models/unit_models/tests/test_pressure_changer.py; rounded source outputs, not an executed reference receipt"}
+// The inlet molar density is the published 996.556 kg/m3 divided by the
+// IAPWS Water model's 0.018015268 kg/mol. Set F=0.001*rho mol/s, hence the
+// volume flow is exactly 0.001 m3/s. DeltaP=100000 Pa gives hydraulic work
+// 100 W and shaft work 125 W at efficiency0.8, independently of the EOS solve.
+@id("64d03000000000000000000000000207") test liquid_pump oracle iapws_table fixture {dof 0;route steady;procedure solve;fix root.unit.control.inlet.T=300{K};fix root.unit.control.inlet.rho=55317.30085836081{mol/m^3};fix root.unit.control.inlet.flow=55.317300858360802{mol/s};fix root.unit.control.inlet.z[chem.water]=1{1};fix root.unit.control.delta_pressure=100000{Pa};fix root.unit.control.efficiency=0.8;} {
+@id("64d03000000000000000000000000208") child root:steam_equipment.Pump=steam_equipment.Pump(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false));
+@id("64d03000000000000000000000000209") expect root.unit.control.inlet.pressure==99241.8352{Pa} tolerance 1{Pa};
+@id("64d0300000000000000000000000020a") expect root.unit.control.outlet.pressure==199241.8352{Pa} tolerance 1{Pa};
+@id("64d0300000000000000000000000020b") expect root.unit.control.inlet.volume_flow==0.001{m^3/s} tolerance 1e-10{m^3/s};
+@id("64d0300000000000000000000000020c") expect root.unit.control.work_fluid==100{W} tolerance 1e-6{W};
+@id("64d0300000000000000000000000020d") expect root.unit.control.work==125{W} tolerance 1e-6{W};
+@id("64d0300000000000000000000000020e") expect root.unit.control.outlet.flow==55.317300858360802{mol/s} tolerance 1e-7{mol/s};
+}
+@id("64d0300000000000000000000000020f") test vapor_turbine oracle released_turbines fixture {dof 0;route steady;procedure solve;fix root.unit.control.inlet.T=500{K};fix root.unit.control.inlet.pressure=1000000{Pa};fix root.unit.control.inlet.flow=1000{mol/s};fix root.unit.control.inlet.z[chem.water]=1{1};fix root.unit.control.delta_pressure=-300000{Pa};fix root.unit.control.efficiency=0.9;} {
+@id("64d03000000000000000000000000210") child root:steam_equipment.Turbine=steam_equipment.Turbine(inlet_pkg=steam.Vapor(water_component=chem.water),outlet_pkg=steam.Vapor(water_component=chem.water,defined_state=false),reference_pkg=steam.Vapor(water_component=chem.water));
+@id("64d03000000000000000000000000211") expect root.unit.control.outlet.T==463.435{K} tolerance 0.01{K};
+@id("64d03000000000000000000000000212") expect root.unit.control.reference.T==460.149{K} tolerance 0.01{K};
+@id("64d03000000000000000000000000213") expect root.unit.control.outlet.pressure==700000{Pa} tolerance 1{Pa};
+@id("64d03000000000000000000000000214") expect root.unit.control.work==-1224640{W} tolerance 50{W};
+@id("64d03000000000000000000000000215") expect root.unit.control.outlet.flow==1000{mol/s} tolerance 1e-5{mol/s};
+}
+@id("64d03000000000000000000000000216") test hot_vapor_turbine oracle released_turbines fixture {dof 0;route steady;procedure solve;fix root.unit.control.inlet.T=800{K};fix root.unit.control.inlet.pressure=10000000{Pa};fix root.unit.control.inlet.flow=1000{mol/s};fix root.unit.control.inlet.z[chem.water]=1{1};fix root.unit.control.delta_pressure=-3000000{Pa};fix root.unit.control.efficiency=0.9;value root.unit.control.inlet.density_start=1600{mol/m^3};value root.unit.control.outlet.density_start=1200{mol/m^3};value root.unit.control.reference.density_start=1200{mol/m^3};value root.unit.control.outlet.temperature_start=750{K};value root.unit.control.reference.temperature_start=750{K};} {
+@id("64d03000000000000000000000000217") child root:steam_equipment.Turbine=steam_equipment.Turbine(inlet_pkg=steam.Vapor(water_component=chem.water),outlet_pkg=steam.Vapor(water_component=chem.water,defined_state=false),reference_pkg=steam.Vapor(water_component=chem.water));
+@id("64d03000000000000000000000000218") expect root.unit.control.outlet.T==742.992{K} tolerance 0.01{K};
+@id("64d03000000000000000000000000219") expect root.unit.control.reference.T==738.224{K} tolerance 0.01{K};
+@id("64d0300000000000000000000000021a") expect root.unit.control.outlet.pressure==7000000{Pa} tolerance 10{Pa};
+@id("64d0300000000000000000000000021b") expect root.unit.control.work==-1911550{W} tolerance 50{W};
+}
+// The released wet turbine case (400 K,200 kPa→140 kPa) remains a separate
+// required reference obligation. These homogeneous providers refuse its wet
+// states; this fixture set does not claim phase-mixture or saturation delivery.
+}

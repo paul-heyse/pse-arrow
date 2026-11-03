@@ -42,7 +42,7 @@ mod surrealism_qualification {
             let module = Self::module(index);
             bounded_query(store.db.query(format!("DEFINE BUCKET {bucket} READONLY BACKEND $backend PERMISSIONS NONE; DEFINE MODULE mod::{module} FROM f\"{bucket}:/study.surli\" UNSIGNED PERMISSIONS FULL;"))
                 .bind(("backend",self.receipt.backend().unwrap()))).await.unwrap();
-            let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.modules.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='/study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','qualification::trap','qualification::busy','qualification::memory_refused','qualification::hold']) AND array::len($module.exports.filter(|$export|$export.writeable))=0;")
+            let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.modules.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='/study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','study_capture::capture','qualification::trap','qualification::busy','qualification::memory_refused','qualification::hold']) AND array::len($module.exports.filter(|$export|$export.writeable))=1 AND array::len($module.exports.filter(|$export|$export.name='study_capture::capture' AND $export.writeable))=1;")
                 .bind(("name",module)).bind(("bucket",bucket))).await.unwrap();
             let index = response.num_statements().saturating_sub(1);
             assert_eq!(
@@ -116,7 +116,10 @@ mod surrealism_qualification {
                         interval = Some(Self { start, end });
                     }
                     other => {
-                        assert!(matches!(other, Value::Array(_)), "unexpected hold result carrier {other:?}");
+                        assert!(
+                            matches!(other, Value::Array(_)),
+                            "unexpected hold result carrier {other:?}"
+                        );
                     }
                 }
             }
@@ -199,6 +202,96 @@ mod surrealism_qualification {
         }
         usize::try_from(peak).unwrap()
     }
+    #[tokio::test]
+    #[ignore = "requires the explicitly packaged SQL-only writable qualification artifact"]
+    async fn canonical_studies_writable_module_whole_transaction_probe() {
+        let (store, _, _) = fixture().await;
+        let artifact = std::env::var("PSE_G08_WRITABLE_PROBE")
+            .expect("explicit SQL-only qualification artifact required");
+        let artifact = std::path::Path::new(&artifact).canonicalize().unwrap();
+        assert_eq!(artifact.file_name().unwrap(), "study.surli");
+        let directory = store.deployment_state().join("module/g08-write-probe");
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::copy(&artifact, directory.join("study.surli")).unwrap();
+        let backend = format!("file:{}", directory.display());
+        bounded_query(store.db.query("DEFINE TABLE g08_probe SCHEMALESS; DEFINE BUCKET g08_write_probe READONLY BACKEND $backend PERMISSIONS NONE; DEFINE MODULE mod::g08_write_probe FROM f'g08_write_probe:/study.surli' UNSIGNED PERMISSIONS FULL;").bind(("backend", backend))).await.unwrap();
+        let mut catalogue = bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.modules.filter(|$row|$row.name='g08_write_probe'))[0]; RETURN array::sort($module.exports.filter(|$export|$export.writeable).name)=array::sort(['write_qualification::success','write_qualification::typed_failure','write_qualification::timeout']);")).await.unwrap();
+        let returned = catalogue.num_statements() - 1;
+        assert_eq!(
+            catalogue.take::<Option<bool>>(returned).unwrap(),
+            Some(true)
+        );
+        drop(catalogue);
+        for export in ["typed_failure", "timeout"] {
+            bounded_query(store.db.query("DELETE g08_probe;"))
+                .await
+                .unwrap();
+            let started = std::time::Instant::now();
+            let failed = bounded_query(store.db.query(format!("UPSERT g08_probe:caller SET value=true; RETURN mod::g08_write_probe::write_qualification::{export}();"))).await;
+            assert!(
+                failed.is_err(),
+                "{export} must fail after its two host SQL writes"
+            );
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "actual guest completion must remain bounded"
+            );
+            let mut rows = bounded_query(store.db.query("SELECT key FROM g08_probe;"))
+                .await
+                .unwrap();
+            assert!(
+                rows.take::<Vec<Object>>(0).unwrap().is_empty(),
+                "{export} committed caller or guest writes"
+            );
+            let mut succeeded = bounded_query(
+                store
+                    .db
+                    .query("RETURN mod::g08_write_probe::write_qualification::success();"),
+            )
+            .await
+            .unwrap();
+            assert_eq!(succeeded.take::<Option<bool>>(0).unwrap(), Some(true));
+            let mut rows = bounded_query(store.db.query("SELECT * FROM g08_probe;"))
+                .await
+                .unwrap();
+            assert_eq!(
+                rows.take::<Vec<Object>>(0).unwrap().len(),
+                2,
+                "positive control must execute both actual host writes"
+            );
+        }
+        bounded_query(store.db.query("DELETE g08_probe;"))
+            .await
+            .unwrap();
+        let expired = peer(&store);
+        let failed = within_clock(original_deadline(Duration::from_millis(100)), bounded_query(expired.db.query("UPSERT g08_probe:caller SET value=true; RETURN mod::g08_write_probe::write_qualification::timeout();"))).await;
+        assert!(
+            failed.is_err(),
+            "original caller timeout must interrupt the writable operation"
+        );
+        assert!(
+            matches!(
+                expired.disconnect().await,
+                Err(CanonicalError::ConnectionBusy { .. })
+            ),
+            "a timed-out caller cannot release its still-admitted native operation"
+        );
+        expired
+            .drain_owned_connection_until(tokio::time::Instant::now() + Duration::from_secs(10))
+            .await
+            .unwrap();
+        // The terminal owner joins this peer's actual operation before release.
+        let mut rows = bounded_query(store.db.query("SELECT * FROM g08_probe;"))
+            .await
+            .unwrap();
+        assert!(
+            rows.take::<Vec<Object>>(0).unwrap().is_empty(),
+            "original peer drain must leave no late committed writes"
+        );
+        drop(rows);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
     #[tokio::test]
     async fn canonical_studies_surrealism_qualification_faults_rollback_and_recover() {
         let (store, _, revision) = fixture().await;

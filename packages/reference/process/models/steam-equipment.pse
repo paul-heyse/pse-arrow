@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64d03000000000000000000000000100") package steam_equipment {
+@id("64d03000000000000000000000000101") use steam @"1.0.0";
+@id("64d03000000000000000000000000102") use chemistry @"1.0.0";
+@id("64d03000000000000000000000000103") use equilibrium @"1.0.0";
+@id("64d03000000000000000000000000104") use pressure_change @"1.0.0";
+// Hydraulic reversible work uses inlet volume flow. This is the selected pump
+// approximation, not an isentropic liquid calculation or a fixed density EOS.
+@id("64d03000000000000000000000000105") def HydraulicWaterAssumption(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState,compression:Boolean):pressure_change.PressureAssumption {
+@id("64d03000000000000000000000000106") require compression : "water hydraulic assumption is a pump compression model";
+@id("64d03000000000000000000000000107") require inlet_pkg.selected_phase==chemistry.liquid and outlet_pkg.selected_phase==chemistry.liquid : "water pump requires explicit liquid inlet and outlet property contracts";
+@id("64d03000000000000000000000000108") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
+@id("64d03000000000000000000000000109") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
+@id("64d0300000000000000000000000010a") override param compressor:Boolean=compression;
+@id("64d0300000000000000000000000010b") override child inlet:steam.WaterState=inlet_pkg;
+@id("64d0300000000000000000000000010c") eq hydraulic_work:work_fluid==transfer(inlet.volume_flow*delta_pressure,energy_boundary,Into);
+}
+@id("64d0300000000000000000000000010d") def Pump(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState) {
+@id("64d0300000000000000000000000010e") child unit:pressure_change.PressureChanger=pressure_change.Pump(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,assumption=HydraulicWaterAssumption);
+}
+@id("64d0300000000000000000000000010f") def Turbine(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState,reference_pkg:steam.WaterState) {
+@id("64d03000000000000000000000000110") child unit:pressure_change.PressureChanger=pressure_change.Turbine(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,assumption=pressure_change.IsentropicAssumption(reference_pkg=reference_pkg));
+}
+}

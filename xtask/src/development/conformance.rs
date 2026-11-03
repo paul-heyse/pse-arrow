@@ -26,6 +26,30 @@ use std::{
     time::Duration,
 };
 
+/// Explicit application capability selection; declarations alone load no native library.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+pub enum NativeProviders {
+    /// Ordinary source-only capability context.
+    #[default]
+    None,
+    /// Authenticated CoolProp 8 homogeneous water branches.
+    #[value(name = "coolprop8-water")]
+    CoolpropWater,
+}
+impl NativeProviders {
+    /// Refuse an unavailable selected capability before constructing execution services.
+    ///
+    /// # Errors
+    /// Returns an error when the selected provider is absent from this build.
+    pub fn validate(self) -> Result<()> {
+        ensure!(
+            self == Self::None || cfg!(feature = "property-coolprop"),
+            "selected coolprop8-water capability requires the property-coolprop build feature"
+        );
+        Ok(())
+    }
+}
+
 /// An admitted campaign selection. All run selection is resolved before execution.
 #[derive(Debug)]
 pub struct Campaign {
@@ -94,9 +118,11 @@ impl Campaign {
         &self,
         run: &ConformanceRun,
         runtime: &Runtime,
+        providers: NativeProviders,
         cancel: &CancelSource,
     ) -> Result<RunReport> {
         self.require_selected(run, ConformanceExecution::Native)?;
+        providers.validate()?;
         let source = runtime.source_services();
         let pool = source.preparation().pool();
         let validation = runtime.validation_context();
@@ -117,13 +143,37 @@ impl Campaign {
             &token,
         )?;
         let physical = runtime.physical_from_documents(&physical, &token).await?;
+        let registrations = match providers {
+            NativeProviders::None => BTreeMap::new(),
+            NativeProviders::CoolpropWater => {
+                #[cfg(feature = "property-coolprop")]
+                {
+                    use pse_backend_native::coolprop::{self, WaterRegime};
+                    [
+                        WaterRegime::Liquid,
+                        WaterRegime::Vapor,
+                        WaterRegime::Supercritical,
+                    ]
+                    .into_iter()
+                    .map(|regime| {
+                        Ok((
+                            regime.implementation().to_owned(),
+                            coolprop::registration(physical.quantities(), regime)?,
+                        ))
+                    })
+                    .collect::<Result<BTreeMap<_, _>>>()?
+                }
+                #[cfg(not(feature = "property-coolprop"))]
+                anyhow::bail!("selected coolprop8-water capability is unprepared in this build")
+            }
+        };
         let bundles = std::iter::once(&run.package)
             .chain(&run.dependencies)
             .map(|path| load(&documents(&self.parent.join(path))?))
             .collect::<Result<Vec<_>>>()?;
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
         let package = runtime
-            .modeling_from_documents(&documents, physical, cancel)
+            .modeling_from_documents_registered(&documents, physical, registrations, cancel)
             .await?;
         let settings = &self.manifest.settings;
         let mut solve = SolveSettings {

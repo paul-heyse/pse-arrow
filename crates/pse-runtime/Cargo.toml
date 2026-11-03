@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [features]
+property-coolprop = ["pse-backend-native/coolprop"]
 force-validate = [
   "pse-admission/force-validate",
   "pse-columnar/force-validate",

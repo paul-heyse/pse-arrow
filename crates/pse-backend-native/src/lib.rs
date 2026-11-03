@@ -46,6 +46,8 @@ mod certificate;
 pub mod conditioning;
 pub mod conic;
 mod convexity;
+#[cfg(feature = "coolprop")]
+pub mod coolprop;
 pub mod derivative_diagnostics;
 pub mod derived;
 pub mod dynamics;

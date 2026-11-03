@@ -83,13 +83,34 @@ explicit common datum; affine point enthalpies are not summed. Bindings own any
 conversion from an external formation-inclusive convention to the stock sensible
 reference. The BTIdeal binding and oracle scope are described in the seed sources.
 
+`state-coordinates.pse` composes that material contract with total-flow/temperature,
+total-flow/enthalpy, component-flow/temperature, component-flow/enthalpy,
+phase-component-flow/temperature and phase-flow/composition/temperature coordinates.
+The receiving total-flow and phase-flow states reconstruct one declared reference fraction;
+supplied states provide and check every fraction. Component coordinates retain exact
+nonnegative flow domains, while normalization has its separate declared allowance.
+Zero component flow is valid. Zero total component flow cannot determine composition.
+An absent phase can retain independently supplied phase composition in the phase-flow form;
+the phase-component caloric form refuses its undefined intensive enthalpy.
+
+`ideal-caloric-state.pse` adds component caloric functions without selecting phase equilibrium.
+The first phase family has rectangular selected phase/component membership and additive
+ideal-caloric mixing. Its synthetic seed controls compare independent component energies,
+reconstruction equations and actual component/energy transport. These controls establish no
+empirical fluid-property, stable-root or equilibrium claim. Generic consumers see the declared
+`ThermoPackage` API; phase-specific observations require the explicit phase interface.
+
 `aqueous.pse` composes the shared contract with a dilute-solvent approximation.
 Component concentrations determine total molar flow and normalized mole fractions;
 the supplied solvent density and heat capacity determine energy transport. The
 mixture molar enthalpy accounts explicitly for this distinction. An undefined state
 constrains the solvent concentration, while a defined inlet can specify it.
-`reactions.pse` supplies generic Arrhenius and second-order forms and a reaction
-contract whose sets, stoichiometry, heat and method are binding inputs.
+`reactions.pse` consumes checked kinetic records from `reaction-forms.pse` and the
+constant/constant-heat thermodynamic laws in `equilibrium-reactions.pse`. Equilibrium uses
+the exact signed participants of the authored reaction and dimensionless log activities under
+the selected parameterization's standard-state convention. Its projection adds an equilibrium
+equation; it supplies no kinetic rate or second energy source. Unknown parameter applicability
+requires explicit permission, which does not override a positive-temperature domain.
 
 `nested-equilibrium.pse` supplies the alternative ideal phase split. It solves
 two-phase, liquid-only and vapor-only residual sets and selects an eligible branch

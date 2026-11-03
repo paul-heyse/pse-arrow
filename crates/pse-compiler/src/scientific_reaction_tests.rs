@@ -482,6 +482,277 @@ fn scientific_costing_unknown_area_requires_permission_and_never_permits_zero_ar
     );
 }
 
+// Analytic constants are synthetic controls, not equilibrium data for hydrolysis.
+const EQUILIBRIUM_FIXTURE: &str = r#"package equilibrium_law_control {
+use equilibrium_reactions @"1.0.0"; use properties @"1.0.0"; use provenance @"1.0.0";
+use chemistry @"1.0.0"; use saponification @"1.0.0"; use chem @"1.0.0"; use reactions @"1.0.0";
+entity provenance.source analytic {title="Analytic van't Hoff and reaction-quotient control; not measured hydrolysis equilibrium data"}
+entity properties.parameterization fit {title="Synthetic constant-heat control",source=analytic}
+entity chemistry.extent_convention other_extent {normalization=chemistry.ExtentNormalization.AsAuthored}
+dataset constants:equilibrium_reactions.constant_heat_parameters bind(family=equilibrium_reactions.equilibrium_parameters,reaction=saponification.hydrolysis,extent=saponification.hydrolysis_extent,source=analytic,dependencies={},conventions={equilibrium_reactions.thermodynamic_equilibrium}) provenance(analytic,provenance.Role.synthetic) {
+[fit]=[300{K},2,2494.338785445972{J/mol}];
+}
+dataset constant_model:equilibrium_reactions.constant_parameters bind(family=equilibrium_reactions.equilibrium_parameters,reaction=saponification.hydrolysis,variant=2,extent=saponification.hydrolysis_extent,source=analytic,dependencies={},conventions={equilibrium_reactions.thermodynamic_equilibrium}) provenance(analytic,provenance.Role.synthetic) {
+[fit]=[300{K},2];
+}
+entity properties.selection_context admitted {roots={equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis]},subjects=saponification.saponification_species,models={equilibrium_reactions.equilibrium_parameters},rules={}}
+test projection {
+permission unknown_fit families(equilibrium_reactions.parameters) allow_unknown true allow_extrapolation false;
+child root:reactions.EquilibriumProjection=reactions.EquilibriumProjection(material=saponification.saponification_species,selected={equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis]},selection=admitted);
+}
+test reference {
+permission unknown_fit families(equilibrium_reactions.parameters) allow_unknown true allow_extrapolation false;
+param temperature_action:Delta<Temperature>=300{K};
+expect equilibrium_reactions.van_t_hoff_log(300{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])==2 tolerance 1e-12;
+expect equilibrium_reactions.van_t_hoff_log(600{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])==2.5 tolerance 1e-12;
+expect equilibrium_reactions.van_t_hoff_log(150{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])==1 tolerance 1e-12;
+expect partial(equilibrium_reactions.van_t_hoff_log,T)(300{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])*temperature_action==1 tolerance 1e-12;
+expect partial(equilibrium_reactions.van_t_hoff_log,T,T)(300{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])*temperature_action^2==-2 tolerance 1e-12;
+expect equilibrium_reactions.constant_log(150{K},equilibrium_reactions.constant_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis,2])==2 tolerance 1e-12;
+expect equilibrium_reactions.constant_log(600{K},equilibrium_reactions.constant_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis,2])==2 tolerance 1e-12;
+}
+test zero_temperature {
+permission unknown_fit families(equilibrium_reactions.parameters) allow_unknown true allow_extrapolation true;
+expect equilibrium_reactions.van_t_hoff_log(0{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])==0 tolerance 1e-12;
+}
+test no_permission {
+expect equilibrium_reactions.van_t_hoff_log(600{K},equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis])==2.5 tolerance 1e-12;
+}
+test quotient {
+param log_activity[j in saponification.saponification_species]:Scalar=if j==chem.sodium_acetate then 3 else if j==chem.ethanol then 4 else if j==chem.sodium_hydroxide then 1 else if j==chem.ethyl_acetate then 2 else 100;
+expect equilibrium_reactions.log_quotient(log_activity,saponification.hydrolysis)==4 tolerance 1e-12;
+}
+}"#;
+
+fn equilibrium_point(name: &str) -> Result<(), String> {
+    let text = format!(
+        "{}\n{EQUILIBRIUM_FIXTURE}",
+        crate::scientific_inputs::family_sources("equilibrium-reactions")
+    );
+    let declarations = rows(&text);
+    let id = root(&declarations, "equilibrium_law_control", name);
+    let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .map_err(|error| error.to_string())?;
+    let checked = workspace
+        .check_modeling_point(
+            id,
+            root_instance(id),
+            Bindings::default(),
+            Limits::default(),
+            &CaseValues {
+                scalars: BTreeMap::new(),
+            },
+            crate::workspace::Profile::default(),
+            pse_diagnostics::Cancellation::default(),
+        )
+        .map_err(|error| error.to_string())?;
+    assert!(!checked.expectations.is_empty());
+    assert!(
+        checked
+            .expectations
+            .iter()
+            .all(|expectation| expectation.passed),
+        "{name}: {checked:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn scientific_equilibrium_constant_heat_retains_reference_and_endothermic_temperature_direction() {
+    equilibrium_point("reference").unwrap();
+}
+
+#[test]
+fn scientific_equilibrium_missing_applicability_never_overrides_positive_temperature_domain() {
+    assert!(equilibrium_point("no_permission").is_err());
+    let error = equilibrium_point("zero_temperature").unwrap_err();
+    assert!(
+        error.contains("valid") || error.contains("guard") || error.contains("domain"),
+        "{error}"
+    );
+}
+
+#[test]
+fn scientific_equilibrium_quotient_uses_exact_reaction_participants_and_signs() {
+    equilibrium_point("quotient").unwrap();
+}
+
+#[test]
+fn scientific_equilibrium_projection_requires_exact_admission_participants_and_extent() {
+    fn admitted(text: &str) -> Result<Arc<SpecializedModel>, CompileError> {
+        let declarations = rows(text);
+        let id = root(&declarations, "equilibrium_law_control", "projection");
+        let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
+        workspace.publish_modeling(declarations, PhysicalScope::default())?;
+        workspace.specialize_modeling(
+            id,
+            root_instance(id),
+            Bindings::default(),
+            Limits::default(),
+        )
+    }
+    let text = format!(
+        "{}\n{EQUILIBRIUM_FIXTURE}",
+        crate::scientific_inputs::family_sources("equilibrium-reactions")
+    );
+    let model = admitted(&text).unwrap();
+    assert_eq!(
+        model.equations.len(),
+        1,
+        "the actual equilibrium projection owns its original equation"
+    );
+    let missing_record = text.replace("roots={equilibrium_reactions.constant_heat_parameters[fit,equilibrium_reactions.equilibrium_parameters,saponification.hydrolysis]}", "roots={}");
+    assert_ne!(text, missing_record);
+    assert_authored_requirement(
+        &admitted(&missing_record).unwrap_err(),
+        &["9b17adb167d54b2d88e3505f9cb11b7e"],
+    );
+    let missing_participant = text.replace(
+        "material=saponification.saponification_species",
+        "material={chem.ethyl_acetate,chem.sodium_hydroxide,chem.sodium_acetate}",
+    );
+    assert_ne!(text, missing_participant);
+    let CompileError::Modeling(error) = admitted(&missing_participant).unwrap_err() else {
+        panic!("expected original coordinate-membership refusal");
+    };
+    let mut cause = &error;
+    while let pse_modeling::ModelingError::Located { cause: inner, .. } = cause {
+        cause = inner;
+    }
+    let pse_modeling::ModelingError::Contract {
+        declaration,
+        message,
+        ..
+    } = cause
+    else {
+        panic!("expected coordinate-membership contract: {cause:?}");
+    };
+    assert_eq!(
+        *declaration,
+        pse_ids::SemanticId::parse_hex("4190dc05c0b940d4be9227ba2fc45c9b").unwrap()
+    );
+    assert_eq!(message, "function coordinate outside actual membership");
+    let missing_scope = text.replace(
+        "subjects=saponification.saponification_species",
+        "subjects={chem.ethyl_acetate,chem.sodium_hydroxide,chem.sodium_acetate}",
+    );
+    assert_ne!(text, missing_scope);
+    assert_authored_requirement(
+        &admitted(&missing_scope).unwrap_err(),
+        &["af150251f7454cf6bc08e6f554f14404"],
+    );
+    let wrong_extent = text.replace(
+        "extent=saponification.hydrolysis_extent",
+        "extent=other_extent",
+    );
+    assert_ne!(text, wrong_extent);
+    assert_authored_requirement(
+        &admitted(&wrong_extent).unwrap_err(),
+        &["ac6487ccb6a497cb601a714565b38c5b"],
+    );
+}
+
+#[test]
+fn scientific_equilibrium_projection_evaluates_original_activity_equation() {
+    let text = format!(
+        "{}\n{EQUILIBRIUM_FIXTURE}",
+        crate::scientific_inputs::family_sources("equilibrium-reactions")
+    );
+    let declarations = rows(&text);
+    let id = root(&declarations, "equilibrium_law_control", "projection");
+    let input = context();
+    let registry = input.quantities.clone();
+    let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    let cancel = pse_diagnostics::Cancellation::default();
+    let mut bindings = Bindings::default();
+    for path in [
+        "root.T",
+        "root.log_activity[chem.sodium_acetate]",
+        "root.log_activity[chem.ethanol]",
+        "root.log_activity[chem.sodium_hydroxide]",
+        "root.log_activity[chem.ethyl_acetate]",
+        "root.log_activity[chem.water]",
+    ] {
+        bindings.demand.push(path.to_owned());
+    }
+    let prepared = workspace
+        .prepare_modeling_cancellable(
+            id,
+            root_instance(id),
+            bindings,
+            Limits::default(),
+            cancel.flag(),
+        )
+        .unwrap();
+    let mut values = CaseValues {
+        scalars: BTreeMap::new(),
+    };
+    for (path, value) in [
+        ("root.T", 600.0),
+        ("root.log_activity[chem.sodium_acetate]", 1.0),
+        ("root.log_activity[chem.ethanol]", 1.5),
+        ("root.log_activity[chem.sodium_hydroxide]", 0.0),
+        ("root.log_activity[chem.ethyl_acetate]", 0.0),
+        ("root.log_activity[chem.water]", 100.0),
+    ] {
+        values.scalars.insert(prepared.model.paths[path], value);
+    }
+    for id in &prepared.admitted.inputs {
+        assert!(
+            values.scalars.contains_key(id),
+            "missing independent point input: {:?}",
+            prepared.model.symbols[id]
+        );
+    }
+    let plan = prepared
+        .admitted
+        .plan(
+            &registry,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            &cancel.flag(),
+        )
+        .unwrap();
+    let assembly = Arc::new(
+        plan.compile(
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+        )
+        .unwrap(),
+    );
+    let mut worker = assembly.worker(pse_kernels::ProviderBindings::new(), cancel);
+    let mut residual = |values: &CaseValues| {
+        let computed = worker.constraints(values).unwrap();
+        let ordered = prepared.admitted.ordered_values(computed).unwrap();
+        let equations: Vec<_> = prepared
+            .admitted
+            .outputs
+            .iter()
+            .zip(ordered)
+            .filter_map(|(output, value)| {
+                matches!(output, ModelingOutput::Equation { .. }).then_some(value)
+            })
+            .collect();
+        assert_eq!(equations.len(), 1);
+        equations[0]
+    };
+    assert!(residual(&values).abs() < 1e-12);
+    *values
+        .scalars
+        .get_mut(&prepared.model.paths["root.log_activity[chem.ethanol]"])
+        .unwrap() += 1.0;
+    assert!(
+        (residual(&values).abs() - 1.0).abs() < 1e-12,
+        "an independently perturbed product activity violates the original equilibrium equation"
+    );
+}
+
 #[test]
 fn scientific_reaction_records_require_admitted_closure_and_participant_scope() {
     let original = source();

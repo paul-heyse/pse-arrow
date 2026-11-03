@@ -8,6 +8,7 @@
 @id("01a0e1db89d8722baac398f231ae9216") use aqueous @"1.0.0";
 @id("3e4b1a20d6265ba782b8fa4ef4c72c61") use reaction_forms @"1.0.0";
 @id("5aacd7c15cf75d04a2be1443cef1a53d") use properties @"1.0.0";
+@id("38be56e87848498c8d6e3e12c06440c6") use equilibrium_reactions @"1.0.0";
 // A RateLaw selects checked records and their admitted dependency closure.
 @id("01a0e1db89d8722baac398e3f53e64ef") interface RateLaw {
 @id("01a0e1db89d8722baac398e4e335ce0d") param components:Set<chemistry.species>;
@@ -33,5 +34,23 @@
 @id("01a0e1db89d8722baac398eb336c849d") let rate[r in reactions]:VolumetricReactionRate=sum(s in records where s.reaction==r | s.rate(T,concentration,s));
 @id("01a0e1db89d8722baac398eca7e9fa1b") let heat[r in reactions]:ReactionHeat=sum(s in records where s.reaction==r | s.heat);
 @id("01a0e1db89d8722baac398ede4f70358") let coefficient[r in reactions,j in components]:ReactionStoichiometry=chemistry.stoichiometry[r,j];
+}
+
+// Dimensionless activities are supplied by the selected physical state. This
+// projection adds equilibrium equations, not kinetics or a second energy source.
+@id("5df95b8512e14f16ae3d4929d8d3aaf1") def EquilibriumProjection(material:Set<chemistry.species>,selected:Set<equilibrium_reactions.parameters>,selection:properties.selection_context) {
+@id("8fc8475bb21849de944cb405053b2f74") param components:Set<chemistry.species>=material;
+@id("805b46d0a5b4476eb1c3034ea9bc7c18") param records:Set<equilibrium_reactions.parameters>=selected;
+@id("762ec1eda94e4485abe6e34f4c16c138") param reactions:Set<chemistry.reaction>={s.reaction for s in records};
+@id("9b17adb167d54b2d88e3505f9cb11b7e") require sum(s in records | if s in selection.records then 0 else 1)==0 : "UnadmittedSelection: every equilibrium record belongs to the admitted dependency closure";
+@id("4851621fe46547c4b38771f7eaed75c1") require sum(s in records | if s.family in selection.models then 0 else 1)==0 : "equilibrium records belong to the admitted scientific model families";
+@id("e513d0b4ee90427289446a8c1b999699") require sum(r in reactions | if sum(s in records where s.reaction==r | 1)==1 then 0 else 1)==0 : "an equilibrium projection selects exactly one thermodynamic record per reaction";
+@id("af150251f7454cf6bc08e6f554f14404") require sum(r in reactions | sum(j in r.participants | if j in components and j in selection.subjects then 0 else 1))==0 : "MissingParticipant: equilibrium participants belong to both material and admitted scientific scope";
+@id("7a01a362cf294b788d0349bd4a59e7a1") var T:Temperature;
+@id("452e7c92b0df45529a85949f9dbe9325") var log_activity[j in components]:Scalar;
+@id("21d6b66c5cb44f8d974da371e7492656") let log_constant[r in reactions]:Scalar=sum(s in records where s.reaction==r | s.log_constant(T,s));
+@id("ce11ef6e6c344fa98bfdfd4f9a7ed8a5") eq equilibrium[r in reactions]:equilibrium_reactions.log_quotient(log_activity,r)==log_constant[r];
+@id("99787add537a431db372f34800666457") annotation start T(300{K});
+@id("e3ecbc121645415d94c0332ff70f5bab") annotation start log_activity(0);
 }
 }

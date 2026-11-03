@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("03ad9726153640a184db0579bc1aad32") package equilibrium_reactions {
+@id("85c53da58a624ca78402a9652b62d496") use chemistry @"1.0.0";
+@id("80de43da9cb542dd9cb7bf0c89c01fad") use properties @"1.0.0";
+@id("ca2ce6e3bd84482c84e1b951e2c61f23") use provenance @"1.0.0";
+@id("1385716b28bb4c3d88712a43e1f452ae") use constants @"1.0.0";
+@id("95fb8d36f7394dd29ad33a947788b13e") use compatibility @"1.0.0";
+
+@id("3cd9c30a47774b5aa093fc553a5d4fd2") entity provenance.source thermodynamic_equilibrium {title="Dimensionless activity equilibrium: ln Q equals ln K for the reaction as authored; constant-heat van't Hoff integration d ln K/dT = delta H/(R T squared), with an explicit reference temperature and extent"}
+@id("f927bca6129148c4ad42fb109ce08728") entity properties.property equilibrium_parameters {quantity=Scalar,shape=properties.IndexShape.group,applies={}}
+@id("235cae9b79064ccf9bf03fc1a4b58272") constant heat_unit:ReactionHeat=1{J/mol} provenance(thermodynamic_equilibrium,provenance.Role.published);
+@id("50c8f78c9585498285fe39b3529e563b") constant coefficient_unit:ReactionStoichiometry=1{1} provenance(thermodynamic_equilibrium,provenance.Role.published);
+
+// Parameterizations own the activity convention; dimensional concentrations must
+// be normalized by their declared standard states before entering this contract.
+@id("719ee5dc98a14c03be1ba619a2ff8dfb") entity kind parameters extends properties.parameter_set abstract {
+@id("c2aa231fa03342e2b78044e217a4dc57") key parameterization:properties.parameterization;
+@id("ff05a6c33ea445749bf920c29ae53665") key family:properties.property;
+@id("61b69d4669a8499d87726f28675f6de2") key reaction:chemistry.reaction;
+@id("b878948a34984dbf9fe425433797ac23") key variant:Integer=1;
+@id("4adcc288019341d68b373c564fbaef54") attribute extent:chemistry.extent_convention;
+@id("bca8f2b7eea44d01a7b8eccbd8c1020e") attribute reference_temperature:Temperature storage {K};
+@id("b4c3df19da5c457ca4b7eced944cae6c") attribute log_reference:Scalar;
+@id("d11cc75d087a47d3a97f9bf311ecb95c") attribute log_constant:Fn(T:Temperature,s:parameters)->Scalar;
+@id("f53c4f86ad844262815aa0e0ed6074f3") attribute applicability:Fn(T:Temperature,s:parameters)->Applicability;
+@id("9d829dcb4d814d4bb82d5cc075ed631d") slot=equilibrium_slot;
+@id("7fb94bca08bd47a881719f351a676caa") require slot(self)==equilibrium_slot(self) : "the scientific slot is the owned equilibrium reaction key projection";
+@id("6f4f132266034aa68c4a54ce3130e867") require family==equilibrium_parameters : "equilibrium parameters use their declared activity-equilibrium family";
+@id("ac6487ccb6a497cb601a714565b38c5b") require extent==reaction.extent : "ExtentMismatch: equilibrium and heat use the selected reaction as-authored extent";
+@id("85dbd6b89a9a45869d9c1507c66c60d2") require reference_temperature>constants.absolute_zero : "equilibrium reference temperature is positive";
+}
+@id("eb64741b1d484f00ba626ee6d8a529c9") entity kind constant_parameters extends parameters {
+@id("ed3298750f8a49dda468d5ba1f53c39e") log_constant=constant_log;
+@id("ed8298750f8a49dda468d5ba1f53c39e") applicability=unknown_region;
+}
+@id("b0ac28ed78a54d82aff31aa0143224f8") entity kind constant_heat_parameters extends parameters {
+@id("939bf730d7c54eb9b9ec1c8c5d03bc45") attribute heat:ReactionHeat storage {J/mol};
+@id("f907c2a66c054c9b86018967fdfda2d9") log_constant=van_t_hoff_log;
+@id("f917c2a66c054c9b86018967fdfda2d9") applicability=unknown_region;
+}
+@id("51847045c82848fc8cd1b2d1085d0af3") applicability unknown_region(T:Temperature,s:parameters) owner parameters scope data evidence thermodynamic_equilibrium unknown("The selected equilibrium parameterization declares no empirical temperature envelope");
+@id("03860324e5a443c0b640ec9d9c35808c") fn equilibrium_slot(r:parameters)->Tuple<properties.property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(missing,missing),missing,r.reaction);
+@id("08cde0782b1b4e1ea4faf1edc6391595") fn constant_log(T:Temperature,s:constant_parameters)->Scalar applicability(s.applicability(T,s)) valid(T>constants.absolute_zero)=s.log_reference;
+
+@id("f77810057c8044d58086dff0e9a56f44") coordinate map thermal_coordinates(T:Temperature,s:constant_heat_parameters) valid(T>constants.absolute_zero and s.reference_temperature>constants.absolute_zero) {
+@id("fcce1b92e68b4476a9f94d950b249d5a") slot heat=s.heat/heat_unit;
+@id("a1a62144f2e54a80834ac6c389893910") slot gas_constant=constants.gas_constant/constants.gas_constant_unit;
+@id("c4a02d12200445a5a464c8f293ad5006") slot inverse_temperature=constants.temperature_scale/T;
+@id("155b54a65635473ca174dc533a8113fb") slot inverse_reference=constants.temperature_scale/s.reference_temperature;
+}
+@id("480b6b76198d45d8a4d703b5b253bfcf") reconstruction log_temperature_increment for thermal_coordinates(T:Temperature,s:constant_heat_parameters)->Scalar reference thermodynamic_equilibrium=1;
+@id("92dc3a1695df405eaa19b4c2913f24f1") fn reduced_temperature_increment(heat:Coordinate<thermal_coordinates.heat>,gas_constant:Coordinate<thermal_coordinates.gas_constant>,inverse_temperature:Coordinate<thermal_coordinates.inverse_temperature>,inverse_reference:Coordinate<thermal_coordinates.inverse_reference>,s:constant_heat_parameters)->Reduced<log_temperature_increment>=-heat*(inverse_temperature-inverse_reference)/gas_constant;
+@id("2b8aac2ee3604469bce47bd0d47bd93a") fn van_t_hoff_log(T:Temperature,s:constant_heat_parameters)->Scalar applicability(s.applicability(T,s)) valid(T>constants.absolute_zero)=s.log_reference+reconstruct(log_temperature_increment,reduced_temperature_increment,T,s);
+@id("c91fa281f59c48759d2f14899ef39427") fn equilibrium_constant(T:Temperature,s:parameters)->Scalar=exp(s.log_constant(T,s));
+@id("4190dc05c0b940d4be9227ba2fc45c9b") fn log_quotient(log_activity:Scalar[chemistry.species],r:chemistry.reaction)->Scalar=sum(j in r.participants | (chemistry.stoichiometry[r,j]/coefficient_unit)*log_activity[j]);
+}

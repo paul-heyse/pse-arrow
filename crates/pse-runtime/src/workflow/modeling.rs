@@ -13,6 +13,8 @@ pub(super) mod declared;
 pub(crate) mod engagement;
 mod path_pipeline;
 mod preparation;
+#[cfg(all(test, feature = "property-coolprop", feature = "solver-kinsol"))]
+mod steam_tests;
 pub use declared::{
     DeclaredAlgebraicOutcome, DeclaredExecution, DeclaredProcedure, InitializationOverrides,
 };
@@ -504,6 +506,18 @@ impl crate::workflow::SourceServices {
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
+        self.modeling_from_documents_registered(documents, physical, BTreeMap::new(), cancel)
+            .await
+    }
+    /// Persist the same authored document closure with explicitly prepared native capabilities.
+    /// Source names never prepare or select a provider implementation.
+    pub async fn modeling_from_documents_registered(
+        &self,
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+        physical: PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingPackage, WorkflowError> {
         let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -536,7 +550,7 @@ impl crate::workflow::SourceServices {
                         inventory,
                         sources,
                         fits,
-                        BTreeMap::new(),
+                        providers,
                         Some(documents),
                         cancel,
                     )
@@ -2080,6 +2094,18 @@ impl Runtime {
     ) -> Result<ModelingPackage, WorkflowError> {
         self.source_services()
             .modeling_from_documents(documents, physical, cancel)
+            .await
+    }
+    /// Supply prepared native capabilities through the ordinary authored-document ingress.
+    pub async fn modeling_from_documents_registered(
+        &self,
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+        physical: PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.source_services()
+            .modeling_from_documents_registered(documents, physical, providers, cancel)
             .await
     }
     /// Supply the composition root's explicit source capabilities.

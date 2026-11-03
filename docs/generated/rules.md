@@ -185,7 +185,6 @@
 | `runtime.canonical_stages` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_stages" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_studies` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_studies" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_admission_outcomes` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_admission_outcomes" s GROUP BY s."key" HAVING COUNT(*) > 1` |
-| `runtime.canonical_study_capture_gate` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_capture_gate" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_capture_headers` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_capture_headers" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_capture_members` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_capture_members" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_capture_protections` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_capture_protections" s GROUP BY s."key" HAVING COUNT(*) > 1` |

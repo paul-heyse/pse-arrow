@@ -46,79 +46,10 @@ DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object
     ORDER BY key LIMIT $extent;
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rows;
 } PERMISSIONS NONE;
-// Conservative global publication scope includes future matching studies and all
-// selector metadata. Expiry is never a writer-side bypass of the checked guard.
-DEFINE FUNCTION fn::pse_workbench_v1::publication($rpc_expiry:int) -> bool {
-    LET $gate=SELECT * FROM ONLY canonical_study_capture_gate:current FOR UPDATE;
-    IF $gate!=NONE AND $gate.capture!=NONE { THROW 'PSE_REFUSAL:study_capture_publication_busy'; };
-    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
-};
 // A physical tuple key is injectively framed, including opaque IDs containing
 // delimiters. This is operational encoding, not a new semantic hash identity.
 DEFINE FUNCTION fn::pse_workbench_v1::protection_key($capture:string,$study:string,$attempt:string) -> string {
     RETURN encoding::base64::encode(encoding::cbor::encode([$capture,$study,$attempt]));
-};
-DEFINE FUNCTION fn::pse_workbench_v1::open_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes) -> object {
-    LET $old=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
-    IF $old!=NONE {
-        IF $old.owner!=$owner OR $old.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
-        RETURN $old;
-    };
-    LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
-    IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
-    fn::pse_workbench_v1::publication($rpc_expiry);
-    LET $incarnation=<string>rand::uuid::v4();
-    UPSERT ONLY canonical_study_capture_gate:current SET key='current',incarnation=$incarnation,capture=$key,owner=$owner,request=$request,issued_expires_at=<decimal>$rpc_expiry;
-    LET $saved=CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,incarnation=$incarnation,issued_expires_at=<decimal>$rpc_expiry,state='pending',header_count=0dec,member_count=0dec;
-    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $saved;
-};
-// Selection, exact facts, all selected manifest protections and gate closure
-// commit together. Only compact receipt leaves this transaction.
-DEFINE FUNCTION fn::pse_workbench_v1::commit_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$rows:array<object>,$maximum:int,$members:int) -> object {
-    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
-    IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
-    IF $capture.state='frozen' { RETURN $capture; };
-    LET $gate=SELECT * FROM ONLY canonical_study_capture_gate:current FOR UPDATE;
-    IF $capture.state!='pending' OR $gate=NONE OR $gate.capture!=$key OR $gate.owner!=$owner OR $gate.request!=$request OR $gate.incarnation!=$capture.incarnation OR $gate.issued_expires_at!=$capture.issued_expires_at OR $capture.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_capture_original_grant_closed'; };
-    LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
-    IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
-    IF array::len($rows)>$maximum OR $maximum<1 OR $maximum>64 OR $members<1 OR $members>__COHORT_MEMBERS__ { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    FOR $s IN $rows { fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key); };
-    LET $total=math::sum($rows.point_count) ?? 0dec;
-    IF array::len($rows.filter(|$s| !$s.active))!=0 OR $total>$members { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    LET $selected_headers=$rows.map(|$s,$index| {
-        LET $run=SELECT problem,revision,terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
-        LET $attempt=IF $run.terminal_attempt=NONE {NONE} ELSE {SELECT key,run,phase,closed_manifest FROM ONLY type::record('canonical_attempts',$run.terminal_attempt)};
-        LET $manifest=IF $attempt=NONE OR $attempt.run!=$s.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $attempt.closed_manifest=NONE {NONE} ELSE {SELECT key,attempt FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest)};
-        LET $available=$manifest!=NONE AND $manifest.attempt=$run.terminal_attempt AND (SELECT key FROM ONLY type::record('canonical_result_retirements',$s.run))=NONE;
-        LET $header=object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
-        LET $protection=IF !$available {NONE} ELSE {{id:type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$s.key,$attempt.key)),key:fn::pse_workbench_v1::protection_key($key,$s.key,$attempt.key),capture:$key,study:$s.key,run:$s.run,attempt:$attempt.key,manifest:$manifest.key,problem:$run.problem,revision:$run.revision}};
-        RETURN {row:{id:type::record('canonical_study_capture_headers',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<decimal>$index,body:encoding::cbor::encode($header)},protection:$protection};
-    });
-    LET $headers=$selected_headers.row;
-    LET $selected=$rows.key;
-    LET $points=SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected ORDER BY study,ordinal LIMIT __COHORT_SENTINEL__;
-    IF array::len($points)!=$total { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    LET $facts=$points.map(|$point,$index| {
-        LET $attempt=IF $point.attempt=NONE {NONE} ELSE {SELECT key,run,phase,closed_manifest FROM ONLY type::record('canonical_attempts',$point.attempt)};
-        LET $manifest=IF $attempt=NONE OR $attempt.run!=$point.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $attempt.closed_manifest=NONE {NONE} ELSE {SELECT key,attempt FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest)};
-        LET $available=$manifest!=NONE AND $manifest.attempt=$point.attempt AND (SELECT key FROM ONLY type::record('canonical_result_retirements',$point.run))=NONE;
-        LET $member=object::extend($point,{manifest:IF $available {$manifest.key} ELSE {NONE}});
-        RETURN {id:type::record('canonical_study_capture_members',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<decimal>$index,body:encoding::cbor::encode($member),study:$point.study,run:$point.run,attempt:$point.attempt,manifest:IF $available {$manifest.key} ELSE {NONE}};
-    });
-    LET $member_protections=$facts.filter(|$fact| $fact.manifest!=NONE).map(|$fact| {
-        LET $run=SELECT problem,revision FROM ONLY type::record('canonical_runs',$fact.run);
-        RETURN {id:type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$fact.study,$fact.attempt)),key:fn::pse_workbench_v1::protection_key($key,$fact.study,$fact.attempt),capture:$key,study:$fact.study,run:$fact.run,attempt:$fact.attempt,manifest:$fact.manifest,problem:$run.problem,revision:$run.revision};
-    });
-    LET $header_protections=$selected_headers.map(|$header| $header.protection).filter(|$protection| $protection!=NONE);
-    LET $protections=array::distinct(array::concat($member_protections,$header_protections));
-    IF array::len($headers)!=0 { INSERT INTO canonical_study_capture_headers $headers RETURN NONE; };
-    IF array::len($facts)!=0 { INSERT INTO canonical_study_capture_members $facts RETURN NONE; };
-    IF array::len($protections)!=0 { INSERT INTO canonical_study_capture_protections $protections RETURN NONE; };
-    UPDATE ONLY canonical_study_capture_gate:current SET incarnation=<string>rand::uuid::v4(),capture=NONE,owner=NONE,request=NONE,issued_expires_at=0dec;
-    LET $saved=UPDATE ONLY type::record('canonical_study_captures',$key) SET state='frozen',header_count=<decimal>array::len($headers),member_count=<decimal>array::len($facts);
-    IF $capture.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_capture_original_grant_closed'; };
-    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $saved;
 };
 DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$kind:string,$after:decimal) -> array<object> {
     LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
@@ -190,22 +121,6 @@ DEFINE FUNCTION fn::pse_workbench_v1::inline_payload($rpc_expiry:int,$key:string
     IF $body=NONE {THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch';};
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $body;
 };
-// Exact pending-gate recovery changes incarnation even after expiry, so a stale
-// in-flight capture cannot commit against the reopened publication universe.
-DEFINE FUNCTION fn::pse_workbench_v1::recover_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes) -> object {
-    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
-    IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
-    IF $capture.state!='pending' {RETURN $capture;};
-    // The authenticated original holder can abandon early; every recovery fences
-    // incarnation before reopening, including expiry and uncertain cancellation.
-    LET $gate=SELECT * FROM ONLY canonical_study_capture_gate:current FOR UPDATE;
-    IF $gate.capture=$key {
-        IF $gate.incarnation!=$capture.incarnation OR $gate.request!=$request OR $gate.owner!=$owner { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
-        UPDATE ONLY canonical_study_capture_gate:current SET incarnation=<string>rand::uuid::v4(),capture=NONE,owner=NONE,request=NONE,issued_expires_at=0dec;
-    };
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN UPDATE ONLY type::record('canonical_study_captures',$key) SET state='abandoned';
-};
 // Only the last local capability/scan releases. A different process may clean an
 // abandoned owner only after its actual authenticated native owner is drained.
 DEFINE FUNCTION fn::pse_workbench_v1::release_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$custodian:string) -> bool {
@@ -216,17 +131,14 @@ DEFINE FUNCTION fn::pse_workbench_v1::release_capture($rpc_expiry:int,$key:strin
         IF $custodian!=$owner { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
         LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
         IF $process=NONE OR $process.drained { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
-        // An exact tombstone fences a delayed gate acquisition after lost ACK.
-        CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,incarnation='unissued',issued_expires_at=0dec,state='released',header_count=0dec,member_count=0dec;
+        // An exact tombstone fences a delayed atomic capture after lost ACK.
+        CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,state='released',header_count=0dec,member_count=0dec;
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
     };
     IF $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
     IF $custodian!=$owner {
         LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
         IF $process=NONE OR !$process.drained { THROW 'PSE_REFUSAL:study_capture_original_owner_not_drained'; };
-    };
-    IF $capture.state='pending' {
-        fn::pse_workbench_v1::recover_capture($rpc_expiry,$key,$owner,$request);
     };
     IF $capture.state='released' {RETURN true;};
     UPDATE ONLY type::record('canonical_study_captures',$key) SET state='releasing';

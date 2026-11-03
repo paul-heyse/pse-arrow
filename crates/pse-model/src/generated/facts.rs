@@ -369,10 +369,6 @@ pub enum FactBatch {
     r#RuntimeCanonicalStudyAdmissionOutcomes(
         Vec<super::r#runtime::r#canonical_study_admission_outcomes::Row>,
     ),
-    #[doc = stringify!(r#RuntimeCanonicalStudyCaptureGate)]
-    r#RuntimeCanonicalStudyCaptureGate(
-        Vec<super::r#runtime::r#canonical_study_capture_gate::Row>,
-    ),
     #[doc = stringify!(r#RuntimeCanonicalStudyCaptureHeaders)]
     r#RuntimeCanonicalStudyCaptureHeaders(
         Vec<super::r#runtime::r#canonical_study_capture_headers::Row>,
@@ -1320,12 +1316,6 @@ impl FactBatch {
                     187u8, 112u8, 248u8, 230u8, 46u8, 244u8,
                 ])
             }
-            Self::r#RuntimeCanonicalStudyCaptureGate(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    75u8, 113u8, 59u8, 9u8, 160u8, 252u8, 55u8, 52u8, 1u8, 116u8, 241u8,
-                    58u8, 116u8, 218u8, 13u8, 84u8,
-                ])
-            }
             Self::r#RuntimeCanonicalStudyCaptureHeaders(_) => {
                 pse_ids::SemanticId::from_bytes([
                     103u8, 248u8, 156u8, 63u8, 239u8, 98u8, 146u8, 18u8, 55u8, 233u8,
@@ -1921,7 +1911,6 @@ impl FactBatch {
             Self::r#RuntimeCanonicalStages(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudies(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyAdmissionOutcomes(rows) => rows.len(),
-            Self::r#RuntimeCanonicalStudyCaptureGate(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyCaptureHeaders(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyCaptureMembers(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyCaptureProtections(rows) => rows.len(),
@@ -2618,11 +2607,6 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalStudyAdmissionOutcomes(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#RuntimeCanonicalStudyCaptureGate(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3578,12 +3562,6 @@ impl FactBatch {
             Self::r#RuntimeCanonicalStudyAdmissionOutcomes(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalStudyAdmissionOutcomes(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#RuntimeCanonicalStudyCaptureGate(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#RuntimeCanonicalStudyCaptureGate(
                         vec![row.clone()],
                     ))
             }
@@ -5223,17 +5201,6 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalStudyAdmissionOutcomes(left),
                 Self::r#RuntimeCanonicalStudyAdmissionOutcomes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#RuntimeCanonicalStudyCaptureGate(left),
-                Self::r#RuntimeCanonicalStudyCaptureGate(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6921,13 +6888,6 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalStudyAdmissionOutcomes(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#RuntimeCanonicalStudyCaptureGate(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -8921,17 +8881,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#RuntimeCanonicalStudyCaptureGate(left),
-                Self::r#RuntimeCanonicalStudyCaptureGate(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#RuntimeCanonicalStudyCaptureHeaders(left),
                 Self::r#RuntimeCanonicalStudyCaptureHeaders(right),
             ) => {
@@ -10653,10 +10602,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
-            Self::r#RuntimeCanonicalStudyCaptureGate(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#key, &mut hash);
-            }
             Self::r#RuntimeCanonicalStudyCaptureHeaders(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -11901,13 +11846,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#RuntimeCanonicalStudyCaptureGate(left),
-                Self::r#RuntimeCanonicalStudyCaptureGate(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#RuntimeCanonicalStudyCaptureHeaders(left),
                 Self::r#RuntimeCanonicalStudyCaptureHeaders(mut right),
             ) => {
@@ -12721,9 +12659,6 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalStages(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalStudies(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalStudyAdmissionOutcomes(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#RuntimeCanonicalStudyCaptureGate(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalStudyCaptureHeaders(rows) => {

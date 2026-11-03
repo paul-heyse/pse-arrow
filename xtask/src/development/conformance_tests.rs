@@ -3,6 +3,16 @@
 //! Receiving controls for campaign selection and owned report publication.
 use super::*;
 
+#[test]
+fn native_provider_selection_is_explicit_and_unprepared_builds_refuse() {
+    assert_eq!(NativeProviders::default(), NativeProviders::None);
+    NativeProviders::None.validate().unwrap();
+    assert_eq!(
+        NativeProviders::CoolpropWater.validate().is_ok(),
+        cfg!(feature = "property-coolprop")
+    );
+}
+
 fn fixture() -> Result<(tempfile::TempDir, PathBuf)> {
     let directory = tempfile::tempdir()?;
     let packages = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/packages");
@@ -148,9 +158,14 @@ async fn native_campaign_caller_settles_success_and_refusal_before_report_export
             shared.clone(),
             factory.bind_model(pse_schema::shared_registry()?)?,
         )?;
-        let outcome = AssertUnwindSafe(campaign.run_native(run, &runtime, &CancelSource::new()))
-            .catch_unwind()
-            .await;
+        let outcome = AssertUnwindSafe(campaign.run_native(
+            run,
+            &runtime,
+            NativeProviders::None,
+            &CancelSource::new(),
+        ))
+        .catch_unwind()
+        .await;
         runtime.close();
         runtime.clear_program_cache();
         let cleanup = shared.math().shutdown_native_lanes().await;

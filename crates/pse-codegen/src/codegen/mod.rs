@@ -45,6 +45,8 @@ mod surreal_research;
 mod surreal_retention;
 mod surreal_studies;
 mod surreal_study_workbench;
+mod surreal_study_capture;
+mod surreal_study_capture_witness;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

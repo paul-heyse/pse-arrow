@@ -2599,7 +2599,7 @@ fn initialization_statement(
     module: &study_module::StudyModuleReceipt,
 ) -> Result<crate::canonical_script::PreparedScript<Value>, CanonicalError> {
     let body = format!(
-        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation,schema_version=$schema_version,schema_epoch=$schema_epoch,admission_open=true;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;",
+        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation,schema_version=$schema_version,schema_epoch=$schema_epoch,admission_open=true;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nCREATE canonical_guards:⟨study-publication⟩ SET key='study-publication',generation=0;",
         module.declarations(false),
         wire::SCHEMA,
     );

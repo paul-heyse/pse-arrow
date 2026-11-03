@@ -428,6 +428,18 @@ pub(crate) fn lose_capture_release_reply(key: &str) {
         .insert(key.into());
 }
 
+#[cfg(all(test, feature = "canonical-tests"))]
+static CAPTURE_REPLY_LOSS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::BTreeSet<String>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeSet::new()));
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(crate) fn lose_capture_reply(key: &str) {
+    CAPTURE_REPLY_LOSS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(key.into());
+}
+
 type CompactStudyAttribution = (Option<String>, Option<String>, Option<String>);
 
 /// Project immutable scientific metadata into the same original create transaction.
@@ -532,15 +544,16 @@ fn workbench_script(
     filter: &StudyWorkbenchFilter,
     frozen: bool,
 ) -> Result<PreparedScript<Option<Object>>, CanonicalError> {
-    let finish = if frozen {
-        "fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members)"
-    } else {
-        "fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum)"
-    };
     let _ = filter;
+    if frozen {
+        return GuardedScript::new(Envelope::DeadlineOnly).returning(
+            "LET $capture_reply=mod::pse::study_capture::capture({expiry:$pse_rpc_expires_at,key:$capture,owner:$owner,request:$request,filter:{study:$study,project:$project,branch:$branch,source:$source,physical_revision:$physical_revision,context:$context,outcome:$outcome,research_reference:$research_reference},maximum:$maximum,members:$members}); IF $capture_reply.refusal!=NONE { THROW 'PSE_REFUSAL:'+$capture_reply.refusal; };",
+            "$capture_reply.receipt",
+        );
+    }
     GuardedScript::new(Envelope::DeadlineOnly).returning(
         "LET $rows=fn::pse_workbench_v1::select_rows($pse_rpc_expires_at,{study:$study,project:$project,branch:$branch,source:$source,physical_revision:$physical_revision,context:$context,outcome:$outcome,research_reference:$research_reference},$after,$extent);",
-        finish,
+        "fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum)",
     )
 }
 impl CanonicalStore {
@@ -656,7 +669,7 @@ impl CanonicalStore {
         }).await
     }
 
-    /// Capture an exact immutable request once, retaining the original gate grant.
+    /// Atomically capture an exact immutable request under its original clock.
     /// Complete population admission shares the public workbench's declared bound.
     pub async fn capture_study_workbench(
         &self,
@@ -696,27 +709,21 @@ impl CanonicalStore {
             let request=serde_json::to_vec(&(1_u8,filter,maximum,members)).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
             let capture=capture_owner(self,key,&owner,&request)?;
             let receipt=within_clock(original_deadline(REQUEST_TIMEOUT),async {
-                let opened=protected_query("canonical_study_workbench::capture_open",|| Ok(self.db.query("RETURN fn::pse_workbench_v1::open_capture($pse_rpc_expires_at,$capture,$owner,$request);").bind(("capture",key.to_owned())).bind(("owner",owner.clone())).bind(("request",Bytes::from(request.clone()))))).await.and_then(|mut response|response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
-                let opened=crate::canonical::settlement::settle_exact("study-cohort-gate",key,&request,opened,async {
-                    let mut response=protected_query("canonical_study_workbench::gate_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
-                    Ok(response.take::<Option<Object>>(0)?)
-                },|row| row.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && row.get("owner")==Some(&Value::String(owner.clone())),CanonicalError::source_transaction_refused).await.map_err(|error| {
-                    if matches!(error,CanonicalError::OperationReused) {capture.0.release_needed.store(false,std::sync::atomic::Ordering::Release);}
-                    error
-                })?;
-                if opened.get("state")==Some(&Value::String("frozen".into())) {return Ok(opened);}
-                if opened.get("state")!=Some(&Value::String("pending".into())) {return Err(CanonicalError::CaptureClosed{capture:key.into()});}
                 let write=protected_query("canonical_study_workbench::capture_commit",|| Ok(self.db.script(workbench_script(filter,true)?)
                     .bind(("capture",key.to_owned())).bind(("owner",owner.clone())).bind(("request",Bytes::from(request.clone())))
                     .bind(("study",filter.study.clone())).bind(("project",filter.project.clone())).bind(("branch",filter.branch.clone())).bind(("source",filter.source.clone())).bind(("physical_revision",filter.physical_revision.clone())).bind(("context",filter.context.clone())).bind(("research_reference",filter.research_reference.clone()))
                     .bind(("outcome",filter.outcome.map(serde_json::to_value).transpose().map_err(|e| CanonicalError::Configuration(e.to_string()))?.and_then(|v|v.as_str().map(str::to_owned))))
                     .bind(("after",String::new())).bind(("maximum",maximum)).bind(("extent",maximum+1)).bind(("members",members)))).await.and_then(|mut response| {ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)});
+                #[cfg(all(test, feature = "canonical-tests"))]
+                let write=if write.is_ok() && CAPTURE_REPLY_LOSS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(key) { Err(CanonicalError::IncompleteResponse) } else {write};
                 crate::canonical::settlement::settle_exact("study-cohort-capture",key,&request,write,async {
                     let mut response=protected_query("canonical_study_workbench::capture_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
-                    let row=response.take::<Option<Object>>(0)?;
-                    Ok(row.filter(|row|row.get("state")==Some(&Value::String("frozen".into()))))
+                    Ok(response.take::<Option<Object>>(0)?)
                 },|row| row.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && row.get("owner")==Some(&Value::String(owner.clone())) && row.get("state")==Some(&Value::String("frozen".into())),CanonicalError::source_transaction_refused).await
-            }).await?;
+            }).await.map_err(|error| {
+                if matches!(error,CanonicalError::OperationReused) {capture.0.release_needed.store(false,std::sync::atomic::Ordering::Release);}
+                error
+            })?;
             let mut receipt=receipt;
             let header_count=codec::decode_uint(codec::required(&mut receipt,"header_count")?)?;
             let member_count=codec::decode_uint(codec::required(&mut receipt,"member_count")?)?;
@@ -740,9 +747,9 @@ mod tests {
         for frozen in [false, true] {
             let (sql, _, _) = workbench_script(&filter, frozen).unwrap().into_parts();
             assert!(!sql.contains("DELETE"));
-            assert!(sql.contains("revision=$source"));
-            assert!(sql.contains("physical_revision=$physical_revision"));
-            assert!(sql.contains(".terminal_class=$outcome"));
+            assert!(sql.contains("source:$source"));
+            assert!(sql.contains("physical_revision:$physical_revision"));
+            assert!(sql.contains("outcome:$outcome"));
             assert!(!sql.contains("eligible"));
             #[cfg(feature = "canonical-maintenance")]
             assert!(
@@ -750,7 +757,7 @@ mod tests {
                 "native workbench script must parse: {sql}"
             );
             let expression = if frozen {
-                "fn::pse_workbench_v1::commit_capture"
+                "mod::pse::study_capture::capture"
             } else {
                 "fn::pse_workbench_v1::browse"
             };

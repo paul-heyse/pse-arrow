@@ -17,7 +17,7 @@ pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
 pub const INTERPRETATION: &str = "pse.substrate.v10";
 
 /// Native schema admission generation; scientific row interpretation remains v10.
-pub const SCHEMA_VERSION: u64 = 3;
+pub const SCHEMA_VERSION: u64 = 4;
 /// Supported predecessor of native epoch admission, retained as an immutable migration input.
 pub const PRE_EPOCH_SCHEMA_DIGEST: &str =
     "b6ee758d774a6510a9db894c9062cfe103439bdecc049efeaab8cd26581a21a3";
@@ -32,6 +32,14 @@ pub const SCHEMA_V2_DIGEST: &str =
 /// Raw bytes of the immutable schema-v2 declaration.
 pub const SCHEMA_V2_DECLARATION_SHA256: &str =
     "4b082f4d8bdc6a17ff3ce00a1cf30c8569422a51e7678f1e9e6bc0c9871e1aae";
+/// Exact progression/capture predecessor before atomic capture publication.
+pub const SCHEMA_V3_VERSION: u64 = 3;
+/// Frozen schema/codec digest of the original schema-v3 contract.
+pub const SCHEMA_V3_DIGEST: &str =
+    "56871005a52697e9e619f4a9ebe63df9447a292489481550fea14e76d4d5beb8";
+/// Raw bytes of the immutable schema-v3 declaration.
+pub const SCHEMA_V3_DECLARATION_SHA256: &str =
+    "ccf56f76e8e68475c7ac00f92cf56b94a6376e59c9e2ba12180ff82fb0c2ac6f";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
@@ -1106,15 +1114,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
-            "canonical_study_capture_gate",
-            vec![column("key", text()).canonical_record_key(), column("incarnation", text()).canonical_mutable(), column("capture", text()).canonical_mutable().optional(), column("owner", text()).canonical_mutable().optional(), column("request", bytes()).canonical_mutable().optional(), column("issued_expires_at", uint()).canonical_mutable()],
-            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
-            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
-        ),
-        (
             "canonical_study_captures",
-            vec![column("key", text()).canonical_record_key(), column("owner", text()).canonical_readonly(), column("request", bytes()).canonical_readonly(), column("incarnation", text()).canonical_readonly(), column("issued_expires_at", uint()).canonical_readonly(), column("state", FieldContract::enumeration("CanonicalStudyCaptureState")).with_canonical_initial("pending").with_canonical_transition_exception("$before=NONE AND $value='released' AND $this.incarnation='unissued' AND $this.issued_expires_at=0dec"), column("header_count", uint()).with_canonical_seal("$before.state!='pending'").with_canonical_seal_refusal(super::canonical_refusals::RefusalCode::StudyCaptureIdentityReused.wire()), column("member_count", uint()).with_canonical_seal("$before.state!='pending'").with_canonical_seal_refusal(super::canonical_refusals::RefusalCode::StudyCaptureIdentityReused.wire())],
-            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
+            vec![column("key", text()).canonical_record_key(), column("owner", text()).canonical_readonly(), column("request", bytes()).canonical_readonly(), column("state", FieldContract::enumeration("CanonicalStudyCaptureState")).with_canonical_initial("frozen").with_canonical_transition_exception("$before=NONE AND $value='released'"), column("header_count", uint()).canonical_readonly(), column("member_count", uint()).canonical_readonly()],
+            "Atomic exact-request capture receipt and immutable population counts; protections remain until authenticated owner cleanup and actual scan drain.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (

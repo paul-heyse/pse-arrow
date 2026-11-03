@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    31u8, 49u8, 28u8, 80u8, 5u8, 250u8, 109u8, 134u8, 201u8, 9u8, 46u8, 159u8, 113u8,
-    114u8, 70u8, 208u8, 31u8, 59u8, 4u8, 16u8, 109u8, 75u8, 59u8, 121u8, 36u8, 182u8,
-    189u8, 108u8, 180u8, 9u8, 136u8, 91u8,
+    187u8, 3u8, 180u8, 86u8, 220u8, 185u8, 46u8, 230u8, 35u8, 195u8, 251u8, 104u8, 220u8,
+    241u8, 105u8, 144u8, 154u8, 187u8, 69u8, 152u8, 187u8, 129u8, 217u8, 195u8, 135u8,
+    32u8, 85u8, 253u8, 193u8, 47u8, 98u8, 10u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalStudyCapturesRow {
     fn append(
@@ -37,22 +37,14 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyCapturesRow {
         crate::columnar::ArrowValue::append(&self.r#key, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#owner, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#request, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#incarnation,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#issued_expires_at,
-            children[4usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#state, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#header_count,
-            children[6usize].as_mut(),
+            children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#member_count,
-            children[7usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -69,13 +61,11 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyCapturesRow {
         <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <crate::generated::enums::CanonicalStudyCaptureState as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -98,24 +88,16 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyCapturesRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#incarnation: <String as crate::columnar::ArrowValue>::read(
+            r#state: <crate::generated::enums::CanonicalStudyCaptureState as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#issued_expires_at: <u64 as crate::columnar::ArrowValue>::read(
+            r#header_count: <u64 as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#state: <crate::generated::enums::CanonicalStudyCaptureState as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
-                index,
-            )?,
-            r#header_count: <u64 as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
-                index,
-            )?,
             r#member_count: <u64 as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -177,22 +159,14 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyCapturesRow {
         crate::columnar::ArrowValue::append(&self.r#key, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#owner, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#request, columns[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#incarnation,
-            columns[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#issued_expires_at,
-            columns[4usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#state, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#header_count,
-            columns[6usize].as_mut(),
+            columns[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#member_count,
-            columns[7usize].as_mut(),
+            columns[5usize].as_mut(),
         )?;
         Ok(())
     }
@@ -229,10 +203,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyCapturesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        16_384_usize + size_of::<Self::Builder>()
+        12_288_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        128usize
+        96usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -247,14 +221,6 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyCapturesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#request).len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            crate::columnar::allocation_add(8, (self.r#incarnation).len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -278,7 +244,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -296,28 +262,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "incarnation",
+        name: "state",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "issued_expires_at",
+        name: "header_count",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "state",
-        position: 5usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "header_count",
-        position: 6usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "member_count",
-        position: 7usize,
+        position: 5usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -328,16 +284,12 @@ pub mod columns {
     pub const OWNER: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///request
     pub const REQUEST: crate::columnar::ColumnReference = super::COLUMNS[2usize];
-    ///incarnation
-    pub const INCARNATION: crate::columnar::ColumnReference = super::COLUMNS[3usize];
-    ///issued_expires_at
-    pub const ISSUED_EXPIRES_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///state
-    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///header_count
-    pub const HEADER_COUNT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const HEADER_COUNT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///member_count
-    pub const MEMBER_COUNT: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const MEMBER_COUNT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -348,8 +300,6 @@ pub struct RuntimeCanonicalStudyCapturesView<'a> {
     key_column: &'a arrow_array::StringArray,
     owner_column: &'a arrow_array::StringArray,
     request_column: &'a arrow_array::BinaryArray,
-    incarnation_column: &'a arrow_array::StringArray,
-    issued_expires_at_column: &'a arrow_array::UInt64Array,
     state_column: &'a arrow_array::StringArray,
     header_count_column: &'a arrow_array::UInt64Array,
     member_count_column: &'a arrow_array::UInt64Array,
@@ -406,21 +356,15 @@ impl<'a> RuntimeCanonicalStudyCapturesView<'a> {
             request_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
             >(batch.column(2usize).as_ref())?,
-            incarnation_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(3usize).as_ref())?,
-            issued_expires_at_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(4usize).as_ref())?,
             state_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             header_count_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
             member_count_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -473,30 +417,6 @@ impl<'a> RuntimeCanonicalStudyCapturesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "incarnation",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn incarnation_column(&self) -> &'a arrow_array::StringArray {
-        self.incarnation_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "incarnation", "`.")]
-    pub fn incarnation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "issued_expires_at",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn issued_expires_at_column(&self) -> &'a arrow_array::UInt64Array {
-        self.issued_expires_at_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "issued_expires_at", "`.")]
-    pub fn issued_expires_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "state",
         "`, including its offsets and validity bitmap.",
     )]
@@ -505,7 +425,7 @@ impl<'a> RuntimeCanonicalStudyCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "state", "`.")]
     pub fn state_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -517,7 +437,7 @@ impl<'a> RuntimeCanonicalStudyCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "header_count", "`.")]
     pub fn header_count_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -529,7 +449,7 @@ impl<'a> RuntimeCanonicalStudyCapturesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "member_count", "`.")]
     pub fn member_count_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -546,14 +466,6 @@ impl<'a> RuntimeCanonicalStudyCapturesView<'a> {
             r#key: crate::columnar::ArrowValue::read(self.key_column, index)?,
             r#owner: crate::columnar::ArrowValue::read(self.owner_column, index)?,
             r#request: crate::columnar::ArrowValue::read(self.request_column, index)?,
-            r#incarnation: crate::columnar::ArrowValue::read(
-                self.incarnation_column,
-                index,
-            )?,
-            r#issued_expires_at: crate::columnar::ArrowValue::read(
-                self.issued_expires_at_column,
-                index,
-            )?,
             r#state: crate::columnar::ArrowValue::read(self.state_column, index)?,
             r#header_count: crate::columnar::ArrowValue::read(
                 self.header_count_column,

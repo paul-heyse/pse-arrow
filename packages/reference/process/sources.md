@@ -22,6 +22,16 @@ current stored configuration requires a single-phase allocation and component-to
 component-phase inventory basis. A concrete unit owns its constitutive inventory equations;
 element-total and total storage need an explicit inventory projection before admission.
 
+`PhaseInventory` supplies explicit phase/component stocks and flux projections without
+asserting a phase-equilibrium law. Element stocks use a distinct element-subjected
+`ElementAmount`, with complete component composition required for the selected element claims.
+`ClosedTwoPhaseInventory` prescribes equal and opposite component transfer between two phases;
+the enclosing component, element and total projections cancel that internal transfer once.
+The synthetic closed-transfer seed supplies independent endpoint amounts and original stock
+minus integrated-flux observations. It makes no thermal/latent-heat or phase-equilibrium claim
+and does not remove the stored control-volume restrictions above. Homogeneous allocation uses
+the actual stored amount, independently of the EOS's normalization amount.
+
 Feed and Product expose one independent state specification through a material port. Heater specializes the
 control volume with zero mechanical work. Mixer admits an indexed inlet set, sums component
 and enthalpy transport, and sets its pressure with the authored finite smooth-min fold.

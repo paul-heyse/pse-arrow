@@ -1477,18 +1477,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            75u8, 113u8, 59u8, 9u8, 160u8, 252u8, 55u8, 52u8, 1u8, 116u8, 241u8, 58u8,
-            116u8, 218u8, 13u8, 84u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyCaptureGate(
-                super::r#runtime::r#canonical_study_capture_gate::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             103u8, 248u8, 156u8, 63u8, 239u8, 98u8, 146u8, 18u8, 55u8, 233u8, 72u8, 32u8,
             27u8, 45u8, 168u8, 203u8,
         ])
@@ -2804,9 +2792,6 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyAdmissionOutcomes(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyCaptureGate(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyCaptureHeaders(

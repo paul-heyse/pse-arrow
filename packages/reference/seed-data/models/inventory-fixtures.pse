@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64e02000000000000000000000000400") package inventory_fixtures {
+@id("64e02000000000000000000000000401") use chemistry @"1.0.0";
+@id("64e02000000000000000000000000402") use chem @"1.0.0";
+@id("64e02000000000000000000000000403") use ciaaw @"1.0.0";
+@id("64e02000000000000000000000000404") use vessels @"1.0.0";
+@id("64e02000000000000000000000000405") use distributed_volumes @"1.0.0";
+@id("64e02000000000000000000000000406") use provenance @"1.0.0";
+// Synthetic material-allocation control, not published phase-equilibrium data.
+// Initial liquid=(2,3), vapor=(1,4) mol of benzene/toluene. During one
+// second, transfer (0.25,0.5) mol from liquid to vapor. Component totals
+// remain (3,7), total amount 10, carbon 67 and hydrogen 74 mol throughout.
+// No temperature, pressure, latent heat or phase-equilibrium claim is made.
+@id("64e02000000000000000000000000407") entity provenance.source analytic_transfer {title="Synthetic closed two-phase material inventory with prescribed constant transfer; independent component and elemental totals from benzene C6H6 and toluene C7H8"}
+@id("64e02000000000000000000000000408") set members:Set<chemistry.species>={chem.benzene,chem.toluene};
+@id("64e02000000000000000000000000409") set phases:Set<chemistry.phase>={chemistry.liquid,chemistry.vapor};
+@id("64e0200000000000000000000000040a") set elements:Set<chemistry.element>={ciaaw.C,ciaaw.H};
+@id("64e0200000000000000000000000040b") fn transfer(j:chemistry.species)->ComponentFlow=if j==chem.benzene then 0.25{mol/s} else 0.5{mol/s};
+@id("64e0200000000000000000000000040c") fn initial(p:chemistry.phase,j:chemistry.species)->Amount=if p==chemistry.liquid then (if j==chem.benzene then 2{mol} else 3{mol}) else (if j==chem.benzene then 1{mol} else 4{mol});
+@id("64e0200000000000000000000000040d") def ClosedTransfer {
+@id("64e0200000000000000000000000040e") require analysis.dynamic : "closed phase inventory trajectory requires dynamic analysis";
+@id("64e0200000000000000000000000040f") domain t:Time from 0{s} to 1{s};
+@id("64e02000000000000000000000000410") when analysis.route==analysis.integrated {
+@id("64e02000000000000000000000000411") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("64e02000000000000000000000000412") when analysis.route==analysis.simultaneous {
+@id("64e02000000000000000000000000413") discretize grid on t using distributed_volumes.backward(elements=1,order=1);
+}
+@id("64e02000000000000000000000000414") child cell[i in t]:vessels.ClosedTwoPhaseInventory=vessels.ClosedTwoPhaseInventory(selected=members,source_phase=chemistry.liquid,receiving_phase=chemistry.vapor,transfer_law=transfer,selected_elements=elements);
+@id("64e02000000000000000000000000415") conserve phase_balance[i in t,p in phases,j in members]:Amount on t inventory cell[i].phase_amount[p,j] flux cell[i].phase_flux[p,j] tolerance 1e-9{mol};
+@id("64e02000000000000000000000000416") eq initial_allocation[p in phases,j in members]:cell[0{s}].phase_amount[p,j]==initial(p,j);
+// Projected whole-system closure is assessed in original stocks/flux integrals;
+// it does not add redundant differential coordinates to the phase state system.
+@id("64e02000000000000000000000000417") accumulate component_closure[j in members]:Amount observation tolerance 1e-9{mol};
+@id("64e02000000000000000000000000430") let component_transfer[j in members]:Amount=integral(i in t | cell[i].component_flux[j]);
+@id("64e02000000000000000000000000418") contribute [j in members] component_closure[j] role positive=cell[1{s}].component_amount[j];
+@id("64e02000000000000000000000000419") contribute [j in members] component_closure[j] role negative=cell[0{s}].component_amount[j];
+@id("64e0200000000000000000000000041a") contribute [j in members] component_closure[j] role negative=component_transfer[j];
+@id("64e0200000000000000000000000041b") accumulate element_closure[e in elements]:ElementAmount observation tolerance 1e-9{mol};
+@id("64e02000000000000000000000000431") let element_transfer[e in elements]:ElementAmount=integral(i in t | cell[i].element_flux[e]);
+@id("64e0200000000000000000000000041c") contribute [e in elements] element_closure[e] role positive=cell[1{s}].element_amount[e];
+@id("64e0200000000000000000000000041d") contribute [e in elements] element_closure[e] role negative=cell[0{s}].element_amount[e];
+@id("64e0200000000000000000000000041e") contribute [e in elements] element_closure[e] role negative=element_transfer[e];
+@id("64e0200000000000000000000000041f") accumulate total_closure:TotalAmount observation tolerance 1e-9{mol};
+@id("64e02000000000000000000000000432") let total_transfer:TotalAmount=integral(i in t | cell[i].total_flux);
+@id("64e02000000000000000000000000420") contribute total_closure role positive=cell[1{s}].total_amount;
+@id("64e02000000000000000000000000421") contribute total_closure role negative=cell[0{s}].total_amount;
+@id("64e02000000000000000000000000422") contribute total_closure role negative=total_transfer;
+}
+@id("64e02000000000000000000000000423") test closed_transfer oracle analytic_transfer fixture {dof 0;route simultaneous;procedure solve;} {
+@id("64e02000000000000000000000000424") child root:ClosedTransfer=ClosedTransfer();
+@id("64e02000000000000000000000000425") expect root.cell[1{s}].phase_amount[chemistry.liquid,chem.benzene]==1.75{mol} tolerance 1e-9{mol};
+@id("64e02000000000000000000000000426") expect root.cell[1{s}].phase_amount[chemistry.vapor,chem.benzene]==1.25{mol} tolerance 1e-9{mol};
+@id("64e02000000000000000000000000427") expect root.cell[1{s}].phase_amount[chemistry.liquid,chem.toluene]==2.5{mol} tolerance 1e-9{mol};
+@id("64e02000000000000000000000000428") expect root.cell[1{s}].phase_amount[chemistry.vapor,chem.toluene]==4.5{mol} tolerance 1e-9{mol};
+@id("64e02000000000000000000000000429") expect root.cell[1{s}].component_amount[chem.benzene]==3{mol} tolerance 1e-9{mol};
+@id("64e0200000000000000000000000042a") expect root.cell[1{s}].component_amount[chem.toluene]==7{mol} tolerance 1e-9{mol};
+@id("64e0200000000000000000000000042b") expect root.cell[1{s}].element_amount[ciaaw.C]==67{mol} tolerance 1e-9{mol};
+@id("64e0200000000000000000000000042c") expect root.cell[1{s}].element_amount[ciaaw.H]==74{mol} tolerance 1e-9{mol};
+@id("64e0200000000000000000000000042d") expect root.cell[1{s}].total_amount==10{mol} tolerance 1e-9{mol};
+@id("64e0200000000000000000000000042e") expect root.cell[1{s}].element_flux[ciaaw.C]==0{mol/s} tolerance 1e-9{mol/s};
+}
+}

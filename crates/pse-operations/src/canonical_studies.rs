@@ -2749,6 +2749,7 @@ mod outcome_projection_tests {
 mod canonical_studies_server_unit {
     include!("canonical_study_module_tests.rs");
     include!("canonical_capture_tests.rs");
+    include!("canonical_capture_atomic_tests.rs");
     use super::*;
     use crate::canonical::CanonicalOptions;
     use crate::canonical_execution::TerminalClass;
@@ -4340,7 +4341,7 @@ mod canonical_studies_server_unit {
             .await
             .unwrap();
         assert!(
-            matches!(store.open().await, Err(CanonicalError::Configuration(message)) if message.contains("installed module, readonly bucket or pure export differs"))
+            matches!(store.open().await, Err(CanonicalError::Configuration(message)) if message.contains("installed module, readonly bucket or exact export writeability differs"))
         );
         bounded_query(
             store
@@ -4366,7 +4367,7 @@ mod canonical_studies_server_unit {
         .await
         .unwrap();
         assert!(
-            matches!(store.open().await, Err(CanonicalError::Configuration(message)) if message.contains("installed module, readonly bucket or pure export differs"))
+            matches!(store.open().await, Err(CanonicalError::Configuration(message)) if message.contains("installed module, readonly bucket or exact export writeability differs"))
         );
         bounded_query(
             store

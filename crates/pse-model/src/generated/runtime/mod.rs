@@ -159,8 +159,6 @@ pub mod r#canonical_studies;
 ///Generated relation contract.
 pub mod r#canonical_study_admission_outcomes;
 ///Generated relation contract.
-pub mod r#canonical_study_capture_gate;
-///Generated relation contract.
 pub mod r#canonical_study_capture_headers;
 ///Generated relation contract.
 pub mod r#canonical_study_capture_members;

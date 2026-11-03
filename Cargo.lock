@@ -1574,6 +1574,57 @@ dependencies = [
 ]
 
 [[package]]
+name = "coolprop-sys"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d388a1023cf8236d1a9f372db5f3ade4dc752b7588eef68848bba2050b2eb08"
+dependencies = [
+ "coolprop-sys-linux-aarch64",
+ "coolprop-sys-linux-x86-64",
+ "coolprop-sys-macos-aarch64",
+ "coolprop-sys-macos-x86-64",
+ "coolprop-sys-windows-aarch64",
+ "coolprop-sys-windows-x86-64",
+ "libloading 0.8.9",
+]
+
+[[package]]
+name = "coolprop-sys-linux-aarch64"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "699346179dde296731c65e981737e6add06dbfbeaf771029fefc2f48bc79792a"
+
+[[package]]
+name = "coolprop-sys-linux-x86-64"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c28f21144ee649f7f3b9a06f602be9e6fe029847e70c9b1161ea514ee807d5d2"
+
+[[package]]
+name = "coolprop-sys-macos-aarch64"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0d48570b2e9accc71f5f58796f67906784fb1d967f885e9321f612b51a475c3"
+
+[[package]]
+name = "coolprop-sys-macos-x86-64"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "698459ca83553bc3fba1b42bda90f1278dcd167e33fe54c6f1ab1895fa1cc6ef"
+
+[[package]]
+name = "coolprop-sys-windows-aarch64"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ada0fb9ab1601c0fb4649cb23d8f04b33a0862e9874ca9c1dbb314781a0d60a5"
+
+[[package]]
+name = "coolprop-sys-windows-x86-64"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dd6178b3378a63775ad81f4c4bb9d37968a3c821cecd0473d27c95e391da07d"
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8003,6 +8054,7 @@ dependencies = [
  "allocation-counter",
  "cc",
  "clarabel",
+ "coolprop-sys",
  "diffsol",
  "diffsol-la",
  "enum-map",
