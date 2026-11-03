@@ -3,7 +3,7 @@ title: "Plan64: Process-simulator target"
 status: in-progress
 date: 2026-11-02
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
+review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md, docs/plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md]
 doc_role: plan
 doc_owner: docs/plans/README.md
 doc_topics: [current-work, design, validation]
@@ -76,9 +76,51 @@ Logical dependencies, shared editing surfaces and physical work placement differ
 | F05 | planned | 64a A02; 64c C02 | Same semantic question with incompatible consumed method settings does not collide; value-only edits can preserve compatible structure. |
 | F06 | planned | 64a A02; 64c C05; 64g | Task-level analysis with zero numerical members; consistent owner/owning lists; point-based products retain their real point. |
 
+## Recycle improvement dispositions
+
+This table is the single scheduled-disposition owner for the
+[recycle performance/precision review](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md)
+I01–I12. On 2026-11-02 the maintainer selected all findings for staged integration and
+directed implementation of plausible optimizations without belaboring benefit selection.
+This supersedes the review's conditional-adoption posture for plausible optimizations;
+its source observations and evidence limits remain unchanged. Measurements refine changes
+and expose regressions; correctness/compatibility questions remain inside the work package.
+Keep first-party Rust at opt-level 2; a 2→3 increase is explicitly excluded.
+
+| Finding | Disposition | Primary work owner and consumers | Completion or settling evidence |
+|---|---|---|---|
+| [I01](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I01) | scheduled | 64c C02 | Exact field selection reaches tracked reuse before construction; semantic/refusal and construction controls, with time/RSS and retained-working-set refinement. |
+| [I02](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I02) | scheduled | 64c C02 | Indexed actual-instance discovery, shared membership/materialization and recipes preserve the same dependency closure without repeated owned projection. |
+| [I03](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I03) | scheduled | 64c C02; C03/C06 consumers | Valid preparation survives compatible lifecycle changes; original/tear/design/rating, independent attempts and default-start evidence retain their distinct premises. |
+| [I04](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I04) | scheduled | 64c C06; C02/C08/C09 inputs | Evaluator/numerical refinements use actual work and fixed meaningful requirements; original physical checks and failed alternatives retained; no Rust opt-level increase. |
+| [I05](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I05) | scheduled | 64c C08; 64b B01/B02/B04 inputs | Shared context covers governing targets using caloric/energy/flow and relevant goals; unit/datum invariance, missing-context refusal and coupled original acceptance. C07 stays distinct. |
+| [I06](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I06) | scheduled | 64c C09; C03–C06 and 64b consumers | Preconstruction activation and async propagation; successful/failed original reports retained and readable; diagnostic and scientific outcomes independent. |
+| [I07](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I07) | scheduled | 64c C09 | Selected interval completeness, recent history and bounded analysis stay distinct; loss/expiry/prefix limits and managed child coverage discriminate. |
+| [I08](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I08) | scheduled | 64c C01; 64b B03–B05 consumers | Selected/full ordered reads avoid edit products; exact order/custody/refusals and subsequent edit/CAS/publication survive, with real work counts. |
+| [I09](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I09) | scheduled | 64c C02; 64b B03/B05 consumers | Pre-reset census/cause, improved keys/history and owned extents; complete equality/negative premises, A/B/A, growing history and escaped products survive rotation. |
+| [I10](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I10) | scheduled | 64c C09 | Buffered/batched recording and retain-once analysis preserve nonblocking offers, truthful flushed prefixes and stop/drain; measured diagnostic perturbation. |
+| [I11](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I11) | scheduled | 64c C02 | Exact selector/bindings reach prelude reuse before premises/maps; shadowing, membership, inherited context, permission and retained-extent controls. |
+| [I12](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md#I12) | scheduled | 64c C02; 64b B03/B04 consumers | Qualified selection is carried while invocation/context premises hold; changed-context/provenance/cancellation/force-validation controls preserve receiving guarantees. |
+
+The companion package tables own progress; a scheduled row is not implemented, resolved or
+measured benefit. No new rule exception is selected. Existing architectural/durable-contract
+decision routes still apply when an actual implementation triggers them. The review's
+restored field/recorder prototypes and incomplete captures are evidence for implementation,
+not shipped changes. Increased prototype RSS, reset cause and boundary waits are refinements
+to address during C02/C06/C09. Recover the exact historical exchanger inconclusive check
+through C06's existing report export rather than infer its cause from the aggregate result.
+
+Start narrow C09 and retention observations alongside C02 selection corrections; C01/64b
+reads and B/C08 context can proceed independently. C06 consumes the relevant policy/report
+slices for numerical tuning and final native acceptance, without making all diagnostics a
+barrier to structural fixes. Existing Plans40/53/54/58 retain their responsibilities; the
+collective dependency upgrade, H02/H03 references and wider qualification remain separate.
+
 ## Complete recommendation and investigation coverage
 
-This table owns scheduling correspondence to the integrated review. The audit companion owns editorial dispositions, not progress. Do not duplicate these states in a second review ledger.
+This table owns scheduling correspondence to the integrated target review; the preceding
+I01–I12 table owns the improvement-review additions. The audit companion owns editorial
+dispositions, not progress. Do not duplicate these states in a second review ledger.
 
 | Review obligation or question | Route and expected decision/evidence |
 |---|---|
@@ -118,3 +160,11 @@ A–D complete only when ordinary source closure, edits, full success/failure jo
 **Current checkpoint — 2026-11-02:** the maintainer authorized 64a's design/disposition execution and then 64b/64c's native implementation and reference handoff. A02/A03/A04 design and disposition work is complete; A01 remains in-progress pending H01's exact finite population. B/C implementation is in progress under their companion package tables: independently sourced ordinary BT inputs, full initialization outcomes, producer-owned scoped product permission, structural analysis and ordinary-interval acceptance have been integrated for focused verification. Ordinary recycle/exchanger delivery, fresh recorded readback and scope-end qualification remain open. C07 owns the DA-062 correction and G08 the DA-063 atomic publication-witness replacement. H02/H03 reference execution, broader H01 qualification, G08 and the collective library upgrade retain their separate owners. All quantitative performance/capacity benefits remain unmeasured.
 
 64a's [library-informed decisions](64a-scope-and-shared-contracts.md#executed-design-assessment--2026-11-02) govern the subsequent target: library-owned incremental/symbolic/structural operations, mixed CPU ownership, registry-generated native wire projections and an atomic witness capture rather than durable pending exclusion. Writable Surrealism is a preferred bounded prototype, not an approved capability widening: record its purity/attestation rule impact as a proposed decision before G08 adopts it. Ordinary dependency upgrades need no special approval; actual architecture/durable-contract changes retain their decision routes. The operator intends a separate coordinated upgrade of the latest compatible library set; current pins are not fixed target constraints.
+
+**Improvement-integration checkpoint — 2026-11-02:** I01–I12 now have the scheduled owners
+above. 64c adds planned C08/C09 and extends C01/C02/C06; 64b carries exact source/context and
+consumer migrations. **Implemented, documentation only:** the ownership, target and execution
+sequence are integrated into these plans. **Proposed:** their new production changes and
+verification. Earlier focused receipts and the review's diagnostic measurements keep their
+original conditions; no new native run, scientific population, precision default or adopted
+performance benefit follows from this plan revision.
