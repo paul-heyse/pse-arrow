@@ -23,7 +23,7 @@
 @id("64d0300000000000000000000000000f") fn supercritical_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-supercritical" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "23a36dfd43bd0546b2e755868d91c8104c5f86c5c1f274f5ed4fb1f76aedc7eb" output 2 derivatives 2 source analytic smoothness 2;
 @id("64d03000000000000000000000000010") interface WaterState extends equilibrium.EntropyThermoPackage {
 @id("64d03000000000000000000000000070") param water:chemistry.species;
-@id("64d03000000000000000000000000071") require if present(water.cas) then water.cas==Id<chemistry.cas>("7732-18-5") else false : "HEOS Water state requires an explicitly identified water component";
+@id("64d03000000000000000000000000071") require (if present(water.cas) then (if water.cas==Id<chemistry.cas>("7732-18-5") then 0 else 1) else 1)==0 : "HEOS Water state requires an explicitly identified water component";
 @id("64d03000000000000000000000000011") override param components:Set<chemistry.species>={water};
 @id("64d03000000000000000000000000012") param selected_phase:chemistry.phase;
 @id("64d03000000000000000000000000013") override param phases:Set<chemistry.phase>={selected_phase};
