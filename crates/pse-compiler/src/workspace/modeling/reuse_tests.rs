@@ -1298,9 +1298,9 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
             .unwrap()
     };
     let first = prepare_reference(&mut workspace);
-    // The historical textual-normalizer population was 143. The direct producer
-    // has 126 exact scalar products; complete current row/instance coverage is checked below.
-    assert_eq!(first.admitted.bodies.len(), 126);
+    // The current selected source and its reached physical premises issue 127
+    // distinct scalar bodies. Row, instance and body reachability are checked below.
+    assert_eq!(first.admitted.bodies.len(), 127);
     assert_eq!(first.admitted.case.rows().len(), 856);
     assert_eq!(first.admitted.case.instances().len(), 845);
     let rows = first
@@ -1384,7 +1384,8 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
         body_observations.admissions(),
     ];
     assert_eq!(
-        first_counts[3], 126,
+        first_counts[3],
+        first.admitted.bodies.len(),
         "all distinct direct bodies were admitted"
     );
     let warm = prepare_reference(&mut workspace);
