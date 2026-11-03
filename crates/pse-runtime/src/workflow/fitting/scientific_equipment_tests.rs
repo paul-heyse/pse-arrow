@@ -106,6 +106,25 @@ async fn fit_exchanger(confounded: bool) -> Executed {
         .unwrap();
     assert_eq!(prepared.declaration().experiments.len(), 2);
     let problem = prepared.problem.clone();
+    let rules = &problem.numerics.policy.engineering_rules;
+    let heat_rule = rules
+        .iter()
+        .find(|rule| rule.rule_id.to_string() == "4b8c1108211445f180f66c602f10b982")
+        .expect("original authored energy-transfer engineering rule survives joint preparation");
+    assert_eq!(heat_rule.physical_allowance, Some(1.0));
+    assert!(
+        heat_rule
+            .provenance
+            .contains("shared engineering rule constant")
+    );
+    assert!(
+        problem
+            .numerics
+            .targets
+            .iter()
+            .filter_map(|target| target.engineering.as_ref()?.rule_id)
+            .all(|id| rules.iter().any(|rule| rule.rule_id == id))
+    );
     assert_eq!(problem.measurements.len(), 4);
     let temperature = problem
         .quantities
@@ -267,6 +286,20 @@ async fn close(executed: Executed) {
 async fn scientific_equipment_joint_exchanger_fit_recovers_shared_coefficient_from_two_experiments()
 {
     let executed = fit_exchanger(false).await;
+    // Repeated source ownership is idempotent, while the same rule identity with
+    // changed scientific/engineering meaning must refuse rather than overwrite.
+    let source_policy = &executed.problem.numerics.policy;
+    let experiment = executed.problem.declaration.experiments[0].experiment_id;
+    let mut retained = source_policy.clone();
+    super::modeling::retain_experiment_numerics(&mut retained, source_policy, experiment, &[])
+        .unwrap();
+    assert_eq!(retained.engineering_rules, source_policy.engineering_rules);
+    let mut conflicting = source_policy.clone();
+    conflicting.engineering_rules[0].physical_allowance = Some(123.0);
+    assert!(
+        super::modeling::retain_experiment_numerics(&mut retained, &conflicting, experiment, &[])
+            .is_err()
+    );
     assert_original_physics(&executed);
     let fitted = report(&executed.result);
     assert_eq!(fitted.rank, Some(1));

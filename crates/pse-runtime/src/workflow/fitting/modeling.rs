@@ -42,6 +42,78 @@ fn port(model: &ModelingPreparation, id: SemanticId) -> Result<Port, WorkflowErr
         .cloned()
         .ok_or_else(|| contract("a shared fit parameter must bind a numerical parameter member"))
 }
+// Requirements retain their original rule references when experiment coordinates
+// enter the joint fit. Carry those rules and selected physical contexts with them;
+// conditioning alone cannot replace their engineering/scientific interpretation.
+pub(super) fn retain_experiment_numerics(
+    policy: &mut pse_model::numerics::NumericalPolicy,
+    source: &pse_model::numerics::NumericalPolicy,
+    experiment: InstanceId,
+    targets: &[TargetSpec],
+) -> Result<(), WorkflowError> {
+    let selected = |id, kind| {
+        targets
+            .iter()
+            .any(|target| target.id == alias(experiment, id) && target.kind == kind)
+    };
+    for rule in &source.engineering_rules {
+        if let Some(previous) = policy
+            .engineering_rules
+            .iter()
+            .find(|previous| previous.rule_id == rule.rule_id)
+        {
+            if previous != rule {
+                return Err(contract("conflicting fit experiment engineering rule"));
+            }
+        } else {
+            policy.engineering_rules.push(rule.clone());
+        }
+    }
+    for mut scale in source
+        .engineering_scales
+        .iter()
+        .filter(|scale| selected(scale.target_id, scale.target_kind))
+        .cloned()
+    {
+        scale.scale_id = alias(experiment, scale.scale_id.into()).into();
+        scale.target_id = alias(experiment, scale.target_id);
+        if let Some(previous) = policy
+            .engineering_scales
+            .iter()
+            .find(|previous| previous.scale_id == scale.scale_id)
+        {
+            if previous != &scale {
+                return Err(contract("conflicting fit experiment engineering scale"));
+            }
+        } else {
+            policy.engineering_scales.push(scale);
+        }
+    }
+    for mut requirement in source
+        .caloric_requirements
+        .iter()
+        .filter(|requirement| selected(requirement.target_id, requirement.target_kind))
+        .cloned()
+    {
+        requirement.requirement_id = alias(experiment, requirement.requirement_id);
+        requirement.target_id = alias(experiment, requirement.target_id);
+        for consumer in &mut requirement.consumers {
+            consumer.target_id = alias(experiment, consumer.target_id);
+        }
+        if let Some(previous) = policy
+            .caloric_requirements
+            .iter()
+            .find(|previous| previous.requirement_id == requirement.requirement_id)
+        {
+            if previous != &requirement {
+                return Err(contract("conflicting fit experiment caloric context"));
+            }
+        } else {
+            policy.caloric_requirements.push(requirement);
+        }
+    }
+    Ok(())
+}
 type FitSource = (
     Bindings,
     ModelingCaseBindings,
@@ -713,6 +785,7 @@ impl ModelingPackage {
                 let named = lineage.lineage();
                 let mut targets = Vec::new();
                 let mut declarations = Vec::new();
+                let mut numerical_policy = profile.solver.numerics.clone();
                 let mut vars = Vec::new();
                 let mut initial = Vec::new();
                 let mut parameter_columns = Vec::new();
@@ -1172,6 +1245,12 @@ impl ModelingPackage {
                                 declarations.push(r);
                             }
                         }
+                        retain_experiment_numerics(
+                            &mut numerical_policy,
+                            &resolved.numerics.policy,
+                            e.experiment_id,
+                            &targets,
+                        )?;
                         let check_rows = checks::observation_rows(model.compiled(), &values)?;
                         let program = if check_rows.is_empty() {
                             None
@@ -1344,6 +1423,7 @@ impl ModelingPackage {
                 {
                     return Err(contract("fit observation or dynamic profile ownership"));
                 }
+                profile.solver.numerics = numerical_policy;
                 let prepared = PreparedExperiments {
                     execution_identity: execution_identity.finish_hash(),
                     declaration: d,
