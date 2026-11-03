@@ -10,10 +10,10 @@ doc_topics: [current-work, design, validation]
 # First-case scientific source closure
 
 This is B01's bounded source-selection account for the two first cases. It does not
-replace the package state in [64b](64b-native-scientific-intake.md) or H01's full finite
-population. **Interface-checked:** the declarations and source notes below at
-`7cce20ef4`; no ordinary scientific case, acquisition or publication is qualified by
-this inventory. Source roles are transitive admission meaning, not editable badges.
+replace the package state and verification in [64b](64b-native-scientific-intake.md)
+or H01's full finite population. The table records the selected source decisions;
+the owning plan records their executed admission, publication and consuming-case evidence.
+Source roles are transitive admission meaning, not editable badges.
 
 ## Selected cases and exact outstanding inputs
 
@@ -64,6 +64,11 @@ ordinary `Ideal`, `Liquid` and `PR` bindings separately from unchanged oracle fi
 The replaced one-row Poling transcription prototype and its tests were removed after
 the actual two-species FeOS adapter and ordinary source admission passed. The selected
 adapter neither authenticates original publications nor changes provenance roles.
-Guarded publication, fresh revision readback and complete consuming cases remain
-obligations of B03/B04. Source population and definitions alone do not establish them;
-B04 and the native delivery stay open until their actual acceptance runs succeed.
+**Tested:** B03/B04's canonical source-to-consuming-case journey passed guarded
+publication, fresh revision readback and ordinary consumption on 2026-11-03; the
+owning plan retains the exact command and evidence scope. Native recycle, exchanger
+design, same-case design-to-rating and compatible closure controls also passed their
+selected routes in 64c. Source population alone establishes none of those results.
+The [native/reference correspondence](../../packages/reference/ordinary-delivery/sources.md)
+hands H02/H03 exact inputs, configuration and outputs; matched-reference execution
+and the broader finite scientific population remain separate.

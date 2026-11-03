@@ -2,7 +2,7 @@
 title: "Plan64c: Process authoring and first delivery"
 status: in-progress
 date: 2026-11-02
-adrs: [ADR-0236, ADR-0237]
+adrs: [ADR-0163, ADR-0196, ADR-0236, ADR-0237]
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md, docs/plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md]
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -332,72 +332,249 @@ new planning scope does not reopen or erase previously verified narrower behavio
 
 ## Current checkpoint — 2026-11-03
 
-The remaining-scope implementation is underway. Field and prelude lookup now precede
-owned projection, membership discovery avoids intermediate checked packages, and indexed
-occurrences replace expression-by-state scans. Ordered declaration reads no longer prepare
-edit products; an exact rooted-path read and structurally shared admission history serve
-selected consumers. Receiving qualification remains scoped to its original invocation.
-Retention excess preserves its original census and bounded ingredient attribution.
+Implementation and the selected native journeys have advanced across C01–C09. Current
+historical interpreted success and intended failure, original-quality readback, ordinary
+delivery and canonical readback have passed their scoped controls below. The current
+compiled limited-memory candidate instead refuses its constructor budget; interpreted
+execution is the selected supported realization for the current case. Package status
+remains in progress while the feature powerset qualification settles; selected-feature
+native clippy has passed. H02/H03 own independent matched-reference construction and
+execution, and the coordinator owns assembled A–D acceptance. The scientific fixture
+baseline is `c20a865b0`;
+the quality/readback correction and test opt-in are `a323ef4ec`, following transitive
+physical-premise correction `04aae65d3`.
 
-C08 carries source-attributed thermal and energy-only contexts through authored annotations,
-compiler selection and the shared numerical-policy owner. Actual resolved consumer budgets,
-including characteristics and stricter overrides, constrain shared energy exposure; original
-checks independently enforce the frozen flow bounds. PR contexts make no unsupported frozen
-heat-capacity claim. The ordinary inventory admitted recycle, design and rating contexts;
-remaining area/coefficient fallbacks now have explicit selected reference magnitudes, and the
-ordinary paths request strict context. Their strict rerun remains open. The native NLP
-projection excludes unbounded coordinates from bound feasibility while preserving per-row
-physical transport, original assessment and independent KKT budgets. Focused owner controls
-pass; the historical tear/original inventory and assembled journeys remain next. Historical
-native convergence exposed a new exposure-check mismatch at a sub-nanomolar flow deviation;
-the authored exposure envelope must include its selected shared flow-resolution margin
-before deriving enthalpy budgets, with the final exact premise check retained.
+## Verification to date
 
-C09 batches bounded frames, acknowledges only flushed prefixes, separates queue and extent
-rejection causes, and wakes its writer on work or closure. Selected journey roots retain
-original direct reports or the actual run-handle result. Descriptive readers defer executable
-provider-identity callbacks. Real preparation capture has complete selected source coverage
-and a complete retained handoff after correcting codec admission. Fresh preparation,
-initialized and rejected captures pass existing offline handoff and raw-record readers after
-removing a duplicate settings preflight charge. The canonical captured run and the added
-direct-operation snapshot control remain open. The overheated case still preserves the 50 K
-contradiction; the refined native projection now reaches Ipopt's local infeasible terminal
-rather than restoration failure, and its exact case expectation follows that observed result.
-This is not a mathematical infeasibility certificate. The launch owner now authenticates
-each executable once per metadata traversal, retaining metadata guards and final full launch
-authentication. Numerical comparisons and scope-end qualification remain open.
+All failure counts below use the zero-failure target. The captured executable, original
+request, scientific-input capsule, raw output, handoff and readback receipts are retained
+at the named local paths for this execution; they are not a durable evidence store or a
+replacement for the final qualification owner.
 
-The earlier accepted behavior and narrower evidence below remain the preservation basis:
+**Tested — focused controls:** native invocation `01a1a052-b3d9-7260-9541-759b69aee18d` passed 85 selected
+review-context, capture, closure, assessment and three strict ordinary inventory controls,
+zero failed. Model/compiler owner invocation `01a1a049-6aab-736a-b276-94d3ea897b5d` passed 14 selected controls,
+zero failed. The prior authenticated native `pse-runtime` test binary was run
+with `observation_detail:: tooling::capture:: workflow::review_context:: contextual_closure_
+assessment::tests:: ordinary_precision_inventory_retains_instance_sources_and_fallbacks
+--nocapture`, under the selected native environment and scientific-input capsule. The
+`/tmp/pse-bc-controls-skss5uok/controls` receipt reports 104 passed, zero failed and two
+ignored; filtered tests and later source changes are not covered. Earlier selected
+authoring/initialization/permission/budget controls, the coordinated 36 native controls
+and six native-diagnostics integration controls remain narrower preservation evidence.
+The early C02 integration batch ran 174 controls: 169 passed and five source-context
+controls failed. The three authored/caloric failures subsequently passed in the current
+owner selection, the strict ordinary inventory passed in the 85-control selection, and
+`scripts/pse test pse-compiler --lib -E
+'test(reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits)'`
+passed with the current immutable capsule (`01a1a077-950e-703a-abf1-df66a4a25617`).
+That fixture now pins 127 physical-premise-aware bodies while retaining exact 856-row
+and 845-instance coverage, full reachability, warm identity and unrelated-edit backdating.
+This accounts for the five corrections without calling the original mixed batch a pass.
 
-Full initialization outcomes, actual parent projection coordinates, protected scoped product
-permission, compiler-bound structural case-variable inspection and ordinary-bound acceptance
-are implemented. Their selected authoring/initialization/permission/budget controls pass, as
-do the workspace and selected native-provider all-target compile checks. Ordinary design,
-arithmetic closure, positive recycle and the canonical source-to-consuming-case/readback
-journey pass their focused controls. Rating now passes an explicit same-case accepted-design
-to original-rating composition through the public Rust operations, transferring complete
-typed primal inputs and requiring fresh final permission. Generic cold starts under Ipopt
-and POUNCE remain unqualified; no restored initializer policy or solver factors are invented.
-Its long preparation exposed duplicate static function-source materialization before the
-existing tracked selector cache. C02 now sends the exact selection request to that owner
-before materialization. Focused controls retain source/physical metadata and executable
-values/derivatives while raw projection counts stay equal for one versus eight calls.
-Ordinary cases explicitly select Ipopt; historical recycle preservation controls explicitly
-select POUNCE and declare that feature prerequisite. These are qualified method selections,
-not claims that all linked algorithms converge on every case. The coordinated 36-control
-native rerun now passes with both declared methods, and all six public native-diagnostics
-integration controls pass. Scope-end qualification remains open. The requested
-[performance and meaningful-convergence review](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md)
-records the review baseline's eager field projection, confirmed canonical enthalpy fallback
-and restored disposable experiments. I01–I12 were scheduled through the coordinator and the
-packages above; the current implementation checkpoint records subsequent progress.
-The review itself changed no shared precision default.
-The overheated
-stage retains an actual Ipopt numerical stop and the original50K connection contradiction,
-not a mathematical infeasibility certificate. Its case-local expectation and independent
-contradiction control preserve that distinction without changing central classification.
-The exact overheated contradiction and historical recycle preservation controls pass.
-The Perry benzene liquid-Cp allowance preserves its published envelope and makes the
-368K recycle use explicit extrapolation. The selected native delivery and affected
-preservation controls pass; scope-end qualification remains open, and H02/H03 reference
-execution remains separate.
+**Tested — native first-delivery consumers:** authenticated captured test-binary runs with
+`--exact <test> --nocapture` passed the ordinary exchanger design, accepted-design-to-rating,
+and compatible arithmetic-closure tests; `/tmp/pse-bc-delivery-wz2cr61y/summary.json`
+records zero science failures and zero `solve` offline-readback failures for these three.
+Their 64 MiB source-containing handoffs refused and remain in
+`/tmp/pse-bc-delivery-p_qh7im0`; the passing later selections omit source bodies. The
+canonical source-to-consuming-case journey used
+the actual `prepare_operation -> start -> RunHandle` path, protected publication and
+readback; native invocation `01a1a05a-3ac3-760d-adbd-38e68da92c21` and
+`/tmp/pse-bc-final-canonical-20261103` retain its complete selected callback
+capture and passing `--ignored --exact
+tooling::capture::handoff::tests::c09_real_capture_offline_readback --nocapture` result.
+Its source-omitting handoff contains the actual canonical run and attempt; 9,798 callback records were
+issued and acknowledged with no reported record or metadata loss. Generic cold starts and
+other solver configurations are not qualified by this selected route.
+
+**Tested — source-containing C09 journeys:** using the authenticated native test binary,
+`PSE_SCIENTIFIC_INPUTS` and `PSE_DIAGNOSTIC_RECORD_REQUEST`, the preparation, ordinary
+initialized and intended-rejection tests ran separately with `--exact <test> --nocapture`;
+the ignored offline readback control above passed for each. In
+`/tmp/pse-bc-strict-capture-zf47fb7l`, the preparation interval retained 27,214/27,214
+`compiler_query.v1` and 6/6 `compiler_retention.v1` records; initialization retained
+4,228/4,228 callbacks and rejection 322/322. Handoffs each retained source and completed;
+the selected intervals reported zero record loss, metadata loss or source partiality.
+The retained initialized report includes actual tear and restored-original attempts. The
+overheated report includes the intended `overheated_tear` trial rejection and Ipopt's
+local infeasible termination alongside the original 50 K contradiction; it is not a
+mathematical infeasibility certificate.
+
+**Tested — current historical physical and work evidence:** authenticated native binary
+runs with `--exact <historical-positive-or-negative-test> --nocapture`, the selected
+scientific-input capsule and interpreted-light settings passed science and offline
+readback in `/tmp/pse-bc-work-b3pl8mg8`. The positive tear and original each retained
+1,360 targets: 516 variables, 516 rows, 272 closures and 56 observables, with zero
+canonical fallback and usable permission without qualifiers. Each retained 28 oracle
+point budgets of 57.769443984375 J/mol and 28 stock reference rows from 19.218045 to
+19.256443 J/mol; 100 caloric targets span 0.0136527–19.256443 J/mol. Native feasibility
+was 0.000272108843537415, with independent stationarity and complementarity 0.001.
+Historical strict mode was not enabled; this is a complete observed zero-fallback
+inventory, not strict-mode execution. Negative-stage evidence retained 335 targets,
+seven oracle/reference rows each and zero fallback; 667 separate model checks passed,
+while original native quality rejected approximately 50 K against 0.1 K. Three actual
+native infeasible mechanisms followed an earlier block capability refusal: the latter
+alone does not describe the rejection. The selected callback, evaluator demand/census
+and POUNCE linear/factor/refinement families were complete without metadata or record
+loss. A fresh negative run, native invocation `01a1a059-632a-77a9-a27c-abfb0d13c655`,
+and `/tmp/pse-bc-quality-negative-20261103` passed `historical-rejected` offline readback,
+including the actual original-quality violation encoded as IEEE bits. The negative test
+reads the retained declared model to check original source/specification and no-commit;
+it does not run or claim a restored-original numerical solve after failure.
+
+**Tested and Measured — earlier historical realization:** the captured binary ran
+`workflow::modeling::recycle_tests::reference_recycle_initialization_preserves_scientific_obligations`
+with `--exact ... --nocapture`, `PSE_NUMERICAL_CAMPAIGN=compiled-light-limited-memory`,
+32 functions per module, a 4 MiB per-arithmetic-block allowance, the selected
+scientific-input capsule and complete callback/compilation recording.
+`/tmp/pse-bc-campaign-nah4du3c/compiled-light-limited-memory` reports science and offline
+readback success. GNU `/usr/bin/time -v` reported 292.63 s elapsed, 244.86 s user, 51.81 s
+system and 12,184,524 KiB maximum RSS, in separate processes on a shared unbounded host.
+This earlier result predates the final physical-premise correction and does not qualify
+the current compiled route. This RSS is not an aggregate process-tree peak. Both actual POUNCE attempts terminated
+`Solve_Succeeded` with local-stationary assurance and usable permission qualified by
+engineering canonical fallback. Tear/original retained 2,628/2,652 checks, 84 reports
+each, and numerical-policy keys `blake3:627fbc3552e8f3d1c38caa195d1c792202113ef31a386b9ee6f8eb91ae03d6e1`
+and `blake3:d16df295ee7c9c34f5a76408988bcc49f5ebafbab43b8981f82f696756fa4ec5`.
+The complete selected interval retained 1,667/1,667 callbacks and 1,686/1,686 finalized
+compilation records, with no reported record or metadata loss. The latter describe 1,246
+compilations, 440 cache hits and 41,326 functions; 1,239 modules held 32 functions and
+261 held one. Executable files ranged from 15,520 to 39,008 bytes; these are not resident
+code or total compiler-memory measurements. This handoff deliberately omitted source bodies
+under its 64 MiB context selection: it does not establish that a source-containing version
+of this larger report fits that allowance.
+
+**Measured — observation modes:** `/tmp/pse-bc-overhead-b5wqc0nv` ran the same selected
+historical interpreted-light test with the authenticated native binary and scientific-input
+capsule in separate shared-host processes. GNU time reported 40.99 s ordinary, 45.31 s
+with selected callback detail, and 45.30 s with detail and boundary thread CPU. Each
+selected capture and offline readback passed with all 1,884 callbacks acknowledged and no
+reported loss; CPU was unavailable as not requested in the first detail capture and was
+recorded for all callbacks in the CPU selection. The detail runs also published handoffs.
+These single samples do not isolate recording cost or establish stable overhead. The
+summary's blanket thread-CPU-disabled condition does not describe the CPU selection; its
+original request explicitly enables it.
+
+**Tested — historical exchanger conformance:** `just modeling-conformance --manifest
+packages/reference/conformance.toml --run seed --fixture
+01a0f037426c718f919d213c29dd62fd --report-dir
+build/qualification/64c-historical-hx-20261103-r8d2` completed its selected fixture with
+zero failures. The exported Arrow reports contain 1,817 passed checks, all nine authored
+expectations passing, zero findings and one not-applicable package-coverage row because
+only one fixture was selected. This establishes the current selected fixture, not package
+coverage or ordinary-input equivalence. The older aggregate-only inconclusive receipt
+did not export its individual check cause; that cause remains unrecoverable. The complete
+current report is not evidence for an invented causal explanation of the older result.
+
+**Measured — current work and retention:** the complete six-family capture in
+`/tmp/pse-bc-work-b3pl8mg8/historical` retains 4,063 records: 460 evaluator batches,
+1,581 callback observations and joined linear/factor/refinement detail. Evaluator batches
+report 192,267 completed evaluations and 63,993 cache hits, with 0.671873299 s inclusive
+actual-evaluation time. Scientific-charge-owner callbacks number 749 with 0.781359496 s
+inclusive wall time; transported wrappers are excluded, and these overlapping times must
+not be summed. Multipart joining yields 120 factor calls (113 successful, seven failed
+internal attempts), 116 symbolic reuses and 155 backsolve/refinement calls. Final science
+passed. Paired linear intervals total 0.064503 s factorization and 0.014779 s backsolve;
+they are not whole-solve durations. Actual paths were monolithic, Auto ordering resolved
+to Amf, scaling was applied, and no parent call was present. This supplies no evidence
+for additional factor tuning or changed scientific allowances.
+
+The authenticated preparation test
+`reference_recycle_context_reaches_original_transport_obligations` and its independent
+offline reader passed in `/tmp/pse-bc-preparation-t07em051`. Its explicit compiler-query
+and retention selection retained 28,650 executions and six censuses without loss.
+GNU time reported 24.04 s and 7,829,228 KiB maximum RSS. Query records have no duration
+fields; named attribution covers 13,678 executions and the remainder retain opaque
+locators. No identical query key executed twice in one producer/generation, which does
+not establish cross-operation equivalence or a cache-hit rate. The pre-reset census
+reached 5,123,523,187 known bytes before rotation at the existing 2 GiB retention
+threshold; generation 1 finished at 101,033,134 bytes. The largest bounded ingredient
+was 335 static-function-package entries accounting for 3,048,766,892 bytes. Shared
+registry inputs are excluded from that estimate. Successive censuses are not additive,
+and accounted bytes are neither unique heap nor process-tree RSS; this distribution
+does not establish a remaining duplication defect.
+
+The optimized negative retains the same callback, linear-call, factor and refinement
+record counts as the preceding capture. Evaluator batches fall from 423 to 418 and
+censuses from 791 to 730. The final-callback-to-final-evaluator interval falls from
+23.794 s to 0.007 s, consistent with removing numerical preparation used only to read
+the authored failure expectation. This cross-run comparison does not isolate a general
+speedup. The retained source/specification and no-commit assertions remain authoritative.
+
+**Interface-checked — static and manual scope:** `run-all` invocation
+`01a1a05c-5621-7126-b580-10a831f33dfb` passed selected default/no-default clippy and
+codegen checks with zero failures. Earlier manual governance, documentation and native
+lints passed. The additional `cargo-pse-correctness clippy -p pse-runtime --all-targets`
+with the seven qualified native/test features and `-D warnings` passed after correcting
+45 reported test-helper findings. Diagnostic output remains explicitly permitted at its
+test-evidence functions; fallible inventory helpers return descriptive errors.
+The final `just governance` rerun also passed governance tests, code generation comparison
+and the one-family check (`01a1a090-788b-7287-b5bf-f6bdef811d37`). The feature
+powerset is still running and has no terminal result in this checkpoint. The original
+incremental campaign was deliberately stopped after its first 248 required combinations
+had completed without compiler errors: per-feature incremental state had reached 113 GiB.
+Cargo-hack's printed command lists establish that its `--partition 2/2` is exactly the
+remaining 247-command suffix of the same 495-command population. That suffix is running
+through the existing managed native owner with `CARGO_INCREMENTAL=0`
+(`01a1a083-e845-765a-b786-f0601f4379ca`); compiler arguments confirm incremental output
+is disabled. The separate no-default workspace campaign completed all 34 members.
+`/tmp/pse-bc-powerset-coverage.json` retains the command-list identity and partition check.
+The stopped original aggregate remains a stopped/failed aggregate, not a pass. Completion
+requires the suffix's actual terminal success; there is no new resume cache, copied
+working tree, cache deletion, host cap or Rust optimization-level change.
+The existing `features-combinations` recipe now selects Cargo's
+`--config build.incremental=false` for future one-shot permutations. Pure `pse-ids`
+and Arrow-consuming `pse-columnar` Cargo-hack checks passed through the same correctness
+adapter with that option. This changes compiler cache retention, preserving feature
+selection, validation and ordinary editing profiles; it is not a numerical optimization.
+These checks do not replace
+the scientific journeys or independent references.
+
+## Outcome to date — not final acceptance
+
+**Implemented:** C01/C02 move field, prelude, declaration and membership selection ahead
+of costly projections, retain structurally shared revision history and expose bounded
+compiler-retention observations. C03 retains complete original initialization attempts;
+C04/C05 derive usability and scoped product/structural facts from their producers. C07
+uses shared ordinary-interval acceptance without changing hard domains or fixed values.
+C08 carries source-attributed thermal and consuming-flow context through shared numerical
+policy and original checks, including independently transported physical budgets and KKT
+controls. Function-source capture now includes transitive physical premises; the earlier
+missing/dead capture was corrected with its affected callers. C09 records selected
+preconstruction sources, preserves direct reports and real
+run handles separately, and uses bounded writer batches, explicit refusal/loss and cursor
+readback. Direct reports preserve the actual original native quality rows, bounds and
+integrality independently of modeling checks. The native scalar candidate packs up to 32 named functions per module under the
+existing per-member admission and output bounds; its physical representation and cache
+identity changed together.
+
+**Mistakes corrected:** the first preparation handoff omitted a supported codec and a later
+initialized handoff multiplied an already conservative settings bound twice. Both failures
+remain in their original receipts and were corrected before the passing captures above.
+Earlier eight-function compiled automatic initialization ended at the original stage with
+resource-limit/cancellation after 618.76 s; its limited-memory run passed in 529.75 s,
+but both source-containing 64 MiB handoffs refused their encoded extent. Earlier
+32-function automatic and limited-memory runs passed science at 368.01/329.71 s, but their
+raw source coverage was incomplete when the fixed 256-producer metadata limit exhausted.
+The later memory-partitioned collector preserves explicit exhaustion and the complete
+limited-memory capture above; it does not retroactively complete those earlier streams.
+After the final physical-premise correction, the current compiled limited-memory candidate
+at `/tmp/pse-bc-campaign-vsc7klj2/compiled-light-limited-memory` refused the tear
+constructor at 17,180,185,088 required bytes against its 17,179,869,184-byte owner
+allowance. Its science and offline completeness did not pass. The prior compiled success
+therefore remains earlier evidence, not current compiled qualification. A safe release
+of finished transient allowances requires coordinated math/runtime ownership and drain
+semantics; this plan does not silently shrink the envelope or increase the budget.
+
+**Deliberate boundaries and remaining work:** ordinary cases select Ipopt and the historical
+recycle preservation route selects POUNCE; these choices do not qualify every solver or cold
+start. The Perry liquid-Cp envelope is preserved, with 368 K use explicitly extrapolated.
+There is no new universal enthalpy floor, host cap, automatic fallback, or restored solver
+factor policy. Ordinary PR/relational-density evaluation in this route is an outer NLP
+consumer; no inner KINSOL work is inferred or forced. Shared native-cache hits, different
+evidence selections and shared-host conditions prevent a cold-cache or causal
+packing-speedup claim. The feature powerset remains open; report its actual terminal
+result before changing package status. Current native
+journey evidence is bounded to the named paths, inputs and modes; H02/H03 independent
+reference execution and coordinator-level acceptance remain separate.

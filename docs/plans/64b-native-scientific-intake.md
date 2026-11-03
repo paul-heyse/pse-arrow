@@ -135,34 +135,63 @@ never reduce conservative reservations merely because a multiplier looks large.
 
 ## Verification and handoff
 
-**Planned evidence:** targeted adapter/admission/identity tests during implementation; real publication/reopen tests at the relevant integration boundary; 64c ordinary native journeys; and 64h matched-reference/assembled acceptance. Independent values and deliberately wrong/missing/convention-mismatched inputs must discriminate silent acceptance. Commands and modes are selected from the changed packages under AGENTS.md; required Arrow validation remains explicit.
+All failure counts use the zero-failure target. Current native test routes explicitly
+retain Arrow validation. Earlier adapter, source-impact, read/custody and qualification
+controls retain their original scope; current source-to-use acceptance below does not
+establish the wider scientific population.
 
-Adopted performance benefits remain unmeasured; the review retains diagnostic prototype
-measurements with their coverage and memory limits. Keep extraction and database work outside
-repeated scalar evaluation; hydrate the selected immutable dependency closure for native
-preparation and reuse it while its premises hold. Implement the scheduled plausible read,
-copy and admission optimizations and use measurements to refine them. B01–B05 are in
-progress; source population and admission do not establish complete publication/native
-acceptance or close P2 scientific breadth or the full IDAES population.
+**Tested:** the authenticated captured `pse-runtime` executable ran
+`workflow::modeling::scientific_intake::tests:: --nocapture` with the current immutable
+scientific-input capsule: three passed, zero failed (`/tmp/pse-bc-intake-3bcc7_a7`).
+These independently check original FeOS values/unit normalization, changed/missing/duplicate
+source refusal, authored-cell reimport and exact-parent ordinary admission.
 
-**Proposed additional verification:** B01/B02 independently check selected caloric values
-and units/basis; B03–B05 exercise the migrated reads/qualification and publication consumers;
-C08 checks cross-flow and unit/datum-invariant precision; C09 retains the successful and
-curtailed source-to-case evidence. C06 owns assembled native acceptance. Run targeted owner
-tests and touched-package checks during implementation, then the relevant integration and
-scope-end checks once functional scope is assembled. Do not repeat the full science campaign
-for each source-local optimization or replace independent physical expectations with the
-shared resolver's own calculation.
+**Tested, 2026-11-03:** `scripts/pse test pse-runtime --lib --profile local --features
+solver-pounce,solver-ipopt,solver-kinsol,solver-root-isolation,canonical-tests,native-study-tests,compiled-evaluator
+-E 'test(ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source)'`
+passed one selected canonical journey, zero failures, in 138.422 s
+(`01a1a05a-3ac3-760d-adbd-38e68da92c21`). It exercises guarded publication,
+fresh revision reopening, exact source readback and the ordinary consuming case through
+the actual `prepare_operation -> start -> RunHandle` path. The separately authenticated
+captured executable passed `--ignored --exact
+tooling::capture::handoff::tests::c09_real_capture_offline_readback --nocapture` with
+`C09_CAPTURE_KIND=canonical` on `/tmp/pse-bc-final-canonical-20261103`.
+The explicit handoff selection omits source bodies and retains actual invocation,
+canonical run/attempt, numerical and selected callback evidence; the immutable input
+capsule and authored source retain the source bytes separately.
 
-**Current checkpoint — 2026-11-02:** the selected ordinary source artifacts, typed scientific definitions and bounded two-species FeOS adapter are implemented. Unchanged reimport, ordinary admission and the guarded canonical publication/fresh source-to-consuming-case/readback journey pass their focused controls. The unused one-row Poling prototype was deleted after replacement validation. B05's selected-consumer impact, unchanged/changed source, missing-record and oracle-only refusal controls now pass. The shared specialization owner preserves typed provenance, resource and cancellation refusals; typed source edits retire stale authoritative text rather than claiming regenerated source. Discovery retains exact positive and negative source-selection premises and introduces no global catalog. Complete numerical delivery and scope-end qualification remain open. The [native/reference correspondence](../../packages/reference/ordinary-delivery/sources.md) supplies exact H02/H03 inputs and required outputs without claiming reference execution.
+**Tested:** C08's strict ordinary recycle/design/rating inventory and current direct
+design, same-case accepted-design-to-rating and compatible-closure science/readback
+controls passed. [64c's verification](64c-process-authoring-and-first-delivery.md#verification-to-date)
+owns their commands, conditions, complete selected recordings and intentional refusals.
+Its scope-end qualification remains the shared completion prerequisite. H02/H03 matched
+reference execution is separate.
 
-**Current checkpoint — 2026-11-03:** the I05 scientific context and I08/I09/I12 read/admission
-consumers are implemented. The shared policy retains selected response records, exact source
-revision, physical units and independently admitted exposure expressions; PR consumers use
-energy-only requirements without an unsupported frozen heat-capacity claim. C08's strict
-ordinary recycle, exchanger and rating inventory passes, as do the actual canonical
-publication/reopen/consuming-case journey and its bounded offline recording readback.
-The native design, same-case design-to-rating composition and arithmetic-closure controls
-pass with the new context. The correspondence above owns exact source and numerical limits.
-Scope-end qualification and H02/H03 matched references remain separate; these focused
-results do not close broader scientific population or full P0–P7 acceptance.
+## Outcome — native scope, qualification pending
+
+**Implemented:** B01–B05 supply the selected ordinary BT source closure, bounded Rust
+FeOS interpretation, contextual parented admission, guarded canonical publication,
+fresh readback and source-impact discovery. Ordered/exact reads avoid edit products;
+selected history and receiving qualification preserve complete positive and absent
+premises. Source population and database work remain outside scalar numerical evaluation.
+The replaced one-row Poling transcription prototype and its tests were deleted.
+
+**Implemented and Tested:** admitted response records, exact revisions, full physical
+quantity conventions and frozen exposure bounds reach C08 through the same source path.
+PR uses energy-only requirements without an unsupported frozen heat-capacity claim.
+The [native/reference correspondence](../../packages/reference/ordinary-delivery/sources.md)
+owns exact source/configuration/output handoff and scientific limits for H02/H03.
+
+**Mistakes corrected:** the preliminary single-record transcription adapter did not
+establish the demanded two-species artifact interpretation. The actual FeOS adapter
+replaced it and its tests. The completed path selects independently attributed source
+artifacts; transitive eligibility never follows from an oracle row's availability.
+Scientific source validity and consuming-case extrapolation remain separate.
+
+**Deliberate boundaries:** the ordinary pressure formulation and caloric/critical inputs
+are explicit changed science relative to the oracle fixtures. Perry benzene use retains
+its published envelope and explicit extrapolation; unknown empirical envelopes and the
+predictive-zero interaction policy remain qualified as such. No stable quantitative
+speedup is claimed for intake/read optimizations. Broader source population, H02/H03
+execution, assembled P0–P7 acceptance and the collective dependency upgrade remain with
+their existing owners. Package status stays in progress until shared final qualification.

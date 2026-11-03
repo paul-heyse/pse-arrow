@@ -93,6 +93,16 @@ binding subtracts the supplied component formation values and accounts for the
 on composition and is applied in both state parameterizations. The original 47297 J/mol
 FPhx specification is applied to `oracle_h`.
 
+The selected recycle's engineering precision keeps these datums distinct. The
+oracle coordinate's characteristic is the difference of two inverse-translated
+stock points separated by the source-derived phase enthalpy span, at one frozen
+equimolar composition. The formation offset cancels; it is not a scale inferred
+from an absolute formation enthalpy or a trial state. Stock reference-binding rows
+consume their actual state energy-flow budgets and admitted exposure bounds through
+the shared numerical policy. These remain oracle-input characteristics, and do not
+establish ordinary eligibility or certify coupled output error. Original physical
+feasibility, hard domains and fixed specifications retain their own checks.
+
 `bt-pr.pse` retains the 368 K, 100 kPa, equimolar BT_PR comparison. Its source enthalpy
 and entropy carry an explicit formation-inclusive reference at 298.15 K and 101325 Pa.
 Mixture conversion to that reference includes component formation values and the

@@ -13,7 +13,7 @@ doc_topics: [current-work, design, validation]
 
 ## Purpose and authorization
 
-**Proposed:** deliver reusable native process science and coherent engineering operations over the existing authored system, then close a finite expanded IDAES process-capability population. This series captures the integrated [target review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), its [recommendation audit](../design_review/reviews/audits/design_review_process_simulator_target_2026-11-02_audit.md), and the [high-level package](../process-simulator-design/index.md). The maintainer authorized plan authoring on 2026-11-02 and selected full P0–P7 coverage with staged detail: A–D executable, later phases concrete outcomes and bounded investigations where decisions remain open. This does not authorize production execution.
+**Proposed:** deliver reusable native process science and coherent engineering operations over the existing authored system, then close a finite expanded IDAES process-capability population. This series captures the integrated [target review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), its [recommendation audit](../design_review/reviews/audits/design_review_process_simulator_target_2026-11-02_audit.md), and the [high-level package](../process-simulator-design/index.md). The maintainer authorized plan authoring on 2026-11-02 and selected full P0–P7 coverage with staged detail. Subsequent instructions authorize 64a's design/disposition work and 64b/64c's native implementation and reference handoff; later production packages retain their own authorization boundary.
 
 **Interface-checked:** authoring starts at `1acd8c83ca8f9e6f6e9b5e9c9cbf98e299d574b8`. The integrated review and current source retain scientific/runtime mechanisms inspected at `dcbb1c459`; the intervening commit publishes the recommendation audit. Concurrent skill and library-leverage drafts are excluded. Core3.4, efficiency heuristics1.0, ProcessSimulator1.5, test-assessment1.2 and the selected binding apply. No new broad audit, numerical execution or benefit measurement is claimed.
 
@@ -157,7 +157,27 @@ No active-plan reference by the scoped DA-062/DA-063 IDs was found during prepar
 
 A–D complete only when ordinary source closure, edits, full success/failure journeys, producer permission, exact readback and complete matched reference outputs pass their own discriminators. P7 closes every mandatory finite population item with accepted evidence, zero failures and truthful public support limits. Missing required prerequisites fail selected runs; unattempted work never counts as a pass. Twelve domain witnesses and 55 notebook families are planning inputs, not the final denominator.
 
-**Current checkpoint — 2026-11-02:** the maintainer authorized 64a's design/disposition execution and then 64b/64c's native implementation and reference handoff. A02/A03/A04 design and disposition work is complete; A01 remains in-progress pending H01's exact finite population. B/C implementation is in progress under their companion package tables: independently sourced ordinary BT inputs, full initialization outcomes, producer-owned scoped product permission, structural analysis and ordinary-interval acceptance have been integrated for focused verification. Ordinary recycle/exchanger delivery, fresh recorded readback and scope-end qualification remain open. C07 owns the DA-062 correction and G08 the DA-063 atomic publication-witness replacement. H02/H03 reference execution, broader H01 qualification, G08 and the collective library upgrade retain their separate owners. All quantitative performance/capacity benefits remain unmeasured.
+**Current checkpoint — 2026-11-03:** A02/A03/A04 design and disposition work is complete;
+A01 remains in progress pending H01's exact finite population. B/C native implementation
+and selected scientific acceptance are integrated under their companion package tables.
+Ordinary recycle/rejection, exchanger design and same-case design-to-rating, compatible
+closure and actual canonical source publication/reopen/RunHandle/readback have passed.
+C08's ordinary strict inventories and complete historical tear/original inventories have
+no canonical fallback; C09 retains actual rejected native feasibility separately from
+passing declared checks. Source/preparation, evaluator/factor and native compilation
+captures retain their actual bounds, failed alternatives and measurement conditions.
+No stable general speedup is claimed. The current compiled candidate's constructor refusal
+is retained; the passing interpreted realization is selected without an allocation-cap or
+Rust optimization-level increase.
+
+Final feature qualification is still running: the completed first half and Cargo-hack's
+verified exact suffix retain one required population, with incremental output disabled for
+the remainder to stop per-permutation cache growth. Other scope-end checks and current
+native-feature Clippy passed. The I01–I12 dispositions remain scheduled until C06's required
+qualification settles; this does not mean their implementations are absent. C07 owns the
+selected DA-062 correction and G08 the DA-063 atomic publication-witness replacement.
+H02/H03 execution, broader H01/P7 qualification, G08 and the collective library upgrade
+retain their separate owners. This checkpoint does not close A–D or the full series.
 
 64a's [library-informed decisions](64a-scope-and-shared-contracts.md#executed-design-assessment--2026-11-02) govern the subsequent target: library-owned incremental/symbolic/structural operations, mixed CPU ownership, registry-generated native wire projections and an atomic witness capture rather than durable pending exclusion. Writable Surrealism is a preferred bounded prototype, not an approved capability widening: record its purity/attestation rule impact as a proposed decision before G08 adopts it. Ordinary dependency upgrades need no special approval; actual architecture/durable-contract changes retain their decision routes. The operator intends a separate coordinated upgrade of the latest compatible library set; current pins are not fixed target constraints.
 
