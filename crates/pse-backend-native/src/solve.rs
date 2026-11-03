@@ -262,6 +262,44 @@ impl ResolvedAccuracy {
             .unwrap_or(pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY);
         Self::from_policy(policy, feasibility)
     }
+    /// Resolve an NLP whose pipeline transports every row's physical allowance into
+    /// its native coordinates. Only finite variable bounds share the scalar native
+    /// feasibility budget: an unbounded coordinate has no bound violation to constrain.
+    /// The declared normalization remains the independent original KKT authority.
+    ///
+    /// # Errors
+    /// Invalid dimensions, bounds, policy or physical/normalized budgets.
+    pub fn resolve_nlp(
+        policy: &pse_model::numerics::NumericalPolicy,
+        tolerance: &crate::quality::Tolerances,
+        normalization: &pse_math::normalization::Normalization,
+        variables: &[crate::Variable],
+    ) -> Result<Self, ProblemError> {
+        normalization.validate(variables.len(), tolerance.rows.len())?;
+        tolerance.validate(variables.len(), normalization.rows.len())?;
+        if variables.iter().any(|variable| {
+            variable.lower.is_nan()
+                || variable.upper.is_nan()
+                || variable.lower > variable.upper
+                || variable.lower == f64::INFINITY
+                || variable.upper == f64::NEG_INFINITY
+        }) {
+            return Err(ProblemError::Contract(
+                "NLP accuracy variable bounds".into(),
+            ));
+        }
+        let feasibility = variables
+            .iter()
+            .zip(&tolerance.variables)
+            .zip(&normalization.variables)
+            .filter(|((variable, _), _)| variable.lower.is_finite() || variable.upper.is_finite())
+            .try_fold(None, |minimum: Option<f64>, ((_, budget), scale)| {
+                let budget = pse_math::normalization::checked_ratio(*budget, *scale)?;
+                Ok::<_, ProblemError>(Some(minimum.map_or(budget, |value| value.min(budget))))
+            })?
+            .unwrap_or(pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY);
+        Self::from_policy(policy, feasibility)
+    }
     /// Resolve the policy's budgets against an already normalized feasibility budget, as
     /// nested library solves do from their own budgets.
     ///
@@ -3051,6 +3089,128 @@ mod numerical_tests {
         assert_eq!(
             tight.ipopt_options()["dual_inf_tol"],
             OptionValue::Real(1e-8)
+        );
+    }
+    #[test]
+    fn nlp_accuracy_projects_only_finite_bounds_and_keeps_physical_rows_and_kkt() {
+        use crate::quality::{Tolerances, observed};
+        let policy = pse_model::numerics::NumericalPolicy {
+            kkt: pse_model::numerics::KktTolerances {
+                stationarity: 2e-6,
+                complementarity: 3e-6,
+            },
+            ..Default::default()
+        };
+        let normalization = pse_math::normalization::Normalization {
+            variables: vec![100_000., 300.],
+            rows: vec![100_000., 10.],
+            objective: 7.,
+        };
+        let tolerance = Tolerances {
+            variables: vec![0.001, 0.1],
+            rows: vec![1e-6, 0.5],
+            integrality: policy.integrality,
+        };
+        let mut contract = crate::solver_tests::contract();
+        contract.variables = vec![
+            crate::Variable {
+                id: SemanticId::NIL,
+                lower: f64::NEG_INFINITY,
+                upper: f64::INFINITY,
+            },
+            crate::Variable {
+                id: SemanticId::from_bytes([1; 16]),
+                lower: 200.,
+                upper: 500.,
+            },
+        ];
+        contract.rows = vec![
+            SemanticId::from_bytes([2; 16]),
+            SemanticId::from_bytes([3; 16]),
+        ];
+        let generic = ResolvedAccuracy::resolve(&policy, &tolerance, &normalization).unwrap();
+        let accuracy =
+            ResolvedAccuracy::resolve_nlp(&policy, &tolerance, &normalization, &contract.variables)
+                .unwrap();
+        assert!(generic.feasibility < accuracy.feasibility);
+        assert_eq!(accuracy.feasibility, 0.1 / 300.);
+        let mut expected = generic.clone();
+        expected.feasibility = accuracy.feasibility;
+        assert_eq!(accuracy, expected);
+        assert_ne!(accuracy.key().unwrap(), generic.key().unwrap());
+        for backend in [Backend::Ipopt, Backend::Pounce, Backend::Uno] {
+            assert_eq!(
+                crate::execution::adapter(backend)
+                    .resolve_accuracy(&policy, &tolerance, &normalization, &contract)
+                    .unwrap(),
+                accuracy,
+            );
+        }
+        assert_eq!(
+            crate::execution::adapter(Backend::Kinsol)
+                .resolve_accuracy(&policy, &tolerance, &normalization, &contract)
+                .unwrap(),
+            generic,
+        );
+        let native = normalization
+            .with_row_budgets(&tolerance.rows, accuracy.feasibility)
+            .unwrap();
+        assert_eq!(native.variables, normalization.variables);
+        assert_eq!(native.objective, normalization.objective);
+        for (scale, physical) in native.rows.iter().zip(&tolerance.rows) {
+            assert!((scale * accuracy.feasibility / physical - 1.).abs() < 1e-14);
+        }
+        // A row or finite-bound violation twice its physical allowance is still rejected.
+        let quality = observed(
+            &contract,
+            &[(0., 0.); 2],
+            &[1e9, 500.2],
+            &[2e-6, 0.],
+            &tolerance,
+        )
+        .unwrap();
+        assert!(quality.normalized_max > 1.);
+        assert_eq!(quality.rows[0].physical / quality.rows[0].tolerance, 2.);
+        assert!((quality.bounds[1].physical / quality.bounds[1].tolerance - 2.).abs() < 1e-10);
+        // Once that enthalpy coordinate acquires a finite bound its allowance governs.
+        contract.variables[0].lower = 0.;
+        let bounded =
+            ResolvedAccuracy::resolve_nlp(&policy, &tolerance, &normalization, &contract.variables)
+                .unwrap();
+        assert_eq!(bounded.feasibility, 0.001 / 100_000.);
+    }
+    #[test]
+    fn nlp_accuracy_uses_shared_fallback_without_bounds_and_validates_all_budgets() {
+        let policy = pse_model::numerics::NumericalPolicy::default();
+        let variables = vec![crate::Variable {
+            id: SemanticId::NIL,
+            lower: f64::NEG_INFINITY,
+            upper: f64::INFINITY,
+        }];
+        let normalization = pse_math::normalization::Normalization::identity(1, 1);
+        let mut tolerance = crate::quality::Tolerances {
+            variables: vec![1e-10],
+            rows: vec![1e-12],
+            integrality: policy.integrality,
+        };
+        let accuracy =
+            ResolvedAccuracy::resolve_nlp(&policy, &tolerance, &normalization, &variables).unwrap();
+        assert_eq!(
+            accuracy.feasibility,
+            pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY
+        );
+        tolerance.rows[0] = 0.;
+        assert!(
+            ResolvedAccuracy::resolve_nlp(&policy, &tolerance, &normalization, &variables).is_err()
+        );
+        tolerance.rows[0] = 1e-12;
+        assert!(ResolvedAccuracy::resolve_nlp(&policy, &tolerance, &normalization, &[]).is_err());
+        let invalid = vec![crate::Variable {
+            lower: f64::NAN,
+            ..variables[0].clone()
+        }];
+        assert!(
+            ResolvedAccuracy::resolve_nlp(&policy, &tolerance, &normalization, &invalid).is_err()
         );
     }
     #[test]

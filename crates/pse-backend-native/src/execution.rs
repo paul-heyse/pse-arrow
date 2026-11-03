@@ -847,6 +847,24 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     }
     /// Native input this adapter consumes.
     fn representation(&self) -> Representation;
+    /// Resolve stopping budgets for this adapter's actual coordinate transport.
+    /// NLP rows are transported separately by the common pipeline; other
+    /// representations retain their conservative scalar projection.
+    /// # Errors
+    /// Invalid numerical inputs or a mismatched callback inventory.
+    fn resolve_accuracy(
+        &self,
+        policy: &pse_model::numerics::NumericalPolicy,
+        tolerances: &Tolerances,
+        normalization: &Normalization,
+        contract: &OracleContract,
+    ) -> Result<ResolvedAccuracy, ProblemError> {
+        if self.representation() == Representation::Nlp {
+            ResolvedAccuracy::resolve_nlp(policy, tolerances, normalization, &contract.variables)
+        } else {
+            ResolvedAccuracy::resolve(policy, tolerances, normalization)
+        }
+    }
     /// Project consumed physical residual allowances into this adapter's primal
     /// work tolerance. Physical acceptance and its native scaling remain frozen.
     /// Each pair names an original row position and its requested physical error.
