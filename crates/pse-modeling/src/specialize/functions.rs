@@ -1107,7 +1107,7 @@ impl Engine<'_, '_> {
                 })
             })
             .transpose()?;
-        let (admissions, literals) = completed.take_support();
+        let (mut admissions, mut literals) = completed.take_support();
         let physical_operation = contract
             .physical_operation
             .as_ref()
@@ -1120,6 +1120,16 @@ impl Engine<'_, '_> {
             })
             .transpose()?;
         let syntax = completed.finish(symbols, outputs, validity_roots)?;
+        // Lowering can construct typed operands that a selected constant function
+        // does not use. Keep exactly the support for this function's reached
+        // graph; every retained contract and proof remains admitted and framed.
+        let reached = syntax
+            .canonical_layout()?
+            .nodes
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        admissions.retain(|slot, _| reached.contains(slot));
+        literals.retain(|slot, _| reached.contains(slot));
         let (physical, output_boundary, body_inputs) =
             crate::resolved::PhysicalSupport::prepare_function(
                 &syntax,

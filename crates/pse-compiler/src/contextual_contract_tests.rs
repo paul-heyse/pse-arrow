@@ -91,6 +91,57 @@ fn reference_translation_keeps_composition_and_inverse_in_library_expression() {
     check(REFERENCE, "translated_values");
 }
 
+#[test]
+fn constant_anchor_translation_inside_function_keeps_reached_literals() {
+    // Constant anchors ignore the typed reference conditions, leaving those
+    // constructed arguments outside the enclosing function's reached graph.
+    assert_eq!(
+        REFERENCE
+            .matches(" valid(T==300{K} and p==100000{Pa})")
+            .count(),
+        2
+    );
+    assert_eq!(REFERENCE.matches(" test translated_values {").count(), 1);
+    assert_eq!(
+        REFERENCE
+            .matches(
+                "expect inverse(translated,weights,members)==250{J/mol} tolerance 1e-10{J/mol};"
+            )
+            .count(),
+        1
+    );
+    let source = REFERENCE
+        .replace(" valid(T==300{K} and p==100000{Pa})", "")
+        .replace(
+            " test translated_values {",
+            " fn wrapped(value:MolarEnthalpy,composition:MoleFraction[species],actual:Set<species>)->BtOracleEnthalpy=inverse(value,composition,actual); test translated_values {",
+        )
+        .replace(
+            "expect inverse(translated,weights,members)==250{J/mol} tolerance 1e-10{J/mol};",
+            "expect inverse(translated,weights,members)==250{J/mol} tolerance 1e-10{J/mol}; expect wrapped(10{J/mol},weights,members)==167.5{J/mol} tolerance 1e-10{J/mol}; expect wrapped(12{J/mol},weights,members)==169.5{J/mol} tolerance 1e-10{J/mol};",
+        );
+    check(&source, "translated_values");
+}
+
+#[test]
+fn nested_translation_retains_internal_difference_quantity_premises() {
+    let declaration = " test translated_values {";
+    let expectation =
+        "expect inverse(translated,weights,members)==250{J/mol} tolerance 1e-10{J/mol};";
+    assert_eq!(REFERENCE.matches(declaration).count(), 1);
+    assert_eq!(REFERENCE.matches(expectation).count(), 1);
+    let source = REFERENCE
+        .replace(
+            declaration,
+            " fn increment()->Delta<MolarEnthalpy>=5{J/mol}; fn shift(value:MolarEnthalpy)->MolarEnthalpy=value+increment(); fn wrapped(value:MolarEnthalpy,composition:MoleFraction[species],actual:Set<species>)->BtOracleEnthalpy=inverse(shift(value),composition,actual); test translated_values {",
+        )
+        .replace(
+            expectation,
+            "expect inverse(translated,weights,members)==250{J/mol} tolerance 1e-10{J/mol}; expect wrapped(10{J/mol},weights,members)==172.5{J/mol} tolerance 1e-10{J/mol};",
+        );
+    check(&source, "translated_values");
+}
+
 const REFERENCE: &str = r#"package p {
  @id("1c998211e5d74955863f377662f56526") entity kind species {}
  entity species a {} entity species b {}

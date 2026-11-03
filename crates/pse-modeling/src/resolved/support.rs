@@ -1659,6 +1659,15 @@ impl Producer<'_> {
             })?
             .product;
         let at = product.declaration;
+        // Numerical construction expands this selected body in the enclosing
+        // region, so its exact already-admitted physical premises must join the
+        // enclosing capture as well as its argument and result contracts.
+        if !product
+            .physical
+            .observe(self.context.quantities, self.context.preconditions)?
+        {
+            return Err(invalid(at, "selected function physical premises changed"));
+        }
         if args.len() != product.signature.len() {
             return Err(invalid(
                 at,
