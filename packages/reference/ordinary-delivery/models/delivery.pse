@@ -68,7 +68,7 @@ annotation report exchanger.coefficient("ordinary heat transfer coefficient");
 annotation report cost.material_factor("ordinary material factor");
 annotation report cost.pressure_factor("ordinary pressure factor");
 }
-case ordinary_recycle fixture {dof 0;route steady;procedure initialize;stages("tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};} {
+case ordinary_recycle fixture {dof 0;route steady;procedure initialize;stages("tear");initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(4) seconds(600);fix root.feed.state.flow=1{mol/s};fix root.feed.state.T=368{K};fix root.feed.state.pressure=101325{Pa};fix root.feed.state.z[chem.benzene]=0.5{1};fix root.feed.state.z[chem.toluene]=0.5{1};policy {backend ipopt;} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
 // The selected benzene liquid Cp publication ends at353.24K:368K is explicit
 // extrapolation,14.76K beyond that range. This exact record allowance neither
@@ -86,7 +86,7 @@ child root:Overheated=Overheated;
 case ordinary_exchanger fixture {dof 0;route steady;procedure solve;
 fix root.exchanger.hot.inlet.flow=5{mol/s};fix root.exchanger.hot.inlet.T=365{K};fix root.exchanger.hot.inlet.pressure=101325{Pa};fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.hot.delta_pressure=0{Pa};
 fix root.exchanger.cold.inlet.flow=1{mol/s};fix root.exchanger.cold.inlet.T=300{K};fix root.exchanger.cold.inlet.pressure=101325{Pa};fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.cold.delta_pressure=0{Pa};fix root.exchanger.cold.outlet.T=331.6111111111111{K};fix root.exchanger.coefficient=100{W/(m^2*K)};
-policy {limits body_occurrences(1000000);} } {
+policy {backend ipopt;limits body_occurrences(1000000);} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
 permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;
@@ -112,7 +112,7 @@ expect root.capital==root.cost.capital_cost tolerance 1e-8{USD_CE500};
 case ordinary_arithmetic_closure fixture {dof 0;route steady;procedure solve;
 fix root.exchanger.hot.inlet.flow=5{mol/s};fix root.exchanger.hot.inlet.T=365{K};fix root.exchanger.hot.inlet.pressure=101325{Pa};fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.hot.delta_pressure=0{Pa};
 fix root.exchanger.cold.inlet.flow=1{mol/s};fix root.exchanger.cold.inlet.T=300{K};fix root.exchanger.cold.inlet.pressure=101325{Pa};fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.cold.delta_pressure=0{Pa};fix root.exchanger.cold.outlet.T=331.6111111111111{K};fix root.exchanger.coefficient=100{W/(m^2*K)};
-policy {limits body_occurrences(1000000);} } {
+policy {backend ipopt;limits body_occurrences(1000000);} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
 permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;

@@ -111,12 +111,23 @@ to original-rating composition through the public Rust operations, transferring 
 typed primal inputs and requiring fresh final permission. Generic cold starts under Ipopt
 and POUNCE remain unqualified; no restored initializer policy or solver factors are invented.
 Its long preparation exposed duplicate static function-source materialization before the
-existing tracked selector cache. C02's bounded correction and affected reruns remain open.
+existing tracked selector cache. C02 now sends the exact selection request to that owner
+before materialization. Focused controls retain source/physical metadata and executable
+values/derivatives while raw projection counts stay equal for one versus eight calls.
+Ordinary cases explicitly select Ipopt; historical recycle preservation controls explicitly
+select POUNCE and declare that feature prerequisite. These are qualified method selections,
+not claims that all linked algorithms converge on every case. The coordinated 36-control
+native rerun now passes with both declared methods, and all six public native-diagnostics
+integration controls pass. Scope-end qualification remains open. The requested
+[performance and meaningful-convergence review](../plan_improvement_reviews/recycle-preparation-performance-2026-11-02.md)
+records remaining eager field projection and confirmed canonical enthalpy fallback;
+its amendments remain proposals, with no shared precision default changed by the review.
 The overheated
 stage retains an actual Ipopt numerical stop and the original50K connection contradiction,
 not a mathematical infeasibility certificate. Its case-local expectation and independent
 contradiction control preserve that distinction without changing central classification.
 The exact overheated contradiction and historical recycle preservation controls pass.
 The Perry benzene liquid-Cp allowance preserves its published envelope and makes the
-368K recycle use explicit extrapolation. Native delivery, affected preservation controls and
-scope-end qualification remain open; H02/H03 reference execution remains separate.
+368K recycle use explicit extrapolation. The selected native delivery and affected
+preservation controls pass; scope-end qualification remains open, and H02/H03 reference
+execution remains separate.

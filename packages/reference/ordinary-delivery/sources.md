@@ -30,6 +30,14 @@ declarations and source package when constructing an independent reference.
 
 ## Formulation controls and permitted claims
 
+All five ordinary cases explicitly select Ipopt. This retains the controlled method
+used for their native acceptance when additional solver backends are linked. The
+three historical recycle preservation controls separately select POUNCE and require
+the `solver-pounce` feature; their original physics, stage expectations and accuracy
+checks remain unchanged. Automatic selection and other methods for these ordinary
+cases remain unqualified by this delivery evidence; that limitation is not a claim
+that those methods are unsupported elsewhere.
+
 The ordinary ideal and PR states select 300–450 K consuming bounds, bubble/dew
 starts of 365/370 K, and the inherited `SmoothVLE` parameters
 `epsilon_bubble = 0.01 K`, `epsilon_dew = 0.0005 K`. These controls differ from the

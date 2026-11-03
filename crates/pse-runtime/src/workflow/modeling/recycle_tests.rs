@@ -6,6 +6,7 @@ use crate::math::solves::SolverProfile;
 use pse_backend_native::solve::{Controls, SolveIntent};
 use std::time::Duration;
 
+#[cfg(feature = "solver-pounce")]
 #[tokio::test]
 async fn reference_recycle_context_reaches_original_transport_obligations()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -21,6 +22,9 @@ async fn reference_recycle_context_reaches_original_transport_obligations()
             preparation.compiler,
             SolverProfile {
                 intent: SolveIntent::Root,
+                selection: pse_backend_native::solve::SolverSelection::Explicit(
+                    pse_backend_native::solve::Backend::Pounce,
+                ),
                 ..Default::default()
             },
             Default::default(),
@@ -101,18 +105,21 @@ async fn reference_recycle_context_reaches_original_transport_obligations()
     Ok(())
 }
 
+#[cfg(feature = "solver-pounce")]
 #[tokio::test]
 async fn reference_recycle_initialization_preserves_scientific_obligations()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     reference_recycle_initialization("01a0f053c2807589b9b24cf0b26a07c9", true).await
 }
 
+#[cfg(feature = "solver-pounce")]
 #[tokio::test]
 async fn reference_recycle_initialization_rejects_overheated_stage_without_commit()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     reference_recycle_initialization("01a0f053f157702a825ee1acc5a50f11", false).await
 }
 
+#[cfg(feature = "solver-pounce")]
 #[allow(
     clippy::print_stderr,
     reason = "recycle qualification diagnostics retain stage, physical accuracy and solver observations for a failing scientific control"
@@ -133,6 +140,9 @@ async fn reference_recycle_initialization(
             preparation.compiler,
             SolverProfile {
                 intent: SolveIntent::Root,
+                selection: pse_backend_native::solve::SolverSelection::Explicit(
+                    pse_backend_native::solve::Backend::Pounce,
+                ),
                 controls: Controls {
                     time_limit: Duration::from_secs(600),
                     ..Default::default()
