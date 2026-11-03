@@ -43,6 +43,81 @@ const PRIVATE_BYTES: u64 = 256 * 1024;
 const ROOT_USER: &str = "pse-fixture-owner";
 const VIEWER_USER: &str = "pse-selection";
 
+// A cacheful of evicted runtimes may still have callers holding physical Stores.
+// This service declaration sizes engine caches, independently of CPU/test policy.
+const DEFAULT_MODULE_CACHE: usize = 100;
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ModuleServiceCapacity {
+    cached_modules: usize,
+    controllers: usize,
+}
+impl ModuleServiceCapacity {
+    fn select(
+        cache: Option<&str>,
+        controllers: Option<&str>,
+        pool: u32,
+    ) -> Result<Self, NativeServiceError> {
+        let positive = |value: &str| {
+            value
+                .parse::<usize>()
+                .ok()
+                .filter(|value| *value > 0)
+                .ok_or(NativeServiceError::Refused(
+                    "module service capacity requires a positive integer",
+                ))
+        };
+        let cached_modules = cache
+            .map(positive)
+            .transpose()?
+            .unwrap_or(DEFAULT_MODULE_CACHE);
+        let controllers = match controllers {
+            // An explicit finite/saturation selection owns its smaller capacity.
+            Some(value) => positive(value)?,
+            None => cached_modules
+                .checked_mul(2)
+                .and_then(|value| value.checked_mul(pool as usize))
+                .filter(|value| *value > 0 && *value <= tokio::sync::Semaphore::MAX_PERMITS)
+                .ok_or(NativeServiceError::Refused(
+                    "module service capacity exceeds engine semaphore range",
+                ))?,
+        };
+        let selected = Self {
+            cached_modules,
+            controllers,
+        };
+        selected.validate(pool)?;
+        Ok(selected)
+    }
+    fn validate(&self, pool: u32) -> Result<(), NativeServiceError> {
+        if self.cached_modules == 0
+            || pool == 0
+            || self.controllers == 0
+            || self.controllers > tokio::sync::Semaphore::MAX_PERMITS
+        {
+            return Err(NativeServiceError::Refused(
+                "module service capacity is outside the engine's positive semaphore range",
+            ));
+        }
+        Ok(())
+    }
+    fn environment(pool: u32) -> Result<Self, NativeServiceError> {
+        let read = |name| {
+            std::env::var(name).map(Some).or_else(|error| match error {
+                std::env::VarError::NotPresent => Ok(None),
+                std::env::VarError::NotUnicode(_) => Err(NativeServiceError::Refused(
+                    "invalid module service capacity encoding",
+                )),
+            })
+        };
+        Self::select(
+            read("SURREAL_SURREALISM_CACHE_SIZE")?.as_deref(),
+            read("SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS")?.as_deref(),
+            pool,
+        )
+    }
+}
+
 /// Host and canonical failures retain their existing infrastructure meanings.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code(runtime::infrastructure))]
@@ -194,6 +269,7 @@ struct StartupPayload {
     recipe: String,
     bind: SocketAddr,
     nonce: String,
+    module_capacity: ModuleServiceCapacity,
 }
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -685,6 +761,7 @@ impl NativeCanonicalService {
             recipe: spec.server.recipe().into(),
             bind,
             nonce: nonce.clone(),
+            module_capacity: ModuleServiceCapacity::environment(module.limits.max_pool_size)?,
         };
         private_write(&run.join("startup.json"), &payload)?;
         let config = Configuration {
@@ -1548,6 +1625,9 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
     }
     let server = server::reopen_generation(&payload.generation, &payload.recipe)?;
     let module = StudyModuleReceipt::read(&payload.state)?;
+    payload
+        .module_capacity
+        .validate(module.limits.max_pool_size)?;
     let credentials: Credentials = private_read(&payload.state.join("credentials.json"))?;
     let invocation = std::env::var("INVOCATION_ID").map_err(|_| {
         NativeServiceError::Refused("native startup requires its original systemd invocation")
@@ -1603,6 +1683,14 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         .env("SURREAL_GRPC_MAX_MESSAGE_SIZE", MESSAGE_BYTES.to_string())
         .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "files,surrealism")
         .env("SURREAL_BUCKET_FOLDER_ALLOWLIST", &payload.module_root)
+        .env(
+            "SURREAL_SURREALISM_CACHE_SIZE",
+            payload.module_capacity.cached_modules.to_string(),
+        )
+        .env(
+            "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS",
+            payload.module_capacity.controllers.to_string(),
+        )
         .envs(module.runtime_environment())
         .stdin(Stdio::null())
         .stdout(Stdio::from(log.try_clone()?))
@@ -1958,6 +2046,29 @@ async fn host_observation<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_service_module_capacity_defaults_cover_cached_and_evicted_pools() {
+        let default = ModuleServiceCapacity::select(None, None, 4).unwrap();
+        assert_eq!((default.cached_modules, default.controllers), (100, 800));
+        let selected = ModuleServiceCapacity::select(Some("2"), None, 4).unwrap();
+        assert_eq!((selected.cached_modules, selected.controllers), (2, 16));
+        // Explicit saturation controls deliberately retain fewer physical Stores.
+        let finite = ModuleServiceCapacity::select(Some("2"), Some("8"), 4).unwrap();
+        assert_eq!((finite.cached_modules, finite.controllers), (2, 8));
+        assert_eq!(
+            ModuleServiceCapacity::select(None, Some("8"), 4)
+                .unwrap()
+                .controllers,
+            8
+        );
+        for invalid in ["0", "", "-1", "max", "not-a-number"] {
+            assert!(ModuleServiceCapacity::select(Some(invalid), None, 4).is_err());
+            assert!(ModuleServiceCapacity::select(None, Some(invalid), 4).is_err());
+        }
+        assert!(ModuleServiceCapacity::select(Some(&usize::MAX.to_string()), None, 4).is_err());
+        assert!(ModuleServiceCapacity::select(None, Some(&usize::MAX.to_string()), 4).is_err());
+        assert!(ModuleServiceCapacity::select(None, None, 0).is_err());
+    }
     fn private_state() -> tempfile::TempDir {
         let directory = tempfile::tempdir().unwrap();
         fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();

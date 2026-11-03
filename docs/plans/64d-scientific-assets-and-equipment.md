@@ -25,7 +25,7 @@ not a second D-package status table. Existing closeout results retain their actu
 
 ## Target and inspected foundation
 
-**Proposed:** deliver P2/P3 scientific foundations and generic equipment by complete consumer closures and supported configurations. The [coordinator](64-process-simulator-target.md) owns combined scope and review disposition; this companion owns D01–D06. Source baseline is `1acd8c83c`, consuming the [integrated review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), [scientific delivery contracts](../process-simulator-design/delivery/scientific-packages-and-equipment.md) and [finite IDAES scope](../process-simulator-design/delivery/idaes-scope-and-capability-coverage.md). All packages remain planned; authoring ran no scientific qualification.
+**Proposed:** deliver P2/P3 scientific foundations and generic equipment by complete consumer closures and supported configurations. The [coordinator](64-process-simulator-target.md) owns combined scope and review disposition; this companion owns D01–D06. Source baseline is `1acd8c83c`, consuming the [integrated review](../design_review/reviews/design_review_process_simulator_target_2026-11-02.md), [scientific delivery contracts](../process-simulator-design/delivery/scientific-packages-and-equipment.md) and [finite IDAES scope](../process-simulator-design/delivery/idaes-scope-and-capability-coverage.md). The package table and current checkpoint own execution progress; document authoring established no scientific qualification.
 
 **Interface-checked:** scientific definitions already live in authored packages. Relevant owners include [property selection](../../packages/reference/domain/models/properties.pse), [chemistry](../../packages/reference/physical/models/chemistry.pse), [equilibrium/state bindings](../../packages/reference/thermodynamics/models/equilibrium.pse), [reaction projection](../../packages/reference/thermodynamics/models/reactions.pse) and [process specialization](../../crates/pse-modeling/src/specialize/process.rs). Extend these consumers and their existing compiler/provider contracts; no second equipment graph, compulsory control-volume ancestry or new universal scientific AST is selected.
 
@@ -110,7 +110,8 @@ sources; it is not a complete or numerically qualified denominator. The first D0
 the existing state/port/reconstruction owners with six coordinate families and explicit
 zero-flow/phase limits. The first D03 slice supplies source-attributed constant/van't Hoff
 log-equilibrium laws and an admitted reaction-activity projection. Their actual authored-source
-controls are in development; no new family completion or scientific qualification is claimed.
+controls now have the bounded passing evidence recorded below; no new family completion
+or assembled scientific qualification is claimed.
 Steam, transport, electrolyte, broader reaction/equipment and integrated process obligations
 remain open under D02–D06.
 
@@ -119,3 +120,37 @@ Keep extraction/database access outside scalar property callbacks. Prepare immut
 **Planned verification:** targeted owner tests during implementation, selected real native/property/unit/reference integrations at scope end, and 64h assembled finite-population acceptance. Preserve original failed, unavailable and not-run evidence. Performance/robustness gains remain unmeasured until a matched-quality campaign establishes them. No current new scientific conformance status follows from this plan.
 
 Next work is D01's dependency investigation alongside ready 64b/64c first-delivery work. New generic contracts use the existing decision route and migrate their actual consumers together; replaced mechanisms, callers, tests and fixtures retire once their target replacements pass. This companion neither reopens completed solver machinery nor absorbs existing Plan53/58h qualification.
+
+### Stopped implementation checkpoint
+
+**2026-11-03 — partial implementation; work stopped by instruction.** D01–D03
+remain in progress; D04–D06 and the remaining scientific population are not complete.
+
+**Tested:** `scripts/pse test pse-compiler --lib -E 'test(scientific_state_) | test(scientific_equilibrium_) | test(scientific_inventory_)'`
+passed 17/17 on local Linux with correctness-route Arrow validation: seven state-coordinate,
+five equilibrium-law/projection and five inventory controls; zero failures. This includes
+the corrected independently supplied equilibrium point, original residual perturbation,
+scope/extent/domain refusals and exact inventory input coverage. Invocation:
+`01a1a355-1d25-70a0-81ab-50f17afb83b2`. It is compiler/model evidence, not the pending
+native state/inventory solve population or independent IDAES qualification.
+
+**Tested at the earlier provider revision:** `scripts/pse test pse-backend-native --lib --features coolprop -E 'test(coolprop::tests)'`
+passed five native Water controls against the declared released reference values,
+datum, derivatives and branch behavior on Linux x86_64. An equivalent iterator cleanup
+followed; the final backend rerun was not run. The optional dependency is pinned to
+`coolprop-sys =8.0.0`; preparation is explicit, and source names never load a provider.
+
+**Failing:** the latest steam-only runtime selector ran four tests: the registered
+document-ingress control passed and all three pump/turbine cases failed during package
+admission with `rpp4_oracle: package data document is not supplied`. Invocation:
+`01a1a380-1f0b-76d3-bfa9-cf8194f196a6`. The typed CAS fact/source predicate correction
+is preserved, but the positive equipment solves and wrong-CAS refusal discriminator
+did not reach execution. Resolve the actual package/data closure; do not classify this
+as a native solver or property-value result. [64f](64f-specialized-process-families.md#stopped-implementation-checkpoint)
+owns those configured consumer failures.
+
+Native state/inventory ten-fixture acceptance, final provider and xtask selection
+controls, broader D02/D03 science and D04–D06 acceptance remain unrun/open. The
+[coordinator checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint)
+records explicitly skipped Clippy and other follow-ups. No speedup, full family
+completion or comprehensive qualification is claimed.

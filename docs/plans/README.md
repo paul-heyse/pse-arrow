@@ -9,7 +9,7 @@ resume stopped work or establish implementation, qualification or measured benef
 
 | Plan | Work and status owner |
 | --- | --- |
-| [64: Process-simulator target](64-process-simulator-target.md) | P0–P7 series with 64a design decisions and completed 64b/64c native delivery. Companion tables own acceptance; matched references and broader qualification remain separately scoped. |
+| [64: Process-simulator target](64-process-simulator-target.md) | P0–P7 series with completed 64b/64c native delivery. The [D–G implementation checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint) records the requested stop, failing tests and skipped follow-ups; companion tables own remaining scope, including independent plan additions. |
 | [64i: Engineering contracts](64i-engineering-contracts-and-validation.md), [64j: Services and clients](64j-engineering-services-and-clients.md), [64k: Scientific workers](64k-prepared-scientific-workers.md) | Selected Proto expansion: source-owned generation/validation and working local service/worker deliveries. Coordinator owns review dispositions; new package tables own planned progress. |
 | [58: Rust-owned system](58-rust-owned-system.md#remaining-bg-outcome--2026-10-29) | Selected A–G implementation complete; [58h](58h-qualification-and-publication.md) assembled scientific/reference/performance and deployment qualification remains separate. |
 | [54: Rust build reuse](54-rust-build-reuse.md) | Compiler-cache/reuse work and its separately owned qualification handoff. |

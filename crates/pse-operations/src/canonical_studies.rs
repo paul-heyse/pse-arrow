@@ -1997,7 +1997,8 @@ impl CanonicalStore {
         lifetime: Duration,
     ) -> Result<StudyClaim, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
+        // Keep the composed claim/settlement frame off caller coroutine stacks.
+        Box::pin(activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let action = scope.action(seed.clone())?;
             let ActionKind::Start(start) = action.kind else {
@@ -2063,7 +2064,7 @@ impl CanonicalStore {
             self.finish_study_claim(scope, Some(start), operation, &request, &claim_request, response)
                 .await
         }).await
-            }).await
+            })).await
     }
 
     // The operation receipt is the sole acknowledgment authority. A readable point
@@ -2351,7 +2352,8 @@ impl CanonicalStore {
         lifetime: Duration,
     ) -> Result<Option<AttemptFence>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
+        // Finalization includes exact settlement; callers retain only this handle.
+        Box::pin(activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let parent = self
                 .canonical_run(&study.run)
@@ -2391,7 +2393,7 @@ impl CanonicalStore {
             self.finish_study_finalization(&study.run, &operation, &request, result)
                 .await
         }).await
-            }).await
+            })).await
     }
 
     async fn finish_study_finalization(

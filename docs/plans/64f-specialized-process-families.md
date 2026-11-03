@@ -2,7 +2,7 @@
 title: "Plan64f: Specialized process families"
 status: in-progress
 date: 2026-11-02
-adrs: []
+adrs: [ADR-0238]
 review_sources: [docs/design_review/reviews/design_review_process_simulator_target_2026-11-02.md]
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -49,7 +49,7 @@ The [IDAES overview](../libraries/idaes-pse.md) and [released-scope inventory](.
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | F01 | in-progress | P0 finite released/configuration population | Family/configuration and scientific-gap decisions assign each required variant to a concrete dependency and acceptance route |
-| F02 | planned | F01 power cases; 64d pure-fluid/pressure/heat/costing closure; required 64e physics | Steam, supercritical and integrated power cases have matched formulations, ordinary data and complete selected outputs |
+| F02 | in-progress | F01 power cases; 64d pure-fluid/pressure/heat/costing closure; required 64e physics | Steam, supercritical and integrated power cases have matched formulations, ordinary data and complete selected outputs |
 | F03 | planned | F01 gas-solid cases; separate states, heterogeneous reaction/transfer and required 64e storage | Selected fixed/moving/bubbling beds and chemical-looping configurations preserve basis, source and conservation meaning |
 | F04 | planned | F01 capture cases; 64d speciation/transport/columns/membrane closure; required 64e distribution | Selected MEA, membrane and integrated separation cases pass their configured scientific contracts |
 | F05 | planned | F01 TSA/SOC cases; 64d heat/mass/charge closure; 64e cycle/local-domain contracts | Selected adsorption/electrochemical cases retain state continuity, cross-region balances and supported provider products |
@@ -65,7 +65,11 @@ steam/power, gas-solid, capture/membrane, TSA/SOC and network populations and th
 owners. Exact source inspection distinguishes required TSA adsorbent/steam/compressor variants
 and bed direction/reaction variants. F02–F07 implementation and configuration-specific native/
 reference evidence remain open; generic unit or solver availability supplies no specialist
-family acceptance.
+family acceptance. Proposed ADR-0238 selects the first steam/power dependency: an explicitly
+prepared native HEOS Water provider joined to authored state/equipment definitions, retaining
+the ideal-only stock reference convention. Provider and pump/turbine source integration is in
+progress. Supercritical property controls and wet-state limitations do not qualify a complete
+power configuration or remove the remaining finite F02 obligations.
 
 ### F01 — Resolve configurations and scientific dependency closures
 
@@ -115,4 +119,37 @@ Retained evidence identifies all configured science and actual route products. A
 
 During implementation, use targeted owner compile/tests under repository execution rules. Join configured family/native/reference journeys at the selected integration boundary with 64h; consume applicable existing Plan53/58h obligations without changing their status. Performance measurements are needed only for stated benefit claims and must retain scientific-quality, configuration and workload conditions.
 
-**Outcome: Proposed.** Authoring establishes no native family completion, solver result, parity pass or measured benefit. F01–F07 are planned. Completion requires every mandatory configured P5 row to have complete native behavior, supported products, matched scientific correspondence and retained exclusions; neither a unit-name inventory nor a single integration witness closes the family population.
+**Outcome: Partial implementation.** F01/F02 remain in progress and F03–F07 remain
+planned. No configured specialist family, matched parity population or measured benefit
+is established by this wave.
+
+### Stopped implementation checkpoint
+
+**2026-11-03 — stopped by instruction. Implemented:** explicitly prepared HEOS Water
+registration, source-selected homogeneous branches and stock-reference translation,
+authored liquid pump and two single-phase turbine controls. The registered native
+document-ingress control passed; the broader specialist/power population remains open.
+
+Latest actual command: `scripts/pse test pse-runtime --lib --features property-coolprop,solver-kinsol,solver-ipopt -E 'test(steam_tests)'`,
+through the explicitly prepared native solver/linear-algebra environment and correctness
+route on local Linux. **Failed against the zero baseline: 1 passed, 3 failed**, invocation
+`01a1a380-1f0b-76d3-bfa9-cf8194f196a6`, with complete workflow settlement:
+
+| Failing test | Actual failure and remaining obligation |
+| --- | --- |
+| `authored_liquid_pump_matches_independent_hydraulic_power_and_iapws_pressure` | Package admission: `rpp4_oracle: package data document is not supplied`; neither the added wrong-CAS refusal nor positive pump solve was exercised. |
+| `authored_steam_turbine_matches_released_single_phase_reference` | Same missing package-data document before the native equipment solve. |
+| `authored_hot_steam_turbine_matches_second_released_single_phase_reference` | Same missing package-data document before the second native equipment solve. |
+
+Earlier predicate failures exposed unsupported conditional/typed-literal expression
+syntax. The preserved repair declares the exact CAS once as mandatory typed data on
+the existing source identity and compares supported field expressions. The latest
+admission failure prevents claiming that the identity refusal or equipment physics is
+qualified. Resolve the actual source/data closure before interpreting solver results;
+retain the independent expectations and precise Water admission requirement.
+
+The earlier five provider controls and their final-rerun limitation are owned by
+[64d](64d-scientific-assets-and-equipment.md#stopped-implementation-checkpoint).
+Backend rerun, xtask provider/caller controls and broader F02–F07 native/reference
+acceptance were not run. Clippy and other follow-ups were explicitly skipped under the
+[coordinator checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint).

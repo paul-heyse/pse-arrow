@@ -12,7 +12,7 @@ async fn conform(name: &str) {
     let runtime = fixture::runtime_with_workspace(128 << 20);
     let services = runtime.execution_services();
     let physical = fixture::physical();
-    let registrations = [WaterRegime::Liquid, WaterRegime::Vapor]
+    let registrations: BTreeMap<_, _> = [WaterRegime::Liquid, WaterRegime::Vapor]
         .into_iter()
         .map(|regime| {
             (
@@ -21,8 +21,9 @@ async fn conform(name: &str) {
             )
         })
         .collect();
+    let source = crate::scientific_inputs::family_sources("steam");
     let rows = crate::scientific_inputs::parse_sources(
-        &crate::scientific_inputs::family_sources("steam"),
+        &source,
         pse_authoring::language::IdentityPolicy::Named,
     );
     let selected = rows
@@ -30,12 +31,6 @@ async fn conform(name: &str) {
         .find(|row| row.name == name && row.value.kind == DeclarationKind::Test)
         .unwrap()
         .declaration_id;
-    // This is the public prepared registration route used by downstream callers;
-    // no source-name dispatch, test provider, or separate thermodynamic solver.
-    let package = runtime
-        .modeling_package_registered(rows, physical, registrations)
-        .await
-        .unwrap();
     let policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),
         solver: fixture::profile(),
@@ -51,6 +46,49 @@ async fn conform(name: &str) {
         fixtures: ModelingFixtureSelection::Selected(BTreeSet::from([selected])),
         diagnostics: None,
     };
+    if name == "liquid_pump" {
+        // Change the actual constructor selection to an existing, identified
+        // non-water species. Admission must refuse its CAS before any solve.
+        let wrong = source.replace(
+            "water_component=chem.water",
+            "water_component=chem.nitrogen",
+        );
+        assert_ne!(wrong, source);
+        let rejected = runtime
+            .modeling_package_registered(
+                crate::scientific_inputs::parse_sources(
+                    &wrong,
+                    pse_authoring::language::IdentityPolicy::Named,
+                ),
+                physical.clone(),
+                registrations.clone(),
+            )
+            .await
+            .unwrap();
+        let refusal = rejected
+            .conform(&services, policy.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(!refusal.passed());
+        assert!(
+            refusal.results.is_empty(),
+            "wrong CAS must not reach a native solve"
+        );
+        assert!(
+            refusal.checks.iter().any(|check| check
+                .message
+                .contains("HEOS Water state requires an explicitly identified water component")),
+            "{:?}; failures={:?}",
+            refusal.checks,
+            refusal.failures
+        );
+    }
+    // This is the public prepared registration route used by downstream callers;
+    // no source-name dispatch, test provider, or separate thermodynamic solver.
+    let package = runtime
+        .modeling_package_registered(rows, physical, registrations)
+        .await
+        .unwrap();
     let report = package
         .conform(&services, policy, &crate::CancelSource::new())
         .await

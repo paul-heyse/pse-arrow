@@ -53,7 +53,7 @@ The review's IDA candidate APIs (`IDAInit`, `IDASetId`, `IDACalcIC`, `IDASolve`)
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | in-progress | P0 finite cases; selected 64d state/property closure | Case-to-physics and route gap decisions identify existing support, authored additions, generic gaps and explicit refusals |
-| E02 | planned | E01 selected lumped storage case; ordinary records | Phase/component/element/total storage projections and independent inventory closure work for the selected configurations |
+| E02 | in-progress | E01 selected lumped storage case; ordinary records | Phase/component/element/total storage projections and independent inventory closure work for the selected configurations |
 | E03 | planned | E01 distributed case; required state/transfer science | Authored spatial/temporal accumulation, boundary meaning, origin mappings and coupled consumer replace only the corresponding dynamic refusal |
 | E04 | planned | E02 or E03 working storage contract; selected operating program | Physical carryover, transitions, transfers and periodic closure work through existing temporal owners |
 | E05 | planned | E01 derivative/error requirements; affected E02–E04 implementation | Route-specific derivative, trajectory/error and unsupported-product behavior is qualified without implying unsupported hybrid capabilities |
@@ -68,7 +68,12 @@ integrated/simultaneous formulations and current Diffsol/IDAS owners; these are 
 than treated as missing infrastructure. H01's required-process crosswalk supplies the candidate
 lumped, distributed and TSA-cycle closures. Temporal accumulation for the current spatial
 control volume, expanded allocations and complete physical operating programs remain selected
-implementation work. No new E numerical acceptance is established by this checkpoint.
+implementation work. The first E02 source increment adds a distinct element-stock quantity,
+phase/component/element/total projections and a closed two-phase material-transfer control.
+The actual homogeneous stock projection is distinct from the EOS normalization amount. Its
+compiler controls passed; the native trajectory control has not run. No phase-equilibrium,
+allocated energy or E02 numerical completion is established. Existing stored-control-volume
+refusals remain.
 
 ### E01 — Select the first physics and resolve route feasibility
 
@@ -110,4 +115,26 @@ Run matched native/reference cases only after the selected physics and route con
 
 Use the repository's targeted compile/test routes during implementation. Selected assembled scientific/reference journeys and scope-end checks occur at the owning integration boundary, coordinated with 64h and existing Plan58h. No broad campaign repeats per package. Measure cold preparation, reused value-only cases or longer trajectories only for a corresponding performance claim under matched scientific quality.
 
-**Outcome: Proposed.** No E package is implemented or numerically qualified by creating this document; no product tests, solver runs or measurements were performed for its authoring. Completion requires the selected finite P4 configurations, original physical checks, route-specific products and explicit retained exclusions to agree. Later P5/P6 consumers may use an accepted subset without claiming all P4 complete.
+**Outcome: Partial implementation.** E01/E02 remain in progress; no E package or finite
+P4 population is complete. Later P5/P6 consumers may use an accepted subset without
+claiming all P4 complete.
+
+### Stopped implementation checkpoint
+
+**2026-11-03 — stopped by instruction. Implemented:** distinct element-stock typing,
+phase/component/element/total material inventory projections, equal-and-opposite internal
+transfer and homogeneous stock based on actual amount rather than EOS normalization.
+
+**Tested:** the five `scientific_inventory_` controls passed in the
+[17-test compiler selector](64d-scientific-assets-and-equipment.md#stopped-implementation-checkpoint),
+with independent endpoint values and original material/element closures, wrong-sign and
+double-transfer negatives, missing-composition refusal and distinct quantity meaning.
+Failure baseline zero. This does not establish dynamic/native convergence, energy
+allocation or phase equilibrium.
+
+**Not run:** the selected nine state fixtures plus the closed-transfer fixture
+`64e02000000000000000000000000423` did not execute as the pending ten-fixture native
+conformance run. E03–E06, matched reference trajectories and integrated cyclic/distributed
+acceptance remain open. No failed solver trajectory is inferred from the unrun control.
+Clippy and other scope-end follow-ups were explicitly skipped; see the
+[coordinator checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint).

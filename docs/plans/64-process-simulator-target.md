@@ -239,7 +239,8 @@ Rust optimization-level increase.
 feature configurations and 34 no-default workspace members. Nine warning-bearing xtask
 configurations passed affected clean reruns after their generator gate was corrected;
 the private-catalogue preservation test and generated-output comparison also passed.
-Current native-feature Clippy and the other scope-end checks passed. The companion
+Native-feature Clippy and the other scope-end checks passed for that completed B/C
+baseline; they have not been run for the subsequent D–G changes. The companion
 verification records the composite runs and corrected failures; the stopped original
 aggregate remains stopped/failed. I01–I12 are resolved for their selected native scope.
 C07 owns the
@@ -255,3 +256,39 @@ coordinator, H02/H03 and proposed ADR-0196; owner release is not established. Th
 removed from current-work selection and retained for that handoff. Enduring contracts
 remain with the architectural owners and ADRs referenced by those plans. This closes no
 other companion or broader scientific population.
+
+## D through G implementation checkpoint
+
+**2026-11-03 — stopped at the maintainer's request.** This implementation wave is
+partial. No further fixes, tests or diagnostics are running. The independent agent's
+proto/extensibility plan additions retain their own scope; they were not implemented
+or qualified by this wave. The D/E/F/G package tables remain open, and their closeout
+sections own the detailed passing evidence, failures and next obligations:
+[scientific foundations](64d-scientific-assets-and-equipment.md#stopped-implementation-checkpoint),
+[inventory](64e-inventory-distributed-and-cyclic-physics.md#stopped-implementation-checkpoint),
+[steam/power](64f-specialized-process-families.md#stopped-implementation-checkpoint), and
+[fitting/capture](64g-analyses-studies-and-applications.md#stopped-implementation-checkpoint).
+
+**Implemented:** the selected scientific foundations, explicit CoolProp binding,
+joint-fitting numerical-context correction and versioned atomic-capture implementation
+are preserved. Later corrective edits also remain in the working tree. This does not
+establish completion of D–G or the finite scientific population.
+
+**Tested, partial:** selected compiler and fitting controls passed, as did the frozen-v3
+migration journey. Steam equipment admission still fails; ordinary capture controls
+still have stack overflows, and the large-capture correction is not qualified. Every
+failure is against the zero-failure baseline, not an accepted allowance.
+
+**Not run / deferred by explicit instruction:** Clippy (including keep-going workspace,
+native-feature and WASI coverage), hygiene, codegen comparison, additional regressions,
+integrated/reference/performance campaigns and turn-end follow-ups. Full `just codegen`
+passed ten targets before the later source-only corrections; that is not a final
+generated-output comparison or a clean-tree qualification. No comprehensive static
+or functional pass is claimed for this checkout.
+
+All task-owned build/test/debug sessions are terminal. Worktrees were reconciled and
+removed; the unused unintegrated Plan59 parser-provenance draft is preserved on its
+original branch at `3d7096c15`, rather than reintroducing retired production code.
+The shared sccache daemon was left running for other agents; it is not an active test
+or build. Resume the recorded failures and pending targeted checks before starting
+further implementation from this wave.

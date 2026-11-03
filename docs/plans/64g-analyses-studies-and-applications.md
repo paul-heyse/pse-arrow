@@ -25,7 +25,7 @@ parallel capture path. G's existing evidence and pending failure fixes retain th
 
 ## Purpose and foundations
 
-**Proposed:** realize P6's engineering analyses over the same authored physical definitions and exact scientific revisions used by simulation. The [coordinator](64-process-simulator-target.md) owns the combined target, F01–F06 disposition and rule decisions; this companion owns G01–G07. Creation authorizes no execution. The source baseline is `1acd8c83ca8f9e6f6e9b5e9c9cbf98e299d574b8`; Core 3.4, efficiency heuristics 1.0, ProcessSimulator 1.5 and test-assessment 1.2 apply.
+**Proposed:** realize P6's engineering analyses over the same authored physical definitions and exact scientific revisions used by simulation. The [coordinator](64-process-simulator-target.md) owns the combined target, F01–F06 disposition and rule decisions; this companion owns G01–G08. The current checkpoint records execution authorization and progress. The source baseline is `1acd8c83ca8f9e6f6e9b5e9c9cbf98e299d574b8`; Core 3.4, efficiency heuristics 1.0, ProcessSimulator 1.5 and test-assessment 1.2 apply.
 
 **Interface-checked:** `workflow/fitting.rs` and its `experiments`, `covariance`, `profile` and `residual_policy` modules already separate fitting preparation, experiments and derived results. `workflow/uncertainty.rs`, `horizon.rs`, `controls.rs` and `study.rs` provide existing consumers to extend. `completion.rs` distinguishes aggregate and step scientific permissions but its product lookup selects by derived quantity, while `derive_permission` consumes aggregate permission. This is a concrete boundary for F03, not evidence that every current fitting result is wrong.
 
@@ -54,7 +54,7 @@ Engineering assessments retain physical contributor, boundary, currency/base per
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | G01 | in-progress | 64a task/outcome contracts; C05 shared product contract; selected exposed products | P6 demands and route decisions feed the shared owner; integration consumes implemented scoped permission without quantity-only aliasing |
-| G02 | planned | G01; ordinary experimental inputs and accepted models from 64b/64d | Joint inference/reconciliation retains shared parameters, observation meaning, identifiability limits and qualified uncertainty |
+| G02 | in-progress | G01; ordinary experimental inputs and accepted models from 64b/64d | Joint inference/reconciliation retains shared parameters, observation meaning, identifiability limits and qualified uncertainty |
 | G03 | planned | G01; accepted deterministic operation; selected distributions | Uncertainty execution retains measure/dependence, actual samples, failed-case treatment and statistically appropriate comparisons |
 | G04 | planned | Selected reference applications from 64h; G01; demanded scientific capability | Surrogate/discrete realization decision settled, selected artifact/training/embedding paths integrated and unsupported demands refused |
 | G05 | planned | Selected dynamic route from 64e or accepted steady period model; G01 | Control/horizon and multiperiod/grid workflows retain physical-time/coupling meaning and intentional failure behavior |
@@ -70,9 +70,12 @@ All G scope, including G08, is authorized with D/E/F and required enabling slice
 64c's implemented scoped product-permission owner instead of recreating it from this document's
 historical baseline description. Remaining P6 consumers and finite configurations are being
 mapped. Proposed ADR-0230 and blueprint344 record G08's atomic witness target before production
-change. A dedicated writable-module qualification branch is testing actual pinned-engine
-rollback/timeout/settlement; production remains on its current mechanism until a replacement
-and its full writer/reader/protection migration are established. No new G completion is claimed.
+change. The dedicated pinned-engine writable-module probe passed actual multi-write rollback
+under typed error, module timeout and caller timeout with terminal drain before ownership release.
+The selected implementation is therefore the typed SQL-only whole-operation export. Source
+migration now joins complete selector/fact writers, protection predicates in both commit orders,
+exact-request receipt replay and the single client call; full production capture, race and
+10,000-member acceptance remain in progress. No new G completion is claimed.
 
 ### G01 — Product scope before additional consumers
 
@@ -100,7 +103,8 @@ Prepare immutable science once where compatible, isolate mutable attempt state, 
 
 Migration moves every selected producer and reader of a changed contract together, including generated schemas and exact retained readback. Delete replaced interpretation paths after consumers move and revealing tests pass. Existing Plans28/40/53/54/58h keep their status and qualification duties. G07 completes only the selected P6 population and linked obligations, not unselected industry or supplemental whole-distribution claims.
 
-**Outcome:** Proposed only. No implementation, tests, probes or measurements were performed by authoring this document. The next ready work is G01's scoped consumer/design assessment once the shared contracts and exposed-product selection are available.
+**Outcome:** Partial implementation. G01/G02/G08 remain open; selected passing
+controls do not qualify the complete P6 population or atomic-capture replacement.
 
 ## G08 — Atomic capture and unrelated liveness
 
@@ -111,3 +115,72 @@ Use commit-time conflict detection and bounded retry rather than durable exclusi
 Writable Surrealism is the preferred typed whole-operation prototype if its inherited-transaction failure probe passes and it removes procedural SQL/client choreography. First prove multi-write rollback after typed failure/timeout and actual completion before ownership release on the selected engine. Its current purity attestation must be explicitly amended through the decision route; network/module-KV side effects remain outside the selected transaction contract. If that probe fails, use the same atomic witness design in the existing authored transaction owner; do not keep two production implementations. This fallback selects an established mechanism for the same contract, not weaker capture semantics.
 
 Discriminate concurrent future-matching inserts and selector-metadata changes from unrelated renewal/cancellation; verify either a retry or one complete protected population, lost-ACK replay and stale-owner refusal. Record actual contention/retry behavior before claiming improved throughput. H05's persisted-study claims consume implemented G08 and applicable original-owner qualification; A04 source reasoning alone does not repair DA-063.
+
+### Stopped implementation checkpoint
+
+**2026-11-03 — stopped by instruction.** Corrective edits are preserved, including
+uncommitted changes. No further build, test or debugger work is running. Failure
+baseline is zero; the following failures remain open.
+
+**G02 — Tested, selected consumer:** the two
+`scientific_equipment_joint_exchanger_fit_` controls passed in the combined native
+runtime selector with `property-coolprop,solver-kinsol,solver-ipopt`, invocation
+`01a1a36d-f404-7795-a7c8-24ab90cf0294`. They exercise two experiments over the actual
+authored exchanger, shared-coefficient recovery, independent ODE predictions/information,
+original material/energy closures and the free-coefficient/area rank-one case with
+covariance and parameter-publication refusal. The overall six-test invocation was
+3 passed/3 steam failures, not a full pass.
+
+The initial fitting failures exposed dropped engineering-rule context. Commit
+`2550fa665` retains exact rule/scale/caloric provenance in the existing fit numerical
+policy, aliases experiment targets and refuses conflicts. Two later unnecessary test
+qualifications were removed; Clippy has not verified those final edits. Broader G02
+applications and affected policy/caloric regressions remain open.
+
+**G08 — Implemented, incomplete:** schema v4, typed writable capture, publication
+witness and exact-request receipts replace the normal open/pending/commit client path.
+The native service now explicitly selects a cache of 100 modules and derives physical
+controller capacity as twice the cache capacity times the admitted module pool size
+(800 at pool four), unless a caller explicitly selects controller capacity. Explicit
+positive cache/total selections are preserved; invalid/range-overflow selections refuse.
+This removes the observed eight-controller default mismatch without changing guest
+memory, execution-time or pool limits. Broader resource/throughput qualification is
+not established.
+
+The broader ordinary batch with `canonical-tests,canonical-maintenance,native-service`
+ran **30 tests: 25 passed, 5 failed**, invocation
+`01a1a371-761d-7719-bee5-450b1f3abade`. Controller-capacity refusals were absent;
+legacy-owner cleanup, static migration, capacity selection and selected liveness,
+receipt and input controls passed. The latest focused selector over small lost-ACK
+capture and the three stack controls ran **4 tests: 1 passed, 3 failed**, invocation
+`01a1a37a-f40b-74cb-9194-2930bd5abc24`, using the optimized module. Remaining failures:
+
+| Test / discriminator | Latest evidence and next obligation |
+| --- | --- |
+| `capture_all_unavailable_members_retain_the_named_parent_summary` | Ordinary execution still aborts with stack overflow after claim/finalization future boxing. A debugger child passed the same captured case, but did not yield an overflow stack; its wrapper failed after `bt` on normal exit. Compare actual launch environments and capture the failing stack; do not treat the debugger run as acceptance. |
+| `capture_opaque_public_ids_and_protection_tuple_keys_do_not_alias` | Ordinary execution still aborts with stack overflow. |
+| `capture_and_absent_protection_retirement_are_fenced_in_both_commit_orders` | Ordinary execution still aborts with stack overflow. Both commit-order acceptance obligations remain open. |
+| `capture_future_member_and_selector_metadata_commit_before_capture_force_complete_retry` | Broader batch failed during fixture initialization with an h2 body/connection error. Cause and actual future-match acceptance remain unresolved. |
+| `capture_native_10000_members_preserves_complete_bounded_pages_and_receipt` | Pre-optimization run hit the strict one-second module epoch timeout, then unresolved absent receipt/drain timeout. The optimized 10,000-member rerun never executed: its pending launcher was canceled before fixture creation, exit 143. |
+
+The preserved optimization keeps all captured arrays and bulk inserts inside one fixed
+host-SQL transaction block; only the typed request and bounded receipt/refusal cross
+the WASM boundary. The optimized small lost-ACK/exact-replay control passed. This does
+not establish that the large capture now meets its unchanged clock/resource contract.
+Owner registration before the held transaction's BEGIN corrected an independent
+race-test snapshot error and its stalled-capture control passed.
+
+**Tested, bounded migration:**
+`native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target` passed
+1/1, invocation `01a1a369-cfac-77a3-abe8-7d439578ae02`: an unchanged authenticated
+readonly artifact in a newly owned frozen-v3 fixture, restart/quiescence, migration,
+exact receipt replay, module promotion and current readiness. This is not a recovered
+historical deployment or a full migration population. The legacy helper's latest
+fixture correction restores two original count-seal events; that final overlay needs
+a rerun. Obsolete Busy refusal/classifier/retry remnants still require retirement once
+replacement controls pass. G08 and DA-063 are not closed.
+
+Clippy, hygiene, final generated comparison and further regressions/campaigns were
+explicitly skipped; the
+[coordinator checkpoint](64-process-simulator-target.md#d-through-g-implementation-checkpoint)
+owns common closeout state and the separate ongoing plan-document work.

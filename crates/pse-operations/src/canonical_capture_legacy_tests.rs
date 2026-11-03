@@ -28,10 +28,12 @@ async fn fixture() -> CanonicalStore {
             || line.starts_with("DEFINE FIELD ")
                 && (line.contains(" ON canonical_study_capture_gate ")
                     || line.contains(" ON canonical_study_captures "))
+            || line.starts_with("DEFINE EVENT ") && line.contains(" ON canonical_study_captures ")
         {
             let line = line
                 .replacen("DEFINE TABLE ", "DEFINE TABLE OVERWRITE ", 1)
-                .replacen("DEFINE FIELD ", "DEFINE FIELD OVERWRITE ", 1);
+                .replacen("DEFINE FIELD ", "DEFINE FIELD OVERWRITE ", 1)
+                .replacen("DEFINE EVENT ", "DEFINE EVENT OVERWRITE ", 1);
             overlay.push_str(&line);
             overlay.push('\n');
         }

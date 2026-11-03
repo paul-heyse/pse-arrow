@@ -40,8 +40,8 @@ mod atomic_capture {
         maximum: usize,
         members: usize,
     ) -> crate::transport::client::HeldTransaction {
-        let transaction = held(store).await;
         let owner = store.registered_file_owner().await.unwrap();
+        let transaction = held(store).await;
         let request = Bytes::from(serde_json::to_vec(&(1_u8, filter, maximum, members)).unwrap());
         transaction.query("LET $reply=mod::pse::study_capture::capture({expiry:time::micros()+30000000,key:$key,owner:$owner,request:$request,filter:$filter,maximum:$maximum,members:$members}); IF $reply.refusal!=NONE { THROW 'PSE_REFUSAL:'+$reply.refusal; }; RETURN $reply.receipt;")
             .bind(("key",key.to_owned())).bind(("owner",owner)).bind(("request",request))
