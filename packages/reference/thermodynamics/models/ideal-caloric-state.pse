@@ -5,6 +5,7 @@
 @id("01a0ede58ecf75039afc4717275205b3") use chemistry @"1.0.0";
 @id("f21929aacb324034b3385a220dd1ba81") use equilibrium @"1.0.0";
 @id("0fa5555ad5e9425487ce121716721238") use caloric @"1.0.0";
+@id("64d02000000040008000000000000101") use state_coordinates @"1.0.0";
 // Endpoint characteristics use differences of the selected source functions.
 // They do not assert empirical validity throughout the selected interval.
 @id("6465b4969f4d446185bff1a291d6458b") fn larger_difference(a:Delta<MolarEnthalpy>,b:Delta<MolarEnthalpy>)->Delta<MolarEnthalpy>=if a>=b then a else b;
@@ -31,11 +32,54 @@
 @id("b83e029554c7428ca61aa8e872f88c2d") annotation nominal pressure(reference_pressure);
 @id("9924e5433ba9432a8f810e7a990765ab") annotation bounds pressure(1{Pa},100000000{Pa});
 @id("55264df2005c496eb2844bda979d837a") annotation start z(equilibrium.fraction_unit()/sum(j in components | 1));
-@id("4ceef21ee3b847b2a83c6db3e3ef50f1") annotation bounds z(1e-12{1},1{1});
+@id("4ceef21ee3b847b2a83c6db3e3ef50f1") annotation bounds z(0{1},1{1});
 @id("14110a2fca514435ac44c8d0b974d8b5") annotation start h(0{J/mol});
 @id("5c6fabb4ec1f44c198d0220507e83812") annotation nominal h(10000{J/mol});
 }
 @id("bf00072386d54ed28d149e4f7bb943ee") fn mixture_enthalpy(T:Temperature,z:MoleFraction[chemistry.species],members:Set<chemistry.species>,component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy)->MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in members | (z[j]/equilibrium.fraction_unit())*(component_h(T,j)-constants.standard_enthalpy_datum));
+// Caloric composition retains the original datum and temperature law while the
+// selected state definition chooses temperature or enthalpy as its coordinate.
+@id("64d02000000040008000000000000102") interface TotalFlowTemperatureState extends SinglePhaseCaloricState,state_coordinates.TotalFlowTemperature {}
+@id("64d02000000040008000000000000103") interface TotalFlowEnthalpyState extends SinglePhaseCaloricState,state_coordinates.TotalFlowEnthalpy {}
+@id("64d02000000040008000000000000104") interface ComponentFlowTemperatureState extends SinglePhaseCaloricState,state_coordinates.ComponentFlowTemperature {}
+@id("64d02000000040008000000000000105") interface ComponentFlowEnthalpyState extends SinglePhaseCaloricState,state_coordinates.ComponentFlowEnthalpy {}
+// Phase identity is selected by the author, without a liquid/vapor restriction.
+// This mixture law is ideal caloric mixing, not a phase-equilibrium calculation.
+@id("64d02000000040008000000000000106") interface PhaseFlowTemperatureState extends state_coordinates.PhaseFlowTemperature {
+@id("64d02000000040008000000000000107") param component_h:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy;
+@id("64d02000000040008000000000000108") param minimum_temperature:Temperature;
+@id("64d02000000040008000000000000109") param maximum_temperature:Temperature;
+@id("64d0200000004000800000000000010a") let phase_enthalpy[p in phases]:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (phase_z[p,j]/equilibrium.fraction_unit())*(component_h(T,p,j)-constants.standard_enthalpy_datum));
+@id("64d0200000004000800000000000010b") eq enthalpy:h==constants.standard_enthalpy_datum+sum(p in phases | phase_fraction[p]*(phase_enthalpy[p]-constants.standard_enthalpy_datum));
+@id("64d0200000004000800000000000010c") annotation start T(300{K});
+@id("64d0200000004000800000000000010d") annotation nominal T(300{K});
+@id("64d0200000004000800000000000010e") annotation bounds T(minimum_temperature,maximum_temperature);
+@id("64d0200000004000800000000000010f") annotation valid T(minimum_temperature,maximum_temperature);
+@id("64d02000000040008000000000000110") annotation start pressure(101325{Pa});
+@id("64d02000000040008000000000000111") annotation nominal pressure(101325{Pa});
+@id("64d02000000040008000000000000112") annotation start h(0{J/mol});
+@id("64d02000000040008000000000000113") annotation nominal h(10000{J/mol});
+}
+// Here phase composition is reconstructed from phase-component flows. Intensive
+// phase enthalpies therefore require a positive flow in every selected phase.
+// A disappearing phase is refused, never assigned a fictional mole fraction.
+@id("64d02000000040008000000000000114") interface PhaseComponentFlowTemperatureState extends state_coordinates.PhaseComponentFlowTemperature {
+@id("64d02000000040008000000000000115") param component_h:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy;
+@id("64d02000000040008000000000000116") param minimum_temperature:Temperature;
+@id("64d02000000040008000000000000117") param maximum_temperature:Temperature;
+@id("64d02000000040008000000000000118") let phase_z[p in phases,j in components]:MoleFraction=state_coordinates.composition(phase_component_flow[p,j],phase_flow[p]);
+@id("64d02000000040008000000000000119") let phase_enthalpy[p in phases]:MolarEnthalpy=constants.standard_enthalpy_datum+sum(j in components | (phase_z[p,j]/equilibrium.fraction_unit())*(component_h(T,p,j)-constants.standard_enthalpy_datum));
+@id("64d0200000004000800000000000011a") eq enthalpy:h==constants.standard_enthalpy_datum+sum(p in phases | phase_fraction[p]*(phase_enthalpy[p]-constants.standard_enthalpy_datum));
+@id("64d0200000004000800000000000011b") annotation check phase_flow(phase_flow[p]>0{mol/s});
+@id("64d0200000004000800000000000011c") annotation start T(300{K});
+@id("64d0200000004000800000000000011d") annotation nominal T(300{K});
+@id("64d0200000004000800000000000011e") annotation bounds T(minimum_temperature,maximum_temperature);
+@id("64d0200000004000800000000000011f") annotation valid T(minimum_temperature,maximum_temperature);
+@id("64d02000000040008000000000000120") annotation start pressure(101325{Pa});
+@id("64d02000000040008000000000000121") annotation nominal pressure(101325{Pa});
+@id("64d02000000040008000000000000122") annotation start h(0{J/mol});
+@id("64d02000000040008000000000000123") annotation nominal h(10000{J/mol});
+}
 @id("0fb5bfea78084dad8cf6d2688e180c3d") interface IdealGasState extends SinglePhaseCaloricState,equilibrium.EntropyThermoPackage {
 @id("1c69744112bc458baf91647a7ccb4207") param component_s:Fn(T:Temperature,j:chemistry.species)->MolarEntropy;
 @id("7bbafb6b113a4d9aba1f12ec6a224054") let s:MolarEntropy=constants.standard_entropy_datum+sum(j in components | (z[j]/equilibrium.fraction_unit())*(component_s(T,j)-constants.standard_entropy_datum))-equilibrium.ideal_entropy_increment(pressure,reference_pressure,z,components);

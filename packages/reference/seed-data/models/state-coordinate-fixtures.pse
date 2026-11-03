@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64d02000000040008000000000000201") package state_coordinate_fixtures {
+@id("64d02000000040008000000000000202") use chemistry @"1.0.0";
+@id("64d02000000040008000000000000203") use chem @"1.0.0";
+@id("64d02000000040008000000000000204") use constants @"1.0.0";
+@id("64d02000000040008000000000000205") use equilibrium @"1.0.0";
+@id("64d02000000040008000000000000206") use ideal_caloric_state @"1.0.0";
+@id("64d02000000040008000000000000207") use numerical_policy @"1.0.0";
+@id("64d02000000040008000000000000208") use provenance @"1.0.0";
+// Analytic controls, not measured or published fluid-property data. At 350 K
+// h_A=1000, h_B=2000 J/mol. The second phase adds 10000 J/mol to each.
+// Equal single-phase component flows give h=1500 J/mol, H=3000 W.
+// Phase component flows (0.5,1.5) and (0.5,0.5) give H=15000 W, h=5000.
+// These answers follow independently from the four specified component energies.
+@id("64d02000000040008000000000000209") entity provenance.source analytic_states {title="Synthetic linear ideal-caloric laws: Cp(A)=20, Cp(B)=40 J/(mol K), h(300 K)=standard datum; vapor offset=10000 J/mol, without an equilibrium assertion"}
+@id("64d0200000004000800000000000020a") set members:Set<chemistry.species>={chem.benzene,chem.toluene};
+@id("64d020000000400080000000000002cf") fn heat_capacity(j:chemistry.species)->MolarCp valid(j in members)=if j==chem.benzene then 20{J/(mol*K)} else 40{J/(mol*K)};
+@id("64d020000000400080000000000002d0") fn phase_offset(p:chemistry.phase)->Delta<MolarEnthalpy> valid(p==chemistry.liquid or p==chemistry.vapor)=if p==chemistry.vapor then 10000{J/mol} else 0{J/mol};
+@id("64d0200000004000800000000000020b") fn single_h(T:Temperature,j:chemistry.species)->MolarEnthalpy valid(T>=300{K} and T<=400{K})=constants.standard_enthalpy_datum+heat_capacity(j)*(T-300{K});
+@id("64d0200000004000800000000000020c") fn phase_h(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy valid(T>=300{K} and T<=400{K})=single_h(T,j)+phase_offset(p);
+@id("64d0200000004000800000000000020d") interface SingleParameters extends ideal_caloric_state.SinglePhaseCaloricState {
+@id("64d0200000004000800000000000020e") override param components:Set<chemistry.species>=members;
+@id("64d0200000004000800000000000020f") override param component_h:Fn(T:Temperature,j:chemistry.species)->MolarEnthalpy=single_h;
+@id("64d02000000040008000000000000210") override param reference_pressure:Pressure=101325{Pa};
+@id("64d02000000040008000000000000211") override param minimum_temperature:Temperature=300{K};
+@id("64d02000000040008000000000000212") override param maximum_temperature:Temperature=400{K};
+}
+@id("64d02000000040008000000000000213") interface TotalTemperatureBinding extends SingleParameters,ideal_caloric_state.TotalFlowTemperatureState {
+@id("64d02000000040008000000000000214") override param reference_component:chemistry.species=chem.toluene;
+}
+@id("64d02000000040008000000000000215") interface TotalEnthalpyBinding extends SingleParameters,ideal_caloric_state.TotalFlowEnthalpyState {
+@id("64d02000000040008000000000000216") override param reference_component:chemistry.species=chem.toluene;
+}
+@id("64d02000000040008000000000000217") interface ComponentTemperatureBinding extends SingleParameters,ideal_caloric_state.ComponentFlowTemperatureState {}
+@id("64d02000000040008000000000000218") interface ComponentEnthalpyBinding extends SingleParameters,ideal_caloric_state.ComponentFlowEnthalpyState {}
+@id("64d02000000040008000000000000219") def TotalTemperature(defined_state:Boolean=true):TotalTemperatureBinding {
+@id("64d0200000004000800000000000021a") override param defined:Boolean=defined_state;
+}
+@id("64d0200000004000800000000000021b") def TotalEnthalpy(defined_state:Boolean=true):TotalEnthalpyBinding {
+@id("64d0200000004000800000000000021c") override param defined:Boolean=defined_state;
+}
+@id("64d0200000004000800000000000021d") def ComponentTemperature(defined_state:Boolean=true):ComponentTemperatureBinding {
+@id("64d0200000004000800000000000021e") override param defined:Boolean=defined_state;
+}
+@id("64d0200000004000800000000000021f") def ComponentEnthalpy(defined_state:Boolean=true):ComponentEnthalpyBinding {
+@id("64d02000000040008000000000000220") override param defined:Boolean=defined_state;
+}
+@id("64d02000000040008000000000000221") def PhaseComponentTemperature(defined_state:Boolean=true):ideal_caloric_state.PhaseComponentFlowTemperatureState {
+@id("64d02000000040008000000000000222") override param defined:Boolean=defined_state;
+@id("64d02000000040008000000000000223") override param components:Set<chemistry.species>=members;
+@id("64d02000000040008000000000000224") override param phases:Set<chemistry.phase>={chemistry.liquid,chemistry.vapor};
+@id("64d02000000040008000000000000225") override param component_h:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=phase_h;
+@id("64d02000000040008000000000000226") override param minimum_temperature:Temperature=300{K};
+@id("64d02000000040008000000000000227") override param maximum_temperature:Temperature=400{K};
+}
+@id("64d02000000040008000000000000228") def PhaseTemperature(defined_state:Boolean=true):ideal_caloric_state.PhaseFlowTemperatureState {
+@id("64d02000000040008000000000000229") override param defined:Boolean=defined_state;
+@id("64d0200000004000800000000000022a") override param components:Set<chemistry.species>=members;
+@id("64d0200000004000800000000000022b") override param phases:Set<chemistry.phase>={chemistry.liquid,chemistry.vapor};
+@id("64d0200000004000800000000000022c") override param reference_component:chemistry.species=chem.toluene;
+@id("64d0200000004000800000000000022d") override param component_h:Fn(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=phase_h;
+@id("64d0200000004000800000000000022e") override param minimum_temperature:Temperature=300{K};
+@id("64d0200000004000800000000000022f") override param maximum_temperature:Temperature=400{K};
+}
+@id("64d02000000040008000000000000230") def Correspondence(inlet:equilibrium.ThermoPackage,outlet:equilibrium.ThermoPackage) {
+@id("64d02000000040008000000000000231") child source:equilibrium.ThermoPackage=inlet;
+@id("64d02000000040008000000000000232") child receiver:equilibrium.ThermoPackage=outlet;
+@id("64d02000000040008000000000000233") material port output=source.material_state;
+@id("64d02000000040008000000000000234") material port input=receiver.material_state;
+@id("64d02000000040008000000000000235") annotation connectivity output(0,1);
+@id("64d02000000040008000000000000236") annotation connectivity input(1,0);
+@id("64d02000000040008000000000000237") connect stream:output->input;
+}
+// Concrete phase contracts expose their additional observations to the checker.
+@id("64d020000000400080000000000002d1") def PhaseComponentCorrespondence(inlet:ideal_caloric_state.PhaseComponentFlowTemperatureState,outlet:ideal_caloric_state.PhaseComponentFlowTemperatureState) {
+@id("64d020000000400080000000000002d2") child source:ideal_caloric_state.PhaseComponentFlowTemperatureState=inlet;
+@id("64d020000000400080000000000002d3") child receiver:ideal_caloric_state.PhaseComponentFlowTemperatureState=outlet;
+@id("64d020000000400080000000000002d4") material port output=source.material_state;
+@id("64d020000000400080000000000002d5") material port input=receiver.material_state;
+@id("64d020000000400080000000000002d6") annotation connectivity output(0,1);
+@id("64d020000000400080000000000002d7") annotation connectivity input(1,0);
+@id("64d020000000400080000000000002d8") connect stream:output->input;
+}
+@id("64d020000000400080000000000002d9") def PhaseCorrespondence(inlet:ideal_caloric_state.PhaseFlowTemperatureState,outlet:ideal_caloric_state.PhaseFlowTemperatureState) {
+@id("64d020000000400080000000000002da") child source:ideal_caloric_state.PhaseFlowTemperatureState=inlet;
+@id("64d020000000400080000000000002db") child receiver:ideal_caloric_state.PhaseFlowTemperatureState=outlet;
+@id("64d020000000400080000000000002dc") material port output=source.material_state;
+@id("64d020000000400080000000000002dd") material port input=receiver.material_state;
+@id("64d020000000400080000000000002de") annotation connectivity output(0,1);
+@id("64d020000000400080000000000002df") annotation connectivity input(1,0);
+@id("64d020000000400080000000000002e0") connect stream:output->input;
+}
+@id("64d02000000040008000000000000238") test total_temperature oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.flow=2{mol/s};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};fix root.source.z[chem.benzene]=0.5{1};fix root.source.z[chem.toluene]=0.5{1};} {
+@id("64d02000000040008000000000000239") child root:Correspondence=Correspondence(inlet=TotalTemperature(),outlet=TotalTemperature(defined_state=false));
+@id("64d0200000004000800000000000023a") expect root.receiver.flow==2{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d0200000004000800000000000023b") expect root.receiver.h==1500{J/mol} tolerance 1e-6{J/mol};
+@id("64d0200000004000800000000000023c") expect root.receiver.energy_flow==3000{W} tolerance numerical_policy.power;
+@id("64d0200000004000800000000000023d") expect root.receiver.z[chem.toluene]==0.5{1} tolerance numerical_policy.mole_fraction;
+}
+@id("64d0200000004000800000000000023e") test total_enthalpy oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.flow=2{mol/s};fix root.source.h=1500{J/mol};fix root.source.pressure=101325{Pa};fix root.source.z[chem.benzene]=0.5{1};fix root.source.z[chem.toluene]=0.5{1};} {
+@id("64d0200000004000800000000000023f") child root:Correspondence=Correspondence(inlet=TotalEnthalpy(),outlet=TotalEnthalpy(defined_state=false));
+@id("64d02000000040008000000000000240") expect root.receiver.T==350{K} tolerance numerical_policy.temperature;
+@id("64d02000000040008000000000000241") expect root.receiver.energy_flow==3000{W} tolerance numerical_policy.power;
+}
+@id("64d02000000040008000000000000242") test component_temperature oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.component_rate[chem.benzene]=1{mol/s};fix root.source.component_rate[chem.toluene]=1{mol/s};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};} {
+@id("64d02000000040008000000000000243") child root:Correspondence=Correspondence(inlet=ComponentTemperature(),outlet=ComponentTemperature(defined_state=false));
+@id("64d02000000040008000000000000244") expect root.receiver.flow==2{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d02000000040008000000000000245") expect root.receiver.z[chem.benzene]==0.5{1} tolerance numerical_policy.mole_fraction;
+@id("64d02000000040008000000000000246") expect root.receiver.h==1500{J/mol} tolerance 1e-6{J/mol};
+@id("64d02000000040008000000000000247") expect root.receiver.energy_flow==3000{W} tolerance numerical_policy.power;
+}
+@id("64d02000000040008000000000000248") test component_enthalpy oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.component_rate[chem.benzene]=1{mol/s};fix root.source.component_rate[chem.toluene]=1{mol/s};fix root.source.h=1500{J/mol};fix root.source.pressure=101325{Pa};} {
+@id("64d02000000040008000000000000249") child root:Correspondence=Correspondence(inlet=ComponentEnthalpy(),outlet=ComponentEnthalpy(defined_state=false));
+@id("64d0200000004000800000000000024a") expect root.receiver.T==350{K} tolerance numerical_policy.temperature;
+@id("64d0200000004000800000000000024b") expect root.receiver.flow==2{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d0200000004000800000000000024c") expect root.receiver.energy_flow==3000{W} tolerance numerical_policy.power;
+}
+@id("64d0200000004000800000000000024d") test phase_component_temperature oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.phase_component_rate[chemistry.liquid,chem.benzene]=0.5{mol/s};fix root.source.phase_component_rate[chemistry.liquid,chem.toluene]=1.5{mol/s};fix root.source.phase_component_rate[chemistry.vapor,chem.benzene]=0.5{mol/s};fix root.source.phase_component_rate[chemistry.vapor,chem.toluene]=0.5{mol/s};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};} {
+@id("64d0200000004000800000000000024e") child root:PhaseComponentCorrespondence=PhaseComponentCorrespondence(inlet=PhaseComponentTemperature(),outlet=PhaseComponentTemperature(defined_state=false));
+@id("64d0200000004000800000000000024f") expect root.receiver.flow==3{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d02000000040008000000000000250") expect root.receiver.phase_flow[chemistry.liquid]==2{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d02000000040008000000000000251") expect root.receiver.phase_fraction[chemistry.vapor]==0.3333333333333333 tolerance numerical_policy.dimensionless;
+@id("64d02000000040008000000000000252") expect root.receiver.h==5000{J/mol} tolerance 1e-6{J/mol};
+@id("64d02000000040008000000000000253") expect root.receiver.energy_flow==15000{W} tolerance numerical_policy.power;
+@id("64d02000000040008000000000000254") expect root.receiver.phase_energy_flow[chemistry.liquid]==3500{W} tolerance numerical_policy.power;
+@id("64d02000000040008000000000000255") expect root.receiver.phase_energy_flow[chemistry.vapor]==11500{W} tolerance numerical_policy.power;
+}
+@id("64d02000000040008000000000000256") test phase_temperature oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.phase_rate[chemistry.liquid]=2{mol/s};fix root.source.phase_rate[chemistry.vapor]=1{mol/s};fix root.source.phase_z[chemistry.liquid,chem.benzene]=0.25{1};fix root.source.phase_z[chemistry.liquid,chem.toluene]=0.75{1};fix root.source.phase_z[chemistry.vapor,chem.benzene]=0.5{1};fix root.source.phase_z[chemistry.vapor,chem.toluene]=0.5{1};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};} {
+@id("64d02000000040008000000000000257") child root:PhaseCorrespondence=PhaseCorrespondence(inlet=PhaseTemperature(),outlet=PhaseTemperature(defined_state=false));
+@id("64d02000000040008000000000000258") expect root.receiver.flow==3{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d02000000040008000000000000259") expect root.receiver.h==5000{J/mol} tolerance 1e-6{J/mol};
+@id("64d0200000004000800000000000025a") expect root.receiver.energy_flow==15000{W} tolerance numerical_policy.power;
+@id("64d0200000004000800000000000025b") expect root.receiver.phase_energy_flow[chemistry.liquid]==3500{W} tolerance numerical_policy.power;
+@id("64d0200000004000800000000000025c") expect root.receiver.phase_energy_flow[chemistry.vapor]==11500{W} tolerance numerical_policy.power;
+@id("64d0200000004000800000000000025d") expect root.receiver.phase_z[chemistry.liquid,chem.toluene]==0.75{1} tolerance numerical_policy.mole_fraction;
+}
+@id("64d0200000004000800000000000025e") test total_zero_flow oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.flow=0{mol/s};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};fix root.source.z[chem.benzene]=0.5{1};fix root.source.z[chem.toluene]=0.5{1};} {
+@id("64d0200000004000800000000000025f") child root:Correspondence=Correspondence(inlet=TotalTemperature(),outlet=TotalTemperature(defined_state=false));
+@id("64d02000000040008000000000000260") expect root.receiver.flow==0{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d02000000040008000000000000261") expect root.receiver.h==1500{J/mol} tolerance 1e-6{J/mol};
+@id("64d02000000040008000000000000262") expect root.receiver.energy_flow==0{W} tolerance numerical_policy.power;
+@id("64d02000000040008000000000000263") expect root.receiver.z[chem.toluene]==0.5{1} tolerance numerical_policy.mole_fraction;
+}
+@id("64d02000000040008000000000000264") test disappearing_phase oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.phase_rate[chemistry.liquid]=2{mol/s};fix root.source.phase_rate[chemistry.vapor]=0{mol/s};fix root.source.phase_z[chemistry.liquid,chem.benzene]=0.25{1};fix root.source.phase_z[chemistry.liquid,chem.toluene]=0.75{1};fix root.source.phase_z[chemistry.vapor,chem.benzene]=0.5{1};fix root.source.phase_z[chemistry.vapor,chem.toluene]=0.5{1};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};} {
+@id("64d02000000040008000000000000265") child root:PhaseCorrespondence=PhaseCorrespondence(inlet=PhaseTemperature(),outlet=PhaseTemperature(defined_state=false));
+@id("64d02000000040008000000000000266") expect root.receiver.flow==2{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d02000000040008000000000000267") expect root.receiver.h==1750{J/mol} tolerance 1e-6{J/mol};
+@id("64d02000000040008000000000000268") expect root.receiver.energy_flow==3500{W} tolerance numerical_policy.power;
+@id("64d02000000040008000000000000269") expect root.receiver.phase_fraction[chemistry.vapor]==0 tolerance numerical_policy.dimensionless;
+@id("64d0200000004000800000000000026a") expect root.receiver.phase_energy_flow[chemistry.vapor]==0{W} tolerance numerical_policy.power;
+@id("64d0200000004000800000000000026b") expect root.receiver.phase_z[chemistry.vapor,chem.toluene]==0.5{1} tolerance numerical_policy.mole_fraction;
+}
+@id("64d020000000400080000000000002c1") test zero_component oracle analytic_states fixture {dof 0;route steady;procedure solve;fix root.source.component_rate[chem.benzene]=0{mol/s};fix root.source.component_rate[chem.toluene]=2{mol/s};fix root.source.T=350{K};fix root.source.pressure=101325{Pa};} {
+@id("64d020000000400080000000000002c2") child root:Correspondence=Correspondence(inlet=ComponentTemperature(),outlet=ComponentTemperature(defined_state=false));
+@id("64d020000000400080000000000002c3") expect root.receiver.flow==2{mol/s} tolerance numerical_policy.molar_flow;
+@id("64d020000000400080000000000002c4") expect root.receiver.z[chem.benzene]==0{1} tolerance numerical_policy.mole_fraction;
+@id("64d020000000400080000000000002c5") expect root.receiver.z[chem.toluene]==1{1} tolerance numerical_policy.mole_fraction;
+@id("64d020000000400080000000000002c6") expect root.receiver.h==2000{J/mol} tolerance 1e-6{J/mol};
+@id("64d020000000400080000000000002c7") expect root.receiver.energy_flow==4000{W} tolerance numerical_policy.power;
+}
+}
