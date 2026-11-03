@@ -199,13 +199,15 @@ mod tests {
                 .await
                 .unwrap();
         let declarations = package
-            .declarations(&runtime.preparation_services())
+            .declaration_path(
+                &runtime.preparation_services(),
+                &["ordinary_bt", "bt_vapor_caloric"],
+                &crate::CancelSource::new(),
+            )
             .await
+            .unwrap()
             .unwrap();
-        let target = declarations
-            .iter()
-            .find(|row| row.name == "bt_vapor_caloric")
-            .unwrap();
+        let target = &declarations[0];
         let artifact = include_bytes!(
             "../../../../../packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json"
         );
@@ -225,13 +227,16 @@ mod tests {
             "unchanged ordinary import is a true source no-op"
         );
         let actual = changed
-            .declarations(&runtime.preparation_services())
+            .declaration_path(
+                &runtime.preparation_services(),
+                &["ordinary_bt", "bt_vapor_caloric"],
+                &crate::CancelSource::new(),
+            )
             .await
+            .unwrap()
             .unwrap();
-        let bank = actual
-            .iter()
-            .find(|row| row.declaration_id == target.declaration_id)
-            .unwrap();
+        let bank = &actual[0];
+        assert_eq!(bank.declaration_id, target.declaration_id);
         assert_eq!(
             bank.value.dataset.as_ref().unwrap().provenance,
             target.value.dataset.as_ref().unwrap().provenance
@@ -249,7 +254,15 @@ mod tests {
                 .is_err()
         );
         assert!(
-            actual.iter().any(|row| row.name == "feos_unknown"),
+            changed
+                .declaration_path(
+                    &runtime.preparation_services(),
+                    &["ordinary_bt", "feos_unknown"],
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap()
+                .is_some(),
             "unknown empirical coverage remains a typed scientific claim"
         );
     }

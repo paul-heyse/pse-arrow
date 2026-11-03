@@ -331,6 +331,19 @@ impl Hash for InventoryBucket {
     }
 }
 impl AdmittedModelRevision {
+    /// Borrow exact name membership from this immutable admitted revision. Inspection
+    /// does not clone a bucket or construct the edit/dependency inventory.
+    pub(super) fn named_declarations(
+        &self,
+        parent: Option<DeclarationId>,
+        name: &str,
+    ) -> impl Iterator<Item = &Arc<LocalSourceObject>> {
+        self.inventories
+            .get(&LocalInventory::Name(scope(parent), name.into()))
+            .into_iter()
+            .flat_map(|bucket| bucket.members.iter())
+            .filter(|object| object.declaration.is_some())
+    }
     pub(in crate::workflow::modeling) fn validation_context(
         &self,
     ) -> &Arc<pse_relations::validate::ValidationContext> {

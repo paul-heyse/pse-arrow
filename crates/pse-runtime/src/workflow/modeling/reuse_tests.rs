@@ -609,6 +609,12 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
         .unwrap();
     let original = first.admission.revision.clone();
     let request = first.admission.request.clone();
+    let original_candidates = runtime
+        .shared
+        .math()
+        .modeling_cache
+        .selected(&request)
+        .unwrap();
     for literal in 2..=10 {
         package = package
             .with_declarations(
@@ -625,6 +631,12 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
             .unwrap();
         assert!(!original.same_admission(&selected.admission.revision));
     }
+    assert_eq!(
+        original_candidates.len(),
+        1,
+        "escaped lookup snapshots remain immutable during history growth"
+    );
+    assert!(original_candidates[0].revision.same_admission(&original));
     assert!(
         runtime
             .shared

@@ -369,17 +369,21 @@ mod tests {
             .unwrap();
         let services = runtime.preparation_services();
         let cancel = crate::CancelSource::new();
-        let rows = package.declarations(&services).await.unwrap();
-        let target = rows
-            .iter()
-            .find(|row| row.name == "bt_vapor_caloric")
+        let rows = package
+            .declaration_path(&services, &["ordinary_bt", "bt_vapor_caloric"], &cancel)
+            .await
+            .unwrap()
             .unwrap();
-        let roots = ["ordinary_recycle", "ordinary_exchanger"].map(|name| {
-            rows.iter()
-                .find(|row| row.name == name)
+        let target = &rows[0];
+        let mut roots = Vec::new();
+        for name in ["ordinary_recycle", "ordinary_exchanger"] {
+            let selected = package
+                .declaration_path(&services, &["ordinary_delivery", name], &cancel)
+                .await
                 .unwrap()
-                .declaration_id
-        });
+                .unwrap();
+            roots.push(selected[0].declaration_id);
+        }
         let original_cells =
             dataset_cells(&package, &services, target.declaration_id, &cancel).await;
         assert!(!original_cells.is_empty());
@@ -555,16 +559,18 @@ mod tests {
             pr_jacobian_tests::ordinary_source_package().await.unwrap();
         let services = runtime.preparation_services();
         let cancel = crate::CancelSource::new();
-        let rows = package.declarations(&services).await.unwrap();
-        let target = rows
-            .iter()
-            .find(|row| row.name == "bt_vapor_caloric")
-            .unwrap();
-        let root = rows
-            .iter()
-            .find(|row| row.name == "Ideal")
+        let rows = package
+            .declaration_path(&services, &["ordinary_bt", "bt_vapor_caloric"], &cancel)
+            .await
             .unwrap()
-            .declaration_id;
+            .unwrap();
+        let target = &rows[0];
+        let selected = package
+            .declaration_path(&services, &["ordinary_bt", "Ideal"], &cancel)
+            .await
+            .unwrap()
+            .unwrap();
+        let root = selected[0].declaration_id;
         let mut replacement = target.clone();
         *replacement
             .value

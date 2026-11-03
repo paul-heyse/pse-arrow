@@ -217,6 +217,45 @@ mod tests {
             .unwrap();
         (package, scope)
     }
+    #[tokio::test]
+    async fn held_views_carry_one_qualification_within_the_same_invocation() {
+        let runtime = crate::workflow::tests::runtime();
+        runtime
+            .scope_activity(async {
+                let (package, scope) = held_fixture(&runtime).await;
+                let (root, instance) = {
+                    let entries = scope.entries.lock().await;
+                    (entries.views[0].root, entries.views[0].instance)
+                };
+                let mut limits = Limits::default();
+                limits.depth += 1;
+                package
+                    .prepare(
+                        &runtime.preparation_services(),
+                        root,
+                        instance,
+                        Bindings::default(),
+                        limits,
+                        &crate::CancelSource::new(),
+                    )
+                    .await?;
+                {
+                    let entries = scope.entries.lock().await;
+                    assert_eq!(entries.views.len(), 2);
+                    assert!(
+                        entries.views[0]
+                            ._selected
+                            .same_qualification(&entries.views[1]._selected),
+                        "a new prepared binding carries the original qualified immutable relation"
+                    );
+                }
+                scope.close().await?;
+                Ok::<_, WorkflowError>(())
+            })
+            .await
+            .unwrap();
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn held_preparation_reuse_preserves_cancelled_and_expired_caller_clocks() {
         let runtime = crate::workflow::tests::runtime();
@@ -419,6 +458,23 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
+        self.engage_selected(services, root, instance, bindings, limits, cancel, None)
+            .await
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one held view carries its exact already-qualified selection into another binding of the same root"
+    )]
+    async fn engage_selected(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        cancel: &crate::CancelSource,
+        selected: Option<canonical::CheckedSelection>,
+    ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
         limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
@@ -426,9 +482,18 @@ impl ModelingPackage {
             .scope(async {
                 let state = AtomicU8::new(ESTABLISHING);
                 let deadline = services.math().preparation_deadline(cancel)?;
-                let mut selected = self
-                    .checked_selection_scoped(services, &[root], cancel, deadline)
-                    .await?;
+                let mut selected = match selected {
+                    Some(selected)
+                        if selected.admission.request.roots == [root]
+                            && selected.carries(self, services) =>
+                    {
+                        selected
+                    }
+                    _ => {
+                        self.checked_selection_scoped(services, &[root], cancel, deadline)
+                            .await?
+                    }
+                };
                 let phase = cancel.child_with_deadline(Some(deadline));
                 let result = async {
                     let bytes = size_of::<PreparationEngagement>()
@@ -567,8 +632,12 @@ impl HeldPreparationScope {
                 + size_of::<Arc<pse_columnar::AllocationLease>>()
                 + 128,
         )?;
+        let selected = entries.views.iter().find_map(|view| {
+            (view.root == root && view._selected.carries(source, services))
+                .then(|| view._selected.clone())
+        });
         let view = source
-            .engage(services, root, instance, bindings, limits, cancel)
+            .engage_selected(services, root, instance, bindings, limits, cancel, selected)
             .await?;
         let model = view.model().clone();
         entries.views.push(view);

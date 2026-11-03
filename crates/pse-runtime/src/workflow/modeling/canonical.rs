@@ -1084,11 +1084,11 @@ impl ModelingPackage {
 }
 
 /// Active eligibility belongs to this call, never to retained admission.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(super) struct CheckedSelection {
     pub(super) admission: Arc<super::SelectedAdmission>,
     source: Arc<AdmittedModelRevision>,
-    physical: super::PhysicalContext,
+    physical: Arc<super::PhysicalContext>,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     registry: Arc<pse_schema::Registry>,
     validation: Arc<pse_relations::validate::ValidationContext>,
@@ -1150,7 +1150,7 @@ impl CheckedSelection {
         Ok(Self {
             admission,
             source: package.revision.admitted.clone(),
-            physical,
+            physical: Arc::new(physical),
             providers: package.providers.clone(),
             registry: services.registry().clone(),
             validation,
@@ -1188,6 +1188,12 @@ impl CheckedSelection {
                         && *key == actual.spec().key()
                         && *configuration == actual.configuration_key()
                 })
+    }
+    #[cfg(test)]
+    pub(super) fn same_qualification(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self._metadata, &other._metadata)
+            && Arc::ptr_eq(&self.physical, &other.physical)
+            && Arc::ptr_eq(&self.validation, &other.validation)
     }
 }
 
@@ -1748,14 +1754,8 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
-        self.check_service_bindings(services)?;
-        let parent = self
-            .delta_parent(services, &crate::CancelSource::new())
-            .await?;
-        Ok(super::OwnedDeclarations {
-            rows: parent.rows,
-            _leases: parent._leases,
-        })
+        self.ordered_declarations(services, 0, usize::MAX, None, &crate::CancelSource::new())
+            .map(|(_, declarations)| declarations)
     }
     /// Select the authenticated ingress order before copying any declaration body.
     /// Full delta products, document/physical hydration and dependency indexes are
@@ -1766,28 +1766,112 @@ impl ModelingPackage {
         offset: usize,
         limit: usize,
     ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
+        self.ordered_declarations(services, offset, limit, None, &crate::CancelSource::new())
+    }
+    /// Read one exact rooted declaration path without constructing a whole inventory.
+    /// Absence is an inspection fact; malformed or ambiguous membership refuses.
+    /// This is exact authored membership, not lexical alias/import resolution.
+    ///
+    /// # Errors
+    /// Refuses invalid membership, cancellation, incompatible receiving services or
+    /// insufficient capacity for the selected declaration's owned copy.
+    pub async fn declaration_path(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        path: &[&str],
+        cancel: &crate::CancelSource,
+    ) -> Result<Option<super::OwnedDeclarations>, WorkflowError> {
         self.check_service_bindings(services)?;
+        let activity = services.admit_activity()?;
+        activity
+            .scope(async {
+                checkpoint(cancel)?;
+                if path.is_empty() || path.iter().any(|segment| segment.is_empty()) {
+                    return Err(contract("declaration path requires nonempty exact names"));
+                }
+                let mut parent = None;
+                let mut selected = None;
+                for name in path {
+                    checkpoint(cancel)?;
+                    let mut candidates = self.revision.admitted.named_declarations(parent, name);
+                    let Some(object) = candidates.next() else {
+                        return Ok(None);
+                    };
+                    if candidates.next().is_some() {
+                        return Err(contract("ambiguous declaration path membership"));
+                    }
+                    let (row, _) = object
+                        .declaration
+                        .as_ref()
+                        .ok_or_else(|| contract("owned typed declaration absent"))?;
+                    if row.parent_id != parent
+                        || row.name != *name
+                        || object.logical != logical(row.declaration_id)
+                    {
+                        return Err(contract("declaration path differs from admitted body"));
+                    }
+                    parent = Some(row.declaration_id);
+                    selected = Some(object);
+                }
+                let object =
+                    selected.ok_or_else(|| contract("declaration path has no selected body"))?;
+                let id =
+                    parent.ok_or_else(|| contract("declaration path has no selected identity"))?;
+                let (row, lease) = Self::copy_declaration(services, id, object)?;
+                Ok(Some(super::OwnedDeclarations {
+                    rows: vec![row],
+                    _leases: vec![lease],
+                }))
+            })
+            .await
+    }
+    fn copy_declaration(
+        services: &crate::workflow::PreparationServices,
+        id: DeclarationId,
+        object: &LocalSourceObject,
+    ) -> Result<(Declaration, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+        let source = object
+            .declaration
+            .as_ref()
+            .ok_or_else(|| contract("owned typed declaration absent"))?;
+        if source.0.declaration_id != id {
+            return Err(contract(
+                "ordered declaration identity differs from admitted body",
+            ));
+        }
+        let lease = services.math().reserve(
+            "modeling:selected-declaration-copy",
+            source.0.owned_bytes().saturating_add(8192),
+        )?;
+        Ok((source.0.clone(), lease))
+    }
+    /// Both complete and paged inspection consume the same authenticated order.
+    /// Editing products are built only by the edit path, never as a read side effect.
+    fn ordered_declarations(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        offset: usize,
+        limit: usize,
+        selected: Option<&BTreeSet<DeclarationId>>,
+        cancel: &crate::CancelSource,
+    ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
+        self.check_service_bindings(services)?;
+        checkpoint(cancel)?;
         let (frame, frame_lease) = self
             .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
         let total = frame.order.len();
-        let mut rows = Vec::with_capacity(limit.min(total.saturating_sub(offset)));
+        let capacity = limit.min(total.saturating_sub(offset));
+        let mut rows = Vec::with_capacity(selected.map_or(capacity, |ids| capacity.min(ids.len())));
         let mut leases = vec![frame_lease];
         for id in frame.order.iter().skip(offset).take(limit) {
-            let object = self.local_object(&logical(*id))?;
-            let source = object
-                .declaration
-                .as_ref()
-                .ok_or_else(|| contract("owned typed declaration absent"))?;
-            if source.0.declaration_id != *id {
-                return Err(contract(
-                    "ordered declaration identity differs from admitted body",
-                ));
+            checkpoint(cancel)?;
+            if selected.is_some_and(|ids| !ids.contains(id)) {
+                continue;
             }
-            leases.push(services.math().reserve(
-                "modeling:selected-declaration-copy",
-                source.0.owned_bytes().saturating_add(8192),
-            )?);
-            rows.push(source.0.clone());
+            let object = self.local_object(&logical(*id))?;
+            let (row, lease) = Self::copy_declaration(services, *id, &object)?;
+            leases.push(lease);
+            rows.push(row);
         }
         Ok((
             total,
@@ -1992,22 +2076,19 @@ impl ModelingPackage {
         if selected.is_empty() {
             return Err(contract("a fixture selection names at least one test"));
         }
-        let parent = self.delta_parent(services, cancel).await?;
-        let rows = parent
-            .rows
-            .into_iter()
-            .filter(|row| selected.contains(&row.declaration_id))
-            .collect::<Vec<_>>();
-        if let Some(missing) = selected
-            .iter()
-            .find(|id| !rows.iter().any(|row| row.declaration_id == **id))
-        {
-            return Err(contract(format!("selected declaration absent: {missing}")));
+        let (_, declarations) =
+            self.ordered_declarations(services, 0, usize::MAX, Some(selected), cancel)?;
+        if declarations.rows.len() != selected.len() {
+            let present = declarations
+                .rows
+                .iter()
+                .map(|row| row.declaration_id)
+                .collect::<BTreeSet<_>>();
+            if let Some(missing) = selected.difference(&present).next() {
+                return Err(contract(format!("selected declaration absent: {missing}")));
+            }
         }
-        Ok(super::OwnedDeclarations {
-            rows,
-            _leases: parent._leases,
-        })
+        Ok(declarations)
     }
     pub(super) async fn declaration(
         &self,
@@ -2059,8 +2140,12 @@ impl ModelingPackage {
         let math = services.math();
         let request = self.selection_request(services, roots);
         if let Some(candidates) = math.modeling_cache.selected(&request) {
-            for admission in candidates.rchunks(8).flat_map(|window| window.iter().rev()) {
+            let _lookup = pse_diagnostics::observation::phase("modeling.selected_admission_lookup");
+            for admission in candidates.iter().rev() {
                 checkpoint(cancel)?;
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.count("modeling.selected_admission_candidates", "candidates", 1);
+                }
                 if admission
                     .dependencies
                     .matches_scoped(&self.revision.admitted, cancel)?
@@ -3412,6 +3497,16 @@ mod tests {
         assert_eq!(page.declarations, original[9..10]);
         assert_eq!(page.next_offset, Some(10));
         assert_eq!(page.source, crate::workflow::OperationSource::of(&package));
+        let exact = package
+            .declaration_path(
+                &runtime.preparation_services(),
+                &["p", "p8"],
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(&*exact, &original[9..10]);
         assert!(
             package.revision.delta_products.get().is_none(),
             "paged reads must not build edit/dependency products"
@@ -3424,6 +3519,151 @@ mod tests {
             "an unrelated full inventory must exceed this deliberately scarce allowance"
         );
         drop(held);
+    }
+
+    #[tokio::test]
+    async fn full_declaration_reads_do_not_prepare_edits_and_keep_owned_rows_after_edit() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = parse("package p { param a:Scalar=1; param b:Scalar=2; }");
+        let package = runtime
+            .modeling_package(rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let services = runtime.preparation_services();
+        let first = package.declarations(&services).await.unwrap();
+        let second = package.declarations(&services).await.unwrap();
+        assert_eq!(&*first, rows.as_slice());
+        assert_eq!(&*second, rows.as_slice());
+        assert!(
+            package.revision.delta_products.get().is_none(),
+            "cold and repeated complete reads must not construct edit products"
+        );
+        let cancelled = crate::CancelSource::new();
+        cancelled.cancel();
+        assert!(matches!(
+            package.ordered_declarations(&services, 0, usize::MAX, None, &cancelled),
+            Err(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled
+            ))
+        ));
+        let changed_rows = parse("package p { param a:Scalar=3; param b:Scalar=2; }");
+        let changed = package
+            .with_declarations(&runtime.source_services(), changed_rows.clone())
+            .await
+            .unwrap();
+        assert!(
+            package.revision.delta_products.get().is_some(),
+            "the actual edit still constructs its complete dependency products"
+        );
+        let actual = changed.declarations(&services).await.unwrap();
+        assert_eq!(&*actual, changed_rows.as_slice());
+        drop(package);
+        drop(changed);
+        assert_eq!(
+            &*first,
+            rows.as_slice(),
+            "escaped old rows retain their leases"
+        );
+        assert_eq!(&*actual, changed_rows.as_slice());
+    }
+
+    #[tokio::test]
+    async fn exact_declaration_paths_preserve_absence_cancellation_and_old_source() {
+        let runtime = crate::workflow::tests::runtime();
+        let rows = parse("package p { def Child { param value:Scalar=1; } }");
+        let package = runtime
+            .modeling_package(rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let services = runtime.preparation_services();
+        let cancel = crate::CancelSource::new();
+        let selected = package
+            .declaration_path(&services, &["p", "Child", "value"], &cancel)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0], rows[2]);
+        assert!(
+            package
+                .declaration_path(&services, &["p", "absent"], &cancel)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            package
+                .declaration_path(&services, &["absent"], &cancel)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            package
+                .declaration_path(&services, &[], &cancel)
+                .await
+                .is_err()
+        );
+        assert!(
+            package
+                .declaration_path(&services, &["p", ""], &cancel)
+                .await
+                .is_err()
+        );
+        assert!(package.revision.delta_products.get().is_none());
+        let cancelled = crate::CancelSource::new();
+        cancelled.cancel();
+        assert!(
+            package
+                .declaration_path(&services, &["p"], &cancelled)
+                .await
+                .is_err()
+        );
+        // Exercise the inspection boundary against ambiguous owned membership;
+        // ordinary selected-source admission must not be used to pre-reject it.
+        let mut duplicate = rows[1].clone();
+        duplicate.declaration_id = DeclarationId::from(SemanticId::from_bytes([77; 16]));
+        let duplicate_edit = edit(
+            logical(duplicate.declaration_id),
+            scope(duplicate.parent_id),
+            duplicate.name.clone(),
+            kind(&duplicate),
+            payload(&(duplicate, None::<FieldSpans>)).unwrap(),
+            Vec::new(),
+        );
+        let mut ambiguous = package.clone();
+        ambiguous.revision.admitted = AdmittedModelRevision::apply(
+            &services,
+            Some(&package.revision.admitted),
+            &[duplicate_edit],
+            Some(&cancel),
+        )
+        .unwrap();
+        assert!(
+            ambiguous
+                .declaration_path(&services, &["p", "Child"], &cancel)
+                .await
+                .is_err()
+        );
+        let changed = package
+            .with_declarations(
+                &runtime.source_services(),
+                parse("package p { def Child { param value:Scalar=2; } }"),
+            )
+            .await
+            .unwrap();
+        let current = changed
+            .declaration_path(&services, &["p", "Child", "value"], &cancel)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_ne!(selected[0].value, current[0].value);
+        drop(package);
+        drop(changed);
+        assert_eq!(
+            selected[0], rows[2],
+            "escaped exact read keeps its original allocation and body"
+        );
     }
 
     #[test]

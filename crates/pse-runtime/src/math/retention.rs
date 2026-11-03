@@ -53,7 +53,7 @@ enum Product {
     Package(Arc<crate::workflow::PackageAdmission>),
     ParsedFields(Arc<pse_modeling::expression::occurrences::ParsedFields>),
     Ingress(Arc<crate::workflow::modeling::RetainedIngress>),
-    Selected(Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>),
+    Selected(Arc<SelectedAdmissions>),
     Body(Arc<pse_compiler::typed_math::AdmittedBody>),
     EncodedBody(Arc<portable::EncodedBody>),
     Basis(Arc<modeling::PreparedBasis>),
@@ -75,12 +75,7 @@ impl CacheValue for Product {
                 Self::Numerics(policy) => policy.bytes,
                 Self::ParsedFields(fields) => fields.retained_bytes(),
                 Self::Ingress(ingress) => ingress.retained_bytes(),
-                Self::Selected(values) => values.iter().fold(
-                    values.capacity().saturating_mul(size_of::<
-                        Arc<crate::workflow::modeling::SelectedAdmission>,
-                    >()),
-                    |bytes, admission| bytes.saturating_add(admission.retained_bytes()),
-                ),
+                Self::Selected(values) => values.retained_bytes(),
                 Self::Body(body) => body
                     .math()
                     .retained_bytes()
@@ -101,6 +96,65 @@ impl CacheValue for Product {
                 Self::Program(p) => p.assembly.retained_bytes(),
                 Self::ResultProjection(value) => value.retained_bytes(),
             })
+    }
+}
+
+/// Immutable candidate history shares its persistent vector between readers and
+/// insertions. Extent is captured once rather than rescanning every candidate when
+/// checking the byte bound. The sole retention owner and complete equality remain.
+#[derive(Clone)]
+pub(crate) struct SelectedAdmissions {
+    entries: rpds::VectorSync<Arc<crate::workflow::modeling::SelectedAdmission>>,
+    payload_bytes: usize,
+}
+impl Default for SelectedAdmissions {
+    fn default() -> Self {
+        Self {
+            entries: rpds::VectorSync::new_sync(),
+            payload_bytes: 0,
+        }
+    }
+}
+impl SelectedAdmissions {
+    pub(crate) fn len(&self) -> usize {
+        self.entries.len()
+    }
+    pub(crate) fn iter(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &Arc<crate::workflow::modeling::SelectedAdmission>> {
+        self.entries.iter()
+    }
+    fn retained_bytes(&self) -> usize {
+        // Conservative tree/value metadata, separate from the shared scientific owners.
+        size_of::<Self>()
+            .saturating_add(128)
+            .saturating_add(self.len().saturating_mul(512))
+            .saturating_add(self.payload_bytes)
+    }
+    fn push(&mut self, admission: Arc<crate::workflow::modeling::SelectedAdmission>) {
+        self.payload_bytes = self
+            .payload_bytes
+            .saturating_add(admission.retained_bytes());
+        self.entries.push_back_mut(admission);
+    }
+    fn discard_oldest(&mut self, count: usize) {
+        if count == 0 {
+            return;
+        }
+        self.payload_bytes = self
+            .entries
+            .iter()
+            .skip(count)
+            .fold(0usize, |bytes, admission| {
+                bytes.saturating_add(admission.retained_bytes())
+            });
+        self.entries = self.entries.iter().skip(count).cloned().collect();
+    }
+}
+impl std::ops::Index<usize> for SelectedAdmissions {
+    type Output = Arc<crate::workflow::modeling::SelectedAdmission>;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.entries[index]
     }
 }
 /// Active lane and optional lookup share charged key/attribution metadata, never a
@@ -361,10 +415,19 @@ impl ModelingCache {
                     if original.includes_root(selection.root) =>
                 {
                     let mut compatible = false;
-                    for candidate in candidates.iter() {
-                        match candidate.dependencies.matches_scoped(source, cancel) {
-                            Ok(matches) => compatible |= original.as_ref() == request && matches,
-                            Err(error) => return Some(Err(error)),
+                    // A different complete request already establishes incompatibility;
+                    // validating every historical source premise cannot change that fact.
+                    if original.as_ref() == request {
+                        for candidate in candidates.iter().rev() {
+                            match candidate.dependencies.matches_scoped(source, cancel) {
+                                Ok(matches) => {
+                                    compatible = matches;
+                                    if compatible {
+                                        break;
+                                    }
+                                }
+                                Err(error) => return Some(Err(error)),
+                            }
                         }
                     }
                     Some((Kind::SelectedAdmission, compatible))
@@ -501,7 +564,7 @@ impl ModelingCache {
     pub(crate) fn selected(
         &self,
         request: &Arc<crate::workflow::modeling::SelectedRequest>,
-    ) -> Option<Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>> {
+    ) -> Option<Arc<SelectedAdmissions>> {
         match self.get(&Key::Selected(request.clone()))? {
             Product::Selected(values) => Some(values),
             _ => None,
@@ -527,7 +590,7 @@ impl ModelingCache {
         let key = Key::Selected(admission.request.clone());
         let mut values = match self.entries.get(&key) {
             Some(Product::Selected(values)) => values.as_ref().clone(),
-            _ => Vec::new(),
+            _ => SelectedAdmissions::default(),
         };
         if values
             .iter()
@@ -536,24 +599,20 @@ impl ModelingCache {
             return;
         }
         values.push(admission);
-        loop {
-            let product = Product::Selected(Arc::new(values));
-            if entry_weight(&key, &product).is_some_and(|bytes| bytes <= self.entries.cache_limit())
-            {
-                self.put(generation, key, product);
-                break;
-            }
-            let owned = match product {
-                Product::Selected(owned) => owned,
-                _ => return,
-            };
-            values = Arc::unwrap_or_clone(owned);
-            if values.len() == 1 {
-                self.bypasses.fetch_add(1, Ordering::Relaxed);
-                break;
-            }
-            values.remove(0);
+        let product = Product::Selected(Arc::new(values.clone()));
+        let mut weight = entry_weight(&key, &product).unwrap_or(usize::MAX);
+        let limit = self.entries.cache_limit();
+        let mut discarded = 0;
+        while weight > limit && values.len() - discarded > 1 {
+            weight = weight.saturating_sub(values[discarded].retained_bytes().saturating_add(512));
+            discarded += 1;
         }
+        if weight > limit {
+            self.bypasses.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        values.discard_oldest(discarded);
+        self.put(generation, key, Product::Selected(Arc::new(values)));
     }
     pub(super) fn numerics(
         &self,
