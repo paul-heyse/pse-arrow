@@ -153,12 +153,10 @@ pub fn render_with_options(messages: &[MessageValidators], opts: &Options) -> Re
         let parsed = syn::parse2(body.clone()).map_err(|e| {
             anyhow::anyhow!("syn parse failed for {source_file}: {e}\n--- BEGIN TOKENS ---\n{body_str}\n--- END TOKENS ---")
         })?;
-        // The package is everything before the trailing file stem in the
-        // dotted form ("example.v1alpha1.style" → package "example.v1alpha1").
-        let package = match stem.rsplit_once('.') {
-            Some((p, _)) => p.to_string(),
-            None => stem.clone(),
-        };
+        // Logical filenames need not mirror the descriptor's declared package.
+        // Source-derived descriptors in particular have no directory convention.
+        let package = msgs.first().ok_or_else(|| anyhow::anyhow!("empty validator source group: {source_file}"))?.package.clone();
+        anyhow::ensure!(msgs.iter().all(|message| message.package == package), "source file {source_file} has conflicting declared packages");
         by_package.entry(package).or_default().push(path.clone());
         files.push(File {
             name: Some(path),
@@ -257,7 +255,7 @@ fn render_mod_rs(
     let mut root = PackageNode::default();
     for package in by_package.keys() {
         let mut cur = &mut root;
-        for seg in package.split('.') {
+        for seg in package.split('.').filter(|segment| !segment.is_empty()) {
             cur = cur.children.entry(seg.to_string()).or_default();
         }
         cur.package = Some(package.clone());
