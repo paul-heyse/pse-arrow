@@ -69,6 +69,13 @@ project/branch/research/outcome dependency must conflict or appear in one comple
 Cancellation never waits for an open capture gate. Conflict retry retains the original clock
 and cancellation; it never repeats science or grants new authority.
 
+Protection predicates participate in the same fence. Capture advances the witness when it
+installs protections and its receipt. Retention, source withdrawal and history retirement
+register that witness before inspecting absence of protections, so a concurrent newly protected
+selection either conflicts or remains protected in either commit order. Registration alone is
+not an increment: lease-only work leaves the witness unchanged. Field-aware mutation events
+advance it only for actual selector, captured-fact or protection changes.
+
 Retain exact-request idempotency, lost-acknowledgement readback, retained unavailable members,
 authenticated protection release after actual reader drain, and original-owner cleanup. Settle
 legacy pending work before cutover and remove its replaced RPC, busy guard and recovery-incarnation

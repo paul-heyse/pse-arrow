@@ -1034,6 +1034,10 @@ receipt. Every selector/captured-fact writer participates through its transactio
 renewal does not change the witness. Required conflict checks include future matching insertion
 and metadata dependencies. Cancellation has no pending-capture exclusion to wait on. Original
 clock, exact replay/readback, authenticated release and actual reader drain remain required.
+Capture advances the witness with protection publication; retention and withdrawal register it
+before testing protection absence. Both commit orders must conflict or preserve the protection,
+including a new protection whose row did not exist when retention inspected it. Read-only
+registration is distinct from mutation; lease-only work never increments the witness.
 Writable SQL-only Surrealism is conditional on exact-engine rollback/timeout/settlement evidence;
 otherwise the existing authored transaction owner supplies the same contract. This paragraph
 records the selected target, not implemented or qualified G08 behavior. The gate below describes
