@@ -860,6 +860,17 @@ Prior selected stores and qualification evidence remain preserved; no compatibil
 backfill is introduced. Protocol changes do not alter scientific Completion/replay body versions
 when their meaning remains unchanged.
 
+> Proposed Plan64g G08 amendment: ADR-0230, native schema admission v4.
+
+The atomic-capture cutover retains the exact v3 declaration as an immutable supported
+predecessor. The existing explicit maintenance owner closes admission, awaits physical joins
+and drains old capture ownership through the still-installed original recovery/release rules
+before replacing those definitions. Active owners refuse. Capture-owned rows/protections may
+be released after drain; scientific result/source data is retained, as are exact-request
+tombstones. The old gate table and open/commit/recovery functions then retire. Historical
+target-v2/v3 receipts keep their original interpretation and grant no current readiness.
+Fresh-store acceptance does not establish this migration obligation.
+
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; maintainer-authorized Plan51a target).
 
 Project/research relations extend the canonical installation. A separately disposable tooling
@@ -1039,8 +1050,11 @@ before testing protection absence. Both commit orders must conflict or preserve 
 including a new protection whose row did not exist when retention inspected it. Read-only
 registration is distinct from mutation; lease-only work never increments the witness.
 Writable SQL-only Surrealism is conditional on exact-engine rollback/timeout/settlement evidence;
-otherwise the existing authored transaction owner supplies the same contract. This paragraph
-records the selected target, not implemented or qualified G08 behavior. The gate below describes
+otherwise the existing authored transaction owner supplies the same contract.
+The selected engine requires the coarse `fn::*` grant for our underscored custom namespaces.
+The immutable export issues fixed queries with bound values; callers supply neither SQL nor
+function names. Pure builtin grants and network/module-KV denial remain independently attested.
+This paragraph records the selected target, not implemented or qualified G08 behavior. The gate below describes
 the existing realization until its producers and consumers have migrated together.
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),

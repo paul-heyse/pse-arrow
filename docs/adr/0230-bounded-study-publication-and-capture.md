@@ -81,6 +81,21 @@ authenticated protection release after actual reader drain, and original-owner c
 legacy pending work before cutover and remove its replaced RPC, busy guard and recovery-incarnation
 path once all producers and consumers move. Release tombstones retain exact replay meaning.
 
+Use native schema admission v4 for this interpretation change, preserving the exact released
+v3 declaration as a supported immutable predecessor. The existing explicit maintenance owner
+closes admission and awaits physical joins before it drains legacy captures through their
+installed original-schema recovery/release rules. Active owners refuse; cleanup removes only
+capture-owned rows/protections and retains exact-request tombstones. Remove the obsolete gate
+table and open/commit/recovery server functions before publishing the current activation.
+Historical target-v2/v3 requests retain their own request/receipt interpretation and grant no
+current readiness. An unsupported predecessor or unresolved drain never becomes a reset.
+
+The selected engine's function-target grammar requires the SQL-family `fn::*` capability for
+the existing underscored custom namespaces. The attested immutable module still issues only
+its fixed query strings and bound values, with no caller SQL or dynamic function name.
+Keep the separate pure builtin allowset and deny network/module-KV capabilities. This grants
+the engine's actual coarse custom-function capability, not an exact four-function allowlist.
+
 The preferred typed whole-operation realization is a finite SQL-only writable Surrealism export
 only if an actual pinned-engine multi-write/error/timeout probe establishes inherited-transaction
 rollback and completion before ownership release. Module network and module-KV effects are not
