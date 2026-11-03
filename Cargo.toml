@@ -251,6 +251,7 @@ tonic = { version = "=0.14.6", default-features = false, features = [
 ] }
 tower-service = "=0.3.3"
 buffa = { version = "=0.9.2", features = ["json", "text"] }
+buffa-codegen = "=0.9.2"
 buffa-descriptor = { version = "=0.9.2", features = [
   "reflect",
   "json",
@@ -259,6 +260,7 @@ buffa-descriptor = { version = "=0.9.2", features = [
 buffa-types = { version = "=0.9.2", features = ["reflect", "json"] }
 connectrpc = "=0.9.1"
 protovalidate-buffa = "=0.7.2"
+protovalidate-buffa-protos = "=0.7.1"
 http = "=1.5.0"
 http-body = "=1.1.0"
 http-body-util = "=0.1.5"

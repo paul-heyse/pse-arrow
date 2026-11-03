@@ -11,6 +11,8 @@ mod bytes;
 pub use bytes::Bytes;
 /// Shared source-derived conservative container bounds.
 pub mod allocation;
+/// Typed owner declarations for externally versioned boundary projections.
+pub mod boundary_projection;
 /// Source-attributed public failure structure.
 pub mod diagnostic;
 /// Versioned boundary documents (ADR-0116 Outcome 6).

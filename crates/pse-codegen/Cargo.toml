@@ -20,6 +20,11 @@ doctest = false
 workspace = true
 
 [dependencies]
+pse-model.workspace = true
+buffa.workspace = true
+buffa-codegen.workspace = true
+buffa-types.workspace = true
+protovalidate-buffa-protos.workspace = true
 pse-columnar.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true

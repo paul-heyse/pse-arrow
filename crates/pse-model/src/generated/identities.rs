@@ -68,6 +68,54 @@ pse_ids::semantic_id_newtype! {
 }
 ///A registered representation unit (entity identity `unit`, ADR-0115).
 pub type UnitId = pse_quantity::UnitId;
+impl crate::boundary_projection::ProjectionType for AccuracyGoalId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(AccuracyGoalId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AccuracyGoalId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for AccuracyGoalId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -81,6 +129,54 @@ impl crate::HeapUsage for AccuracyGoalId {
 impl crate::SemanticFrame for AccuracyGoalId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::boundary_projection::ProjectionType for AttemptId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(AttemptId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AttemptId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
 impl crate::SemanticEq for AttemptId {
@@ -113,6 +209,54 @@ impl crate::SemanticFrame for BasisId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::boundary_projection::ProjectionType for DeclarationId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(DeclarationId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for DeclarationId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for DeclarationId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -128,6 +272,54 @@ impl crate::SemanticFrame for DeclarationId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::boundary_projection::ProjectionType for EngineeringRuleId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(EngineeringRuleId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EngineeringRuleId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for EngineeringRuleId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -141,6 +333,54 @@ impl crate::HeapUsage for EngineeringRuleId {
 impl crate::SemanticFrame for EngineeringRuleId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::boundary_projection::ProjectionType for EngineeringScaleId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(EngineeringScaleId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for EngineeringScaleId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
 impl crate::SemanticEq for EngineeringScaleId {
@@ -173,6 +413,54 @@ impl crate::SemanticFrame for EntityKindId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::boundary_projection::ProjectionType for FitId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(FitId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for FitId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for FitId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -188,6 +476,54 @@ impl crate::SemanticFrame for FitId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::boundary_projection::ProjectionType for InstanceId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(InstanceId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for InstanceId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for InstanceId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -201,6 +537,54 @@ impl crate::HeapUsage for InstanceId {
 impl crate::SemanticFrame for InstanceId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::boundary_projection::ProjectionType for PackageId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(PackageId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for PackageId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
 impl crate::SemanticEq for PackageId {
@@ -263,6 +647,54 @@ impl crate::SemanticFrame for ReferenceStateId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::boundary_projection::ProjectionType for RunId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(RunId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for RunId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for RunId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -278,6 +710,54 @@ impl crate::SemanticFrame for RunId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::boundary_projection::ProjectionType for SolutionId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(SolutionId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for SolutionId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
 impl crate::SemanticEq for SolutionId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -291,6 +771,54 @@ impl crate::HeapUsage for SolutionId {
 impl crate::SemanticFrame for SolutionId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::boundary_projection::ProjectionType for StudyId {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                stringify!(StudyId),
+                file!(),
+                1,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| {
+                    Ok(
+                        crate::boundary_projection::Shape::Record(
+                            vec![
+                                crate::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "id",
+                                    1,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![crate::boundary_projection::LocalRule::Required],
+                                )?,
+                            ],
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for StudyId {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
 impl crate::SemanticEq for StudyId {

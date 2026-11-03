@@ -1,0 +1,976 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
+//! Owner-emitted boundary structure. This graph describes actual Rust field types;
+//! it never interprets JSON Schema or replaces the scientific registry.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+/// Supported public direction, independently of an owner's native Serde representation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Direction {
+    /// Accepted from clients.
+    Input,
+    /// Produced for clients.
+    Output,
+    /// Shared input and output meaning.
+    Both,
+}
+
+impl Direction {
+    /// Whether this declaration participates in the selected projection.
+    pub const fn includes(self, selected: Self) -> bool {
+        matches!(self, Self::Both)
+            || matches!(selected, Self::Both)
+            || matches!(
+                (self, selected),
+                (Self::Input, Self::Input) | (Self::Output, Self::Output)
+            )
+    }
+}
+
+/// Primitive wire meaning. Floating point values deliberately project their exact bits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scalar {
+    /// Boolean value.
+    Bool,
+    /// Unicode text.
+    String,
+    /// Unsigned 32-bit value.
+    U32,
+    /// An octet; a vector of octets projects as binary data.
+    U8,
+    /// Unsigned 64-bit value.
+    U64,
+    /// Signed 32-bit value.
+    I32,
+    /// Signed 64-bit value.
+    I64,
+    /// IEEE 754 binary32 bit pattern, including signed zero and NaN payloads.
+    F32Bits,
+    /// IEEE 754 binary64 bit pattern, including signed zero and NaN payloads.
+    F64Bits,
+    /// Opaque binary data.
+    Bytes,
+    /// A 16-byte semantic identity, distinct from textual spelling.
+    SemanticId,
+    /// A 32-byte semantic content hash.
+    ContentHash,
+}
+
+/// Resolved shape, preserving optional and collection nesting.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TypeRef {
+    /// Primitive representation.
+    Scalar(Scalar),
+    /// Named owner in the same graph.
+    Named(String),
+    /// Explicit absence, distinct from the contained type's default.
+    Optional(Box<Self>),
+    /// Ordered repeated values, including an empty collection.
+    Repeated(Box<Self>),
+    /// Unordered unique values, canonically ordered by their native owner.
+    Set(Box<Self>),
+    /// A key/value collection with explicit key and value meaning.
+    Map(Box<Self>, Box<Self>),
+}
+
+/// Shared locally decidable constraints; contextual scientific checks stay with their owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LocalRule {
+    /// Require a present value/alternative on uncontrolled ingress.
+    Required,
+    /// Inclusive unsigned integer range, evaluated without floating point conversion.
+    UnsignedRange {
+        /// Inclusive lower bound.
+        min: u64,
+        /// Inclusive upper bound.
+        max: u64,
+    },
+    /// Inclusive collection/text/binary length bounds.
+    Length {
+        /// Inclusive lower bound.
+        min: u64,
+        /// Inclusive upper bound.
+        max: u64,
+    },
+}
+
+impl schemars::transform::Transform for LocalRule {
+    /// Numeric range declarations can also annotate intentional native JSON schemas.
+    /// Other rules need their representation/parent context and refuse as a false
+    /// schema when used as an isolated field transform.
+    fn transform(&mut self, schema: &mut schemars::Schema) {
+        match self {
+            Self::UnsignedRange { min, max } => {
+                schema
+                    .ensure_object()
+                    .insert("minimum".into(), (*min).into());
+                schema
+                    .ensure_object()
+                    .insert("maximum".into(), (*max).into());
+            }
+            _ => *schema = schemars::Schema::from(false),
+        }
+    }
+}
+
+/// One field declared beside its actual Rust field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Field {
+    /// Stable public field name.
+    pub name: String,
+    /// Explicit stable protobuf number; never derived from position.
+    pub tag: u32,
+    /// Actual recursively resolved Rust type.
+    pub ty: TypeRef,
+    /// Public direction.
+    pub direction: Direction,
+    /// Owner-declared local constraints.
+    pub rules: Vec<LocalRule>,
+}
+
+impl Field {
+    /// Resolve the actual declared field type.
+    pub fn of<T: ProjectionType>(
+        graph: &mut ProjectionGraph,
+        name: &str,
+        tag: u32,
+        direction: Direction,
+        rules: Vec<LocalRule>,
+    ) -> Result<Self, ProjectionError> {
+        Ok(Self {
+            name: name.into(),
+            tag,
+            ty: T::projection(graph)?,
+            direction,
+            rules,
+        })
+    }
+
+    /// Select a bit representation only when it agrees with the actual integer width.
+    pub fn representation(mut self, representation: Scalar) -> Result<Self, ProjectionError> {
+        if !matches!(
+            (&self.ty, representation),
+            (TypeRef::Scalar(Scalar::U64), Scalar::F64Bits)
+                | (TypeRef::Scalar(Scalar::U32), Scalar::F32Bits)
+        ) {
+            return Err(ProjectionError::invalid(
+                &self.name,
+                "bit representation does not match the actual integer field width",
+            ));
+        }
+        self.ty = TypeRef::Scalar(representation);
+        Ok(self)
+    }
+}
+
+/// A tagged alternative, with its own named payload fields.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Alternative {
+    /// Stable alternative name.
+    pub name: String,
+    /// Stable oneof field tag.
+    pub tag: u32,
+    /// Empty for a unit variant; otherwise actual payload fields.
+    pub fields: Vec<Field>,
+}
+
+/// A named shape's field or alternative layout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Shape {
+    /// Record fields.
+    Record(Vec<Field>),
+    /// A required tagged alternative, represented as a protobuf oneof.
+    Alternatives(Vec<Alternative>),
+    /// Registry-owned canonical string members, without invented numeric alternatives.
+    StringEnum(Vec<String>),
+}
+
+/// Source-owned stable projection declaration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Definition {
+    /// Stable public message name, independent of its Rust module.
+    pub name: String,
+    /// Actual Rust owner identity, used to reject name collisions.
+    pub rust_type: &'static str,
+    /// Source file emitted by the declaration macro.
+    pub source: &'static str,
+    /// Owner's interpretation version, separate from package and document versions.
+    pub version: u32,
+    /// Public direction.
+    pub direction: Direction,
+    /// Removed field/alternative numbers, never available for reuse.
+    pub reserved_tags: Vec<u32>,
+    /// Removed field/alternative names, never available for reuse.
+    pub reserved_names: Vec<String>,
+    /// Actual field structure.
+    pub shape: Shape,
+}
+
+/// One actual unary service boundary, resolved in the same descriptor world.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Method {
+    /// Stable public method name.
+    pub name: String,
+    /// Actual request owner.
+    pub input: TypeRef,
+    /// Actual response owner.
+    pub output: TypeRef,
+    /// Whether the response is a finite or observed server stream.
+    pub server_streaming: bool,
+}
+
+/// Source-selected service and its actual request/response roots.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Service {
+    /// Stable public service name.
+    pub name: String,
+    /// Explicit unary methods.
+    pub methods: Vec<Method>,
+}
+
+impl Service {
+    /// Start an explicitly named service declaration.
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.into(),
+            methods: Vec::new(),
+        }
+    }
+
+    /// Resolve an actual request/response pair and retain the method's stable name.
+    pub fn unary<I: ProjectionType, O: ProjectionType>(
+        mut self,
+        graph: &mut ProjectionGraph,
+        name: &str,
+    ) -> Result<Self, ProjectionError> {
+        if !valid_identifier(name) || self.methods.iter().any(|method| method.name == name) {
+            return Err(ProjectionError::invalid(
+                &self.name,
+                "invalid or duplicate method name",
+            ));
+        }
+        let input = graph.register::<I>()?;
+        let output = graph.register::<O>()?;
+        if !matches!(input, TypeRef::Named(_)) || !matches!(output, TypeRef::Named(_)) {
+            return Err(ProjectionError::invalid(
+                &self.name,
+                "service request and response must be named owners",
+            ));
+        }
+        self.methods.push(Method {
+            name: name.into(),
+            input,
+            output,
+            server_streaming: false,
+        });
+        Ok(self)
+    }
+
+    /// Resolve a server-streaming actual request/response pair in this descriptor world.
+    pub fn server_streaming<I: ProjectionType, O: ProjectionType>(
+        self,
+        graph: &mut ProjectionGraph,
+        name: &str,
+    ) -> Result<Self, ProjectionError> {
+        let mut service = self.unary::<I, O>(graph, name)?;
+        if let Some(method) = service.methods.last_mut() {
+            method.server_streaming = true;
+        }
+        Ok(service)
+    }
+}
+
+/// Invalid or unsupported owner projection.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ProjectionError {
+    /// A declaration cannot form an unambiguous supported boundary.
+    #[error("invalid boundary projection `{owner}`: {reason}")]
+    Invalid {
+        /// Actual owner or field path.
+        owner: String,
+        /// Original refusal reason.
+        reason: String,
+    },
+}
+pse_diagnostics::impl_diagnostic! {
+    ProjectionError,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::ValidationInvariant) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+}
+
+impl ProjectionError {
+    /// Refuse an invalid owner or unsupported actual type.
+    pub fn invalid(owner: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self::Invalid {
+            owner: owner.into(),
+            reason: reason.into(),
+        }
+    }
+}
+
+/// A locally decidable rule violation, separate from contextual or infrastructure refusals.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ValidationError {
+    /// A declared rule rejected the actual native value.
+    #[error("boundary rule `{rule}` failed at `{path}`: {reason}")]
+    Rule {
+        /// Full owner/field/index path.
+        path: String,
+        /// Stable local rule identifier.
+        rule: &'static str,
+        /// Exact rejected envelope.
+        reason: String,
+    },
+}
+pse_diagnostics::impl_diagnostic! {
+    ValidationError,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::WorkflowInput) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    facts(this) {
+        let ValidationError::Rule { path, rule, reason } = this;
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        facts.observe("field_path", pse_diagnostics::DiagnosticObservation::Text(path.clone()));
+        facts.observe("local_rule", pse_diagnostics::DiagnosticObservation::Text((*rule).into()));
+        facts.observe("detail", pse_diagnostics::DiagnosticObservation::Text(reason.clone()));
+        facts
+    }
+}
+impl crate::diagnostic::DiagnosticProjection for ValidationError {}
+
+/// Native validation derived by the same owner declaration as protobuf rules.
+pub trait ValidateProjection {
+    /// Validate all local fields, preserving the original native value.
+    fn validate_projection(&self) -> Result<(), ValidationError> {
+        self.validate_at("")
+    }
+    /// Validate recursively at an already attributed field path.
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError>;
+    /// Whether an optional value is actually present.
+    fn projection_present(&self) -> bool {
+        true
+    }
+    /// Exact unsigned scalar, where applicable.
+    fn projection_unsigned(&self) -> Option<u64> {
+        None
+    }
+    /// Logical length (Unicode scalar values for text), where applicable.
+    fn projection_length(&self) -> Option<usize> {
+        None
+    }
+}
+
+/// Apply a declaration's local rules to the actual field and its recursive children.
+pub fn validate_field<T: ValidateProjection + ?Sized>(
+    value: &T,
+    path: &str,
+    rules: &[LocalRule],
+) -> Result<(), ValidationError> {
+    for rule in rules {
+        let failure = match rule {
+            LocalRule::Required if !value.projection_present() => {
+                Some(("required", "a present value is required".into()))
+            }
+            LocalRule::UnsignedRange { min, max }
+                if !value
+                    .projection_unsigned()
+                    .is_some_and(|value| value >= *min && value <= *max) =>
+            {
+                Some((
+                    "unsigned.range",
+                    format!("expected inclusive range {min}..={max}"),
+                ))
+            }
+            LocalRule::Length { min, max }
+                if !value
+                    .projection_length()
+                    .and_then(|len| u64::try_from(len).ok())
+                    .is_some_and(|len| len >= *min && len <= *max) =>
+            {
+                Some(("length", format!("expected inclusive length {min}..={max}")))
+            }
+            _ => None,
+        };
+        if let Some((rule, reason)) = failure {
+            return Err(ValidationError::Rule {
+                path: path.into(),
+                rule,
+                reason,
+            });
+        }
+    }
+    value.validate_at(path)
+}
+
+/// Extend a field path without losing nesting or introducing a leading separator.
+pub fn field_path(parent: &str, child: &str) -> String {
+    if parent.is_empty() {
+        child.into()
+    } else {
+        format!("{parent}.{child}")
+    }
+}
+
+/// Complete recursive closure over selected actual owners.
+#[derive(Clone, Debug, Default)]
+pub struct ProjectionGraph {
+    definitions: BTreeMap<String, Definition>,
+    building: BTreeMap<String, &'static str>,
+    roots: Vec<TypeRef>,
+    services: BTreeMap<String, Service>,
+}
+
+impl ProjectionGraph {
+    /// Resolve one selected owner and its transitive type closure.
+    pub fn of<T: ProjectionType>() -> Result<Self, ProjectionError> {
+        let mut graph = Self::default();
+        graph.register::<T>()?;
+        Ok(graph)
+    }
+
+    /// Add another selected root to this same descriptor world.
+    pub fn register<T: ProjectionType>(&mut self) -> Result<TypeRef, ProjectionError> {
+        let root = T::projection(self)?;
+        if !self.roots.contains(&root) {
+            self.roots.push(root.clone());
+        }
+        Ok(root)
+    }
+
+    /// All resolved owner declarations in deterministic name order.
+    pub fn definitions(&self) -> &BTreeMap<String, Definition> {
+        &self.definitions
+    }
+
+    /// Selected roots, rather than every reachable payload.
+    pub fn roots(&self) -> &[TypeRef] {
+        &self.roots
+    }
+
+    /// Services resolved into this descriptor world.
+    pub fn services(&self) -> &BTreeMap<String, Service> {
+        &self.services
+    }
+
+    /// Register a selected service, rejecting duplicate names and dangling owners.
+    pub fn service(&mut self, service: Service) -> Result<(), ProjectionError> {
+        if !valid_identifier(&service.name)
+            || service.methods.is_empty()
+            || self.services.contains_key(&service.name)
+        {
+            return Err(ProjectionError::invalid(
+                &service.name,
+                "invalid, empty or duplicate service",
+            ));
+        }
+        for method in &service.methods {
+            for ty in [&method.input, &method.output] {
+                if !matches!(ty, TypeRef::Named(name) if self.definitions.contains_key(name)) {
+                    return Err(ProjectionError::invalid(
+                        &service.name,
+                        "method references an owner outside this descriptor world",
+                    ));
+                }
+            }
+        }
+        self.services.insert(service.name.clone(), service);
+        Ok(())
+    }
+
+    /// Register an owner before walking its fields, allowing self and mutual recursion.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "declaration metadata stays explicit at the owner"
+    )]
+    pub fn declare<T: ?Sized>(
+        &mut self,
+        name: &str,
+        source: &'static str,
+        version: u32,
+        direction: Direction,
+        reserved_tags: &[u32],
+        reserved_names: &[&str],
+        shape: impl FnOnce(&mut Self) -> Result<Shape, ProjectionError>,
+    ) -> Result<TypeRef, ProjectionError> {
+        let rust_type = std::any::type_name::<T>();
+        let previous = self
+            .definitions
+            .get(name)
+            .map(|d| d.rust_type)
+            .or_else(|| self.building.get(name).copied());
+        if let Some(previous) = previous {
+            if previous != rust_type {
+                return Err(ProjectionError::invalid(
+                    name,
+                    format!("public name belongs to both {previous} and {rust_type}"),
+                ));
+            }
+            return Ok(TypeRef::Named(name.into()));
+        }
+        if !valid_identifier(name) || version == 0 {
+            return Err(ProjectionError::invalid(
+                name,
+                "a protobuf identifier and nonzero interpretation version are required",
+            ));
+        }
+        self.building.insert(name.into(), rust_type);
+        let result = shape(self);
+        self.building.remove(name);
+        let definition = Definition {
+            name: name.into(),
+            rust_type,
+            source,
+            version,
+            direction,
+            reserved_tags: reserved_tags.to_vec(),
+            reserved_names: reserved_names.iter().map(|s| (*s).into()).collect(),
+            shape: result?,
+        };
+        validate_definition(&definition)?;
+        self.definitions.insert(name.into(), definition);
+        Ok(TypeRef::Named(name.into()))
+    }
+}
+
+/// Implemented by actual owner declarations and supported field types.
+/// Unsupported types have no implementation and therefore fail at their declaration.
+pub trait ProjectionType {
+    /// Resolve the type and all recursively referenced owners.
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError>;
+}
+
+macro_rules! scalar_types { ($($ty:ty => $scalar:ident),* $(,)?) => { $(
+    impl ProjectionType for $ty {
+        fn projection(_: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+            Ok(TypeRef::Scalar(Scalar::$scalar))
+        }
+    }
+)* }; }
+scalar_types!(bool => Bool, String => String, u8 => U8, u32 => U32, u64 => U64, usize => U64, i32 => I32,
+    i64 => I64, f32 => F32Bits, f64 => F64Bits, pse_ids::SemanticId => SemanticId,
+    pse_ids::ContentHash => ContentHash, crate::Bytes => Bytes);
+
+macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+})* }; }
+inline_validation!(bool, i32, i64, f32, f64);
+impl ValidateProjection for pse_ids::SemanticId {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(16)
+    }
+}
+impl ValidateProjection for pse_ids::ContentHash {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(32)
+    }
+}
+macro_rules! unsigned_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+    fn projection_unsigned(&self) -> Option<u64> { Some(u64::from(*self)) }
+})* }; }
+unsigned_validation!(u8, u32, u64);
+impl ValidateProjection for usize {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_unsigned(&self) -> Option<u64> {
+        u64::try_from(*self).ok()
+    }
+}
+impl ValidateProjection for String {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(self.chars().count())
+    }
+}
+impl ValidateProjection for crate::Bytes {
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(self.as_slice().len())
+    }
+}
+impl<T: ValidateProjection> ValidateProjection for Option<T> {
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        match self {
+            Some(value) => value.validate_at(path),
+            None => Ok(()),
+        }
+    }
+    fn projection_present(&self) -> bool {
+        self.is_some()
+    }
+}
+impl<T: ValidateProjection> ValidateProjection for Vec<T> {
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        for (index, value) in self.iter().enumerate() {
+            value.validate_at(&format!("{path}[{index}]"))?;
+        }
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        self.as_ref().validate_at(path)
+    }
+}
+impl<K: ValidateProjection + Ord, V: ValidateProjection> ValidateProjection for BTreeMap<K, V> {
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        for (index, (key, value)) in self.iter().enumerate() {
+            key.validate_at(&format!("{path}[{index}].key"))?;
+            value.validate_at(&format!("{path}[{index}].value"))?;
+        }
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
+impl<T: ProjectionType> ProjectionType for Option<T> {
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+        Ok(TypeRef::Optional(Box::new(T::projection(graph)?)))
+    }
+}
+impl<T: ProjectionType> ProjectionType for Vec<T> {
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+        let element = T::projection(graph)?;
+        if element == TypeRef::Scalar(Scalar::U8) {
+            Ok(TypeRef::Scalar(Scalar::Bytes))
+        } else {
+            Ok(TypeRef::Repeated(Box::new(element)))
+        }
+    }
+}
+impl<T: ProjectionType> ProjectionType for Box<T> {
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+        T::projection(graph)
+    }
+}
+impl<T: ProjectionType> ProjectionType for std::sync::Arc<[T]> {
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+        Vec::<T>::projection(graph)
+    }
+}
+impl<T: ValidateProjection> ValidateProjection for std::sync::Arc<[T]> {
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        for (index, value) in self.iter().enumerate() {
+            value.validate_at(&format!("{path}[{index}]"))?;
+        }
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
+macro_rules! physical_identity_projection { ($($ty:ty => $name:literal),* $(,)?) => { $(
+    impl ProjectionType for $ty {
+        fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+            graph.declare::<Self>($name, "crates/pse-quantity/src/ids.rs", 1, Direction::Both, &[], &[], |graph| {
+                Ok(Shape::Record(vec![Field::of::<pse_ids::SemanticId>(graph, "id", 1, Direction::Both, vec![LocalRule::Required])?]))
+            })
+        }
+    }
+    impl ValidateProjection for $ty {
+        fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+        fn projection_length(&self) -> Option<usize> { Some(16) }
+    }
+)* }; }
+// The trait owner supplies legal implementations across the quantity -> model dependency
+// boundary. These actual nominal types remain distinct named identity projections.
+physical_identity_projection!(
+    pse_quantity::QuantityTypeId => "QuantityTypeId",
+    pse_quantity::ReferenceStateId => "ReferenceStateId",
+);
+
+mod registry_vocabularies {
+    use super::*;
+    use crate::generated::enums::*;
+
+    macro_rules! project_registry_vocabularies { ($($ty:ident),* $(,)?) => { $(
+        impl ProjectionType for $ty {
+            fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+                graph.declare::<Self>(stringify!($ty), "crates/pse-model/src/generated/enums.rs", 1,
+                    Direction::Both, &[], &[], |_| {
+                        Ok(Shape::StringEnum(Self::ALL.iter().map(|value| value.as_str().to_owned()).collect()))
+                    })
+            }
+        }
+        impl ValidateProjection for $ty {
+            fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+        }
+    )* }; }
+    // Selection lists owners, never members: ALL/as_str remain the only vocabulary authority.
+    project_registry_vocabularies!(
+        NativeBackend,
+        NativeSolveIntent,
+        PreparationProductKind,
+        PreparationEligibility,
+        CanonicalProducerClass
+    );
+}
+impl<K: ProjectionType + Ord, V: ProjectionType> ProjectionType for BTreeMap<K, V> {
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+        let key = K::projection(graph)?;
+        Ok(TypeRef::Map(Box::new(key), Box::new(V::projection(graph)?)))
+    }
+}
+impl<T: ProjectionType + Ord> ProjectionType for BTreeSet<T> {
+    fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+        let element = T::projection(graph)?;
+        if !matches!(element, TypeRef::Scalar(_)) {
+            return Err(ProjectionError::invalid(
+                std::any::type_name::<Self>(),
+                "unique set validation requires a scalar element projection",
+            ));
+        }
+        Ok(TypeRef::Set(Box::new(element)))
+    }
+}
+impl<T: ValidateProjection + Ord> ValidateProjection for BTreeSet<T> {
+    fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        for (index, value) in self.iter().enumerate() {
+            value.validate_at(&format!("{path}[{index}]"))?;
+        }
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
+fn valid_identifier(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    bytes
+        .next()
+        .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+        && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
+fn valid_tag(tag: u32) -> bool {
+    tag != 0 && tag <= 536_870_911 && !(19_000..=19_999).contains(&tag)
+}
+
+fn validate_definition(definition: &Definition) -> Result<(), ProjectionError> {
+    let mut reserved_tags = BTreeSet::new();
+    for tag in &definition.reserved_tags {
+        if !valid_tag(*tag) || !reserved_tags.insert(*tag) {
+            return Err(ProjectionError::invalid(
+                &definition.name,
+                "invalid or duplicate reserved tag",
+            ));
+        }
+    }
+    let mut reserved_names = BTreeSet::new();
+    for name in &definition.reserved_names {
+        if !valid_identifier(name) || !reserved_names.insert(name.as_str()) {
+            return Err(ProjectionError::invalid(
+                &definition.name,
+                "invalid or duplicate reserved name",
+            ));
+        }
+    }
+    let fields = match &definition.shape {
+        Shape::Record(fields) => fields
+            .iter()
+            .map(|f| (f.name.as_str(), f.tag))
+            .collect::<Vec<_>>(),
+        Shape::Alternatives(alternatives) => {
+            if alternatives.is_empty() {
+                return Err(ProjectionError::invalid(
+                    &definition.name,
+                    "an alternative requires at least one member",
+                ));
+            }
+            alternatives
+                .iter()
+                .map(|a| (a.name.as_str(), a.tag))
+                .collect()
+        }
+        Shape::StringEnum(members) => {
+            let unique = members.iter().collect::<BTreeSet<_>>();
+            if members.is_empty() || unique.len() != members.len() {
+                return Err(ProjectionError::invalid(
+                    &definition.name,
+                    "string vocabulary is empty or contains duplicate members",
+                ));
+            }
+            vec![("value", 1)]
+        }
+    };
+    validate_tags(&definition.name, fields, &reserved_tags, &reserved_names)?;
+    match &definition.shape {
+        Shape::Record(fields) => validate_fields(&definition.name, fields)?,
+        Shape::Alternatives(alternatives) => {
+            for alternative in alternatives {
+                let path = format!("{}.{}", definition.name, alternative.name);
+                validate_tags(
+                    &path,
+                    alternative
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.as_str(), f.tag))
+                        .collect(),
+                    &BTreeSet::new(),
+                    &BTreeSet::new(),
+                )?;
+                validate_fields(&path, &alternative.fields)?;
+            }
+        }
+        Shape::StringEnum(_) => {}
+    }
+    Ok(())
+}
+
+fn validate_tags(
+    owner: &str,
+    fields: Vec<(&str, u32)>,
+    reserved_tags: &BTreeSet<u32>,
+    reserved_names: &BTreeSet<&str>,
+) -> Result<(), ProjectionError> {
+    let mut names = BTreeSet::new();
+    let mut tags = BTreeSet::new();
+    for (name, tag) in fields {
+        if !valid_identifier(name)
+            || !names.insert(name)
+            || reserved_names.contains(name)
+            || !valid_tag(tag)
+            || !tags.insert(tag)
+            || reserved_tags.contains(&tag)
+        {
+            return Err(ProjectionError::invalid(
+                format!("{owner}.{name}"),
+                format!("invalid, duplicate or reserved field name/tag {tag}"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError> {
+    for field in fields {
+        for rule in &field.rules {
+            let valid = match rule {
+                LocalRule::Required => true,
+                LocalRule::UnsignedRange { min, max } => {
+                    min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::U32 | Scalar::U64))
+                }
+                LocalRule::Length { min, max } => {
+                    min <= max
+                        && matches!(
+                            field.ty,
+                            TypeRef::Repeated(_)
+                                | TypeRef::Set(_)
+                                | TypeRef::Map(_, _)
+                                | TypeRef::Scalar(
+                                    Scalar::String
+                                        | Scalar::Bytes
+                                        | Scalar::SemanticId
+                                        | Scalar::ContentHash
+                                )
+                        )
+                }
+            };
+            if !valid {
+                return Err(ProjectionError::invalid(
+                    format!("{owner}.{}", field.name),
+                    "local rule is malformed or unsupported for its actual field type",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Declare an actual record and its stable boundary metadata in one source declaration.
+#[macro_export]
+macro_rules! projection_struct {
+    ($(#[$meta:meta])* $vis:vis struct $name:ident {
+        projection: { name: $wire:expr, version: $version:expr, direction: $direction:expr,
+            reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
+        $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty => {
+            tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
+    }) => {
+        $(#[$meta])* $vis struct $name { $($(#[$field_meta])* $field_vis $field: $ty,)* }
+        impl $crate::boundary_projection::ProjectionType for $name {
+            fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> ::core::result::Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
+                graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
+                    let _ = &graph;
+                    Ok($crate::boundary_projection::Shape::Record(vec![$(
+                        $crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,
+                    )*]))
+                })
+            }
+        }
+        impl $crate::boundary_projection::ValidateProjection for $name {
+            fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
+                let _ = path;
+                $( $crate::boundary_projection::validate_field(&self.$field,
+                    &$crate::boundary_projection::field_path(path, stringify!($field)), &[$($rule),*])?; )*
+                Ok(())
+            }
+        }
+    };
+}
+
+/// Declare an actual enum and its explicitly tagged payload alternatives together.
+#[macro_export]
+macro_rules! projection_enum {
+    ($(#[$meta:meta])* $vis:vis enum $name:ident {
+        projection: { name: $wire:expr, version: $version:expr, direction: $direction:expr,
+            reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
+        $($(#[$variant_meta:meta])* $variant:ident $(($payload:ty))? $({
+            $($(#[$field_meta:meta])* $field:ident : $ty:ty => {
+                tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
+        })? => $variant_tag:expr;)*
+    }) => {
+        $(#[$meta])* $vis enum $name { $($(#[$variant_meta])* $variant $(($payload))? $({ $($(#[$field_meta])* $field: $ty,)* })?,)* }
+        impl $crate::boundary_projection::ProjectionType for $name {
+            fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> ::core::result::Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
+                graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
+                    let _ = &graph;
+                    Ok($crate::boundary_projection::Shape::Alternatives(vec![$(
+                        $crate::boundary_projection::Alternative { name: stringify!($variant).into(), tag: $variant_tag, fields: vec![
+                            $($crate::boundary_projection::Field::of::<$payload>(graph, "value", 1, $crate::boundary_projection::Direction::Both, vec![])?,)?
+                            $($($crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,)*)?
+                        ] },
+                    )*]))
+                })
+            }
+        }
+        impl $crate::boundary_projection::ValidateProjection for $name {
+            fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
+                let _ = path;
+                $(
+                    $( if let Self::$variant(value) = self {
+                        let value: &$payload = value;
+                        $crate::boundary_projection::ValidateProjection::validate_at(value,
+                            &$crate::boundary_projection::field_path(path, stringify!($variant)))?;
+                    } )?
+                    $( if let Self::$variant { $($field),* } = self { $(
+                        $crate::boundary_projection::validate_field($field,
+                            &$crate::boundary_projection::field_path(&$crate::boundary_projection::field_path(path, stringify!($variant)), stringify!($field)), &[$($rule),*])?;
+                    )* } )?
+                )*
+                Ok(())
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+mod tests;

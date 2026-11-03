@@ -17,6 +17,8 @@
 //! Rust rows, manifest envelopes and authoring decoders, Markdown reference pages and
 //! authoring JSON Schema are generated from the same admitted registry.
 
+/// Typed Rust owner to complete protobuf descriptor and Buffa source projection.
+pub mod boundary_projection;
 #[cfg(test)]
 mod consolidation_unit;
 pub mod documents;
@@ -44,9 +46,9 @@ mod surreal_projects;
 mod surreal_research;
 mod surreal_retention;
 mod surreal_studies;
-mod surreal_study_workbench;
 mod surreal_study_capture;
 mod surreal_study_capture_witness;
+mod surreal_study_workbench;
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

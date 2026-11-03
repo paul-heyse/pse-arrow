@@ -77,6 +77,24 @@ pub(super) fn emit(
             declarations.push(quote!(#[doc = #doc] pub type #name = #path;));
         } else {
             declarations.push(quote!(pse_ids::semantic_id_newtype! { #declaration }));
+            model_traits.push(quote! {
+                impl crate::boundary_projection::ProjectionType for #name {
+                    fn projection(graph: &mut crate::boundary_projection::ProjectionGraph) -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError> {
+                        graph.declare::<Self>(stringify!(#name), file!(), 1,
+                            crate::boundary_projection::Direction::Both, &[], &[], |graph| {
+                                Ok(crate::boundary_projection::Shape::Record(vec![
+                                    crate::boundary_projection::Field::of::<#base>(graph, "id", 1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required])?,
+                                ]))
+                            })
+                    }
+                }
+                impl crate::boundary_projection::ValidateProjection for #name {
+                    fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> { Ok(()) }
+                    fn projection_length(&self) -> Option<usize> { Some(<#base>::WIDTH) }
+                }
+            });
         }
         model_traits.push(quote! {
             impl crate::SemanticEq for #name {
