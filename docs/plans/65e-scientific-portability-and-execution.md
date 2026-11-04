@@ -506,16 +506,23 @@ prepared calls, selected provider joins, direct graph/function/support products,
 evidence and nominal type/value records. Raw protobuf fields cannot replace their native
 membership interpretation by accident.
 
-**Proposed decision:** prefer a versioned source-derived typed record membership contract
-that frames stable declared owner/version/tags, exact native scalar bits and collection
-order, derived through original projection declarations rather than copied field tables.
-Retain exact qualification/request binding, bounded indexing and complete original receipt
-draining; ordinary decoded records must still lack authority. An alternative staged route
-decodes typed protobuf then constructs the existing native Serde structural index, preserving
-current membership but retaining its JSON scratch/mechanics. A whole-payload permit without
-per-record membership would remove existing protections and is unsuitable. The source-derived
-typed membership changes the hash/authority contract and requires the coordinator's proposed
-ADR before implementation. Neither an artifact digest nor successful local wire validation
+**Proposed direction, not accepted for cutover:** prefer DOM-free native Serde traversal
+preserving the existing structural membership V1 over adding a second typed membership
+visitor. Serde's `Serializer::Ok` and compound serializer traits support native traversal
+without a JSON value tree; the exact pinned `serde_json` number, map-key, variant and
+surviving-subtree semantics remain part of the consumed contract. The
+[independent scoped review](../design_review/reviews/design_review_plan65_native_replay_membership_2026-11-04.md)
+does not accept the current proposal until F01 exact authenticated-payload/native-root
+binding, F02 normalization and overwritten-map membership, and F03 complete protobuf/native/
+index/receipt admission have concrete designs. The old JSON byte multiplier does not establish
+those new bounds. A versioned owner/tag/bit membership scheme remains a different semantic
+option, requiring deliberate complete-consumer migration rather than a claim of V1 preservation.
+Retain exact qualification/request binding and complete original receipt draining; ordinary
+decoded records must still lack authority. A staged DOM-backed native-root index is an
+alternative only if explicitly selected. A whole-payload permit without
+per-record membership would remove existing protections and is unsuitable. A new native-root
+qualification premise or changed membership/hash interpretation requires the coordinator's
+proposed ADR before implementation. Neither an artifact digest nor successful local wire validation
 may mint this authority. The existing recipe leaf remains unchanged until a complete approved
 replacement and its original reconstruction/refusal controls are in place.
 
