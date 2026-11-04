@@ -214,7 +214,7 @@ pub(crate) fn key_type(ty: &FieldContract) -> bool {
     ty.admits_exact_key()
 }
 
-fn logical_type(ty: &FieldContract, context: &str) -> Result<(), SchemaError> {
+pub(crate) fn logical_type(ty: &FieldContract, context: &str) -> Result<(), SchemaError> {
     if matches!(ty.data_type(), arrow_schema::DataType::FixedSizeList(_, width) if width < 0) {
         return Err(invalid(context, "fixed-list width cannot be negative"));
     }

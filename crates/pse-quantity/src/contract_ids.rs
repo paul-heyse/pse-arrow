@@ -6,7 +6,7 @@ macro_rules! physical_identity_projection { ($($ty:ty => $name:literal),* $(,)?)
     impl ProjectionType for $ty {
         fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
             graph.declare::<Self>($name, "crates/pse-quantity/src/ids.rs", 1, Direction::Both, &[], &[], |graph| {
-                Ok(Shape::Record(vec![Field::of::<pse_ids::SemanticId>(graph, "id", 1, Direction::Both, vec![LocalRule::Required])?]))
+                Ok(identity_shape(pse_ids::SemanticId::projection(graph)?))
             })
         }
     }

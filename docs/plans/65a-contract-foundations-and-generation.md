@@ -217,9 +217,35 @@ Typed registry facets must agree with the decoded native field metadata. Existin
 field renderer provides this purpose's physical projection: timestamps retain unit/timezone,
 as do decimal, dictionary, nullability and nested field meaning, even when Rust/wire scalar
 representations overlap. Explicit typed canonical policy carries publication meaning that
-the existing execution projection deliberately excludes. Complete native `TypeRef` versus
-Arrow source-rendering correspondence remains an explicit A02 obligation; neither these
-local guards nor exact compiled-world binding alone establish that broader equivalence.
+the existing execution projection deliberately excludes.
+
+The actual Rust `native::Policy` traversal now returns Rust tokens together with the
+existing `TypeRef` and its existing generic argument name. It owns one primitive,
+extension, identity and container mapping; the receiving domain policy calls that same
+renderer rather than maintaining an Arrow-to-proto type table. Generated actual native
+`Field::of<T>` declarations check the compiler-resolved `T::projection` against that
+paired result. Shared pure array/sequence helpers preserve byte-vector folding, fixed
+extents and the distinct argument names of byte-vector and byte-owner arrays. Nominal
+identity records use the identity source emitter's name and shared native identity shape;
+this checks a local declared representation without resolving scientific/catalog identity.
+The receiver follows original core owner declarations for nested records, alternatives,
+string vocabularies and arrays, checking native field names/tags, directions, local rules,
+presentation versions and reservations before normalizing the retained IPC. Missing owner
+interpretation remains Unknown. This is a selected native-source correspondence check;
+unsupported source classes refuse, and compiled-world binding still separately establishes
+the consumer's exact wire-world association.
+
+The shared lossless adapter associates per-field options with their existing original
+owner `Shape` through descriptor member/type links. The pure checker compares the native
+name, direction, `TypeRef` and local rules within that acquired world, including synthetic
+vocabulary/alternative wrappers and alternative payload fields. Identical contradictory
+copies in both comparison endpoints therefore cannot establish compatibility. Buffa's
+[`DescriptorPool`](https://docs.rs/buffa-descriptor/0.9.2/buffa_descriptor/struct.DescriptorPool.html)
+supplies the original linked declarations; checked dynamic option decoding remains under
+each endpoint's own pool. Native selection and its generated source-policy constants need
+no additional registry or acquired-descriptor approval rule. Targeted controls cover these
+mechanisms; the combined current-world regeneration/compiler controls remain the integration
+obligation for this source handoff.
 
 The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
 and the independent host. It depends on pure `pse-contract`, the selected Buffa family

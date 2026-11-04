@@ -241,6 +241,7 @@ impl super::native::Policy for JsonPolicy<'_> {
         ty: &FieldContract,
         _stem: &str,
         children: Vec<String>,
+        _mode: super::native::Mode,
     ) -> Result<String, SchemaError> {
         Ok(match ty.data_type() {
             DataType::List(_) => list(&children[0], None),

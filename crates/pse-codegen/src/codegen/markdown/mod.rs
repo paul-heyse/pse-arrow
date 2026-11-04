@@ -51,6 +51,7 @@ impl super::native::Policy for MarkdownPolicy {
         field: &FieldContract,
         stem: &str,
         children: Vec<String>,
+        _mode: super::native::Mode,
     ) -> Result<String, SchemaError> {
         let mut row = field_row(field, stem);
         for child in children {

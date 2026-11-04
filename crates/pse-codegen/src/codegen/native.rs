@@ -6,22 +6,15 @@ use crate::{SchemaError, model::FieldContract};
 use arrow_schema::{DataType, Field};
 
 #[derive(Clone, Copy)]
-pub(super) enum Mode {
+pub(crate) enum Mode {
     Domain,
     Storage,
 }
+pub(crate) fn child_mode(field: &FieldContract, mode: Mode) -> Mode { if field.extension().is_some() { Mode::Storage } else { mode } }
 pub(super) trait Policy {
     type Value;
     fn child_stem(&self, field: &FieldContract, stem: &str, child: &Field) -> String {
-        let suffix = match field.field().data_type() {
-            DataType::List(_)
-            | DataType::LargeList(_)
-            | DataType::ListView(_)
-            | DataType::LargeListView(_)
-            | DataType::FixedSizeList(..) => "Item".into(),
-            _ => super::rust::types::pascal(child.name()),
-        };
-        format!("{stem}{suffix}")
+        child_stem(field, stem, child)
     }
     fn leaf(
         &mut self,
@@ -34,6 +27,7 @@ pub(super) trait Policy {
         field: &FieldContract,
         stem: &str,
         children: Vec<Self::Value>,
+        mode: Mode,
     ) -> Result<Self::Value, SchemaError>;
     fn nullable(&mut self, value: Self::Value, nullable: bool) -> Self::Value;
     fn decorate(
@@ -44,17 +38,21 @@ pub(super) trait Policy {
         Ok(value)
     }
 }
+pub(super) fn child_stem(field: &FieldContract, stem: &str, child: &Field) -> String {
+    let suffix = match field.field().data_type() {
+        DataType::List(_) | DataType::LargeList(_) | DataType::ListView(_)
+        | DataType::LargeListView(_) | DataType::FixedSizeList(..) => "Item".into(),
+        _ => super::rust::types::pascal(child.name()),
+    };
+    format!("{stem}{suffix}")
+}
 pub(super) fn render<P: Policy>(
     policy: &mut P,
     field: &FieldContract,
     stem: &str,
     mode: Mode,
 ) -> Result<P::Value, SchemaError> {
-    let child_mode = if field.extension().is_some() {
-        Mode::Storage
-    } else {
-        mode
-    };
+    let child_mode = child_mode(field, mode);
     let value = if let Some(value) = policy.leaf(field, stem, mode)? {
         value
     } else {
@@ -71,7 +69,7 @@ pub(super) fn render<P: Policy>(
                 Ok(policy.nullable(value, child.is_nullable()))
             })
             .collect::<Result<Vec<_>, SchemaError>>()?;
-        policy.container(field, stem, children)?
+        policy.container(field, stem, children, mode)?
     };
     policy.decorate(field, value)
 }

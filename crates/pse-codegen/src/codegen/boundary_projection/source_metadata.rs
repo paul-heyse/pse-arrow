@@ -3,10 +3,10 @@
 //! Source graph selection and domain policy composition, separate from the shared wire adapter.
 use pse_contract::boundary_projection::Direction;
 use buffa_descriptor::DynamicMessage;
-use pse_contract_proto::{DescriptorPolicy, NativeSelection, MetadataError};
+use pse_contract_proto::{DescriptorPolicy, NativeSelection, MetadataError, FieldContext};
 use super::ProjectionCodegenError;
 
-type DomainCheck = fn(&DynamicMessage) -> Result<Option<Vec<u8>>, ProjectionCodegenError>;
+type DomainCheck = fn(&DynamicMessage, FieldContext<'_>) -> Result<Option<Vec<u8>>, ProjectionCodegenError>;
 #[derive(Debug)]
 pub(super) struct SelectionNames {
     pub(super) interpretations: Vec<(String, u32)>,
@@ -66,8 +66,8 @@ impl<'a> TypedPolicy<'a> {
 }
 impl DescriptorPolicy for TypedPolicy<'_> {
     fn native_selection(&self) -> Option<NativeSelection<'_>> { Some(self.selection) }
-    fn normalize_decoded_facet(&self, extension: &str, value: &DynamicMessage) -> Option<Result<Option<Vec<u8>>, MetadataError>> {
-        self.validators.iter().find(|(name, _)| *name == extension).map(|(_, validate)| validate(value).map_err(|source| match source {
+    fn normalize_decoded_facet(&self, extension: &str, value: &DynamicMessage, field: FieldContext<'_>) -> Option<Result<Option<Vec<u8>>, MetadataError>> {
+        self.validators.iter().find(|(name, _)| *name == extension).map(|(_, validate)| validate(value, field).map_err(|source| match source {
             ProjectionCodegenError::Metadata(source) if source.is_unavailable() => source,
             source => MetadataError::domain(extension, source),
         }))

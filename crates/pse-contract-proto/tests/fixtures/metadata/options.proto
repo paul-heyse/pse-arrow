@@ -13,13 +13,16 @@ message Request {
     interpretation_version: 1
     direction: DIRECTION_BOTH
     construction_role: CONSTRUCTION_ROLE_DATA
-    native_shape: { record: { fields: { name: "value" tag: 1 direction: DIRECTION_INPUT contract: { native_type: { scalar: NATIVE_SCALAR_STRING } } } fields: { name: "detail" tag: 2 direction: DIRECTION_INPUT contract: { native_type: { named_owner: "independent.v1.Request.Alternative1" } } } } }
+    native_shape: { alternatives: {
+      alternatives: { name: "value" tag: 1 }
+      alternatives: { name: "detail" tag: 2 fields: { name: "payload" tag: 1 direction: DIRECTION_INPUT contract: { native_type: { scalar: NATIVE_SCALAR_STRING } } } }
+    } }
   };
   optional string value = 1 [
-    (pse.contract.v1.field) = { metadata_version: 2 native_field: "value" direction: DIRECTION_INPUT native_contract: { native_type: { scalar: NATIVE_SCALAR_STRING } } },
+    (pse.contract.v1.field) = { metadata_version: 2 native_field: "value" direction: DIRECTION_BOTH native_contract: { native_type: { named_owner: "independent.v1.Request" } } },
     (independent.imports.forwarded) = "opaque-import-preserved"
   ];
-  optional Alternative1 detail = 2 [(pse.contract.v1.field) = { metadata_version: 2 native_field: "detail" direction: DIRECTION_INPUT native_contract: { native_type: { named_owner: "independent.v1.Request.Alternative1" } } }];
+  optional Alternative1 detail = 2 [(pse.contract.v1.field) = { metadata_version: 2 native_field: "detail" direction: DIRECTION_BOTH native_contract: { native_type: { named_owner: "independent.v1.Request" } } }];
 }
 
 service Procedure {

@@ -13,6 +13,10 @@ pub enum ProjectionCodegenError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Metadata(#[from] pse_contract_proto::MetadataError),
+    /// Original native projection-owner refusal.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Projection(#[from] pse_contract::boundary_projection::ProjectionError),
     /// Original Arrow conversion or purpose projection refusal.
     #[error("native field IPC: {0}")]
     #[diagnostic(code("schema.invalid_declaration"))]

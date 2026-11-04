@@ -10,6 +10,7 @@ pub(super) fn record(
     spec: &RelationSpec,
     row: &syn::Ident,
     fields: &[(String, TokenStream, String)],
+    stem: &str,
 ) -> Result<TokenStream, SchemaError> {
     let Some(record) = spec.boundary else {
         return Ok(TokenStream::new());
@@ -19,6 +20,8 @@ pub(super) fn record(
         &spec.columns,
         row,
         fields,
+        &spec.columns.iter().map(|field| super::types::relation_field_stem(stem, field.name())).collect::<Vec<_>>(),
+        super::super::native::Mode::Domain,
     )
 }
 
@@ -55,7 +58,7 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
-        let emitted = record(&owner, &format_ident!("ReferenceQuantityTypesRow"), &fields).unwrap();
+        let emitted = record(&owner, &format_ident!("ReferenceQuantityTypesRow"), &fields, "ReferenceQuantityTypes").unwrap();
         syn::parse2::<syn::File>(emitted.clone()).unwrap();
         let text = emitted.to_string();
         assert!(text.contains("RegistryPhysicalQuantityType"));
@@ -77,7 +80,7 @@ mod tests {
             .iter()
             .map(|field| (field.name().into(), quote!(i64), String::new()))
             .collect::<Vec<_>>();
-        let emitted = record(&owner, &format_ident!("BoundedRow"), &fields)
+        let emitted = record(&owner, &format_ident!("BoundedRow"), &fields, "Bounded")
             .unwrap()
             .to_string();
         assert!(emitted.contains("SignedRange") && emitted.contains("128"));

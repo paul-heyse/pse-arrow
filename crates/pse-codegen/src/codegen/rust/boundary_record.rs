@@ -4,7 +4,7 @@
 
 use crate::{
     SchemaError,
-    model::{BoundaryShape, CollectionContract, FieldContract, IntegerRange, TaggedAlternative},
+    model::{BoundaryShape, FieldContract, TaggedAlternative},
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -14,8 +14,10 @@ pub(super) fn render(
     columns: &[FieldContract],
     row: &syn::Ident,
     fields: &[(String, TokenStream, String)],
+    field_stems: &[String],
+    mode: super::super::native::Mode,
 ) -> Result<TokenStream, SchemaError> {
-    if fields.len() != columns.len()
+    if fields.len() != columns.len() || field_stems.len() != columns.len()
         || fields
             .iter()
             .zip(columns)
@@ -37,7 +39,7 @@ pub(super) fn render(
     let mut types = Vec::new();
     let mut recursive = Vec::new();
     let mut field_rules = Vec::new();
-    for ((field_name, ty, _), column) in fields.iter().zip(columns) {
+    for (((field_name, ty, _), column), field_stem) in fields.iter().zip(columns).zip(field_stems) {
         // Present malformed annotations must not disappear through convenience defaults.
         column.checked_role()?;
         column.checked_extension()?;
@@ -45,16 +47,13 @@ pub(super) fn render(
         column.canonical_policy()?;
         column.expression_source_contract()?;
         let ty = super::semantic::model_type(ty)?;
+        let native_projection = super::types::projection_type_in(column, field_stem, mode)?;
+        let native_projection = super::types::projection_tokens(&native_projection);
         if TaggedAlternative::from_field(column.field())?.is_some()
             && BoundaryShape::from_field(column.field())?.is_none()
         {
             return Err(super::error(format!(
                 "{name}.{field_name}: native alternatives need explicit wire presentation"
-            )));
-        }
-        if CollectionContract::from_field(column.field())?.is_some_and(|contract| contract.unique) {
-            return Err(super::error(format!(
-                "{name}.{field_name}: unique native collections need checked local and wire lowering"
             )));
         }
         let number = column.boundary_tag().ok_or_else(|| {
@@ -63,28 +62,7 @@ pub(super) fn render(
             ))
         })?;
         let field = super::types::ident(field_name);
-        let mut rules = Vec::new();
-        if let Some(range) = IntegerRange::from_field(column.field())? {
-            let (min, max) = (range.minimum, range.maximum);
-            rules.push(
-                quote!(pse_contract::boundary_projection::LocalRule::SignedRange { min: #min, max: #max }),
-            );
-        }
-        if let Some(collection) = CollectionContract::from_field(column.field())?
-            && (collection.minimum != 0 || collection.maximum.is_some())
-        {
-            let min = u64::try_from(collection.minimum)
-                .map_err(|error| super::error(error.to_string()))?;
-            let max = collection
-                .maximum
-                .map(u64::try_from)
-                .transpose()
-                .map_err(|error| super::error(error.to_string()))?
-                .unwrap_or(u64::MAX);
-            rules.push(
-                quote!(pse_contract::boundary_projection::LocalRule::Length { min: #min, max: #max }),
-            );
-        }
+        let rules = super::types::field_rules(column)?.into_iter().map(|(_, tokens)| tokens).collect::<Vec<_>>();
         field_rules.push(!rules.is_empty());
         let mut metadata = column
             .field()
@@ -105,9 +83,15 @@ pub(super) fn render(
             .map(|(key, value)| quote!((#key.into(), #value.into())))
             .collect::<Vec<_>>();
         definitions.push(
-            quote!(pse_contract::boundary_projection::Field::of::<#ty>(graph, #field_name, #number,
-            pse_contract::boundary_projection::Direction::#direction, vec![#(#rules),*])?
-            .with_named_facets(std::collections::BTreeMap::from([#(#facets),*]))),
+            quote!({
+                let projected = pse_contract::boundary_projection::Field::of::<#ty>(graph, #field_name, #number,
+                    pse_contract::boundary_projection::Direction::#direction, vec![#(#rules),*])?;
+                if projected.ty != #native_projection {
+                    return Err(pse_contract::boundary_projection::ProjectionError::invalid(#field_name,
+                        "compiler-resolved native field differs from its source Rust/Arrow projection"));
+                }
+                projected.with_named_facets(std::collections::BTreeMap::from([#(#facets),*]))
+            }),
         );
         layout.push(quote!((#number, #field_name)));
         names.push(field);

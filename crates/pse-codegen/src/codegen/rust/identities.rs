@@ -24,6 +24,11 @@ pub(crate) fn type_name(identity: &str) -> String {
     format!("{}Id", pascal(identity))
 }
 
+/// Native nominal meaning of the same identity declaration used by `emit`.
+pub(crate) fn projection_type(identity: &str) -> pse_contract::boundary_projection::TypeRef {
+    pse_contract::boundary_projection::TypeRef::Named(type_name(identity))
+}
+
 /// The path a generated row uses for the identity's type, in either crate.
 pub(super) fn path(identity: &str) -> TokenStream {
     let name = format_ident!("{}", type_name(identity));
@@ -82,11 +87,8 @@ pub(super) fn emit(
                     fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
                         graph.declare::<Self>(stringify!(#name), file!(), 1,
                             pse_contract::boundary_projection::Direction::Both, &[], &[], |graph| {
-                                Ok(pse_contract::boundary_projection::Shape::Record(vec![
-                                    pse_contract::boundary_projection::Field::of::<#base>(graph, "id", 1,
-                                        pse_contract::boundary_projection::Direction::Both,
-                                        vec![pse_contract::boundary_projection::LocalRule::Required])?,
-                                ]))
+                                Ok(pse_contract::boundary_projection::identity_shape(
+                                    <#base as pse_contract::boundary_projection::ProjectionType>::projection(graph)?))
                             })
                     }
                 }

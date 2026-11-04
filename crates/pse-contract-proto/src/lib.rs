@@ -222,9 +222,25 @@ pub trait DescriptorPolicy: pse_contract::metadata::InterpretationPolicy {
     /// Normalize for this explicitly named comparison purpose using the original
     /// world's pool. Outer None means unavailable interpretation (Unknown); inner
     /// None means validated, retained provenance without facts for this purpose.
-    fn normalize_decoded_facet(&self, _extension: &str, _value: &DynamicMessage) -> Option<Result<Option<Vec<u8>>, MetadataError>> { None }
+    fn normalize_decoded_facet(&self, _extension: &str, _value: &DynamicMessage, _field: FieldContext<'_>) -> Option<Result<Option<Vec<u8>>, MetadataError>> { None }
 }
 impl DescriptorPolicy for pse_contract::metadata::CorePolicy<'_> {}
+
+/// Borrowed original-world declarations for a domain's local correspondence check.
+/// They describe acquired meaning and never approve native source coverage/adoption.
+#[derive(Clone, Copy, Debug)]
+pub struct FieldContext<'a> {
+    /// Original descriptor package, used only to qualify declared native symbols.
+    pub package: &'a str,
+    /// Attributed selected native field path.
+    pub subject: &'a str,
+    /// Existing native type declaration decoded under this world's core schema.
+    pub native_type: Option<&'a TypeRef>,
+    /// Existing local rules for this selected native occurrence.
+    pub local_rules: Option<&'a [LocalRule]>,
+    /// Existing native owner declarations decoded from this original pool.
+    pub native_owners: &'a [pse_contract::metadata::Message<'a>],
+}
 
 /// Borrowed native source coverage, never inferred from option presence.
 #[derive(Clone, Copy, Debug)]

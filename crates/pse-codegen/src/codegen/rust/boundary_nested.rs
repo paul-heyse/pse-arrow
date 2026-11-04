@@ -12,15 +12,18 @@ pub(super) fn render(
     field: &FieldContract,
     stem: &str,
     fields: &[(String, TokenStream, String)],
+    mode: super::super::native::Mode,
 ) -> Result<TokenStream, SchemaError> {
     let Some(shape) = BoundaryShape::from_field(field.field())? else {
         return Ok(TokenStream::new());
     };
     let row = format_ident!("{stem}");
     if let Some(alternative) = TaggedAlternative::from_field(field.field())? {
-        alternatives(&shape, &alternative, &row, fields)
+        alternatives(field, &shape, &alternative, &row, fields)
     } else {
-        super::boundary_record::render(&shape, &field.children(), &row, fields)
+        let children = field.children();
+        let stems = children.iter().map(|child| super::super::native::child_stem(field, stem, child.field())).collect::<Vec<_>>();
+        super::boundary_record::render(&shape, &children, &row, fields, &stems, super::super::native::child_mode(field, mode))
     }
 }
 
@@ -106,6 +109,7 @@ fn payload_type(ty: &TokenStream) -> Result<TokenStream, SchemaError> {
 }
 
 fn alternatives(
+    contract: &FieldContract,
     shape: &BoundaryShape,
     alternative: &TaggedAlternative,
     row: &syn::Ident,
@@ -142,18 +146,20 @@ fn alternatives(
                 .find(|(name, _, _)| name == arm)
                 .ok_or_else(|| super::error(format!("{name}.{tag}: native payload absent")))?;
             let ty = payload_type(ty)?;
+            let column = contract.children().into_iter().find(|field| field.name() == arm).ok_or_else(|| super::error("native alternative source payload is absent".into()))?;
+            let rules = super::types::alternative_field_rules(&column)?.into_iter().map(|(_, tokens)| tokens).collect::<Vec<_>>();
             (
                 quote!(
                     vec![pse_contract::boundary_projection::Field::of::<#ty>(graph,"value",1,
                     pse_contract::boundary_projection::Direction::#direction,
-                    vec![pse_contract::boundary_projection::LocalRule::Required])?]
+                    vec![#(#rules),*])?]
                 ),
                 quote!(&[(1, "value")]),
                 quote!((#ty,)),
                 quote!(match self.#payload.take() {Some(value)=>Ok((value,)),None=>Err(self)}),
                 quote! { let (value,)=fields; Self::#constructor(value) },
-                quote!(#selected::#variant(value)=>pse_contract::boundary_projection::ValidateProjection::validate_at(value,
-                    &pse_contract::boundary_projection::field_path(path,#tag))),
+                quote!(#selected::#variant(value)=>pse_contract::boundary_projection::validate_field(value,
+                    &pse_contract::boundary_projection::field_path(path,#tag), &[#(#rules),*])),
             )
         } else {
             (

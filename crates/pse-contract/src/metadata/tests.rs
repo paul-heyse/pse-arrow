@@ -14,6 +14,7 @@ const META: MessageMetadata<'_> = MessageMetadata {
 const FILES: &[File<'_>] = &[File { name: "request.proto", imports: &[] }];
 const SYMBOLS: &[&str] = &["pse.test.v1.Request", "google.protobuf.MessageOptions", "google.protobuf.FieldOptions"];
 const MESSAGE: Message<'_> = Message { name: "pse.test.v1.Request", file: "request.proto", metadata: Some(META) };
+fn native_field(ty: TypeRef, rules: Vec<LocalRule>) -> crate::boundary_projection::Field { crate::boundary_projection::Field { name: "value".into(), tag: 1, ty, direction: BoundaryDirection::Both, rules, named_facets: Default::default() } }
 const NATIVE_U64: TypeRef = TypeRef::Scalar(crate::boundary_projection::Scalar::U64);
 const FIELD_META: FieldMetadata<'_> = FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Both)), native_type: Some(&NATIVE_U64), local_rules: Some(&[]) };
 fn world<'a>(messages: &'a [Message<'a>]) -> World<'a> { World { files: FILES, symbols: SYMBOLS, messages, ..World::default() } }
@@ -26,14 +27,18 @@ fn native_scalar_container_and_local_rule_changes_do_not_hide_behind_wire_shapes
         (TypeRef::Scalar(Scalar::SemanticId), TypeRef::Scalar(Scalar::Bytes)),
         (TypeRef::Set(Box::new(NATIVE_U64)), TypeRef::Repeated(Box::new(NATIVE_U64))),
     ] {
-        let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&old_type), ..FIELD_META }), reference: None }];
+        let declared = native_field(old_type.clone(), vec![]);
+        let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&old_type), ..FIELD_META }), declaration: Some(&declared), reference: None }];
+        assert_eq!(check(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Compatible);
         let new_fields = [Field { metadata: Some(FieldMetadata { native_type: Some(&new_type), ..FIELD_META }), ..old_fields[0] }];
         assert_eq!(compare(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &World { fields: &new_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
     }
     let float = TypeRef::Scalar(Scalar::F64Bits);
     let finite = [LocalRule::Float64Domain(Float64Domain::Finite)];
     let positive = [LocalRule::Float64Domain(Float64Domain::PositiveFinite)];
-    let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&finite), ..FIELD_META }), reference: None }];
+    let declared = native_field(float.clone(), finite.to_vec());
+    let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&finite), ..FIELD_META }), declaration: Some(&declared), reference: None }];
+    assert_eq!(check(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Compatible);
     let new_fields = [Field { metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&positive), ..FIELD_META }), ..old_fields[0] }];
     assert_eq!(compare(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &World { fields: &new_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
 }
@@ -53,10 +58,33 @@ fn native_owner_string_vocabulary_and_alternative_tags_are_meaning() {
 
 #[test]
 fn old_contracts_stay_unknown_and_missing_current_field_meaning_refuses() {
-    let field = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: None, local_rules: None, ..FIELD_META }), reference: None };
+    let declared = native_field(NATIVE_U64, vec![]);
+    let field = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: None, local_rules: None, ..FIELD_META }), declaration: Some(&declared), reference: None };
     assert_eq!(check(&World { fields: &[field], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
     let legacy = Field { metadata: Some(FieldMetadata { metadata_version: Some(1), native_type: None, local_rules: None, ..FIELD_META }), ..field };
     assert_eq!(check(&World { fields: &[legacy], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Unknown);
+}
+
+#[test]
+fn within_world_native_field_copies_must_agree_even_when_both_worlds_are_identical() {
+    let declaration = native_field(NATIVE_U64, vec![]);
+    let original = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FIELD_META), declaration: Some(&declaration), reference: None };
+    let honest = World { fields: &[original], ..world(&[MESSAGE]) };
+    assert_eq!(check(&honest, &POLICY).disposition, Disposition::Compatible);
+    let signed = TypeRef::Scalar(crate::boundary_projection::Scalar::I64);
+    let required = [LocalRule::Required];
+    for metadata in [
+        FieldMetadata { native_field: Some("other"), ..FIELD_META },
+        FieldMetadata { direction: Some(EnumValue::Known(BoundaryDirection::Input)), ..FIELD_META },
+        FieldMetadata { native_type: Some(&signed), ..FIELD_META },
+        FieldMetadata { local_rules: Some(&required), ..FIELD_META },
+    ] {
+        let field = Field { metadata: Some(metadata), ..original };
+        let inconsistent = World { fields: &[field], ..world(&[MESSAGE]) };
+        assert_eq!(compare(&inconsistent, &inconsistent, &POLICY).disposition, Disposition::Incompatible);
+    }
+    let field = Field { declaration: None, ..original };
+    assert_eq!(check(&World { fields: &[field], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Unknown);
 }
 
 #[test]
@@ -127,7 +155,9 @@ fn imports_references_and_extensions_use_the_actual_world() {
     let files = [File { name: "request.proto", imports: &["missing.proto"] }];
     let missing = check(&World { files: &files, ..world(&[]) }, &POLICY);
     assert!(missing.findings.iter().any(|finding| finding.reason == "missing transitive import"));
-    let fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Input)), native_type: Some(&TypeRef::Scalar(crate::boundary_projection::Scalar::U64)), local_rules: Some(&[]) }), reference: Some("pse.absent.v1.Value") }];
+    let mut declared = native_field(NATIVE_U64, vec![]);
+    declared.direction = BoundaryDirection::Input;
+    let fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Input)), native_type: Some(&TypeRef::Scalar(crate::boundary_projection::Scalar::U64)), local_rules: Some(&[]) }), declaration: Some(&declared), reference: Some("pse.absent.v1.Value") }];
     assert_eq!(check(&World { fields: &fields, ..world(&[]) }, &POLICY).disposition, Disposition::Incompatible);
 }
 

@@ -31,7 +31,7 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
                 Some(identity) => super::identities::path(identity),
                 None => logical(
                     column,
-                    &format!("{stem}Field{}", pascal(column.name())),
+                    &super::types::relation_field_stem(&stem, column.name()),
                     &mut declarations,
                 )?,
             };
@@ -43,7 +43,7 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
         })
         .collect::<Result<Vec<_>, SchemaError>>()?;
     declarations.push(structure(&format!("{stem}Row"), &fields));
-    declarations.push(super::boundary::record(spec, &row, &fields)?);
+    declarations.push(super::boundary::record(spec, &row, &fields, &stem)?);
     for column in &spec.columns {
         if let Some(kind) = column.canonical_key() {
             let field = ident(column.name());

@@ -26,6 +26,62 @@ const SOURCE: &str = include_str!("../tests/fixtures/metadata/options.proto");
 const FORWARDED: &str = include_str!("../tests/fixtures/metadata/forwarded.proto");
 const NATIVE_FIELDS: &str = include_str!("../tests/fixtures/metadata/native-fields.proto");
 
+#[test]
+fn independent_within_world_field_copies_cannot_agree_only_across_worlds() {
+    let baseline = compile(NATIVE_FIELDS, FORWARDED).unwrap();
+    assert_eq!(check_descriptors(&baseline, "options.proto", &NativeFactsPolicy, &[]).unwrap().disposition, Disposition::Compatible);
+    for (before, after) in [
+        ("NATIVE_SCALAR_U64", "NATIVE_SCALAR_I64"),
+        ("name: \"value\" tag: 1 direction: DIRECTION_BOTH", "name: \"different\" tag: 1 direction: DIRECTION_BOTH"),
+        ("name: \"value\" tag: 1 direction: DIRECTION_BOTH", "name: \"value\" tag: 1 direction: DIRECTION_INPUT"),
+        ("NATIVE_FLOAT64_PRESET_FINITE", "NATIVE_FLOAT64_PRESET_POSITIVE_FINITE"),
+    ] {
+        // Only the first source declaration changes; occurrence metadata stays
+        // untouched. This compiler fixture is independent of option setters.
+        let changed = NATIVE_FIELDS.replacen(before, after, 1);
+        assert_ne!(changed, NATIVE_FIELDS);
+        let world = compile(&changed, FORWARDED).unwrap();
+        assert_ne!(compare_descriptors(DescriptorInput { descriptors: &world, selected_file: "options.proto", policy: &NativeFactsPolicy }, DescriptorInput { descriptors: &world, selected_file: "options.proto", policy: &NativeFactsPolicy }, &NativeFactsPolicy, &[]).unwrap().disposition, Disposition::Compatible, "contradiction {before} must be refused or unavailable");
+    }
+    let baseline = compile(SOURCE, FORWARDED).unwrap();
+    assert_eq!(compared(&baseline, &baseline).disposition, Disposition::Compatible);
+    for (before, after) in [
+        ("native_field: \"detail\"", "native_field: \"wrong\""),
+        ("native_field: \"payload\" direction: DIRECTION_INPUT", "native_field: \"payload\" direction: DIRECTION_BOTH"),
+        ("scalar: NATIVE_SCALAR_STRING", "scalar: NATIVE_SCALAR_BYTES"),
+    ] {
+        let changed = SOURCE.replacen(before, after, 1);
+        assert_ne!(changed, SOURCE);
+        let world = compile(&changed, FORWARDED).unwrap();
+        assert_eq!(compared(&world, &world).disposition, Disposition::Incompatible);
+    }
+}
+
+#[test]
+fn independent_string_vocabulary_wrapper_uses_its_original_owner_declaration() {
+    struct Policy;
+    impl pse_contract::metadata::InterpretationPolicy for Policy {
+        fn name(&self) -> &str { "independent/string-vocabulary" }
+        fn supports_interpretation(&self, subject: &str, version: u32) -> bool { subject == "independent.v1.Request" && version == 1 }
+    }
+    impl DescriptorPolicy for Policy {
+        fn native_selection(&self) -> Option<NativeSelection<'_>> { Some(NativeSelection { owners: &["independent.v1.Request"], fields: &["independent.v1.Request.value"], methods: &[], facets: &[], facet_fields: &[] }) }
+    }
+    let source = r#"syntax="proto2"; package independent.v1; import "pse/contract/v1/metadata.proto";
+message Request {
+option (pse.contract.v1.message) = { metadata_version:2 owner:{rust_type:"native::Vocabulary" declaration_file:"vocabulary.rs"} interpretation_version:1 direction:DIRECTION_BOTH construction_role:CONSTRUCTION_ROLE_DATA native_shape:{string_enum:{values:"first" values:"second"}} };
+optional string value=1 [(pse.contract.v1.field)={metadata_version:2 native_field:"value" direction:DIRECTION_BOTH native_contract:{native_type:{named_owner:"independent.v1.Request"}}}];
+}"#;
+    let old = compile(source, FORWARDED).unwrap();
+    assert_eq!(check_descriptors(&old, "options.proto", &Policy, &[]).unwrap().disposition, Disposition::Compatible);
+    for changed in [source.replace("native_field:\"value\"", "native_field:\"other\""), source.replace("native_type:{named_owner:\"independent.v1.Request\"}", "native_type:{scalar:NATIVE_SCALAR_STRING}")] {
+        let world = compile(&changed, FORWARDED).unwrap();
+        assert_eq!(compare_descriptors(DescriptorInput { descriptors:&world, selected_file:"options.proto", policy:&Policy }, DescriptorInput { descriptors:&world, selected_file:"options.proto", policy:&Policy }, &Policy, &[]).unwrap().disposition, Disposition::Incompatible);
+    }
+    let changed = compile(&source.replace("values:\"second\"", "values:\"third\""), FORWARDED).unwrap();
+    assert_eq!(compare_descriptors(DescriptorInput { descriptors:&old, selected_file:"options.proto", policy:&Policy }, DescriptorInput { descriptors:&changed, selected_file:"options.proto", policy:&Policy }, &Policy, &[]).unwrap().disposition, Disposition::Incompatible);
+}
+
 struct NativeFactsPolicy;
 impl pse_contract::metadata::InterpretationPolicy for NativeFactsPolicy {
     fn name(&self) -> &str { "independent/native-field-v2" }

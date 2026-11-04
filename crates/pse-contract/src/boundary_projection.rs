@@ -8,12 +8,15 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
 mod array;
+pub use array::{fixed_array_name, fixed_array_shape};
 mod bytes;
 mod float_collections;
 mod float_domain;
 mod float_interval;
 mod generic;
+pub use generic::{argument_name as projection_argument_name, optional_argument_name, sequence_argument_name, array_argument_name};
 mod nominal;
+pub use nominal::identity_shape;
 #[cfg(test)]
 mod optional_text_tests;
 #[cfg(test)]
@@ -1037,7 +1040,7 @@ impl<K: ValidateProjection + Ord, V: ValidateProjection> ValidateProjection for 
 
 impl<T: ProjectionType> ProjectionType for Option<T> {
     fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
-        Ok(format!("Optional{}", T::projection_argument_name(graph)?))
+        Ok(optional_argument_name(&T::projection_argument_name(graph)?))
     }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         Ok(TypeRef::Optional(Box::new(T::projection(graph)?)))
@@ -1048,15 +1051,11 @@ impl<T: ProjectionType> ProjectionType for Option<T> {
 }
 impl<T: ProjectionType> ProjectionType for Vec<T> {
     fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
-        Ok(format!("List{}", T::projection_argument_name(graph)?))
+        Ok(sequence_argument_name(&T::projection_argument_name(graph)?))
     }
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let element = T::projection(graph)?;
-        if element == TypeRef::Scalar(Scalar::U8) {
-            Ok(TypeRef::Scalar(Scalar::Bytes))
-        } else {
-            Ok(TypeRef::Repeated(Box::new(element)))
-        }
+        Ok(sequence_type(element))
     }
     fn projection_rust_path(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
         Ok(format!(
@@ -1065,6 +1064,17 @@ impl<T: ProjectionType> ProjectionType for Vec<T> {
         ))
     }
 }
+/// Existing native Vec projection, including its explicit byte-vector specialization.
+/// Source renderers reuse this owner instead of reconstructing collection meaning.
+pub fn sequence_type(element: TypeRef) -> TypeRef {
+    if element == TypeRef::Scalar(Scalar::U8) { TypeRef::Scalar(Scalar::Bytes) }
+    else { TypeRef::Repeated(Box::new(element)) }
+}
+/// Recover an element where the existing Vec declaration is already known.
+pub fn sequence_element(sequence: &TypeRef) -> Option<TypeRef> {
+    match sequence { TypeRef::Repeated(element) => Some(element.as_ref().clone()), TypeRef::Scalar(Scalar::Bytes) => Some(TypeRef::Scalar(Scalar::U8)), _ => None }
+}
+
 impl<T: ProjectionType> ProjectionType for Box<T> {
     fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
         Ok(format!("Boxed{}", T::projection_argument_name(graph)?))

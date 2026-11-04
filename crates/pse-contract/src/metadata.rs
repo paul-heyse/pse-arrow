@@ -120,6 +120,9 @@ pub struct Field<'a> {
     pub file: &'a str,
     /// Required native correspondence.
     pub metadata: Option<FieldMetadata<'a>>,
+    /// Existing owner Shape's corresponding native declaration. The wire adapter
+    /// supplies this association from actual descriptor links, never option presence.
+    pub declaration: Option<&'a crate::boundary_projection::Field>,
     /// Referenced world symbol, without scalar pseudo-references.
     pub reference: Option<&'a str>,
 }
@@ -337,6 +340,16 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
             result.version(policy, field.file, field.name, metadata.metadata_version);
             if result.required(field.file, field.name, metadata.native_field, "native field").is_some_and(str::is_empty) { result.record(field.file, field.name, Disposition::Incompatible, "empty native field"); }
             result.enumeration(field.file, field.name, metadata.direction, "direction");
+            if metadata.metadata_version == Some(VERSION) {
+                if let Some(declared) = field.declaration {
+                    if metadata.native_field.is_some_and(|name| name != declared.name)
+                        || matches!(metadata.direction, Some(EnumValue::Known(direction)) if direction != declared.direction)
+                        || metadata.native_type.is_some_and(|ty| ty != &declared.ty)
+                        || metadata.local_rules.is_some_and(|rules| rules != declared.rules) {
+                        result.record(field.file, field.name, Disposition::Incompatible, "field metadata contradicts its existing native owner declaration");
+                    }
+                } else { result.record(field.file, field.name, Disposition::Unknown, "native owner field correspondence is unavailable"); }
+            }
             if metadata.metadata_version == Some(VERSION) {
                 if let Some(ty) = result.required(field.file, field.name, metadata.native_type, "native type") {
                     check_native_references(ty, &symbols, field.file, field.name, &mut result);

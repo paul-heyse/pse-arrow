@@ -284,7 +284,7 @@ pub fn descriptors_for_direction(
         file: dependency_order(files)?,
         ..Default::default()
     };
-    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<Option<Vec<u8>>, ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_option)];
+    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage, pse_contract_proto::FieldContext<'_>) -> Result<Option<Vec<u8>>, ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_field_option)];
     let names = source_metadata::native_selection(graph, package, direction);
     let interpretations = names.interpretations.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
     let owners = names.owners.iter().map(String::as_str).collect::<Vec<_>>();

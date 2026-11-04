@@ -822,6 +822,26 @@ impl FieldContract {
         }
         Ok(())
     }
+    /// Check the existing local source-field rules without resolving a catalog,
+    /// database or scientific context. This does not admit an acquired field.
+    /// # Errors
+    /// Invalid extension storage, local facet/collection/range declarations or
+    /// nested field layouts refuse through the same source owners as assembly.
+    pub fn validate_projection_field(&self, context: &str) -> Result<(), crate::SchemaError> {
+        crate::checks::logical_type(self, context)?;
+        fn local(field: &FieldContract, context: &str) -> Result<(), crate::SchemaError> {
+            field.validate_facets(context)?;
+            super::IntegerRange::from_field(field.field())?;
+            super::CollectionContract::from_field(field.field())?;
+            super::TaggedAlternative::from_field(field.field())?;
+            super::BoundaryShape::from_field(field.field())?;
+            if field.extension().is_none() {
+                for child in field.children() { local(&child, &format!("{context}.{}", child.name()))?; }
+            }
+            Ok(())
+        }
+        local(self, context)
+    }
     /// Every explicitly declared native child, in native order.
     pub fn children(&self) -> Vec<Self> {
         child_fields(self.0.data_type())

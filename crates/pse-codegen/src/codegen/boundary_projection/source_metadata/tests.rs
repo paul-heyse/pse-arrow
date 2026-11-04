@@ -19,6 +19,27 @@ impl pse_contract::boundary_projection::ProjectionType for QuantityAnnotatedOwne
 }
 
 #[test]
+fn source_publication_refuses_native_ipc_that_contradicts_the_selected_core_type() {
+    use pse_contract::boundary_projection::{ProjectionGraph, Direction, Field, Shape};
+    struct DeclaredOwner;
+    let graph = |data_type| {
+        let column = pse_schema::model::FieldContract::payload("count", pse_schema::model::FieldContract::native(data_type), "counter");
+        let mut facets = column.field().metadata().iter().map(|(key, value)| (key.clone(), value.clone())).collect::<std::collections::BTreeMap<_, _>>();
+        facets.insert(super::super::REGISTRY_FIELD_SOURCE.into(), column.canonical_json().unwrap());
+        let mut graph = ProjectionGraph::default();
+        graph.declare::<DeclaredOwner>("DeclaredOwner", file!(), 1, Direction::Both, &[], &[], |graph| Ok(Shape::Record(vec![
+            Field::of::<u64>(graph, "count", 1, Direction::Both, vec![])?.with_named_facets(facets),
+        ]))).unwrap();
+        graph
+    };
+    let imports = super::super::tests::imports();
+    super::super::descriptors_with_imports(&graph(arrow_schema::DataType::UInt64), "pse.correspondence.v1", "correspondence.proto", &imports).unwrap();
+    let failure = super::super::descriptors_with_imports(&graph(arrow_schema::DataType::Int64), "pse.correspondence.v1", "correspondence.proto", &imports).unwrap_err();
+    assert!(failure.to_string().contains("correspondence.proto:pse.correspondence.v1.DeclaredOwner.count"));
+    assert!(failure.to_string().contains("contradicts its core"));
+}
+
+#[test]
 fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
     use super::super::registry_facets;
     let graph = pse_contract::boundary_projection::ProjectionGraph::of::<QuantityAnnotatedOwner>().unwrap();
@@ -26,7 +47,7 @@ fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
     let extensions = [registry_facets::EXTENSION];
     assert_eq!(check_descriptors(&set, "physical.proto", &CorePolicy { interpretations: &[("pse.physical.v1.QuantityAnnotatedOwner", 1)] }, &extensions).unwrap().disposition, Disposition::Unknown);
     let encoder = OptionEncoder::new(&set.file).unwrap();
-    let validators: [(&str, DomainCheck); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_option)];
+    let validators: [(&str, DomainCheck); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_field_option)];
     let selection = NativeSelection { owners: &["pse.physical.v1.QuantityAnnotatedOwner"], fields: &["pse.physical.v1.QuantityAnnotatedOwner.temperature"], methods: &[], facets: &[], facet_fields: &[] };
     let policy = TypedPolicy::new(&validators, &[("pse.physical.v1.QuantityAnnotatedOwner", 1)], selection);
     assert_eq!(check_descriptors(&set, "physical.proto", &policy, &extensions).unwrap().disposition, Disposition::Compatible);

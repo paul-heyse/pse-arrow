@@ -2,6 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 //! Source-owned nominal wrappers preserve native tuple constructors and Serde shape.
 
+/// The native record layout shared by nominal identity owners and their source renderer.
+pub fn identity_shape(base: super::TypeRef) -> super::Shape {
+    super::Shape::Record(vec![super::Field {
+        name: "id".into(), tag: 1, ty: base, direction: super::Direction::Both,
+        rules: vec![super::LocalRule::Required], named_facets: Default::default(),
+    }])
+}
+
 /// Declare a plain nominal tuple wrapper together with its stable value field.
 /// Invariant-bearing wrappers must instead retain their checked native constructor.
 #[macro_export]

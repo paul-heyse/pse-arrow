@@ -22,6 +22,7 @@ pub(super) const EXTENSION: &str = "pse.schema.v1.registry_field";
 #[cfg(test)]
 mod tests;
 mod native_ipc;
+mod native_type;
 
 pub(super) fn has_options(field: &Field) -> bool { !field.named_facets.is_empty() }
 
@@ -603,4 +604,12 @@ pub(super) fn normalize_option(option: &DynamicMessage) -> Result<Option<Vec<u8>
     let has_meaning = normalized.message_descriptor().fields().iter().any(|field| field.name() != "metadata_version" && normalized.field_by_number(field.number()).is_some());
     if !has_meaning { return Ok(None); }
     Ok(Some(normalized.try_encode_to_vec().map_err(pse_contract_proto::MetadataError::from)?))
+}
+
+pub(super) fn normalize_field_option(option: &DynamicMessage, context: pse_contract_proto::FieldContext<'_>) -> Result<Option<Vec<u8>>, ProjectionCodegenError> {
+    check_option(option)?;
+    if let Some(Value::Bytes(carrier)) = value(option, "native_field_ipc") {
+        native_type::check(&native_ipc::decode(carrier)?, context, option.pool())?;
+    }
+    normalize_option(option)
 }

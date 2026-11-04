@@ -2,30 +2,27 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::*;
+/// Existing fixed-array projection naming, including its actual argument fallback.
+pub fn fixed_array_name(element: &TypeRef, element_argument: &str, extent: usize) -> String {
+    let argument = match element { TypeRef::Named(name) => name.clone(), TypeRef::Scalar(scalar) => format!("{scalar:?}"), _ => element_argument.into() };
+    format!("Array{extent}{argument}")
+}
+/// Existing fixed-array value layout, shared by its native owner and readers of
+/// that declared shape. This cannot register a Rust owner or reconstruct values.
+/// # Errors
+/// An extent outside the native length-rule range refuses.
+pub fn fixed_array_shape(element: TypeRef, extent: usize) -> Result<Shape, ProjectionError> {
+    let length = u64::try_from(extent).map_err(|_| ProjectionError::invalid("array", "array extent exceeds uint64"))?;
+    Ok(Shape::Record(vec![Field { name: "values".into(), tag: 1, ty: sequence_type(element), direction: Direction::Both,
+        rules: vec![LocalRule::Length { min: length, max: length }], named_facets: BTreeMap::new() }]))
+}
 impl<T: ProjectionType, const N: usize> ProjectionType for [T; N] {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let element = T::projection(graph)?;
-        let element_name = match &element {
-            TypeRef::Named(name) => name.clone(),
-            TypeRef::Scalar(scalar) => format!("{scalar:?}"),
-            _ => T::projection_argument_name(graph)?,
-        };
-        let name = format!("Array{N}{element_name}");
-        let length = u64::try_from(N)
-            .map_err(|_| ProjectionError::invalid(&name, "array extent exceeds uint64"))?;
+        let argument = if matches!(element, TypeRef::Named(_) | TypeRef::Scalar(_)) { String::new() } else { T::projection_argument_name(graph)? };
+        let name = fixed_array_name(&element, &argument, N);
         let root =
-            graph.declare::<Self>(&name, file!(), 1, Direction::Both, &[], &[], |graph| {
-                Ok(Shape::Record(vec![Field::of::<Vec<T>>(
-                    graph,
-                    "values",
-                    1,
-                    Direction::Both,
-                    vec![LocalRule::Length {
-                        min: length,
-                        max: length,
-                    }],
-                )?]))
-            })?;
+            graph.declare::<Self>(&name, file!(), 1, Direction::Both, &[], &[], |_| fixed_array_shape(element.clone(), N))?;
         graph.array_container::<T, N>(&root, element)?;
         let element = T::projection_rust_path(graph)?;
         graph.public_path::<Self>(&root, &format!("[{element};{N}]"))?;
@@ -35,7 +32,7 @@ impl<T: ProjectionType, const N: usize> ProjectionType for [T; N] {
         Ok(format!("[{};{N}]", T::projection_rust_path(graph)?))
     }
     fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
-        Ok(format!("Array{N}{}", T::projection_argument_name(graph)?))
+        Ok(array_argument_name(&T::projection_argument_name(graph)?, N))
     }
 }
 impl<T, const N: usize> ProjectionRecord for [T; N] {
@@ -82,6 +79,18 @@ impl<T: ValidateProjection, const N: usize> ValidateProjection for [T; N] {
 mod tests {
 use super::*;
 use crate::projection_struct;
+#[test]
+fn array_names_preserve_actual_container_arguments_after_byte_projection_folding() {
+    let mut graph = ProjectionGraph::default();
+    let plain = <[Option<Vec<u8>>; 2]>::projection(&mut graph).unwrap();
+    let boxed = <[Option<Box<Vec<u8>>>; 2]>::projection(&mut graph).unwrap();
+    assert_eq!(plain, TypeRef::Named("Array2OptionalListU8".into()));
+    assert_eq!(boxed, TypeRef::Named("Array2OptionalBoxedListU8".into()));
+    assert_ne!(plain, boxed);
+    let element = TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::Bytes)));
+    assert_eq!(fixed_array_name(&element, "OptionalBytes", 2), "Array2OptionalBytes");
+    assert_eq!(graph.definitions()["Array2OptionalListU8"].shape, fixed_array_shape(element, 2).unwrap());
+}
 #[test]
 fn floating_domain_refuses_record_resemblance_and_non_binary64_leaves() {
     projection_struct! {
