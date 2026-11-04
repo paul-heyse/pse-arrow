@@ -35,6 +35,8 @@ mod adapters;
 mod float_collections;
 mod registry_facets;
 mod source_metadata;
+mod lazy_probe;
+pub use lazy_probe::{LazyProbeTarget, lazy_decode_probe};
 pub use adapters::{
     AdapterVisibility, NativeViewTarget, native_adapters, native_adapters_retaining_wire,
     native_adapters_scoped, native_view_adapters,
@@ -62,6 +64,29 @@ fn error(reason: impl Into<String>) -> ProjectionCodegenError {
         reason: reason.into(),
     }
     .into()
+}
+
+// Eager inverse adapters and deferred probes must resolve the very same final
+// descriptor names, including generated wrapper modules and configured prefixes.
+fn local_view_path(
+    naming: &buffa_codegen::context::CodeGenContext<'_>,
+    package: &str,
+    wire_root: &str,
+    fqn: &str,
+    suffix: &str,
+    lifetime: &str,
+) -> Result<String, ProjectionCodegenError> {
+    let split = naming.rust_type_relative_split(fqn, package, 0)
+        .ok_or_else(|| error(format!("{fqn}: actual Buffa view naming is unavailable")))?;
+    if split.is_extern || !split.to_package.is_empty() {
+        return Err(error(format!("{fqn}: view must belong to the explicitly selected generated package")));
+    }
+    let mut path = syn::parse_str::<syn::Path>(&split.within_package)
+        .map_err(|source| error(format!("actual Buffa view path is invalid: {source}")))?;
+    let terminal = path.segments.last_mut().ok_or_else(|| error("actual Buffa message path is empty"))?;
+    terminal.ident = quote::format_ident!("{}{suffix}", terminal.ident.to_string().trim_start_matches("r#"));
+    let family = if suffix == "LazyView" { "lazy_view" } else { "view" };
+    Ok(format!("{wire_root}::__buffa::{family}::{}<{lifetime}>", quote::quote!(#path)))
 }
 
 fn validate_package(package: &str) -> Result<(), ProjectionCodegenError> {

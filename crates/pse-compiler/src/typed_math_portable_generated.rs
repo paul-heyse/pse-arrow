@@ -27,6 +27,74 @@ mod adapters;
 #[rustfmt::skip]
 mod view_adapters;
 
+#[path = "generated/scientific-recipe/lazy-decode-probe.rs"]
+#[rustfmt::skip]
+#[cfg(test)]
+mod lazy_probe;
+
+/// Compiler-private decode-phase controls. Later receiving phases require their
+/// own admission before production protobuf activation; no workspace is minted.
+#[cfg(test)]
+#[derive(Clone, Copy)]
+struct DecodeProbeLimits {
+    backing_bytes: usize,
+    element_bytes: usize,
+    unknown_fields: usize,
+    depth: u32,
+}
+
+#[cfg(test)]
+fn probe_recipe<'a>(
+    payload: &'a [u8],
+    limits: DecodeProbeLimits,
+    backing: &std::cell::Cell<usize>,
+) -> Result<pb::pse::scientific_recipe::v4::ScientificRecipeLazyView<'a>, buffa::DecodeError> {
+    // One original set of cells owns root, siblings, descendants and merges.
+    // Caller-supplied allowance precedes every maintained backing request.
+    backing.set(limits.backing_bytes);
+    let unknown = std::cell::Cell::new(limits.unknown_fields);
+    let elements = std::cell::Cell::new(limits.element_bytes);
+    let ctx = buffa::DecodeContext::new(limits.depth, &unknown)
+        .with_element_memory(&elements)
+        .with_allocation_budget(backing);
+    lazy_probe::probe_scientific_recipe(payload, ctx)
+}
+
+#[cfg(test)]
+#[derive(Debug, thiserror::Error)]
+#[error("recipe decode resource admission: {0}")]
+struct ProbeResourceError(#[source] buffa::DecodeError);
+
+#[cfg(test)]
+pse_diagnostics::impl_diagnostic! {
+    ProbeResourceError,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit) },
+    forward(_this) {None}, help(_this) {None}, related(_this) {None}, source(_this) {None}
+}
+
+#[cfg(test)]
+impl pse_model::diagnostic::DiagnosticProjection for ProbeResourceError {}
+
+#[cfg(test)]
+fn probe_error(error: buffa::DecodeError) -> pse_math::MathError {
+    if matches!(error,
+        buffa::DecodeError::AllocationLimitExceeded
+        | buffa::DecodeError::AllocationLayoutOverflow
+        | buffa::DecodeError::AllocationReserveFailed
+        | buffa::DecodeError::ElementMemoryLimitExceeded
+        | buffa::DecodeError::UnknownFieldLimitExceeded
+        | buffa::DecodeError::RecursionLimitExceeded
+    ) {
+        let retained = size_of::<ProbeResourceError>();
+        pse_math::MathError::Typed {
+            retained,
+            cause: pse_model::diagnostic::DiagnosticCause::new(ProbeResourceError(error)),
+        }
+    } else {
+        super::contract(error)
+    }
+}
+
 #[path = "generated/scientific-recipe/native-policy.rs"]
 #[rustfmt::skip]
 #[allow(unreachable_pub, reason = "Source-derived policy stays private with its passive Recipe owner")]
@@ -63,6 +131,7 @@ mod native_receiving {
     /// complete validation, native adoption, receipt copies or reconstruction.
     #[derive(Clone, Copy)]
     struct TraversalAllowance {
+        probe: super::DecodeProbeLimits,
         limits: NativeMembershipLimits,
         count_bytes: usize,
         index_bytes: usize,
@@ -114,6 +183,13 @@ mod native_receiving {
                 "native recipe differs from original exact payload digest",
             ));
         }
+        // Decode-phase prerequisite only: eager view, complete validation,
+        // adoption, membership, receipts and reconstruction still need original
+        // workspace admission. Drop the probe before entering those phases.
+        let backing = std::cell::Cell::new(allowance.probe.backing_bytes);
+        let probe = super::probe_recipe(&payload, allowance.probe, &backing)
+            .map_err(super::probe_error)?;
+        drop(probe);
         let view = buffa::DecodeOptions::new()
             .decode_view::<wire::__buffa::view::ScientificRecipeView<'_>>(&payload)
             .map_err(contract)?;
@@ -240,6 +316,12 @@ mod native_receiving {
             let count_bytes = limits.count_scratch_bytes().unwrap();
             let counts = count_native_membership(recipe, limits, count_bytes).unwrap();
             TraversalAllowance {
+                probe: super::super::DecodeProbeLimits {
+                    backing_bytes: 16 * 1024 * 1024,
+                    element_bytes: 16 * 1024 * 1024,
+                    unknown_fields: 10_000,
+                    depth: 512,
+                },
                 limits,
                 count_bytes,
                 index_bytes: counts.authority_scratch_bytes().unwrap(),
@@ -259,6 +341,27 @@ mod native_receiving {
                 qualification: ContentHash::from_bytes([17; 32]),
                 request: ContentHash::from_bytes([18; 32]),
             }
+        }
+        #[test]
+        fn scientific_recipe_native_probe_refusal_retains_original_resource_cause() {
+            let (recipe, _) = fixture();
+            let bytes = payload(&recipe);
+            let cancel = Arc::new(AtomicBool::new(false));
+            let mut budget = allowance(&recipe);
+            budget.probe.backing_bytes = 0;
+            // SAFETY: isolated compiler-issued fixture; no production origin is minted.
+            let error = unsafe { index_exact_recipe(
+                bytes.clone(), scope(&bytes), &recipe.spec, recipe.semantic_identity,
+                &cancel, budget,
+            ) }.err().unwrap();
+            let MathError::Typed { cause, .. } = error else {
+                panic!("decode resource refusal must remain typed")
+            };
+            assert_eq!(cause.as_ref().diagnostic_code(),
+                Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit));
+            let original = cause.as_ref().source().unwrap();
+            assert!(matches!(original.downcast_ref::<buffa::DecodeError>(),
+                Some(buffa::DecodeError::AllocationLimitExceeded)));
         }
         #[test]
         fn scientific_recipe_native_receivers_decode_index_and_consume_same_actual_root() {
@@ -653,6 +756,112 @@ mod tests {
             .unwrap();
         let payload = body.portable_payload().unwrap();
         (Recipe::decode(&payload).unwrap(), payload)
+    }
+
+    fn probe_limits(backing_bytes: usize) -> super::DecodeProbeLimits {
+        super::DecodeProbeLimits {
+            backing_bytes,
+            element_bytes: 16 * 1024 * 1024,
+            unknown_fields: 10_000,
+            depth: 512,
+        }
+    }
+
+    #[test]
+    fn scientific_recipe_probe_traverses_actual_graph_with_exact_backing_allowance() {
+        use buffa::LazyMessageView as _;
+        use std::cell::Cell;
+        let (recipe, _) = actual_recipe();
+        let projected = adapters::encode_scientific_recipe(recipe).unwrap();
+        let bytes = projected.encode_to_vec();
+        let remaining = Cell::new(0);
+        let generous = probe_limits(usize::MAX);
+        let probed = super::probe_recipe(&bytes, generous, &remaining).unwrap();
+        let requested = usize::MAX - remaining.get();
+        assert!(requested > 0);
+        // Conversion is a control outside the probe, never its implementation.
+        assert_eq!(probed.to_owned_message().unwrap(), projected);
+        drop(probed);
+        let exact = super::probe_recipe(&bytes, probe_limits(requested), &remaining).unwrap();
+        assert_eq!(remaining.get(), 0);
+        drop(exact);
+        assert!(matches!(
+            super::probe_recipe(&bytes, probe_limits(requested - 1), &remaining),
+            Err(buffa::DecodeError::AllocationLimitExceeded)
+        ));
+
+        // A root-only scan succeeds with an allowance that the complete walk
+        // refuses: raw-fragment recording is not a child's decode capability.
+        let root_budget = Cell::new(usize::MAX);
+        let unknown = Cell::new(generous.unknown_fields);
+        let elements = Cell::new(generous.element_bytes);
+        let ctx = buffa::DecodeContext::new(generous.depth, &unknown)
+            .with_element_memory(&elements).with_allocation_budget(&root_budget);
+        ctx.require_allocation_accounted(wire::ScientificRecipeLazyView::allocation_accounted()).unwrap();
+        let root = wire::ScientificRecipeLazyView::decode_lazy_with_ctx(&bytes, ctx).unwrap();
+        let root_requested = usize::MAX - root_budget.get();
+        drop(root);
+        assert!(root_requested < requested);
+        assert!(matches!(
+            super::probe_recipe(&bytes, probe_limits(root_requested), &remaining),
+            Err(buffa::DecodeError::AllocationLimitExceeded)
+        ));
+    }
+
+    #[test]
+    fn scientific_recipe_probe_shares_unknown_and_element_allowances_across_siblings() {
+        use std::cell::Cell;
+        let mut child = wire::ModelingResolvedSymbolIx::default();
+        child.__buffa_unknown_fields.push(buffa::UnknownField {
+            number: 99, data: buffa::UnknownFieldData::Varint(1),
+        });
+        let bytes = wire::ScientificRecipe {
+            inputs: vec![child.clone(), child], ..Default::default()
+        }.encode_to_vec();
+        let remaining = Cell::new(0);
+        let mut limits = probe_limits(1024 * 1024);
+        limits.unknown_fields = 2;
+        super::probe_recipe(&bytes, limits, &remaining).unwrap();
+        limits.unknown_fields = 1;
+        assert!(matches!(super::probe_recipe(&bytes, limits, &remaining),
+            Err(buffa::DecodeError::UnknownFieldLimitExceeded)));
+        limits.unknown_fields = 2;
+        limits.element_bytes = 2 * size_of::<&[u8]>() - 1;
+        assert!(matches!(super::probe_recipe(&bytes, limits, &remaining),
+            Err(buffa::DecodeError::ElementMemoryLimitExceeded)));
+    }
+
+    #[test]
+    fn scientific_recipe_probe_merges_singular_fragments_before_descending() {
+        use buffa::LazyMessageView as _;
+        use std::cell::Cell;
+        let (recipe, _) = actual_recipe();
+        let projected = adapters::encode_scientific_recipe(recipe).unwrap();
+        let mut bytes = projected.encode_to_vec();
+        let split = wire::ScientificRecipe {
+            spec: buffa::MessageField::some(wire::MathBodySpec::default()),
+            ..Default::default()
+        };
+        bytes.extend(split.encode_to_vec());
+        let remaining = Cell::new(0);
+        let probe = super::probe_recipe(&bytes, probe_limits(16 * 1024 * 1024), &remaining).unwrap();
+        assert_eq!(probe.spec.fragments().len(), 2);
+        assert_eq!(probe.to_owned_message().unwrap(), projected);
+    }
+
+    #[test]
+    fn scientific_recipe_probe_refuses_malformed_deferred_bytes() {
+        use buffa::LazyMessageView as _;
+        use std::cell::Cell;
+        let mut wire = wire::ScientificRecipe::default();
+        // Buffa emits a malformed deferred input occurrence without requiring a
+        // second parser or a synthetic semantic schema in the probe.
+        wire.__buffa_unknown_fields.push(buffa::UnknownField {
+            number: 6, data: buffa::UnknownFieldData::LengthDelimited(vec![0x80]),
+        });
+        let bytes = wire.encode_to_vec();
+        assert!(wire::ScientificRecipeLazyView::decode_lazy(&bytes).is_ok());
+        assert!(super::probe_recipe(&bytes, probe_limits(1024 * 1024), &Cell::new(0)).is_err());
     }
 
     fn both_refusals(projected: wire::ScientificRecipe) -> [BoundaryProjectionError; 2] {

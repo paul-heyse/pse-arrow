@@ -286,31 +286,8 @@ struct Borrowed<'a, 'b> {
 impl Borrowed<'_, '_> {
     fn view(&self, path: &[String], lifetime: &str) -> Result<String, ProjectionCodegenError> {
         let fqn = format!(".{}.{}", self.package, path.join("."));
-        let split = self
-            .source
-            .naming
-            .rust_type_relative_split(&fqn, self.package, 0)
-            .ok_or_else(|| error(format!("{fqn}: actual Buffa view naming is unavailable")))?;
-        if split.is_extern || !split.to_package.is_empty() {
-            return Err(error(format!(
-                "{fqn}: native view must belong to the explicitly selected generated package"
-            )));
-        }
-        let mut within = syn::parse_str::<syn::Path>(&split.within_package)
-            .map_err(|source| error(format!("actual Buffa view path is invalid: {source}")))?;
-        let terminal = within
-            .segments
-            .last_mut()
-            .ok_or_else(|| error("actual Buffa message path is empty"))?;
-        terminal.ident = quote::format_ident!(
-            "{}View",
-            terminal.ident.to_string().trim_start_matches("r#")
-        );
-        Ok(format!(
-            "{}::__buffa::view::{}<{lifetime}>",
-            self.source.wire_root,
-            quote::quote!(#within)
-        ))
+        super::super::local_view_path(self.source.naming, self.package,
+            self.source.wire_root, &fqn, "View", lifetime)
     }
     fn guard(&self, value: &str, path: &str) -> String {
         format!("unknown_fields_view(&{value}.__buffa_unknown_fields,{path})?;")

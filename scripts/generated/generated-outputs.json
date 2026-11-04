@@ -804,6 +804,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/lazy_probe.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-codegen/src/codegen/documents.rs",
           "kind": "file"
         },
@@ -2197,6 +2201,10 @@
         },
         {
           "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/lazy_probe.rs",
           "kind": "file"
         },
         {

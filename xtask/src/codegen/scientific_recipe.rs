@@ -45,6 +45,16 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             visibility: boundary_projection::AdapterVisibility::Parent,
         },
     )?;
+    let lazy_probe = boundary_projection::lazy_decode_probe(
+        &roots,
+        boundary_projection::LazyProbeTarget {
+            descriptors: &output.descriptor_set,
+            selected_file: FILE,
+            config: &config,
+            wire_root: WIRE_ROOT,
+            visibility: boundary_projection::AdapterVisibility::Parent,
+        },
+    )?;
     let mut tree = super::proto_projection::publish_projection(
         root,
         &graph,
@@ -67,18 +77,26 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             view_adapters,
             "native_view_adapters",
         ),
+        ("lazy-decode-probe.rs", lazy_probe, "lazy_decode_probe"),
     ] {
         super::proto_projection::insert(&mut tree, destination, name, source.as_bytes())?;
         for owner in graph.definitions().values() {
             tree.relationships.push(provenance::SourceRelationship {
                 declaration_key: owner.name.clone(),
-                declaration_kind: "native_projection_adapter".into(),
+                declaration_kind: if name == "lazy-decode-probe.rs" {
+                    "native_decode_probe"
+                } else {
+                    "native_projection_adapter"
+                }.into(),
                 source_path: Some(owner.source.into()),
                 source_symbol: Some(owner.rust_type.into()),
                 source_role: "typed_owner".into(),
                 source_identity: None,
-                generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs"
-                    .into(),
+                generator_path: if name == "lazy-decode-probe.rs" {
+                    "crates/pse-codegen/src/codegen/boundary_projection/lazy_probe.rs"
+                } else {
+                    "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs"
+                }.into(),
                 generator_symbol: symbol.into(),
                 output_path: destination.join(name).to_string_lossy().into_owned(),
                 direction: Some(owner.direction.as_str().into()),
@@ -161,6 +179,13 @@ mod tests {
         assert!(borrowed.contains("decode_view_root"));
         assert!(borrowed.contains("unknown_fields_view"));
         assert!(!borrowed.contains("to_owned_message"));
+        let probe =
+            std::str::from_utf8(&tree.files[&destination.join("lazy-decode-probe.rs")]).unwrap();
+        assert!(probe.contains("pub(super) fn probe_scientific_recipe"));
+        assert!(probe.contains("fragments().split_first()"));
+        assert!(probe.contains("raw_elements()"));
+        assert!(probe.contains("require_allocation_accounted"));
+        assert!(!probe.contains("to_owned_message"));
         assert!(
             tree.files
                 .contains_key(&destination.join("validation/mod.rs"))
@@ -177,7 +202,7 @@ mod tests {
                 .count(),
             1
         );
-        for name in ["native-adapters.rs", "native-view-adapters.rs"] {
+        for name in ["native-adapters.rs", "native-view-adapters.rs", "lazy-decode-probe.rs"] {
             assert!(tree.relationships.iter().any(|relationship| {
                 relationship.declaration_key == "ScientificRecipe"
                     && relationship.output_path == destination.join(name).to_string_lossy()

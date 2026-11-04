@@ -25,7 +25,7 @@ pub enum AdapterVisibility {
     Parent,
 }
 impl AdapterVisibility {
-    fn rust(self) -> &'static str {
+    pub(super) fn rust(self) -> &'static str {
         match self {
             Self::Public => "pub",
             Self::Crate => "pub(crate)",
