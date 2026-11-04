@@ -1,6 +1,6 @@
 ---
-title: "Plan65: Integrated Proto target after Plan64"
-status: proposed
+title: "Plan65: Integrated Proto target alongside Plan64"
+status: in-progress
 date: 2026-11-03
 adrs: []
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
@@ -9,16 +9,16 @@ doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, validation]
 ---
 
-# Integrated Proto target after Plan64
+# Integrated Proto target alongside Plan64
 
 ## Purpose and authorization
 
-**Proposed:** implement a coherent codebase-wide contract architecture after Plan64 has
-completed. The operator authorized creation of this series, including any proposed breaking
-change needed for the better target. This document authorizes no production implementation,
-dependency change or architectural acceptance. Plan64 is the assumed starting capability
-baseline, not a constraint on the resulting architecture. Its mechanisms and code may be
-replaced. No scope or ownership is assigned to other existing plans, and none is amended.
+The operator authorized execution of the entire Plan65 series on 2026-11-04 while Plan64
+remains incomplete, including replacement of overlapping mechanisms and any breaking changes
+needed for the selected target. Actual working capabilities replace the original blanket
+completed-Plan64 prerequisite throughout this series. This execution instruction takes
+precedence over historical post-Plan64 starting assumptions in companions. Formal ADR acceptance
+remains a separate decision route. No scope or ownership is assigned to legacy plans.
 
 Local execution with deliberate extension seams is the target. Remote deployment, distributed
 solving and SurrealDB v4 are not delivery requirements. New scientific capabilities may justify
@@ -262,7 +262,7 @@ production foundation. Ordinary dependency moves remain ordinary pinned changes.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| P01 | planned | Completed Plan64 implementation and its actual support/evidence limits | Reconcile source/consumer baseline against this assumed target; identify already delivered work without claiming untested scope; preserve target improvements |
+| P01 | in-progress | Current native implementation and its actual support/evidence limits; Plan64 completion is not required | Reconcile actual consumer populations and delivered mechanisms against the target; identify draft/missing prerequisites per operation without claiming untested scope |
 | P02 | planned | P01; 65i I01 and 65j J01 owner/design agreement; applicable A/B/C/D/E decisions | Settle R01–R04 as applicable; agree scientific operation/product semantics and developer evidence/construction directions before finalizing broad A01/A02 interfaces; publish approved shared design slices |
 | P03 | planned | P02; working narrow A/B generation/adoption and G02 inspection slices | Deliver both scientific admission→partial products→qualification→publication/readback and developer execution→full failed report/inventory→readback→exact rerun slices; include original cancellation/lost-ACK settlement; remove replaced maps/interpretations. Existing diagnostic slice is included, not dropped |
 | P04 | planned | Ready per-consumer contracts, not completion of every companion | Integrate all selected storage/runtime/scientific/host migrations, reconcile every companion and source disposition; no exemplar-only completion |
@@ -280,6 +280,29 @@ manifests, generated inventory and integration have one coordinated writer. No f
 or whole-plan barrier replaces these actual dependencies.
 
 ## Verification and authoring outcome
+
+## Execution checkpoint — 2026-11-04
+
+Execution starts from `d63fcbb11`. Source-owned projection, exact physical values, passive
+scientific metadata, original report/rerun and prepared water transport are existing foundations;
+their historical tests retain their original scope. Expanded generation still has a recorded
+`HighsSettings.sparse_start` CEL preflight refusal. Generic output direction currently filters
+descriptor participation without prohibiting inverse adoption; worker Stop/Close still clear
+all sessions. These are concrete implementation deltas, not reasons to wait for complete Plan64.
+
+One integration checkout and three isolated executor checkouts own foundation, scientific and
+developer-evidence changes. Shared generator/adoption changes have one continuing foundation
+owner; the coordinator owns shared declarations/manifests, publication and integration.
+First work repairs shared maintained-validator lowering, makes governing scientific permission
+lookup unambiguous and consolidates observation-only retained developer report interpretation.
+The new pure crate and typed metadata still require their recorded decision routes before
+affected implementation. P03's two generated slices remain dependent on working narrow A/B.
+
+Missing Plan64 scientific families constrain their specific positive acceptance, not independent
+platform work. No Plan64 scientific obligation is closed by a wire schema or this checkpoint.
+Package tables and this coordinator remain the sole progress/disposition owners.
+
+## Verification boundary
 
 **Proposed verification:** package-local compile/targeted tests during implementation, explicit
 Arrow force-validation in consuming closures, actual code generation when declarations change,
