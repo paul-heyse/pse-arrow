@@ -5,6 +5,12 @@
 /// Shared boundary direction without depending on any model or protobuf implementation.
 pub use pse_vocabulary::BoundaryDirection as Direction;
 
+mod passive;
+pub use passive::{
+    BoundaryAlternative, BoundaryAlternativeField, BoundaryAlternatives, BoundaryDocument,
+    BoundaryFieldEncoding, PassiveFieldEncoding,
+};
+
 /// Actual record fields and checked reconstruction at their defining owner.
 pub trait BoundaryRecord: Sized {
     /// Explicit interpretation name.

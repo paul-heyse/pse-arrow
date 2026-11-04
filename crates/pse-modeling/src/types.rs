@@ -10,87 +10,98 @@ use pse_model::generated::identities::DeclarationId;
 use pse_quantity::{QuantityRegistry, Ratio, scheme::Scheme};
 use std::collections::{BTreeMap, BTreeSet};
 
+pse_model::projection_tuple_enum! {
 /// A checked language type. Kind and subject references never use scientific enums.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum Type {
+    projection: { name: "ModelingType", rust_path: crate::Type,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// Predicate value.
-    Boolean,
+    Boolean => 1;
     /// Exact integer value.
-    Integer,
+    Integer => 2;
     /// Text or label.
-    Text,
+    Text => 3;
     /// A named quantity type of the physical document (ADR-0123 Outcome 6).
     #[allow(
         clippy::enum_variant_names,
         reason = "the value names a physical quantity type"
     )]
-    QuantityType,
+    QuantityType => 4;
     /// A named reference state of the physical document, with its typed conditions
     /// (ADR-0123 Outcome 6).
-    ReferenceState,
+    ReferenceState => 5;
     /// Typed evidence claim result; no numerical or boolean coercion exists.
-    Applicability,
+    Applicability => 6;
     /// Declared receiving or emitting physical boundary.
-    Boundary(DeclarationId),
+    Boundary [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 7;
     /// Declared physical coordinate map, never a numerical value.
-    CoordinateMap(DeclarationId),
+    CoordinateMap [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 8;
     /// Declared reconstruction family belonging to one physical coordinate map.
     Reconstruction {
         /// Reconstruction declaration.
-        declaration: DeclarationId,
+        declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Owning coordinate map.
-        map: DeclarationId,
-    },
+        map: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 9;
     /// Complete physical type scheme.
-    Quantity(Scheme),
+    Quantity [scheme: Scheme => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 10;
     /// A nominal coordinate, reduced-law application or directed boundary contract.
     /// The refinement is checked before arithmetic consumes its physical payload.
     RefinedQuantity {
         /// Underlying complete physical scheme, including anonymous intermediates.
-        quantity: Scheme,
+        quantity: Scheme => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Nominal context owned by the admitting modeling declaration.
-        refinement: crate::PhysicalRefinement,
-    },
+        refinement: crate::PhysicalRefinement => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 11;
     /// Member of a declared entity kind.
-    Entity(DeclarationId),
+    Entity [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 12;
     /// Member of a package enumeration.
-    Enum(DeclarationId),
+    Enum [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 13;
     /// An opaque value of a declared identifier scheme, compared byte-exactly and never
     /// parsed (ADR-0123 Outcome 2).
-    Identifier(DeclarationId),
+    Identifier [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 14;
     /// Finite ordered membership.
-    Set(Box<Type>),
+    Set [element: Box<Type> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 15;
     /// A continuous coordinate axis, realized before finite expansion.
-    Continuous(DeclarationId, Box<Type>),
+    Continuous [domain: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+        element: Box<Type> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 16;
     /// Ordered typed product coordinate.
-    Tuple(Vec<Type>),
+    Tuple [elements: Vec<Type> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 17;
     /// Typed table declaration.
-    Table(DeclarationId),
+    Table [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 18;
     /// A row in a typed table.
-    Row(DeclarationId),
+    Row [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 19;
     /// Definition reference.
-    Definition(DeclarationId),
+    Definition [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 20;
     /// Interface-typed slot.
-    Interface(DeclarationId),
+    Interface [declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 21;
     /// Explicit pure function reference with named arguments and result.
     Function {
         /// Argument names and types in declared order.
-        arguments: Vec<(String, Type)>,
+        arguments: Vec<(String, Type)> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Result type.
-        result: Box<Type>,
-    },
+        result: Box<Type> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 22;
     /// Explicit optional value.
-    Optional(Box<Type>),
+    Optional [element: Box<Type> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };] => 23;
     /// Indexed values retain coordinate kind identities; membership is a structural binding.
     Indexed {
         /// Type of each indexed element.
-        element: Box<Type>,
+        element: Box<Type> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Coordinate kind of each index, in order.
-        axes: Vec<DeclarationId>,
-    },
+        axes: Vec<DeclarationId> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 24;
+}
 }
 
 impl Type {
+    /// Complete conservative selected type metadata extent, including nominal refinements.
+    #[must_use]
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(crate::resolved::extent::ty(self))
+    }
     /// Physical payload, without granting permission to discard a nominal refinement.
     pub fn quantity_scheme(&self) -> Option<&Scheme> {
         match self {

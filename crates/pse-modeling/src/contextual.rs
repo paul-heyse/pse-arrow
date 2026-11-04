@@ -259,21 +259,26 @@ pub(crate) fn admit_translation_provenance(package: &mut crate::CheckedPackage) 
     Ok(())
 }
 
+pse_model::projection_enum! {
 /// A boundary in a declaration or at one actual instantiated coordinate.
 /// Equipment kinds never stand in for an actual boundary owner.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum BoundaryRef {
+    projection: { name: "ModelingBoundaryRef", rust_path: crate::BoundaryRef,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// Lexical declaration; resolved before contributing a numeric transfer.
-    Declared(DeclarationId),
+    Declared(DeclarationId) => 1;
     /// One actual owner and ordered coordinate tuple.
     Bound {
         /// Actual instance.
-        instance: InstanceId,
+        instance: InstanceId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Boundary declaration within that instance.
-        declaration: DeclarationId,
+        declaration: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Actual coordinates in declaration order.
-        coordinates: Vec<Value>,
-    },
+        coordinates: Vec<Value> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 2;
+}
 }
 impl BoundaryRef {
     /// Stable explicit framing retains actual owner, declaration and coordinate order.
@@ -312,13 +317,18 @@ impl BoundaryRef {
     }
 }
 
+pse_model::projection_enum! {
 /// Positive direction is a convention, not a nonnegativity constraint.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum TransferDirection {
+    projection: { name: "ModelingTransferDirection", rust_path: crate::TransferDirection,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// Positive magnitude enters the owner.
-    Into,
+    Into => 1;
     /// Positive magnitude leaves the owner.
-    OutOf,
+    OutOf => 2;
+}
 }
 impl TransferDirection {
     /// Coefficient of a signed magnitude in its owner's energy balance.
@@ -330,30 +340,35 @@ impl TransferDirection {
     }
 }
 
+pse_model::projection_enum! {
 /// Semantic roles retained above the physical numeric payload.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum PhysicalRefinement {
+    projection: { name: "ModelingPhysicalRefinement", rust_path: crate::PhysicalRefinement,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// One declared reduced coordinate slot; Scalar cannot substitute for it.
     Coordinate {
         /// Owning map declaration.
-        map: DeclarationId,
+        map: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Ordered slot declaration.
-        slot: DeclarationId,
-    },
+        slot: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 1;
     /// Result of a reduced law awaiting its admitted scientific reconstruction.
     ReducedLaw {
         /// Map used by the reduced implementation.
-        map: DeclarationId,
+        map: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Admitted normalization and physical reconstruction family.
-        reconstruction: DeclarationId,
-    },
+        reconstruction: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 2;
     /// A signed datum-free transfer relative to an actual boundary.
     Transfer {
         /// Owner-relative boundary.
-        boundary: BoundaryRef,
+        boundary: BoundaryRef => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
         /// Positive-direction convention.
-        direction: TransferDirection,
-    },
+        direction: TransferDirection => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 3;
+}
 }
 
 /// A declared isolated exchange between two distinct actual boundaries.

@@ -250,3 +250,89 @@ impl Scheme {
             .map_err(|error| SchemeError::Contract(error.to_string()))
     }
 }
+
+impl crate::boundary::BoundaryDocument for Scheme {
+    const NAME: &'static str = "QuantityScheme";
+    const SOURCE: &'static str = file!();
+    const VERSION: u32 = 1;
+    const DIRECTION: crate::boundary::Direction = crate::boundary::Direction::Output;
+    type Document = crate::resolved::receipts::SchemeRecord;
+    fn boundary_document(&self) -> Self::Document {
+        Self::Document::capture(self)
+    }
+    fn from_boundary_document(document: Self::Document) -> Result<Self, crate::QuantityError> {
+        // This method grants only syntax. SchemeWire::Resolved still invokes the
+        // original ContractRecord::restore and its qualified-record requirement.
+        document.restore_passive()
+    }
+}
+impl serde::Serialize for Scheme {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use crate::boundary::BoundaryDocument;
+        serde::Serialize::serialize(&self.boundary_document(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for Scheme {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use crate::boundary::BoundaryDocument;
+        let record = <crate::resolved::receipts::SchemeRecord as serde::Deserialize>::deserialize(
+            deserializer,
+        )?;
+        Self::from_boundary_document(record).map_err(serde::de::Error::custom)
+    }
+}
+impl schemars::JsonSchema for Scheme {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "QuantityScheme".into()
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        <crate::resolved::receipts::SchemeRecord as schemars::JsonSchema>::json_schema(generator)
+    }
+}
+
+#[cfg(test)]
+mod passive_projection_controls {
+    use super::*;
+    use crate::boundary::BoundaryDocument;
+    #[test]
+    fn passive_scheme_syntax_reuses_original_document_without_quantity_admission() {
+        let quantity = crate::QuantityTypeId::from_bytes([7; 16]);
+        let source = Scheme::Product(
+            Box::new(Scheme::Concrete(quantity)),
+            Box::new(Scheme::Variable("T".into())),
+        );
+        let record = source.boundary_document();
+        assert_eq!(
+            serde_json::to_vec(&source).unwrap(),
+            serde_json::to_vec(&record).unwrap()
+        );
+        assert!(
+            record.restore().is_err(),
+            "original strict recipe restoration remains unchanged"
+        );
+        assert_eq!(Scheme::from_boundary_document(record).unwrap(), source);
+        let decoded: Scheme =
+            serde_json::from_slice(&serde_json::to_vec(&source).unwrap()).unwrap();
+        assert_eq!(decoded, source);
+        // A Concrete id is inert syntax; resolving it still requires the native registry.
+        let empty = crate::QuantityRegistryBuilder::new().build().unwrap();
+        assert!(decoded.resolve(&empty, &Default::default()).is_err());
+    }
+    #[test]
+    fn passive_decoding_never_restores_unqualified_resolved_physical_authority() {
+        let document = serde_json::json!({"Resolved":{
+            "named":null,"kinds":[],"qualified":[],"axes":[],"indices":[],"factors":[],
+            "dimension":crate::DimensionVector::DIMENSIONLESS,"scale_bits":1.0_f64.to_bits(),
+            "pure_number":true,"formula":null
+        }});
+        let record: crate::resolved::receipts::SchemeRecord =
+            serde_json::from_value(document.clone()).unwrap();
+        let error = Scheme::from_boundary_document(record).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("admitted record is absent from qualified reconstruction recipe")
+        );
+        assert!(serde_json::from_value::<Scheme>(document).is_err());
+    }
+}

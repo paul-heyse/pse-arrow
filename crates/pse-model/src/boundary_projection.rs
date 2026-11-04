@@ -17,10 +17,13 @@ mod generic;
 mod nominal;
 #[cfg(test)]
 mod optional_text_tests;
+mod public_alias_path;
 mod quantity;
+mod quantity_passive;
 mod remote;
 mod standard;
 mod tuple;
+mod tuple_pair;
 pub use access::{
     Adapted, AdapterError, AdapterFailure, CheckedProjectionRecord, ProjectionAdapter,
     ProjectionAlternative, ProjectionRecord, SharedAdapter, adapter_source_path,
@@ -1110,6 +1113,8 @@ physical_identity_projection!(
     pse_quantity::BasisId => "BasisId",
     pse_quantity::QuantityTypeId => "QuantityTypeId",
     pse_quantity::ReferenceStateId => "ReferenceStateId",
+    pse_quantity::DomainId => "DomainId",
+    pse_quantity::BoundIndexId => "BoundIndexId",
 );
 
 impl<K: ProjectionType + Ord, V: ProjectionType> ProjectionType for BTreeMap<K, V> {

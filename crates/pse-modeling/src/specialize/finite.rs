@@ -14,28 +14,59 @@ use std::{
     sync::Arc,
 };
 
+pse_model::projection_struct! {
 /// One declared finite family in an actual instance and outer coordinate context.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FamilyKey {
+    projection: { name: "ModelingFamilyKey", rust_path: crate::specialize::finite::FamilyKey,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// Actual definition instance, kept outside reusable body identities.
-    pub instance: InstanceId,
+    pub instance: InstanceId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original owning declaration.
-    pub declaration: DeclarationId,
+    pub declaration: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Exact generated source field role of this family.
-    pub role: String,
+    pub role: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Enclosing coordinates in declared order, before this family's own binders.
-    pub parents: Vec<Value>,
+    pub parents: Vec<Value> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
 }
 
+pse_model::projection_struct! {
 /// One actual ragged axis occurrence, after its preceding coordinates have been selected.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DomainKey {
+    projection: { name: "ModelingDomainKey", rust_path: crate::specialize::finite::DomainKey,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// Declared finite family.
-    pub family: FamilyKey,
+    pub family: FamilyKey => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Axis position in declared order.
-    pub position: usize,
+    pub position: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// This family's earlier selected coordinates, preserving actual ragged context.
-    pub prefix: Vec<Value>,
+    pub prefix: Vec<Value> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
+}
+impl DomainKey {
+    /// Conservative complete selected coordinate metadata extent before cloning.
+    #[must_use]
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            .saturating_add(self.family.role.capacity())
+            .saturating_add(
+                self.family
+                    .parents
+                    .capacity()
+                    .saturating_mul(size_of::<Value>()),
+            )
+            .saturating_add(self.family.parents.iter().fold(0usize, |size, value| {
+                size.saturating_add(value.retained_bytes())
+            }))
+            .saturating_add(self.prefix.capacity().saturating_mul(size_of::<Value>()))
+            .saturating_add(self.prefix.iter().fold(0usize, |size, value| {
+                size.saturating_add(value.retained_bytes())
+            }))
+    }
 }
 
 /// An actual member selection, independent of its hashed identity.

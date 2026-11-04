@@ -96,27 +96,53 @@ impl TypeLookup for SymbolTypes<'_> {
     }
 }
 
+pse_model::projection_struct! {
 /// Actual admitted finite values, retained before specialization discards lexical coordinates.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Carrier {
+    projection: { name: "ModelingCarrier", rust_path: crate::resolved::Carrier,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// A finite set and a realized continuous axis are different physical roles.
-    pub kind: CarrierKind,
+    pub kind: CarrierKind => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Complete element type, including its actual entity or enumeration kind.
-    pub element: Type,
+    pub element: Type => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Semantic order, with exact typed values and no numerical approximation.
-    pub members: Arc<[crate::specialize::Value]>,
+    pub members: Arc<[crate::specialize::Value]> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
+}
+impl Carrier {
+    /// Complete conservative selected metadata extent before boundary materialization.
+    #[must_use]
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            .saturating_add(self.element.retained_bytes())
+            .saturating_add(
+                self.members
+                    .len()
+                    .saturating_mul(size_of::<crate::specialize::Value>()),
+            )
+            .saturating_add(self.members.iter().fold(0usize, |size, value| {
+                size.saturating_add(value.retained_bytes())
+            }))
+    }
 }
 
+pse_model::projection_enum! {
 /// The declared interpretation survives even an empty carrier.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum CarrierKind {
+    projection: { name: "ModelingCarrierKind", rust_path: crate::resolved::CarrierKind,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        reserved_tags: [], reserved_names: [] };
     /// An ordinary typed ordered finite set.
-    OrderedSet,
+    OrderedSet => 1;
     /// A realized continuous coordinate axis.
     Continuous {
         /// Actual continuous domain declaration.
-        domain: DeclarationId,
-    },
+        domain: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    } => 2;
+}
 }
 
 /// One exact indexed layout. `None` is absence, never a zero-valued member.

@@ -19,12 +19,12 @@ macro_rules! projection_tuple_struct {
             }
         }
         impl ::serde::Serialize for $name {
-            fn serialize<S: ::serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            fn serialize<S: ::serde::Serializer>(&self, serializer: S) -> ::core::result::Result<S::Ok, S::Error> {
                 ::serde::Serialize::serialize(&($( &self.$field,)*), serializer)
             }
         }
         impl<'de> ::serde::Deserialize<'de> for $name {
-            fn deserialize<D: ::serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            fn deserialize<D: ::serde::Deserializer<'de>>(deserializer: D) -> ::core::result::Result<Self, D::Error> {
                 let ($($field,)*) = <($($ty,)*) as ::serde::Deserialize<'de>>::deserialize(deserializer)?;
                 Ok(Self { $($field,)* })
             }
@@ -38,62 +38,145 @@ macro_rules! projection_tuple_struct {
     };
 }
 
-/// Declare actual unit/tuple enum alternatives with explicitly named and tagged
-/// payload components. Native tuple constructors and Serde payload order are retained.
+/// Declare actual unit, tuple and named enum alternatives in one source field table.
+/// Tuple constructors retain their payload order; every wire field has an explicit tag.
 #[macro_export]
 macro_rules! projection_tuple_enum {
     ($(#[$meta:meta])* $vis:vis enum $name:ident {
         projection: { name: $wire:expr, $(rust_path: $public:path,)? version: $version:expr, direction: $direction:expr,
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
-        $($(#[$variant_meta:meta])* $variant:ident $([
-            $($(#[$field_meta:meta])* $field:ident: $ty:ty => {
-                tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] };)+
-        ])? => $variant_tag:expr;)*
+        $($(#[$variant_meta:meta])* $variant:ident
+            $([ $($(#[$tuple_meta:meta])* $tuple_field:ident: $tuple_ty:ty => {
+                tag: $tuple_tag:expr, direction: $tuple_direction:expr, rules: [$($tuple_rule:expr),* $(,)?] };)+ ])?
+            $({ $($(#[$field_meta:meta])* $field:ident: $ty:ty => {
+                tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] };)* })?
+            => $variant_tag:expr;
+        )*
     }) => {
-        $(#[$meta])* $vis enum $name { $($(#[$variant_meta])* $variant $(($($(#[$field_meta])* $ty,)+))?,)* }
-        $(#[allow(unused_qualifications, reason = "the source public tuple-enum alias is checked verbatim for downstream adapters")]
+        $(#[$meta])* $vis enum $name {
+            $($(#[$variant_meta])* $variant
+                $(($($(#[$tuple_meta])* $tuple_ty,)+))?
+                $({ $($(#[$field_meta])* $field: $ty,)* })?,
+            )*
+        }
+        $(#[allow(unused_qualifications, reason = "the actual enum's explicit public alias is retained for downstream generated adapters")]
         const _: fn($name) -> $public = |value| value;)?
         impl $crate::boundary_projection::ProjectionType for $name {
-            fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
+            fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> ::core::result::Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
                 let root = graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
                     let _ = &graph;
                     Ok($crate::boundary_projection::Shape::Alternatives(vec![$(
-                        $crate::boundary_projection::Alternative { name: stringify!($variant).into(), tag: $variant_tag, fields: vec![
-                            $($($crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])?,)+)?
-                        ] },
+                        $crate::boundary_projection::Alternative {
+                            name: stringify!($variant).into(), tag: $variant_tag,
+                            fields: vec![
+                                $($($crate::boundary_projection::Field::of::<$tuple_ty>(graph,
+                                    stringify!($tuple_field), $tuple_tag, $tuple_direction, vec![$($tuple_rule),*])?,)+)?
+                                $($($crate::boundary_projection::Field::of::<$ty>(graph,
+                                    stringify!($field), $tag, $field_direction, vec![$($rule),*])?,)*)?
+                            ],
+                        },
                     )*]))
                 })?;
                 $(graph.public_path::<Self>(&root, stringify!($public))?;)?
                 Ok(root)
             }
+            $( $crate::projection_public_alias_path!($public); )?
         }
         impl $crate::boundary_projection::ValidateProjection for $name {
-            fn validate_at(&self, path: &str) -> Result<(), $crate::boundary_projection::ValidationError> {
+            fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
                 let _ = path;
-                $($(#[allow(irrefutable_let_patterns, reason = "a source owner can intentionally expose a single tuple alternative")]
-                if let Self::$variant($($field,)+) = self {
-                    let alternative = $crate::boundary_projection::field_path(path, stringify!($variant));
-                    $($crate::boundary_projection::validate_field($field,
-                        &$crate::boundary_projection::field_path(&alternative, stringify!($field)), &[$($rule),*])?;)+
-                })?)*
+                $(
+                    $(#[allow(irrefutable_let_patterns, reason = "an actual enum can intentionally declare one tuple alternative")]
+                    if let Self::$variant($($tuple_field,)+) = self {
+                        let alternative = $crate::boundary_projection::field_path(path, stringify!($variant));
+                        $($crate::boundary_projection::validate_field($tuple_field,
+                            &$crate::boundary_projection::field_path(&alternative, stringify!($tuple_field)), &[$($tuple_rule),*])?;)+
+                    })?
+                    $(#[allow(irrefutable_let_patterns, reason = "an actual enum can intentionally declare one named alternative")]
+                    if let Self::$variant { $($field,)* } = self {
+                        let alternative = $crate::boundary_projection::field_path(path, stringify!($variant));
+                        $($crate::boundary_projection::validate_field($field,
+                            &$crate::boundary_projection::field_path(&alternative, stringify!($field)), &[$($rule),*])?;)*
+                    })?
+                )*
                 Ok(())
             }
         }
-        $($crate::projection_tuple_enum!(@access $name, $version, $variant, $variant_tag; $($($field: $ty => $tag,)*)?);)*
+        $($crate::projection_tuple_enum!(@access $name, $version, $variant, $variant_tag;
+            $([$($tuple_field: $tuple_ty => $tuple_tag,)+])?
+            $({$($field: $ty => $tag,)*})?
+        );)*
     };
     (@access $name:ident, $version:expr, $variant:ident, $tag:expr;) => {
         $crate::projection_enum!(@access $name, $version, $variant, $tag;);
     };
-    (@access $name:ident, $version:expr, $variant:ident, $tag:expr; $($field:ident: $ty:ty => $field_tag:expr,)+) => {
+    (@access $name:ident, $version:expr, $variant:ident, $tag:expr; {$($field:ident: $ty:ty => $field_tag:expr,)*}) => {
+        $crate::projection_enum!(@access $name, $version, $variant, $tag; {$($field: $ty => $field_tag,)*} @local {});
+    };
+    (@access $name:ident, $version:expr, $variant:ident, $tag:expr; [$($field:ident: $ty:ty => $field_tag:expr,)+]) => {
         impl $crate::boundary_projection::ProjectionAlternative<$tag> for $name {
             const VERSION: u32 = $version;
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($field_tag, stringify!($field))),+];
             type Fields = ($($ty,)+);
-            #[allow(unreachable_patterns, reason = "a source owner can intentionally expose a single tuple alternative")]
-            fn into_projection_alternative(self) -> Result<Self::Fields, Self> {
+            #[allow(unreachable_patterns, reason = "an actual enum can intentionally declare one tuple alternative")]
+            fn into_projection_alternative(self) -> ::core::result::Result<Self::Fields, Self> {
                 match self { Self::$variant($($field,)+) => Ok(($($field,)+)), other => Err(other) }
             }
             fn from_projection_alternative(($($field,)+): Self::Fields) -> Self { Self::$variant($($field,)+) }
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::*;
+    projection_tuple_enum! {
+        #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+        enum ActualMixed {
+            projection:{name:"ActualMixed",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
+            Unit => 9;
+            Pair [name: String => {tag:7,direction:Direction::Both,rules:[]};
+                count: u32 => {tag:2,direction:Direction::Both,rules:[LocalRule::UnsignedRange {min:1,max:10}]};] => 3;
+            Named { label: String => {tag:5,direction:Direction::Both,rules:[]};
+                child: Box<ActualMixed> => {tag:1,direction:Direction::Both,rules:[]}; } => 12;
+        }
+    }
+    #[test]
+    fn mixed_source_alternatives_retain_actual_native_constructors_and_tagged_fields() {
+        let pair = ActualMixed::Pair("a".into(), 2);
+        assert_eq!(serde_json::to_string(&pair).unwrap(), r#"{"Pair":["a",2]}"#);
+        let fields =
+            <ActualMixed as ProjectionAlternative<3>>::into_projection_alternative(pair).unwrap();
+        assert_eq!(fields, ("a".to_owned(), 2));
+        let pair = <ActualMixed as ProjectionAlternative<3>>::from_projection_alternative(fields);
+        let named = ActualMixed::Named {
+            label: "b".into(),
+            child: Box::new(pair),
+        };
+        named.validate_projection().unwrap();
+        assert_eq!(
+            serde_json::to_string(&named).unwrap(),
+            r#"{"Named":{"label":"b","child":{"Pair":["a",2]}}}"#
+        );
+        let graph = ProjectionGraph::of::<ActualMixed>().unwrap();
+        let Shape::Alternatives(variants) = &graph.definitions()["ActualMixed"].shape else {
+            panic!("actual mixed enum")
+        };
+        assert_eq!(
+            variants
+                .iter()
+                .map(|variant| variant.tag)
+                .collect::<Vec<_>>(),
+            vec![9, 3, 12]
+        );
+        assert_eq!(
+            <ActualMixed as ProjectionAlternative<12>>::FIELD_LAYOUT,
+            &[(5, "label"), (1, "child")]
+        );
+        assert!(
+            ActualMixed::Pair("a".into(), 0)
+                .validate_projection()
+                .is_err()
+        );
+    }
 }

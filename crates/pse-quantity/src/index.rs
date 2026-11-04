@@ -20,23 +20,25 @@ use std::collections::BTreeMap;
 use crate::EntityKindId;
 use crate::ids::{BoundIndexId, DomainId};
 
-/// One binder an expression is free in (blueprint §6.9 `bound_index_id`).
-///
-/// Ordering is lexicographic on the fields in declaration order, so `bound_index` is the
-/// primary key and a [`BTreeMap`] of these iterates in binder-identity order. A
-/// well-formed set holds at most one entry per `bound_index`; [`IndexSet::insert`] reports
-/// a second entry for the same binder rather than overwriting it, because two domains for
-/// one binder is a compiler bug, not a merge.
-#[derive(
-    serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug,
-)]
-pub struct BoundIndexRef {
-    /// The binding occurrence: which `i` this is, not which set it ranges over.
-    pub bound_index: BoundIndexId,
-    /// The domain the binder ranges over.
-    pub domain: DomainId,
-    /// What that domain indexes, carried so a check does not need the registry.
-    pub kind: EntityKindId,
+crate::quantity_passive_record! {
+    callback:bound_index_reference_boundary;owner:BoundIndexRef;
+    name:"BoundIndexReference";version:1;direction:Output;
+    /// One binder an expression is free in (blueprint §6.9 `bound_index_id`).
+    ///
+    /// Ordering is lexicographic on the fields in declaration order, so `bound_index` is the
+    /// primary key and a [`BTreeMap`] of these iterates in binder-identity order. A
+    /// well-formed set holds at most one entry per `bound_index`; [`IndexSet::insert`] reports
+    /// a second entry for the same binder rather than overwriting it, because two domains for
+    /// one binder is a compiler bug, not a merge.
+    #[derive(serde::Serialize,serde::Deserialize,schemars::JsonSchema,Clone,Copy,PartialEq,Eq,PartialOrd,Ord,Hash,Debug)]
+    pub struct BoundIndexRef {
+        /// Actual binding occurrence.
+        pub bound_index:BoundIndexId=>1,Native;
+        /// Original indexed domain.
+        pub domain:DomainId=>2,Native;
+        /// Original domain's entity kind.
+        pub kind:EntityKindId=>3,Native;
+    }
 }
 
 impl BoundIndexRef {

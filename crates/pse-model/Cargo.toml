@@ -36,3 +36,4 @@ miette.workspace = true
 
 
 [dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }

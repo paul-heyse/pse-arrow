@@ -7,30 +7,45 @@ use super::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct ContractWire {
-    named: Option<QuantityTypeId>,
-    kinds: Vec<KindFactor>,
-    qualified: Vec<QualifiedFactorWire>,
-    axes: Vec<EntityKindId>,
-    indices: Vec<crate::BoundIndexRef>,
-    factors: Vec<UnitFactor>,
-    dimension: DimensionVector,
-    scale_bits: u64,
-    pure_number: bool,
-    formula: Option<Box<FormulaWire>>,
+crate::quantity_passive_record! {
+    callback:physical_contract_facts_boundary;owner:resolved::receipts::ContractWire;
+    name:"PhysicalContractFacts";version:1;direction:Output;
+    /// Passive exact contract data; decoding never establishes physical admission.
+    #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+    pub struct ContractWire {
+        named:Option<QuantityTypeId> =>1,Native;
+        kinds:Vec<KindFactor> =>2,Native;
+        qualified:Vec<QualifiedFactorWire> =>3,Native;
+        axes:Vec<EntityKindId> =>4,Native;
+        indices:Vec<crate::BoundIndexRef> =>5,Native;
+        factors:Vec<UnitFactor> =>6,Native;
+        dimension:DimensionVector=>7,Native;
+        scale_bits:u64=>8,Binary64Bits;
+        pure_number:bool=>9,Native;
+        formula:Option<Box<FormulaWire>> =>10,Native;
+    }
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct QualifiedFactorWire {
-    key: QuantityTypeKey,
-    exponent: Ratio,
+crate::quantity_passive_record! {
+    callback:physical_qualified_factor_boundary;owner:resolved::receipts::QualifiedFactorWire;
+    name:"PhysicalQualifiedFactor";version:1;direction:Output;
+    /// Passive complete quantity key with its original exact exponent.
+    #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+    pub struct QualifiedFactorWire {
+        key:QuantityTypeKey=>1,Native;
+        exponent:Ratio=>2,Native;
+    }
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct FormulaWire {
-    authority: pse_ids::SemanticId,
-    operation: String,
-    operands: Vec<ContractWire>,
-    powers: Vec<Ratio>,
+crate::quantity_passive_record! {
+    callback:physical_formula_facts_boundary;owner:resolved::receipts::FormulaWire;
+    name:"PhysicalFormulaFacts";version:1;direction:Output;
+    /// Passive original formula attribution; restoring authority remains receipt-qualified.
+    #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+    pub struct FormulaWire {
+        authority:pse_ids::SemanticId=>1,Native;
+        operation:String=>2,Native;
+        operands:Vec<ContractWire> =>3,Native;
+        powers:Vec<Ratio> =>4,Native;
+    }
 }
 impl From<&ResolvedPhysicalContract> for ContractWire {
     fn from(value: &ResolvedPhysicalContract) -> Self {
@@ -157,9 +172,13 @@ struct InferenceWire {
     operand_scales: Vec<u64>,
     result_scale: u64,
 }
-/// Opaque persisted complete contract. Decoding alone grants no admitted authority.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ContractRecord(ContractWire);
+crate::quantity_passive_record! {
+    callback:physical_contract_record_boundary;owner:resolved::receipts::ContractRecord;
+    name:"PhysicalContractRecord";version:1;direction:Output;
+    /// Opaque persisted complete contract. Decoding alone grants no admitted authority.
+    #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+    pub struct ContractRecord(ContractWire)=>value:1,Native;
+}
 impl ContractRecord {
     /// Complete owned heap extent of the serialized contract fields.
     pub fn retained_bytes(&self) -> usize {
@@ -285,18 +304,34 @@ impl InferenceRecord {
         self.0.inference()
     }
 }
-/// Untrusted syntax of a physical scheme; retained resolved leaves are opaque contracts.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SchemeRecord(SchemeWire);
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-enum SchemeWire {
-    Concrete(QuantityTypeId),
-    Resolved(ContractRecord),
-    Variable(String),
-    Delta(Box<SchemeWire>),
-    Product(Box<SchemeWire>, Box<SchemeWire>),
-    Quotient(Box<SchemeWire>, Box<SchemeWire>),
-    Power(Box<SchemeWire>, Ratio),
+crate::quantity_passive_record! {
+    callback:physical_scheme_record_boundary;owner:resolved::receipts::SchemeRecord;
+    name:"PhysicalSchemeRecord";version:1;direction:Output;
+    /// Untrusted syntax of a physical scheme; retained resolved leaves are opaque contracts.
+    #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+    pub struct SchemeRecord(SchemeWire)=>value:1,Native;
+}
+crate::quantity_passive_enum! {
+    callback:physical_scheme_shape_boundary;owner:resolved::receipts::SchemeWire;
+    name:"PhysicalSchemeShape";version:1;direction:Output;
+    /// Untrusted actual source scheme document, with opaque resolved leaves.
+    #[derive(Clone,Debug,PartialEq,Eq,serde::Serialize,serde::Deserialize,schemars::JsonSchema)]
+    pub enum SchemeWire {
+        /// A registered complete physical type identity retained as passive syntax.
+        Concrete [quantity:QuantityTypeId=>1;]=>1;
+        /// A captured complete physical contract whose restoration requires its qualified receipt.
+        Resolved [contract:ContractRecord=>1;]=>2;
+        /// A universally quantified physical type name.
+        Variable [name:String=>1;]=>3;
+        /// Difference type of the enclosed point or difference quantity scheme.
+        Delta [value:Box<SchemeWire> =>1;]=>4;
+        /// Product of two schemes, interpreted by registered physical operation rules.
+        Product [left:Box<SchemeWire> =>1;right:Box<SchemeWire> =>2;]=>5;
+        /// Quotient of two schemes, interpreted by registered physical operation rules.
+        Quotient [left:Box<SchemeWire> =>1;right:Box<SchemeWire> =>2;]=>6;
+        /// A scheme raised to its exact rational power.
+        Power [value:Box<SchemeWire> =>1;power:Ratio=>2;]=>7;
+    }
 }
 impl SchemeWire {
     fn heap_bytes(&self) -> usize {
@@ -951,4 +986,15 @@ pub(super) fn require_admission_mode() -> Result<(), QuantityError> {
         ));
     }
     Ok(())
+}
+
+// Additive methods only. Neither original restore() changes its qualification
+// requirement; nested Resolved still calls ContractRecord::restore() unchanged.
+impl SchemeRecord {
+    /// Adopt only passive scheme syntax; resolved leaves still require their original receipt.
+    /// # Errors
+    /// Every unqualified resolved record refuses through ContractRecord::restore.
+    pub fn restore_passive(&self) -> Result<crate::scheme::Scheme, QuantityError> {
+        self.0.restore()
+    }
 }

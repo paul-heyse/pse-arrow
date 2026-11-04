@@ -16,6 +16,8 @@ pub mod envelope;
 pub mod expression;
 mod extent;
 pub mod external;
+#[cfg(test)]
+mod inspection_projection_tests;
 pub mod knowledge;
 pub mod measurement;
 pub mod physical_operations;
