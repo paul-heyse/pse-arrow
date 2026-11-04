@@ -6,69 +6,81 @@ use crate::{DeclarationId, InstanceId, Result, invalid};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use std::collections::BTreeMap;
 
+pse_contract::projection_enum! {
 /// Component of a checked source expectation.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub enum TestComponent {
+    projection: { name: "ModelingTestComponent", rust_path: crate::derived::TestComponent,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Observed result.
-    Actual,
+    Actual => 1;
     /// Independent reference result.
-    Expected,
+    Expected => 2;
     /// Absolute physical allowance.
-    Tolerance,
+    Tolerance => 3;
     /// Dimensionless relative allowance.
-    RelativeTolerance,
+    RelativeTolerance => 4;
 }
+}
+pse_contract::projection_enum! {
 /// Component within the declared annotation kind, independent of output presentation.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub enum AnnotationComponent {
+    projection: { name: "ModelingAnnotationComponent", rust_path: crate::derived::AnnotationComponent,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Single annotation argument.
-    Value,
+    Value => 1;
     /// Lower endpoint.
-    Lower,
+    Lower => 2;
     /// Upper endpoint.
-    Upper,
+    Upper => 3;
     /// Lower objective boundary.
     ObjectiveLower {
         /// Whether equality is excluded.
-        strict: bool,
-    },
+        strict: bool => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 4;
     /// Upper objective boundary.
     ObjectiveUpper {
         /// Whether equality is excluded.
-        strict: bool,
-    },
+        strict: bool => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 5;
     /// Physical time.
-    Time,
+    Time => 6;
     /// Physical resolution.
-    Resolution,
+    Resolution => 7;
     /// Lower convergence criterion.
-    CriterionLower,
+    CriterionLower => 8;
     /// Upper convergence criterion.
-    CriterionUpper,
+    CriterionUpper => 9;
     /// Local caloric response.
-    CaloricResponse,
+    CaloricResponse => 10;
     /// Useful temperature difference.
-    CaloricThermalResolution,
+    CaloricThermalResolution => 11;
     /// Consuming power allowance.
-    CaloricPowerAllowance,
+    CaloricPowerAllowance => 12;
     /// Aggregate consuming molar exposure.
-    CaloricExposure,
+    CaloricExposure => 13;
 }
+}
+pse_contract::projection_enum! {
 /// A canonical body-local role. Parameters are never free derivative coordinates.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
 pub enum LocalRole {
+    projection: { name: "ModelingLocalRole", rust_path: crate::derived::LocalRole,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Independent derivative input.
-    Coordinate,
+    Coordinate => 1;
     /// Parameter input, separate from derivative coordinates.
-    Parameter,
+    Parameter => 2;
     /// Defined expression member.
-    Member,
+    Member => 3;
+}
 }
 /// Meaning of a catalogue payload field; identity-shaped fields retain distinct semantic roles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -242,11 +254,19 @@ macro_rules! field_type {
     };
 }
 macro_rules! relationships {
-    ($( $variant:ident => $tag:literal { $( $field:ident : $role:ident ),* $(,)? } ),* $(,)?) => {
+    ($( $variant:ident ($wire:literal) => $tag:literal { $( $field:ident : $role:ident => $field_tag:literal ),* $(,)? } ),* $(,)?) => {
+        pse_contract::projection_enum! {
         /// Typed derived relationship and its complete ordered payload.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
-        pub enum Relationship { $(#[doc = concat!("Declared semantic derivation `", $tag, "`.")]
-            $variant { $(#[doc = concat!("Typed ", stringify!($role), " role.")] $field: field_type!($role),)* },)* }
+        pub enum Relationship {
+            projection: { name: "ModelingDerivedRelationship", rust_path: crate::derived::Relationship,
+                version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+            $(#[doc = concat!("Declared semantic derivation `", $tag, "`.")]
+            $variant { $(#[doc = concat!("Typed ", stringify!($role), " role.")]
+                $field: field_type!($role) => { tag: $field_tag, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+            )* } => $wire;)*
+        }
+        }
         impl Relationship {
             /// Exact catalogue spelling; no Debug or display representation enters identity.
             pub const fn name(&self) -> &'static str { match self { $(Self::$variant { .. } => $tag,)* } }
@@ -266,39 +286,39 @@ macro_rules! relationships {
     };
 }
 relationships! {
-    SubstitutedMember => "substituted_member" {member:Symbol,meaning:Content},
-    ReconstructionResultView => "reconstruction_result_view" {owner:Declaration,callee:Content},
-    FunctionBodyInputView => "function_body_input_view" {owner:Declaration,ordinal:Ordinal,meaning:Content},
-    DefiningEquation => "defining_equation" {symbol:Symbol},
-    ContinuityRow => "continuity_row" {family:Symbol,element:Ordinal},
-    ContinuousIntegral => "continuous_integral" {content:Content},
-    IntegralFlux => "integral_flux" {result:Symbol},
-    ClosureConservation => "closure_conservation" { closure: Closure },
-    ConditionalBoundaryValue => "conditional_boundary_value" { symbol: Symbol },
-    ConditionalBoundaryResidual => "conditional_boundary_residual" { symbol: Symbol },
-    ConservedInventoryOutput => "conserved_inventory_output" { balance: Inventory },
-    InventoryTransferOutput => "inventory_transfer_output" { balance: Inventory, event: Event },
-    InitialStateOutput => "initial_state_output" { state: State, equation: Row },
-    IntegratedRateCoordinate => "integrated_rate_coordinate" { state: State },
-    DynamicRateOutput => "dynamic_rate_output" { state: State },
-    TestOutput => "test_output" { test: Expectation, component: TestComponent },
-    AnnotationOutput => "annotation_output" { target: Symbol, declaration: Declaration, kind: AnnotationKind, component: AnnotationComponent },
-    OriginalEquationResidual => "original_equation_residual" { equation: Row },
-    ElasticPenalty => "elastic_penalty" { equation: Row },
-    OriginalTerm => "original_term" { equation: Row, ordinal: Ordinal },
-    MemberOutput => "member_output" { symbol: Symbol },
-    ContributionOutput => "contribution_output" { contribution: Contribution },
-    TransportAgreement => "transport_agreement" { closure: Closure },
-    DifferenceClosure => "difference_closure" { closure: Closure },
-    InventoryObservation => "inventory_observation" { balance: Inventory },
-    OriginalFluxIntegral => "original_flux_integral" { balance: Inventory },
-    InventoryState => "inventory_state" { balance: Inventory },
-    InventoryInitial => "inventory_initial" { balance: Inventory },
-    InventoryDefinition => "inventory_definition" { balance: Inventory },
-    InventoryRate => "inventory_rate" { balance: Inventory },
-    TemporalClosure => "temporal_closure" { closure: Closure },
-    CheckedMember => "checked_member" { role: LocalRole, ordinal: Ordinal },
-    CheckedValiditySource => "checked_validity_source" { role: LocalRole, ordinal: Ordinal },
+    SubstitutedMember(1) => "substituted_member" {member:Symbol=>1,meaning:Content=>2},
+    ReconstructionResultView(2) => "reconstruction_result_view" {owner:Declaration=>1,callee:Content=>2},
+    FunctionBodyInputView(3) => "function_body_input_view" {owner:Declaration=>1,ordinal:Ordinal=>2,meaning:Content=>3},
+    DefiningEquation(4) => "defining_equation" {symbol:Symbol=>1},
+    ContinuityRow(5) => "continuity_row" {family:Symbol=>1,element:Ordinal=>2},
+    ContinuousIntegral(6) => "continuous_integral" {content:Content=>1},
+    IntegralFlux(7) => "integral_flux" {result:Symbol=>1},
+    ClosureConservation(8) => "closure_conservation" { closure: Closure=>1 },
+    ConditionalBoundaryValue(9) => "conditional_boundary_value" { symbol: Symbol=>1 },
+    ConditionalBoundaryResidual(10) => "conditional_boundary_residual" { symbol: Symbol=>1 },
+    ConservedInventoryOutput(11) => "conserved_inventory_output" { balance: Inventory=>1 },
+    InventoryTransferOutput(12) => "inventory_transfer_output" { balance: Inventory=>1, event: Event=>2 },
+    InitialStateOutput(13) => "initial_state_output" { state: State=>1, equation: Row=>2 },
+    IntegratedRateCoordinate(14) => "integrated_rate_coordinate" { state: State=>1 },
+    DynamicRateOutput(15) => "dynamic_rate_output" { state: State=>1 },
+    TestOutput(16) => "test_output" { test: Expectation=>1, component: TestComponent=>2 },
+    AnnotationOutput(17) => "annotation_output" { target: Symbol=>1, declaration: Declaration=>2, kind: AnnotationKind=>3, component: AnnotationComponent=>4 },
+    OriginalEquationResidual(18) => "original_equation_residual" { equation: Row=>1 },
+    ElasticPenalty(19) => "elastic_penalty" { equation: Row=>1 },
+    OriginalTerm(20) => "original_term" { equation: Row=>1, ordinal: Ordinal=>2 },
+    MemberOutput(21) => "member_output" { symbol: Symbol=>1 },
+    ContributionOutput(22) => "contribution_output" { contribution: Contribution=>1 },
+    TransportAgreement(23) => "transport_agreement" { closure: Closure=>1 },
+    DifferenceClosure(24) => "difference_closure" { closure: Closure=>1 },
+    InventoryObservation(25) => "inventory_observation" { balance: Inventory=>1 },
+    OriginalFluxIntegral(26) => "original_flux_integral" { balance: Inventory=>1 },
+    InventoryState(27) => "inventory_state" { balance: Inventory=>1 },
+    InventoryInitial(28) => "inventory_initial" { balance: Inventory=>1 },
+    InventoryDefinition(29) => "inventory_definition" { balance: Inventory=>1 },
+    InventoryRate(30) => "inventory_rate" { balance: Inventory=>1 },
+    TemporalClosure(31) => "temporal_closure" { closure: Closure=>1 },
+    CheckedMember(32) => "checked_member" { role: LocalRole=>1, ordinal: Ordinal=>2 },
+    CheckedValiditySource(33) => "checked_validity_source" { role: LocalRole=>1, ordinal: Ordinal=>2 },
 }
 
 /// Numerical obligation recipes retain the established named-identity byte contract.
@@ -412,6 +432,38 @@ impl Facts {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn derived_relationship_projection_preserves_exact_semantic_framing_and_data_scope() {
+        use pse_contract::boundary_projection::{ConstructionRole, ProjectionAlternative, ProjectionGraph, Shape};
+        let owner = DeclarationId::from(SemanticId::from_bytes([41; 16]));
+        let meaning = ContentHash::from_bytes([42; 32]);
+        let value = Relationship::FunctionBodyInputView { owner, ordinal: 11, meaning };
+        let mut original = FramedHasher::new(pse_ids::Frame::ModelingDerivedRelationshipV1);
+        original.str("function_body_input_view").str("owner").id(&owner.as_id())
+            .str("ordinal").u64(11).str("meaning").hash(&meaning);
+        assert_eq!(value.identity(), original.finish_id());
+        let expected = format!("{{\"FunctionBodyInputView\":{{\"owner\":\"{}\",\"ordinal\":11,\"meaning\":\"{}\"}}}}", owner.as_id(), meaning.to_prefixed());
+        assert_eq!(serde_json::to_vec(&value).unwrap(), expected.as_bytes());
+        let fields = <Relationship as ProjectionAlternative<3>>::into_projection_alternative(value).unwrap();
+        let restored = <Relationship as ProjectionAlternative<3>>::from_projection_alternative(fields);
+        assert_eq!(restored, value);
+        assert_eq!(serde_json::to_vec(&restored).unwrap(), expected.as_bytes());
+        assert!(Facts::default().require(restored).is_err());
+
+        let graph = ProjectionGraph::of::<Relationship>().unwrap();
+        let catalogue = &graph.definitions()["ModelingDerivedRelationship"];
+        assert_eq!(catalogue.construction, ConstructionRole::Data);
+        let Shape::Alternatives(variants) = &catalogue.shape else { panic!("original complete relationship catalogue") };
+        assert_eq!(variants.len(), 33);
+        assert_eq!((variants[0].name.as_str(), variants[0].tag), ("SubstitutedMember", 1));
+        assert_eq!((variants[32].name.as_str(), variants[32].tag), ("CheckedValiditySource", 33));
+        assert_eq!(variants[2].fields.iter().map(|field| (field.name.as_str(), field.tag)).collect::<Vec<_>>(), vec![("owner", 1), ("ordinal", 2), ("meaning", 3)]);
+        for name in ["ModelingTestComponent", "ModelingAnnotationComponent", "ModelingLocalRole"] {
+            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+        }
+        let annotation = AnnotationComponent::ObjectiveLower { strict: true };
+        assert_eq!(serde_json::to_vec(&annotation).unwrap(), br#"{"ObjectiveLower":{"strict":true}}"#);
+    }
     #[test]
     fn numerical_requirement_recipes_preserve_established_named_bytes() {
         let id = SemanticId::from_bytes([5; 16]);
