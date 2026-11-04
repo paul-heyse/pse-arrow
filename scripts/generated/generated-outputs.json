@@ -116,6 +116,74 @@
       ],
       "inputs": [
         {
+          "path": "crates/pse-backend-native/src/conic/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/dynamics.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/dynamics/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/dynamics/integration_declaration.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/execution/scip/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/execution/settings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/highs/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/ipopt/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/kinsol/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/petsc.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/pounce.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/pounce_convex/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/uno.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/solve.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/solve/controls.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-codegen/src",
           "kind": "tree"
         },
@@ -124,7 +192,71 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-compiler/src/workspace.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/observation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/observation/producer.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/vocabulary.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-ids/src/roles.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/shape.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/assembly.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/jets.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/library.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/boundary_projection/quantity.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/boundary_projection/standard.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/diagnostic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/document.rs",
           "kind": "file"
         },
         {
@@ -144,6 +276,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/numerics.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/operation_effects.rs",
           "kind": "file"
         },
@@ -152,7 +288,31 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/scalars.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/strategy.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/strategy/advice.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/study.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-modeling/src/analysis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/contextual.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved.rs",
           "kind": "file"
         },
         {
@@ -160,11 +320,35 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-modeling/src/specialize/finite.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-modeling/src/specialize/value.rs",
           "kind": "file"
         },
         {
+          "path": "crates/pse-modeling/src/types.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_contexts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_control.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-operations/src/canonical_selection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_studies.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_study_workbench.rs",
           "kind": "file"
         },
         {
@@ -188,6 +372,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/index.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/kind.rs",
           "kind": "file"
         },
@@ -200,6 +388,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/resolved_receipts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/scheme.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/unit.rs",
           "kind": "file"
         },
@@ -208,11 +404,51 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/inspection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/study.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/host_operations/project.rs",
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/math/settings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/math/settings/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/reference_exchange/case_contract.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/bindings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/fitting/input_declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/fitting/optimizer_declaration.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/fitting/preparation_declaration.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/horizon.rs",
           "kind": "file"
         },
         {
@@ -228,7 +464,59 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/modeling/providers.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/progress_documents.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/research.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/simulation_request/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_demand.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_observation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_operations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_operations/intent.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_variants.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_workbench.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/worker.rs",
           "kind": "file"
         },
         {
@@ -236,7 +524,35 @@
           "kind": "tree"
         },
         {
+          "path": "crates/pse-schema/src/catalog/modeling.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/native_math.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/project_contexts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/s6_1_identity.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-schema/src/catalog/s6_2_physical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/model/canonical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/model/extension.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-structural/src/incidence.rs",
           "kind": "file"
         },
         {
@@ -278,6 +594,74 @@
         {
           "path": "crates/pse-authoring/src",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-backend-native/src/conic/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/dynamics.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/dynamics/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/dynamics/integration_declaration.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/execution/scip/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/execution/settings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/highs/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/ipopt/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/kinsol/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/petsc.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/pounce.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/pounce_convex/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/settings/uno.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/solve.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-backend-native/src/solve/controls.rs",
+          "kind": "file"
         },
         {
           "path": "crates/pse-codegen/src",
@@ -328,6 +712,26 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-compiler/src/workspace.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/observation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/observation/producer.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/vocabulary.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto",
           "kind": "file"
         },
@@ -356,7 +760,51 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-ids/src/roles.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/shape.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/assembly.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/jets.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/library.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/boundary_projection/quantity.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/boundary_projection/standard.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/diagnostic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/document.rs",
           "kind": "file"
         },
         {
@@ -376,6 +824,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/numerics.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-model/src/operation_effects.rs",
           "kind": "file"
         },
@@ -384,7 +836,31 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/scalars.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/strategy.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/strategy/advice.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/study.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-modeling/src/analysis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/contextual.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/resolved.rs",
           "kind": "file"
         },
         {
@@ -392,7 +868,15 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-modeling/src/specialize/finite.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-modeling/src/specialize/value.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/types.rs",
           "kind": "file"
         },
         {
@@ -400,7 +884,23 @@
           "kind": "tree"
         },
         {
+          "path": "crates/pse-operations/src/canonical_contexts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_control.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-operations/src/canonical_selection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_studies.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_study_workbench.rs",
           "kind": "file"
         },
         {
@@ -424,6 +924,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/index.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/kind.rs",
           "kind": "file"
         },
@@ -433,6 +937,14 @@
         },
         {
           "path": "crates/pse-quantity/src/reference_state.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/resolved_receipts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/scheme.rs",
           "kind": "file"
         },
         {
@@ -452,7 +964,27 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/inspection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/study.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/host_operations/project.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/math/settings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/math/settings/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/reference_exchange/case_contract.rs",
           "kind": "file"
         },
         {
@@ -468,6 +1000,26 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/bindings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/fitting/input_declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/fitting/optimizer_declaration.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/fitting/preparation_declaration.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/horizon.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/modeling/canonical/reload/read.rs",
           "kind": "file"
         },
@@ -480,7 +1032,59 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/modeling/providers.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/progress_documents.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/research.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/simulation_request/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_demand.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_observation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_operations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_operations/intent.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_variants.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/study_workbench.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/worker.rs",
           "kind": "file"
         },
         {
@@ -488,7 +1092,35 @@
           "kind": "tree"
         },
         {
+          "path": "crates/pse-schema/src/catalog/modeling.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/native_math.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/project_contexts.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/s6_1_identity.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-schema/src/catalog/s6_2_physical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/model/canonical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/model/extension.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-structural/src/incidence.rs",
           "kind": "file"
         },
         {

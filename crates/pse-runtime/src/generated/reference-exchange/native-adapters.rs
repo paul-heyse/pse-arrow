@@ -1,11 +1,11 @@
 use super::{
-    AdapterError, AdapterFailure, BoundaryProjectionError, NativeFrom, NativeInto, child_path,
-    decode_root, encode_root, from_items, items, layout, native_from, native_into, refused,
-    required,
+    AdapterError, AdapterFailure, BoundaryProjectionError, NativeInto, NativeFrom,
+    layout, child_path, refused, required, native_into, native_from, encode_root,
+    decode_root, items, from_items,
 };
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio>
-    for [pse_quantity::dimension::Ratio; 8]
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio,
+> for [pse_quantity::dimension::Ratio; 8] {
     fn into_wire(
         self,
         path: &str,
@@ -20,13 +20,13 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ar
             &[(1, "values")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio {
-                values: {
-                    let current_path = &child_path(path, "values");
-                    items(field_0)
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio {
+            values: {
+                let current_path = &child_path(path, "values");
+                items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
@@ -37,15 +37,14 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ar
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?
-                },
-                ..Default::default()
             },
-        )
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio>
-    for [pse_quantity::dimension::Ratio; 8]
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio,
+> for [pse_quantity::dimension::Ratio; 8] {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio,
         path: &str,
@@ -57,35 +56,38 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ar
             &[(1, "values")],
             path,
         )?;
-        let fields = ({
-            let current_path = &child_path(path, "values");
-            let values = wire
-                .values
-                .into_iter()
-                .enumerate()
-                .map(|(index, value)| -> Result<_, AdapterError> {
-                    Ok(native_from::<
-                        _,
-                        crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
-                    >(
-                        value, &format!("{path}[{index}]", path = current_path)
-                    )?)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            from_items(values, current_path)?
-        },);
+        let fields = (
+            {
+                let current_path = &child_path(path, "values");
+                let values = wire
+                    .values
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_from::<
+                                _,
+                                crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::BasisId>
-    for pse_quantity::ids::BasisId
-{
+for pse_quantity::ids::BasisId {
     fn into_wire(
         self,
         path: &str,
-    ) -> Result<crate::reference_exchange::generated::pb::pse::reference::v1::BasisId, AdapterError>
-    {
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::BasisId,
+        AdapterError,
+    > {
         layout(
             <pse_quantity::ids::BasisId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
             <pse_quantity::ids::BasisId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
@@ -93,19 +95,17 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ba
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::BasisId {
-                id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::BasisId {
+            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::BasisId>
-    for pse_quantity::ids::BasisId
-{
+for pse_quantity::ids::BasisId {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::BasisId,
         path: &str,
@@ -117,49 +117,49 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ba
             &[(1, "id")],
             path,
         )?;
-        let fields = (native_from::<_, Vec<u8>>(
-            required(wire.id, &child_path(path, "id"))?,
-            &child_path(path, "id"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                Vec<u8>,
+            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind>
-    for pse_quantity::enums::BasisKind
-{
+for pse_quantity::enums::BasisKind {
     fn into_wire(
         self,
         _: &str,
-    ) -> Result<crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind, AdapterError>
-    {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind,
+        AdapterError,
+    > {
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind>
-    for pse_quantity::enums::BasisKind
-{
+for pse_quantity::enums::BasisKind {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::BasisKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis>
-    for pse_quantity::enums::CompositionBasis
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis,
+> for pse_quantity::enums::CompositionBasis {
     fn into_wire(
         self,
         _: &str,
@@ -167,33 +167,31 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Co
         crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis,
         AdapterError,
     > {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis>
-    for pse_quantity::enums::CompositionBasis
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis,
+> for pse_quantity::enums::CompositionBasis {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::CompositionBasis,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1>
-    for pse_model::document::Version<1>
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1,
+> for pse_model::document::Version<1> {
     fn into_wire(
         self,
         path: &str,
@@ -212,19 +210,18 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Do
             &[(1, "value")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1 {
-                value: native_into::<_, u32>(field_0, &child_path(path, "value"))?,
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1 {
+            value: native_into::<_, u32>(field_0, &child_path(path, "value"))?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1>
-    for pse_model::document::Version<1>
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1,
+> for pse_model::document::Version<1> {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1,
         path: &str,
@@ -240,17 +237,14 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Do
             &[(1, "value")],
             path,
         )?;
-        let fields = (native_from::<_, u32>(
-            wire.value,
-            &child_path(path, "value"),
-        )?,);
+        let fields = (native_from::<_, u32>(wire.value, &child_path(path, "value"))?,);
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId>
-    for pse_quantity::ids::EntityKindId
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId,
+> for pse_quantity::ids::EntityKindId {
     fn into_wire(
         self,
         path: &str,
@@ -265,19 +259,18 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::En
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId {
-                id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId {
+            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId>
-    for pse_quantity::ids::EntityKindId
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId,
+> for pse_quantity::ids::EntityKindId {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId,
         path: &str,
@@ -289,17 +282,19 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::En
             &[(1, "id")],
             path,
         )?;
-        let fields = (native_from::<_, Vec<u8>>(
-            required(wire.id, &child_path(path, "id"))?,
-            &child_path(path, "id"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                Vec<u8>,
+            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition>
-    for pse_quantity::kind::KindDefinition
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition,
+> for pse_quantity::kind::KindDefinition {
     fn into_wire(
         self,
         path: &str,
@@ -321,8 +316,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ki
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition {
             monomial: {
                 let current_path = &child_path(path, "monomial");
@@ -387,9 +383,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ki
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition>
-    for pse_quantity::kind::KindDefinition
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition,
+> for pse_quantity::kind::KindDefinition {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition,
         path: &str,
@@ -488,8 +484,7 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ki
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::KindFactor>
-    for pse_quantity::kind::KindFactor
-{
+for pse_quantity::kind::KindFactor {
     fn into_wire(
         self,
         path: &str,
@@ -504,30 +499,28 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ki
             &[(1, "kind"), (2, "exponent")],
             path,
         )?;
-        let (field_0, field_1) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::KindFactor {
-                kind: buffa::MessageField::some(native_into::<
+        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::KindFactor {
+            kind: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId,
-                >(
-                    field_0, &child_path(path, "kind")
-                )?),
-                exponent: buffa::MessageField::some(native_into::<
+                >(field_0, &child_path(path, "kind"))?,
+            ),
+            exponent: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
-                >(
-                    field_1, &child_path(path, "exponent")
-                )?),
-                ..Default::default()
-            },
-        )
+                >(field_1, &child_path(path, "exponent"))?,
+            ),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::KindFactor>
-    for pse_quantity::kind::KindFactor
-{
+for pse_quantity::kind::KindFactor {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::KindFactor,
         path: &str,
@@ -559,9 +552,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ki
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis>
-    for pse_quantity::basis::Basis
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis,
+> for pse_quantity::basis::Basis {
     fn into_wire(
         self,
         path: &str,
@@ -582,8 +575,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2, field_3, field_4) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis {
             id: buffa::MessageField::some(
                 native_into::<
@@ -634,9 +628,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis>
-    for pse_quantity::basis::Basis
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis,
+> for pse_quantity::basis::Basis {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis,
         path: &str,
@@ -710,11 +704,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             .map_err(|error| error.at(path))
     }
 }
-impl
-    NativeInto<
-        crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector,
-    > for pse_quantity::dimension::DimensionVector
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector,
+> for pse_quantity::dimension::DimensionVector {
     fn into_wire(
         self,
         path: &str,
@@ -729,8 +721,9 @@ impl
             &[(1, "exponents")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector {
             exponents: buffa::MessageField::some(
                 native_into::<
@@ -742,11 +735,9 @@ impl
         })
     }
 }
-impl
-    NativeFrom<
-        crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector,
-    > for pse_quantity::dimension::DimensionVector
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector,
+> for pse_quantity::dimension::DimensionVector {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector,
         path: &str,
@@ -758,20 +749,22 @@ impl
             &[(1, "exponents")],
             path,
         )?;
-        let fields = (native_from::<
-            _,
-            crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio,
-        >(
-            required(wire.exponents.into_option(), &child_path(path, "exponents"))?,
-            &child_path(path, "exponents"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio,
+            >(
+                required(wire.exponents.into_option(), &child_path(path, "exponents"))?,
+                &child_path(path, "exponents"),
+            )?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind>
-    for pse_quantity::entity_kind::EntityKind
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind,
+> for pse_quantity::entity_kind::EntityKind {
     fn into_wire(
         self,
         path: &str,
@@ -786,23 +779,24 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             &[(1, "id"), (2, "name")],
             path,
         )?;
-        let (field_0, field_1) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind {
-                id: buffa::MessageField::some(native_into::<
+        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind {
+            id: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId,
-                >(field_0, &child_path(path, "id"))?),
-                name: native_into::<_, String>(field_1, &child_path(path, "name"))?,
-                ..Default::default()
-            },
-        )
+                >(field_0, &child_path(path, "id"))?,
+            ),
+            name: native_into::<_, String>(field_1, &child_path(path, "name"))?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind>
-    for pse_quantity::entity_kind::EntityKind
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind,
+> for pse_quantity::entity_kind::EntityKind {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind,
         path: &str,
@@ -828,11 +822,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             .map_err(|error| error.at(path))
     }
 }
-impl
-    NativeInto<
-        crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
-    > for crate::workflow::PhysicalQuantityDescription
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
+> for crate::workflow::PhysicalQuantityDescription {
     fn into_wire(
         self,
         path: &str,
@@ -871,7 +863,9 @@ impl
             field_8,
             field_9,
             field_10,
-        ) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        ) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription {
             quantity: buffa::MessageField::some(
                 native_into::<
@@ -967,11 +961,9 @@ impl
         })
     }
 }
-impl
-    NativeFrom<
-        crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
-    > for crate::workflow::PhysicalQuantityDescription
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
+> for crate::workflow::PhysicalQuantityDescription {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
         path: &str,
@@ -1111,9 +1103,9 @@ impl
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind>
-    for pse_quantity::kind::QuantityKind
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind,
+> for pse_quantity::kind::QuantityKind {
     fn into_wire(
         self,
         path: &str,
@@ -1135,8 +1127,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind {
             id: buffa::MessageField::some(
                 native_into::<
@@ -1183,9 +1176,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind>
-    for pse_quantity::kind::QuantityKind
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind,
+> for pse_quantity::kind::QuantityKind {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind,
         path: &str,
@@ -1259,9 +1252,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio>
-    for pse_quantity::dimension::Ratio
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
+> for pse_quantity::dimension::Ratio {
     fn into_wire(
         self,
         path: &str,
@@ -1276,20 +1269,19 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             &[(1, "num"), (2, "den")],
             path,
         )?;
-        let (field_0, field_1) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio {
-                num: native_into::<_, i32>(field_0, &child_path(path, "num"))?,
-                den: native_into::<_, i32>(field_1, &child_path(path, "den"))?,
-                ..Default::default()
-            },
-        )
+        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio {
+            num: native_into::<_, i32>(field_0, &child_path(path, "num"))?,
+            den: native_into::<_, i32>(field_1, &child_path(path, "den"))?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio>
-    for pse_quantity::dimension::Ratio
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
+> for pse_quantity::dimension::Ratio {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
         path: &str,
@@ -1309,9 +1301,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit>
-    for pse_quantity::unit::Unit
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit,
+> for pse_quantity::unit::Unit {
     fn into_wire(
         self,
         path: &str,
@@ -1335,8 +1327,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit {
             id: buffa::MessageField::some(
                 native_into::<
@@ -1397,9 +1390,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit>
-    for pse_quantity::unit::Unit
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit,
+> for pse_quantity::unit::Unit {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit,
         path: &str,
@@ -1488,9 +1481,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Ph
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind>
-    for pse_quantity::enums::QuantityAdditionKind
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind,
+> for pse_quantity::enums::QuantityAdditionKind {
     fn into_wire(
         self,
         _: &str,
@@ -1498,33 +1491,31 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
         crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind,
         AdapterError,
     > {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind>
-    for pse_quantity::enums::QuantityAdditionKind
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind,
+> for pse_quantity::enums::QuantityAdditionKind {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::QuantityAdditionKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory>
-    for pse_quantity::enums::QuantityKindCategory
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory,
+> for pse_quantity::enums::QuantityKindCategory {
     fn into_wire(
         self,
         _: &str,
@@ -1532,33 +1523,31 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
         crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory,
         AdapterError,
     > {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory>
-    for pse_quantity::enums::QuantityKindCategory
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory,
+> for pse_quantity::enums::QuantityKindCategory {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindCategory,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId>
-    for pse_quantity::ids::QuantityKindId
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId,
+> for pse_quantity::ids::QuantityKindId {
     fn into_wire(
         self,
         path: &str,
@@ -1573,19 +1562,18 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId {
-                id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId {
+            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId>
-    for pse_quantity::ids::QuantityKindId
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId,
+> for pse_quantity::ids::QuantityKindId {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId,
         path: &str,
@@ -1597,17 +1585,19 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             &[(1, "id")],
             path,
         )?;
-        let fields = (native_from::<_, Vec<u8>>(
-            required(wire.id, &child_path(path, "id"))?,
-            &child_path(path, "id"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                Vec<u8>,
+            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType>
-    for pse_quantity::quantity_type::QuantityType
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType,
+> for pse_quantity::quantity_type::QuantityType {
     fn into_wire(
         self,
         path: &str,
@@ -1628,48 +1618,50 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType {
-                id: buffa::MessageField::some(native_into::<
+        let (field_0, field_1, field_2, field_3, field_4) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType {
+            id: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId,
-                >(field_0, &child_path(path, "id"))?),
-                name: field_1
-                    .map(|value| -> Result<_, AdapterError> {
-                        Ok(native_into::<_, String>(value, &child_path(path, "name"))?)
-                    })
-                    .transpose()?,
-                key: buffa::MessageField::some(native_into::<
+                >(field_0, &child_path(path, "id"))?,
+            ),
+            name: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "name"))?)
+                })
+                .transpose()?,
+            key: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey,
-                >(
-                    field_2, &child_path(path, "key")
-                )?),
-                canonical_unit: buffa::MessageField::some(native_into::<
+                >(field_2, &child_path(path, "key"))?,
+            ),
+            canonical_unit: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
-                >(
-                    field_3,
-                    &child_path(path, "canonical_unit"),
-                )?),
-                nominal_magnitude: field_4
-                    .map(|value| -> Result<_, AdapterError> {
-                        Ok(native_into::<_, u64>(
-                            value,
-                            &child_path(path, "nominal_magnitude"),
-                        )?)
-                    })
-                    .transpose()?,
-                ..Default::default()
-            },
-        )
+                >(field_3, &child_path(path, "canonical_unit"))?,
+            ),
+            nominal_magnitude: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "nominal_magnitude"))?,
+                    )
+                })
+                .transpose()?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType>
-    for pse_quantity::quantity_type::QuantityType
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType,
+> for pse_quantity::quantity_type::QuantityType {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType,
         path: &str,
@@ -1695,7 +1687,8 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
-            wire.name
+            wire
+                .name
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(native_from::<_, String>(value, &child_path(path, "name"))?)
                 })
@@ -1707,19 +1700,25 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
                 required(wire.key.into_option(), &child_path(path, "key"))?,
                 &child_path(path, "key"),
             )?,
-            native_from::<_, crate::reference_exchange::generated::pb::pse::reference::v1::UnitId>(
+            native_from::<
+                _,
+                crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
+            >(
                 required(
                     wire.canonical_unit.into_option(),
                     &child_path(path, "canonical_unit"),
                 )?,
                 &child_path(path, "canonical_unit"),
             )?,
-            wire.nominal_magnitude
+            wire
+                .nominal_magnitude
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, u64>(
-                        value,
-                        &child_path(path, "nominal_magnitude"),
-                    )?)
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "nominal_magnitude"))?,
+                    )
                 })
                 .transpose()?,
         );
@@ -1727,9 +1726,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId>
-    for pse_quantity::ids::QuantityTypeId
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId,
+> for pse_quantity::ids::QuantityTypeId {
     fn into_wire(
         self,
         path: &str,
@@ -1744,19 +1743,18 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId {
-                id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId {
+            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId>
-    for pse_quantity::ids::QuantityTypeId
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId,
+> for pse_quantity::ids::QuantityTypeId {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId,
         path: &str,
@@ -1768,17 +1766,19 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             &[(1, "id")],
             path,
         )?;
-        let fields = (native_from::<_, Vec<u8>>(
-            required(wire.id, &child_path(path, "id"))?,
-            &child_path(path, "id"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                Vec<u8>,
+            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey>
-    for pse_quantity::quantity_type::QuantityTypeKey
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey,
+> for pse_quantity::quantity_type::QuantityTypeKey {
     fn into_wire(
         self,
         path: &str,
@@ -1800,8 +1800,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey {
             kind: buffa::MessageField::some(
                 native_into::<
@@ -1866,9 +1867,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey>
-    for pse_quantity::quantity_type::QuantityTypeKey
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey,
+> for pse_quantity::quantity_type::QuantityTypeKey {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey,
         path: &str,
@@ -1964,40 +1965,38 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Qu
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis>
-    for pse_quantity::enums::RateBasis
-{
+for pse_quantity::enums::RateBasis {
     fn into_wire(
         self,
         _: &str,
-    ) -> Result<crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis, AdapterError>
-    {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis,
+        AdapterError,
+    > {
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis>
-    for pse_quantity::enums::RateBasis
-{
+for pse_quantity::enums::RateBasis {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::RateBasis,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock>
-    for pse_model::reference_exchange::ReferenceBlock
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock,
+> for pse_model::reference_exchange::ReferenceBlock {
     fn into_wire(
         self,
         path: &str,
@@ -2012,21 +2011,20 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             &[(1, "content"), (2, "schema"), (3, "rows")],
             path,
         )?;
-        let (field_0, field_1, field_2) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock {
-                content: native_into::<_, Vec<u8>>(field_0, &child_path(path, "content"))?,
-                schema: native_into::<_, Vec<u8>>(field_1, &child_path(path, "schema"))?,
-                rows: native_into::<_, u64>(field_2, &child_path(path, "rows"))?,
-                ..Default::default()
-            },
-        )
+        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock {
+            content: native_into::<_, Vec<u8>>(field_0, &child_path(path, "content"))?,
+            schema: native_into::<_, Vec<u8>>(field_1, &child_path(path, "schema"))?,
+            rows: native_into::<_, u64>(field_2, &child_path(path, "rows"))?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock>
-    for pse_model::reference_exchange::ReferenceBlock
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock,
+> for pse_model::reference_exchange::ReferenceBlock {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock,
         path: &str,
@@ -2047,9 +2045,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract>
-    for crate::reference_exchange::ReferenceCaseContract
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
+> for crate::reference_exchange::ReferenceCaseContract {
     fn into_wire(
         self,
         path: &str,
@@ -2071,26 +2069,29 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract {
-                version: buffa::MessageField::some(native_into::<
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract {
+            version: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1,
-                >(
-                    field_0, &child_path(path, "version")
-                )?),
-                case_name: native_into::<_, String>(field_1, &child_path(path, "case_name"))?,
-                meaning: buffa::MessageField::some(native_into::<
+                >(field_0, &child_path(path, "version"))?,
+            ),
+            case_name: native_into::<
+                _,
+                String,
+            >(field_1, &child_path(path, "case_name"))?,
+            meaning: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
-                >(
-                    field_2, &child_path(path, "meaning")
-                )?),
-                observables: {
-                    let current_path = &child_path(path, "observables");
-                    items(field_3)
+                >(field_2, &child_path(path, "meaning"))?,
+            ),
+            observables: {
+                let current_path = &child_path(path, "observables");
+                items(field_3)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
@@ -2101,10 +2102,10 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?
-                },
-                specification: {
-                    let current_path = &child_path(path, "specification");
-                    items(field_4)
+            },
+            specification: {
+                let current_path = &child_path(path, "specification");
+                items(field_4)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
@@ -2115,10 +2116,10 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?
-                },
-                artifacts: {
-                    let current_path = &child_path(path, "artifacts");
-                    items(field_5)
+            },
+            artifacts: {
+                let current_path = &child_path(path, "artifacts");
+                items(field_5)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         Ok(
@@ -2129,15 +2130,14 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?
-                },
-                ..Default::default()
             },
-        )
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract>
-    for crate::reference_exchange::ReferenceCaseContract
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
+> for crate::reference_exchange::ReferenceCaseContract {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
         path: &str,
@@ -2228,9 +2228,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition>
-    for pse_quantity::reference_state::ReferenceCondition
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition,
+> for pse_quantity::reference_state::ReferenceCondition {
     fn into_wire(
         self,
         path: &str,
@@ -2245,32 +2245,30 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             &[(1, "value"), (2, "quantity_type"), (3, "unit")],
             path,
         )?;
-        let (field_0, field_1, field_2) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition {
-                value: native_into::<_, u64>(field_0, &child_path(path, "value"))?,
-                quantity_type: buffa::MessageField::some(native_into::<
+        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition {
+            value: native_into::<_, u64>(field_0, &child_path(path, "value"))?,
+            quantity_type: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId,
-                >(
-                    field_1,
-                    &child_path(path, "quantity_type"),
-                )?),
-                unit: buffa::MessageField::some(native_into::<
+                >(field_1, &child_path(path, "quantity_type"))?,
+            ),
+            unit: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
-                >(
-                    field_2, &child_path(path, "unit")
-                )?),
-                ..Default::default()
-            },
-        )
+                >(field_2, &child_path(path, "unit"))?,
+            ),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition>
-    for pse_quantity::reference_state::ReferenceCondition
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition,
+> for pse_quantity::reference_state::ReferenceCondition {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition,
         path: &str,
@@ -2294,7 +2292,10 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
                 )?,
                 &child_path(path, "quantity_type"),
             )?,
-            native_from::<_, crate::reference_exchange::generated::pb::pse::reference::v1::UnitId>(
+            native_from::<
+                _,
+                crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
+            >(
                 required(wire.unit.into_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
             )?,
@@ -2303,9 +2304,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope>
-    for pse_model::reference_exchange::ReferenceEnvelope
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope,
+> for pse_model::reference_exchange::ReferenceEnvelope {
     fn into_wire(
         self,
         path: &str,
@@ -2320,43 +2321,44 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             &[(1, "version"), (2, "meaning"), (3, "required"), (4, "outcome")],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope {
-                version: native_into::<_, u32>(field_0, &child_path(path, "version"))?,
-                meaning: buffa::MessageField::some(native_into::<
+        let (field_0, field_1, field_2, field_3) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope {
+            version: native_into::<_, u32>(field_0, &child_path(path, "version"))?,
+            meaning: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
-                >(
-                    field_1, &child_path(path, "meaning")
-                )?),
-                required: {
-                    let current_path = &child_path(path, "required");
-                    items(field_2)
-                        .enumerate()
-                        .map(|(index, value)| -> Result<_, AdapterError> {
-                            Ok(native_into::<_, Vec<u8>>(
-                                value,
-                                &format!("{path}[{index}]", path = current_path),
-                            )?)
-                        })
-                        .collect::<Result<Vec<_>, _>>()?
-                },
-                outcome: buffa::MessageField::some(native_into::<
+                >(field_1, &child_path(path, "meaning"))?,
+            ),
+            required: {
+                let current_path = &child_path(path, "required");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                Vec<u8>,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            outcome: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceOutcome,
-                >(
-                    field_3, &child_path(path, "outcome")
-                )?),
-                ..Default::default()
-            },
-        )
+                >(field_3, &child_path(path, "outcome"))?,
+            ),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope>
-    for pse_model::reference_exchange::ReferenceEnvelope
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope,
+> for pse_model::reference_exchange::ReferenceEnvelope {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope,
         path: &str,
@@ -2384,10 +2386,12 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
                     .into_iter()
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(native_from::<_, Vec<u8>>(
-                            value,
-                            &format!("{path}[{index}]", path = current_path),
-                        )?)
+                        Ok(
+                            native_from::<
+                                _,
+                                Vec<u8>,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
@@ -2404,9 +2408,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput>
-    for crate::reference_exchange::ReferenceFixedInput
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput,
+> for crate::reference_exchange::ReferenceFixedInput {
     fn into_wire(
         self,
         path: &str,
@@ -2421,8 +2425,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             &[(1, "key"), (2, "value"), (3, "physical")],
             path,
         )?;
-        let (field_0, field_1, field_2) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput {
             key: native_into::<_, String>(field_0, &child_path(path, "key"))?,
             value: native_into::<_, u64>(field_1, &child_path(path, "value"))?,
@@ -2436,9 +2441,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput>
-    for crate::reference_exchange::ReferenceFixedInput
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput,
+> for crate::reference_exchange::ReferenceFixedInput {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput,
         path: &str,
@@ -2465,10 +2470,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl
-    NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact>
-    for crate::reference_exchange::ReferenceInputArtifact
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact,
+> for crate::reference_exchange::ReferenceInputArtifact {
     fn into_wire(
         self,
         path: &str,
@@ -2483,21 +2487,19 @@ impl
             &[(1, "path"), (2, "sha256")],
             path,
         )?;
-        let (field_0, field_1) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact {
-                path: native_into::<_, String>(field_0, &child_path(path, "path"))?,
-                sha256: native_into::<_, Vec<u8>>(field_1, &child_path(path, "sha256"))?,
-                ..Default::default()
-            },
-        )
+        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact {
+            path: native_into::<_, String>(field_0, &child_path(path, "path"))?,
+            sha256: native_into::<_, Vec<u8>>(field_1, &child_path(path, "sha256"))?,
+            ..Default::default()
+        })
     }
 }
-impl
-    NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact>
-    for crate::reference_exchange::ReferenceInputArtifact
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact,
+> for crate::reference_exchange::ReferenceInputArtifact {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact,
         path: &str,
@@ -2517,9 +2519,9 @@ impl
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning>
-    for pse_model::reference_exchange::ReferenceMeaning
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
+> for pse_model::reference_exchange::ReferenceMeaning {
     fn into_wire(
         self,
         path: &str,
@@ -2540,26 +2542,28 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning {
-                case: native_into::<_, Vec<u8>>(field_0, &child_path(path, "case"))?,
-                source: native_into::<_, Vec<u8>>(field_1, &child_path(path, "source"))?,
-                formulation: native_into::<_, Vec<u8>>(field_2, &child_path(path, "formulation"))?,
-                physical: native_into::<_, Vec<u8>>(field_3, &child_path(path, "physical"))?,
-                configuration: native_into::<_, Vec<u8>>(
-                    field_4,
-                    &child_path(path, "configuration"),
-                )?,
-                ..Default::default()
-            },
-        )
+        let (field_0, field_1, field_2, field_3, field_4) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning {
+            case: native_into::<_, Vec<u8>>(field_0, &child_path(path, "case"))?,
+            source: native_into::<_, Vec<u8>>(field_1, &child_path(path, "source"))?,
+            formulation: native_into::<
+                _,
+                Vec<u8>,
+            >(field_2, &child_path(path, "formulation"))?,
+            physical: native_into::<_, Vec<u8>>(field_3, &child_path(path, "physical"))?,
+            configuration: native_into::<
+                _,
+                Vec<u8>,
+            >(field_4, &child_path(path, "configuration"))?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning>
-    for pse_model::reference_exchange::ReferenceMeaning
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
+> for pse_model::reference_exchange::ReferenceMeaning {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
         path: &str,
@@ -2580,17 +2584,23 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
         let fields = (
             native_from::<_, Vec<u8>>(wire.case, &child_path(path, "case"))?,
             native_from::<_, Vec<u8>>(wire.source, &child_path(path, "source"))?,
-            native_from::<_, Vec<u8>>(wire.formulation, &child_path(path, "formulation"))?,
+            native_from::<
+                _,
+                Vec<u8>,
+            >(wire.formulation, &child_path(path, "formulation"))?,
             native_from::<_, Vec<u8>>(wire.physical, &child_path(path, "physical"))?,
-            native_from::<_, Vec<u8>>(wire.configuration, &child_path(path, "configuration"))?,
+            native_from::<
+                _,
+                Vec<u8>,
+            >(wire.configuration, &child_path(path, "configuration"))?,
         );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable>
-    for pse_model::reference_exchange::ReferenceObservable
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable,
+> for pse_model::reference_exchange::ReferenceObservable {
     fn into_wire(
         self,
         path: &str,
@@ -2612,38 +2622,31 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable {
-                id: native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?,
-                quantity: native_into::<_, Vec<u8>>(field_1, &child_path(path, "quantity"))?,
-                unit: native_into::<_, Vec<u8>>(field_2, &child_path(path, "unit"))?,
-                basis: field_3
-                    .map(|value| -> Result<_, AdapterError> {
-                        Ok(native_into::<_, Vec<u8>>(
-                            value,
-                            &child_path(path, "basis"),
-                        )?)
-                    })
-                    .transpose()?,
-                datum: field_4
-                    .map(|value| -> Result<_, AdapterError> {
-                        Ok(native_into::<_, Vec<u8>>(
-                            value,
-                            &child_path(path, "datum"),
-                        )?)
-                    })
-                    .transpose()?,
-                value: native_into::<_, u64>(field_5, &child_path(path, "value"))?,
-                ..Default::default()
-            },
-        )
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable {
+            id: native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?,
+            quantity: native_into::<_, Vec<u8>>(field_1, &child_path(path, "quantity"))?,
+            unit: native_into::<_, Vec<u8>>(field_2, &child_path(path, "unit"))?,
+            basis: field_3
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "basis"))?)
+                })
+                .transpose()?,
+            datum: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, Vec<u8>>(value, &child_path(path, "datum"))?)
+                })
+                .transpose()?,
+            value: native_into::<_, u64>(field_5, &child_path(path, "value"))?,
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable>
-    for pse_model::reference_exchange::ReferenceObservable
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable,
+> for pse_model::reference_exchange::ReferenceObservable {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable,
         path: &str,
@@ -2666,20 +2669,16 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             native_from::<_, Vec<u8>>(wire.id, &child_path(path, "id"))?,
             native_from::<_, Vec<u8>>(wire.quantity, &child_path(path, "quantity"))?,
             native_from::<_, Vec<u8>>(wire.unit, &child_path(path, "unit"))?,
-            wire.basis
+            wire
+                .basis
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(
-                        value,
-                        &child_path(path, "basis"),
-                    )?)
+                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "basis"))?)
                 })
                 .transpose()?,
-            wire.datum
+            wire
+                .datum
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(native_from::<_, Vec<u8>>(
-                        value,
-                        &child_path(path, "datum"),
-                    )?)
+                    Ok(native_from::<_, Vec<u8>>(value, &child_path(path, "datum"))?)
                 })
                 .transpose()?,
             native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
@@ -2688,11 +2687,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl
-    NativeInto<
-        crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
-    > for crate::reference_exchange::ReferenceObservableContract
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
+> for crate::reference_exchange::ReferenceObservableContract {
     fn into_wire(
         self,
         path: &str,
@@ -2707,8 +2704,9 @@ impl
             &[(1, "output"), (2, "key"), (3, "physical")],
             path,
         )?;
-        let (field_0, field_1, field_2) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract {
             output: native_into::<_, Vec<u8>>(field_0, &child_path(path, "output"))?,
             key: native_into::<_, String>(field_1, &child_path(path, "key"))?,
@@ -2722,11 +2720,9 @@ impl
         })
     }
 }
-impl
-    NativeFrom<
-        crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
-    > for crate::reference_exchange::ReferenceObservableContract
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
+> for crate::reference_exchange::ReferenceObservableContract {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
         path: &str,
@@ -2753,9 +2749,9 @@ impl
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceOutcome>
-    for pse_model::reference_exchange::ReferenceOutcome
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceOutcome,
+> for pse_model::reference_exchange::ReferenceOutcome {
     fn into_wire(
         self,
         path: &str,
@@ -2929,16 +2925,18 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             Err(value) => value,
         };
         let _ = value;
-        Err(refused(
-            path,
-            AdapterFailure::UnknownAlternative,
-            "actual alternative is outside the generated source closure",
-        ))
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceOutcome>
-    for pse_model::reference_exchange::ReferenceOutcome
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceOutcome,
+> for pse_model::reference_exchange::ReferenceOutcome {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceOutcome,
         path: &str,
@@ -3092,9 +3090,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
         }
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState>
-    for pse_quantity::reference_state::ReferenceState
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState,
+> for pse_quantity::reference_state::ReferenceState {
     fn into_wire(
         self,
         path: &str,
@@ -3117,8 +3115,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState {
             id: buffa::MessageField::some(
                 native_into::<
@@ -3168,9 +3167,9 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
         })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState>
-    for pse_quantity::reference_state::ReferenceState
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState,
+> for pse_quantity::reference_state::ReferenceState {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState,
         path: &str,
@@ -3248,9 +3247,9 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId>
-    for pse_quantity::ids::ReferenceStateId
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId,
+> for pse_quantity::ids::ReferenceStateId {
     fn into_wire(
         self,
         path: &str,
@@ -3265,19 +3264,18 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId {
-                id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId {
+            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId>
-    for pse_quantity::ids::ReferenceStateId
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId,
+> for pse_quantity::ids::ReferenceStateId {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId,
         path: &str,
@@ -3289,17 +3287,19 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Re
             &[(1, "id")],
             path,
         )?;
-        let fields = (native_from::<_, Vec<u8>>(
-            required(wire.id, &child_path(path, "id"))?,
-            &child_path(path, "id"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                Vec<u8>,
+            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }
 }
-impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind>
-    for pse_quantity::enums::ReferenceStateKind
-{
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind,
+> for pse_quantity::enums::ReferenceStateKind {
     fn into_wire(
         self,
         _: &str,
@@ -3307,65 +3307,60 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Re
         crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind,
         AdapterError,
     > {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
-impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind>
-    for pse_quantity::enums::ReferenceStateKind
-{
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind,
+> for pse_quantity::enums::ReferenceStateKind {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind>
-    for pse_quantity::enums::ScaleKind
-{
+for pse_quantity::enums::ScaleKind {
     fn into_wire(
         self,
         _: &str,
-    ) -> Result<crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind, AdapterError>
-    {
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind {
-                value: self.as_str().into(),
-                ..Default::default()
-            },
-        )
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind,
+        AdapterError,
+    > {
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind>
-    for pse_quantity::enums::ScaleKind
-{
+for pse_quantity::enums::ScaleKind {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ScaleKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
-        wire.value.parse::<Self>().map_err(|_| {
-            refused(
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
                 path,
                 AdapterFailure::UnknownAlternative,
                 "unknown canonical source vocabulary member",
-            )
-        })
+            ))
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::UnitFactor>
-    for pse_quantity::unit::UnitFactor
-{
+for pse_quantity::unit::UnitFactor {
     fn into_wire(
         self,
         path: &str,
@@ -3380,30 +3375,28 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Un
             &[(1, "unit"), (2, "exponent")],
             path,
         )?;
-        let (field_0, field_1) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::UnitFactor {
-                unit: buffa::MessageField::some(native_into::<
+        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::UnitFactor {
+            unit: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
-                >(
-                    field_0, &child_path(path, "unit")
-                )?),
-                exponent: buffa::MessageField::some(native_into::<
+                >(field_0, &child_path(path, "unit"))?,
+            ),
+            exponent: buffa::MessageField::some(
+                native_into::<
                     _,
                     crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio,
-                >(
-                    field_1, &child_path(path, "exponent")
-                )?),
-                ..Default::default()
-            },
-        )
+                >(field_1, &child_path(path, "exponent"))?,
+            ),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::UnitFactor>
-    for pse_quantity::unit::UnitFactor
-{
+for pse_quantity::unit::UnitFactor {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::UnitFactor,
         path: &str,
@@ -3416,7 +3409,10 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Un
             path,
         )?;
         let fields = (
-            native_from::<_, crate::reference_exchange::generated::pb::pse::reference::v1::UnitId>(
+            native_from::<
+                _,
+                crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
+            >(
                 required(wire.unit.into_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
             )?,
@@ -3433,13 +3429,14 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Un
     }
 }
 impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::UnitId>
-    for pse_quantity::ids::UnitId
-{
+for pse_quantity::ids::UnitId {
     fn into_wire(
         self,
         path: &str,
-    ) -> Result<crate::reference_exchange::generated::pb::pse::reference::v1::UnitId, AdapterError>
-    {
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
+        AdapterError,
+    > {
         layout(
             <pse_quantity::ids::UnitId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
             <pse_quantity::ids::UnitId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
@@ -3447,19 +3444,17 @@ impl NativeInto<crate::reference_exchange::generated::pb::pse::reference::v1::Un
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) =
-            pse_model::boundary_projection::ProjectionRecord::into_projection_fields(self);
-        Ok(
-            crate::reference_exchange::generated::pb::pse::reference::v1::UnitId {
-                id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
-                ..Default::default()
-            },
-        )
+        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::UnitId {
+            id: Some(native_into::<_, Vec<u8>>(field_0, &child_path(path, "id"))?),
+            ..Default::default()
+        })
     }
 }
 impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::UnitId>
-    for pse_quantity::ids::UnitId
-{
+for pse_quantity::ids::UnitId {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::UnitId,
         path: &str,
@@ -3471,10 +3466,12 @@ impl NativeFrom<crate::reference_exchange::generated::pb::pse::reference::v1::Un
             &[(1, "id")],
             path,
         )?;
-        let fields = (native_from::<_, Vec<u8>>(
-            required(wire.id, &child_path(path, "id"))?,
-            &child_path(path, "id"),
-        )?,);
+        let fields = (
+            native_from::<
+                _,
+                Vec<u8>,
+            >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
+        );
         pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
             .map_err(|error| error.at(path))
     }

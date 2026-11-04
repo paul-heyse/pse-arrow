@@ -1161,7 +1161,7 @@
       "type": "object"
     },
     "BackendSettingsBody": {
-      "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
+      "description": "Explicit serializable native settings; routed defaults remain local to native dispatch.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -1897,7 +1897,7 @@
     },
     "BlockSolveOverrideBody": {
       "additionalProperties": false,
-      "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+      "description": "Native realization and finite work controls of one compiler-issued block.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -2997,6 +2997,7 @@
     },
     "FeralSettings": {
       "additionalProperties": false,
+      "description": "Complete original FERAL configuration binding, shared by Serde and typed projection.",
       "properties": {
         "bounded_storage_max_dimension": {
           "default": null,
@@ -3235,7 +3236,7 @@
     },
     "HighsDiagnostics": {
       "additionalProperties": false,
-      "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
+      "description": "Requested native diagnostics, bounded by the original attempt's deadline.",
       "properties": {
         "basis_inverse": {
           "default": null,
@@ -3316,7 +3317,7 @@
     },
     "HighsPenalties": {
       "additionalProperties": false,
-      "description": "Complete physical penalty declarations for native feasibility relaxation.",
+      "description": "Complete physical penalties for native feasibility relaxation.",
       "properties": {
         "global": {
           "description": "Global lower-bound, upper-bound and constraint penalties.",
@@ -3328,6 +3329,7 @@
           "type": "array"
         },
         "lower": {
+          "default": null,
           "description": "Optional per-variable lower-bound penalties.",
           "items": {
             "format": "double",
@@ -3339,6 +3341,7 @@
           ]
         },
         "rows": {
+          "default": null,
           "description": "Optional per-row penalties.",
           "items": {
             "format": "double",
@@ -3350,6 +3353,7 @@
           ]
         },
         "upper": {
+          "default": null,
           "description": "Optional per-variable upper-bound penalties.",
           "items": {
             "format": "double",
@@ -4492,7 +4496,7 @@
           "type": "integer"
         },
         {
-          "description": "Finite native real.",
+          "description": "Finite native real; nonfinite observations use the separate evidence owner.",
           "format": "double",
           "type": "number"
         },
@@ -4501,7 +4505,7 @@
           "type": "string"
         }
       ],
-      "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
+      "description": "Primitive native option values, preserving the original untagged document."
     },
     "ParameterCovariance": {
       "additionalProperties": false,
@@ -4536,6 +4540,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "scales": {
@@ -4853,6 +4859,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         }
       },
@@ -4900,13 +4908,15 @@
         "proof_cells": {
           "description": "Maximum actual interval proof cells across all those rounds.",
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         },
         "rounds": {
           "description": "Maximum complete enclosure/correction rounds for this consumed product.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -5869,6 +5879,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "propagation": {
@@ -5896,7 +5908,7 @@
     },
     "SolveControls": {
       "additionalProperties": false,
-      "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
+      "description": "Finite shared attempt controls chosen by the caller; accuracy stays with resolved policy.",
       "properties": {
         "foreign_bytes": {
           "description": "Positive foreign-library allowance of this solve, in bytes: its reservation charges\nit, and a library that enforces its own memory limit receives it. Absent, the\ndeployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is\nnot encoded, so controls without one keep their identity.",
@@ -5971,7 +5983,7 @@
     },
     "SolveSettings": {
       "additionalProperties": false,
-      "description": "The settings of one solve. The version is required; every other field takes the\ndefault of [`SolverProfile::default`] when absent.",
+      "description": "Settings of one solve; original per-field defaults and admission stay authoritative.",
       "properties": {
         "backend": {
           "anyOf": [

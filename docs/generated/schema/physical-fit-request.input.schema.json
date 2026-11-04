@@ -26,7 +26,7 @@
     },
     "AdjointSettings": {
       "additionalProperties": false,
-      "description": "Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary\ndocument (ADR-0116 Outcome 6): the version is required, and absent fields take these\ndefaults. The backward pass replays at most `steps_between_checkpoints` native steps\nfrom a stored checkpoint, and at most `max_checkpoints` are held at once, at least two\nper scheduled segment; a forward pass that needs more stops with a typed memory limit.\nTheir estimated bytes are charged against the caller's memory allowance before any\nnative work.",
+      "description": "Finite original adjoint-checkpoint controls.",
       "properties": {
         "max_checkpoints": {
           "$ref": "#/$defs/PositiveCount",
@@ -900,7 +900,7 @@
       "type": "object"
     },
     "BackendSettingsBody": {
-      "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
+      "description": "Explicit serializable native settings; routed defaults remain local to native dispatch.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -1562,7 +1562,7 @@
     },
     "BlockSolveOverrideBody": {
       "additionalProperties": false,
-      "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+      "description": "Native realization and finite work controls of one compiler-issued block.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -1829,6 +1829,7 @@
     },
     "DiffsolInitialConditionOptions": {
       "additionalProperties": false,
+      "description": "Source-owned remote declaration of the library's initialization controls.",
       "properties": {
         "armijo_constant": {
           "format": "double",
@@ -1885,6 +1886,7 @@
     },
     "DiffsolOdeSolverOptions": {
       "additionalProperties": false,
+      "description": "Source-owned remote declaration of the library's nonlinear integration controls.",
       "properties": {
         "max_error_test_failures": {
           "format": "uint",
@@ -1981,7 +1983,7 @@
     },
     "DiffsolSettings": {
       "additionalProperties": false,
-      "description": "Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):\nthe version is required, and absent fields take these defaults.",
+      "description": "Typed Diffsol method document with its required original version.",
       "properties": {
         "linear": {
           "$ref": "#/$defs/DiffsolLinear",
@@ -2030,7 +2032,7 @@
     },
     "EndpointRequirement": {
       "additionalProperties": false,
-      "description": "Explicit final-result obligation, independent of the requested output grid.",
+      "description": "Declared completion obligation, independent of requested output times.",
       "properties": {
         "event": {
           "description": "Allowed terminal guard identity, required only for declared-event completion.",
@@ -2111,6 +2113,7 @@
     },
     "FeralSettings": {
       "additionalProperties": false,
+      "description": "Complete original FERAL configuration binding, shared by Serde and typed projection.",
       "properties": {
         "bounded_storage_max_dimension": {
           "default": null,
@@ -2258,11 +2261,11 @@
       "type": "string"
     },
     "FitOptimizer": {
-      "description": "Fitting owns selection between its residual method and class-specific native NLPs.",
+      "description": "Fitting owns selection between its residual method and native NLP methods.",
       "oneOf": [
         {
           "const": "automatic",
-          "description": "Use residual LM only when actual preparation establishes its complete eligibility.",
+          "description": "Use residual LM only when native preparation establishes complete eligibility.",
           "type": "string"
         },
         {
@@ -2279,7 +2282,7 @@
     },
     "FitPreparationDocumentForPhysicalSimulationRequest": {
       "additionalProperties": false,
-      "description": "Decoded fit preparation. Native fitting resolves its selected model and experiments.",
+      "description": "Decoded fit preparation; native fitting resolves selected models and experiments.",
       "properties": {
         "derivatives": {
           "$ref": "#/$defs/FitDerivatives",
@@ -2349,7 +2352,7 @@
     },
     "FitUncertaintyBody": {
       "additionalProperties": false,
-      "description": "What a fit derives from its estimate beyond the covariance, which every fit with free\nparameters derives (ADR-0118 item 8; Plan 22 S3).",
+      "description": "Confidence intervals and optional profile/prediction work of the actual fit.",
       "properties": {
         "level": {
           "$ref": "#/$defs/Fraction",
@@ -2454,7 +2457,7 @@
     },
     "HighsDiagnostics": {
       "additionalProperties": false,
-      "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
+      "description": "Requested native diagnostics, bounded by the original attempt's deadline.",
       "properties": {
         "basis_inverse": {
           "default": null,
@@ -2525,7 +2528,7 @@
     },
     "HighsPenalties": {
       "additionalProperties": false,
-      "description": "Complete physical penalty declarations for native feasibility relaxation.",
+      "description": "Complete physical penalties for native feasibility relaxation.",
       "properties": {
         "global": {
           "description": "Global lower-bound, upper-bound and constraint penalties.",
@@ -2537,6 +2540,7 @@
           "type": "array"
         },
         "lower": {
+          "default": null,
           "description": "Optional per-variable lower-bound penalties.",
           "items": {
             "format": "double",
@@ -2548,6 +2552,7 @@
           ]
         },
         "rows": {
+          "default": null,
           "description": "Optional per-row penalties.",
           "items": {
             "format": "double",
@@ -2559,6 +2564,7 @@
           ]
         },
         "upper": {
+          "default": null,
           "description": "Optional per-variable upper-bound penalties.",
           "items": {
             "format": "double",
@@ -2577,7 +2583,7 @@
     },
     "IdasBand": {
       "additionalProperties": false,
-      "description": "Explicit half-bandwidths in the original admitted state ordering.\nZero retains only the diagonal on that side; no ordering is inferred.",
+      "description": "Explicit half-bandwidths in the original admitted state ordering.",
       "properties": {
         "lower": {
           "description": "Number of original state columns retained below a row's diagonal.",
@@ -2600,7 +2606,7 @@
     },
     "IdasInitialConditions": {
       "additionalProperties": false,
-      "description": "Exact IDAS consistent-initialization controls; no physical time stepping is requested.",
+      "description": "Exact native IDAS consistent-initialization work controls.",
       "properties": {
         "backtracks": {
           "default": null,
@@ -2660,7 +2666,7 @@
       "type": "object"
     },
     "IdasInitialStep": {
-      "description": "Origin of the first physical IDAS step; consistent initialization retains its\nseparate positive orientation scale in [`Profile::initial_step`].",
+      "description": "Origin of the first physical IDAS step, independent of the IC orientation scale.",
       "oneOf": [
         {
           "const": "configured",
@@ -2669,7 +2675,7 @@
         },
         {
           "const": "automatic",
-          "description": "Let the native integrator estimate its first physical step (the default).",
+          "description": "Let the native integrator estimate its first physical step.",
           "type": "string"
         }
       ]
@@ -2682,7 +2688,7 @@
       "type": "string"
     },
     "IdasLinear": {
-      "description": "IDAS Newton linear solver.",
+      "description": "IDAS Newton linear solver; original band and Krylov admission remains contextual.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -2713,7 +2719,7 @@
             "preconditioner": {
               "$ref": "#/$defs/Preconditioner",
               "default": "none",
-              "description": "Left preconditioner built from the compiled Jacobian; none when absent."
+              "description": "Left preconditioner built from the compiled Jacobian."
             }
           },
           "required": [
@@ -2724,7 +2730,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Exact matrix-free GMRES with the native library's band approximation as\na left preconditioner. Both bands name original state coordinates.",
+          "description": "Exact matrix-free GMRES with the native library's band approximation.",
           "properties": {
             "difference": {
               "$ref": "#/$defs/IdasBand",
@@ -2766,7 +2772,7 @@
             "preconditioner": {
               "$ref": "#/$defs/Preconditioner",
               "default": "none",
-              "description": "Left preconditioner built from the compiled Jacobian; none when absent."
+              "description": "Left preconditioner built from the compiled Jacobian."
             }
           },
           "required": [
@@ -2779,7 +2785,7 @@
     },
     "IdasSettings": {
       "additionalProperties": false,
-      "description": "Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document\n(ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.\nVersion 2 removes the per-state sign constraints: they derive from the authored bounds\n([`Contract::signs`], ADR-0119 Outcome 4).\nVersion 3 makes native automatic first-step selection the default (ADR-0207).",
+      "description": "Typed original IDAS method and consistent-initialization controls.",
       "properties": {
         "initial_conditions": {
           "$ref": "#/$defs/IdasInitialConditions",
@@ -2838,7 +2844,7 @@
     },
     "IntegrationControlsForArray_of_ScientificCoordinateValue": {
       "additionalProperties": false,
-      "description": "Finite integration policy. Tolerances apply to the normalized state coordinates.",
+      "description": "Finite integration policy; physical coordinate admission stays with the original owner.",
       "properties": {
         "adjoint": {
           "$ref": "#/$defs/AdjointSettings",
@@ -2974,6 +2980,7 @@
           "type": "array"
         },
         "out_rtol": {
+          "default": null,
           "description": "Explicit integrated-flux relative tolerance; required when conservation is declared.",
           "format": "double",
           "type": [
@@ -3694,7 +3701,7 @@
           "type": "integer"
         },
         {
-          "description": "Finite native real.",
+          "description": "Finite native real; nonfinite observations use the separate evidence owner.",
           "format": "double",
           "type": "number"
         },
@@ -3703,7 +3710,7 @@
           "type": "string"
         }
       ],
-      "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
+      "description": "Primitive native option values, preserving the original untagged document."
     },
     "ParameterCovariance": {
       "additionalProperties": false,
@@ -3738,6 +3745,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "scales": {
@@ -3837,7 +3846,7 @@
     },
     "PhysicalSimulationRequest": {
       "additionalProperties": false,
-      "description": "Pending host simulation controls. Physical time stays signed binary64 seconds;\nall coordinate-bearing tolerances and characteristic scales carry keys and units.",
+      "description": "Pending host simulation controls; coordinates retain physical keys and units.",
       "properties": {
         "controls": {
           "$ref": "#/$defs/IntegrationControlsForArray_of_ScientificCoordinateValue",
@@ -3927,7 +3936,7 @@
     },
     "ProfileControls": {
       "additionalProperties": false,
-      "description": "Controls of the profile-likelihood pin chains (ADR-0118 item 8).",
+      "description": "Existing bounded profile-likelihood pin-chain controls.",
       "properties": {
         "points": {
           "$ref": "#/$defs/PositiveCount",
@@ -3968,6 +3977,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         }
       },
@@ -4015,13 +4026,15 @@
         "proof_cells": {
           "description": "Maximum actual interval proof cells across all those rounds.",
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         },
         "rounds": {
           "description": "Maximum complete enclosure/correction rounds for this consumed product.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -4079,7 +4092,7 @@
     },
     "ScheduledInput": {
       "additionalProperties": false,
-      "description": "One contract parameter held piecewise constant: it takes a new value at each change\ntime. The integration parameter vector holds one value per interval, `times.len() + 1`\nof them, and a sensitivity column for each, so sensitivities cross every change\n(ADR-0119, I6).\n\n```\nuse pse_backend_native::dynamics::{Profile, ScheduledInput};\n\n// Two contract parameters; the second changes at t = 0.5.\nlet profile = Profile {\n    schedule: vec![ScheduledInput { parameter: 1, times: vec![0.5] }],\n    ..Profile::default()\n};\n// The static parameter comes first, then one value per interval.\nassert_eq!(profile.integration_width(2), 3);\nassert_eq!(profile.integration_parameters(&[4.0, 7.0]), vec![4.0, 7.0, 7.0]);\nassert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.25), vec![4.0, 7.0]);\n// A change takes effect at its time.\nassert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);\n```",
+      "description": "One original parameter's strictly ordered piecewise-constant change times.",
       "properties": {
         "parameter": {
           "description": "Position of the input in the contract's parameter order.",
@@ -4141,6 +4154,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "propagation": {
@@ -4167,7 +4182,7 @@
     },
     "SolveControls": {
       "additionalProperties": false,
-      "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
+      "description": "Finite shared attempt controls chosen by the caller; accuracy stays with resolved policy.",
       "properties": {
         "foreign_bytes": {
           "description": "Positive foreign-library allowance of this solve, in bytes: its reservation charges\nit, and a library that enforces its own memory limit receives it. Absent, the\ndeployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is\nnot encoded, so controls without one keep their identity.",
@@ -4232,7 +4247,7 @@
     },
     "SolveSettings": {
       "additionalProperties": false,
-      "description": "The settings of one solve. The version is required; every other field takes the\ndefault of [`SolverProfile::default`] when absent.",
+      "description": "Settings of one solve; original per-field defaults and admission stay authoritative.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -4575,11 +4590,11 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Host fitting settings whose experiment controls still carry physical coordinates.",
+  "description": "Host fit settings whose experiment controls retain physical coordinates.",
   "properties": {
     "settings": {
       "$ref": "#/$defs/FitPreparationDocumentForPhysicalSimulationRequest",
-      "description": "One shared fitting-settings declaration, with pending experiment controls."
+      "description": "One shared fitting declaration with pending experiment controls."
     },
     "version": {
       "const": 1,

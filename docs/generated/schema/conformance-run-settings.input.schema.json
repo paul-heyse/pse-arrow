@@ -40,23 +40,28 @@
     },
     "EvaluationLimits": {
       "additionalProperties": false,
+      "description": "Explicit resource allowance for one compiled body and its worker.",
       "properties": {
         "derivative_components": {
+          "description": "Maximum Taylor components per scalar.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "operations": {
+          "description": "Maximum scalar arithmetic operations per compiled demand.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "provider_calls": {
+          "description": "Maximum provider calls in the admitted control schedule.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "scratch_bytes": {
+          "description": "Maximum owned numeric scratch bytes per worker.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -186,21 +191,26 @@
     },
     "Optimization": {
       "additionalProperties": false,
+      "description": "Explicit optimizer controls; no target-dependent or unbounded defaults.",
       "properties": {
         "cores": {
+          "description": "Positive bounded optimizer concurrency.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "cpe_iterations": {
+          "description": "Common-pair elimination rounds.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "evaluator": {
-          "$ref": "#/$defs/Evaluator"
+          "$ref": "#/$defs/Evaluator",
+          "description": "Explicit implementation for scalar Value arithmetic blocks."
         },
         "horner_iterations": {
+          "description": "Horner search budget.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -219,8 +229,8 @@
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
         "compiler": {
-          "$ref": "#/$defs/StudyCompilerProfile",
-          "description": "Existing evaluator profile, encoded through its complete remote projection."
+          "$ref": "#/$defs/Profile",
+          "description": "Existing evaluator profile, encoded by its actual source declaration."
         },
         "limits": {
           "$ref": "#/$defs/Limits",
@@ -233,24 +243,27 @@
       ],
       "type": "object"
     },
-    "StudyCompilerProfile": {
+    "Profile": {
       "additionalProperties": false,
+      "description": "Consumed compilation controls, separate from semantic preparation.",
       "properties": {
         "assembly": {
           "$ref": "#/$defs/AssemblyLimits",
           "description": "Per-case sparse assembly and complete numerical-worker admission limits."
         },
         "class_proof_work": {
-          "description": "Conservative shared domain/class construction work, not measured operations.",
+          "description": "Shared finite conservative construction work for domain facts and demanded\nclass proof, including expression storage/substitution bounds and derivative\ncalls. These units are not measured library-operation counters and do not\nadmit byte allocations or numerical evaluator work.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "evaluation": {
-          "$ref": "#/$defs/EvaluationLimits"
+          "$ref": "#/$defs/EvaluationLimits",
+          "description": "Local numeric limits affecting evaluator admission."
         },
         "optimization": {
-          "$ref": "#/$defs/Optimization"
+          "$ref": "#/$defs/Optimization",
+          "description": "Optimization controls."
         }
       },
       "required": [

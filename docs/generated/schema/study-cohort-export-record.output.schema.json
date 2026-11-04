@@ -487,13 +487,15 @@
         "maximum_members": {
           "description": "Capture refuses if complete selected population exceeds this or the declared cohort admission bound.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 10000,
+          "minimum": 1,
           "type": "integer"
         },
         "maximum_studies": {
           "description": "Capture refuses if more studies match; maximum 64.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 64,
+          "minimum": 1,
           "type": "integer"
         }
       },

@@ -49,9 +49,10 @@
       "type": "integer"
     },
     "maximum": {
-      "description": "Header pages admit 1..=64; member/classification pages admit 1..=256.",
+      "description": "Member/classification pages admit 1..=256.",
       "format": "uint",
-      "minimum": 0,
+      "maximum": 256,
+      "minimum": 1,
       "type": "integer"
     }
   },

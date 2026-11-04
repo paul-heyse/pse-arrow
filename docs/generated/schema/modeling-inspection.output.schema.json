@@ -31,6 +31,94 @@
       ],
       "type": "object"
     },
+    "BoundIndexRef": {
+      "description": "One binder an expression is free in (blueprint §6.9 `bound_index_id`).\n\nOrdering is lexicographic on the fields in declaration order, so `bound_index` is the\nprimary key and a [`BTreeMap`] of these iterates in binder-identity order. A\nwell-formed set holds at most one entry per `bound_index`; [`IndexSet::insert`] reports\na second entry for the same binder rather than overwriting it, because two domains for\none binder is a compiler bug, not a merge.",
+      "properties": {
+        "bound_index": {
+          "description": "Actual binding occurrence.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "domain": {
+          "description": "Original indexed domain.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "kind": {
+          "description": "Original domain's entity kind.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "EntityKindId"
+        }
+      },
+      "required": [
+        "bound_index",
+        "domain",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "BoundaryRef": {
+      "description": "A boundary in a declaration or at one actual instantiated coordinate.\nEquipment kinds never stand in for an actual boundary owner.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Lexical declaration; resolved before contributing a numeric transfer.",
+          "properties": {
+            "Declared": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Declared"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One actual owner and ordered coordinate tuple.",
+          "properties": {
+            "Bound": {
+              "properties": {
+                "coordinates": {
+                  "description": "Actual coordinates in declaration order.",
+                  "items": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "type": "array"
+                },
+                "declaration": {
+                  "description": "Boundary declaration within that instance.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "instance": {
+                  "description": "Actual instance.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "InstanceId"
+                }
+              },
+              "required": [
+                "instance",
+                "declaration",
+                "coordinates"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Bound"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Bytes": {
       "description": "Exact bytes, compared, framed and stored byte for byte. A package data document's\ncontent is one; text is never implied.",
       "items": {
@@ -40,6 +128,66 @@
         "type": "integer"
       },
       "type": "array"
+    },
+    "Carrier": {
+      "description": "Actual admitted finite values, retained before specialization discards lexical coordinates.",
+      "properties": {
+        "element": {
+          "$ref": "#/$defs/Type",
+          "description": "Complete element type, including its actual entity or enumeration kind."
+        },
+        "kind": {
+          "$ref": "#/$defs/CarrierKind",
+          "description": "A finite set and a realized continuous axis are different physical roles."
+        },
+        "members": {
+          "description": "Semantic order, with exact typed values and no numerical approximation.",
+          "items": {
+            "$ref": "#/$defs/Value"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "element",
+        "members"
+      ],
+      "type": "object"
+    },
+    "CarrierKind": {
+      "description": "The declared interpretation survives even an empty carrier.",
+      "oneOf": [
+        {
+          "const": "OrderedSet",
+          "description": "An ordinary typed ordered finite set.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A realized continuous coordinate axis.",
+          "properties": {
+            "Continuous": {
+              "properties": {
+                "domain": {
+                  "description": "Actual continuous domain declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "domain"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Continuous"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "ContextCutBody": {
       "additionalProperties": false,
@@ -92,25 +240,150 @@
       ],
       "type": "object"
     },
+    "ContractRecord": {
+      "$ref": "#/$defs/ContractWire",
+      "description": "Opaque persisted complete contract. Decoding alone grants no admitted authority."
+    },
+    "ContractWire": {
+      "description": "Passive exact contract data; decoding never establishes physical admission.",
+      "properties": {
+        "axes": {
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "EntityKindId"
+          },
+          "type": "array"
+        },
+        "dimension": {
+          "$ref": "#/$defs/DimensionVector"
+        },
+        "factors": {
+          "items": {
+            "$ref": "#/$defs/UnitFactor"
+          },
+          "type": "array"
+        },
+        "formula": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FormulaWire"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "indices": {
+          "items": {
+            "$ref": "#/$defs/BoundIndexRef"
+          },
+          "type": "array"
+        },
+        "kinds": {
+          "items": {
+            "$ref": "#/$defs/KindFactor"
+          },
+          "type": "array"
+        },
+        "named": {
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "pure_number": {
+          "type": "boolean"
+        },
+        "qualified": {
+          "items": {
+            "$ref": "#/$defs/QualifiedFactorWire"
+          },
+          "type": "array"
+        },
+        "scale_bits": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "named",
+        "kinds",
+        "qualified",
+        "axes",
+        "indices",
+        "factors",
+        "dimension",
+        "scale_bits",
+        "pure_number",
+        "formula"
+      ],
+      "type": "object"
+    },
+    "DimensionVector": {
+      "description": "Rational exponents over the eight base dimensions (blueprint §4.4, §8.1).\n\nThe slots are indexed by [`BaseDimension`] and stored in its ordinal order, which is\nalso the order of the `FixedSizeList<Struct<num, den>, 8>` storage of\n`pse.dimension_vector`.\n\nDimension arithmetic is *not* physical typing: `dimensionless` is the dimension of a\nmole fraction and of a Reynolds number alike, and two quantities with the same\ndimension vector may still be incompatible (§8.1). This type answers only the\ndimensional half; the complete answer is a `QuantityType`.\n\n```\nuse pse_quantity::{BaseDimension, DimensionVector, Ratio};\n\nlet velocity = DimensionVector::base(BaseDimension::Length)\n    .div(&DimensionVector::base(BaseDimension::Time))?;\nassert_eq!(velocity.exponent(BaseDimension::Length), Ratio::ONE);\nassert_eq!(velocity.to_string(), \"L·T^-1\");\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+      "items": {
+        "$ref": "#/$defs/Ratio"
+      },
+      "maxItems": 8,
+      "minItems": 8,
+      "type": "array"
+    },
+    "DomainKey": {
+      "description": "One actual ragged axis occurrence, after its preceding coordinates have been selected.",
+      "properties": {
+        "family": {
+          "$ref": "#/$defs/FamilyKey",
+          "description": "Declared finite family."
+        },
+        "position": {
+          "description": "Axis position in declared order.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "prefix": {
+          "description": "This family's earlier selected coordinates, preserving actual ragged context.",
+          "items": {
+            "$ref": "#/$defs/Value"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "family",
+        "position",
+        "prefix"
+      ],
+      "type": "object"
+    },
     "EvaluationLimits": {
       "additionalProperties": false,
+      "description": "Explicit resource allowance for one compiled body and its worker.",
       "properties": {
         "derivative_components": {
+          "description": "Maximum Taylor components per scalar.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "operations": {
+          "description": "Maximum scalar arithmetic operations per compiled demand.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "provider_calls": {
+          "description": "Maximum provider calls in the admitted control schedule.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "scratch_bytes": {
+          "description": "Maximum owned numeric scratch bytes per worker.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -164,6 +437,73 @@
         }
       ]
     },
+    "FamilyKey": {
+      "description": "One declared finite family in an actual instance and outer coordinate context.",
+      "properties": {
+        "declaration": {
+          "description": "Original owning declaration.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        },
+        "instance": {
+          "description": "Actual definition instance, kept outside reusable body identities.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "parents": {
+          "description": "Enclosing coordinates in declared order, before this family's own binders.",
+          "items": {
+            "$ref": "#/$defs/Value"
+          },
+          "type": "array"
+        },
+        "role": {
+          "description": "Exact generated source field role of this family.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instance",
+        "declaration",
+        "role",
+        "parents"
+      ],
+      "type": "object"
+    },
+    "FormulaWire": {
+      "description": "Passive original formula attribution; restoring authority remains receipt-qualified.",
+      "properties": {
+        "authority": {
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "operands": {
+          "items": {
+            "$ref": "#/$defs/ContractWire"
+          },
+          "type": "array"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "powers": {
+          "items": {
+            "$ref": "#/$defs/Ratio"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "authority",
+        "operation",
+        "operands",
+        "powers"
+      ],
+      "type": "object"
+    },
     "InspectionConnection": {
       "additionalProperties": false,
       "description": "One selected declared connection.",
@@ -196,6 +536,25 @@
         "from",
         "to",
         "lineage"
+      ],
+      "type": "object"
+    },
+    "InspectionDomain": {
+      "additionalProperties": false,
+      "description": "An actual finite-domain occurrence and its complete contextual carrier.",
+      "properties": {
+        "carrier": {
+          "$ref": "#/$defs/Carrier",
+          "description": "Actual typed membership issued by specialization, including explicit empty domains."
+        },
+        "key": {
+          "$ref": "#/$defs/DomainKey",
+          "description": "Original family, outer context, axis position and preceding ragged coordinates."
+        }
+      },
+      "required": [
+        "key",
+        "carrier"
       ],
       "type": "object"
     },
@@ -351,12 +710,17 @@
         "role": {
           "$ref": "#/$defs/ModelingDeclarationKind",
           "description": "Authored declaration role."
+        },
+        "ty": {
+          "$ref": "#/$defs/Type",
+          "description": "Complete original admitted physical type; nominal roles remain explicit."
         }
       },
       "required": [
         "id",
         "role",
-        "lineage"
+        "lineage",
+        "ty"
       ],
       "type": "object"
     },
@@ -366,6 +730,12 @@
       "properties": {
         "connections": {
           "description": "Total connections.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "domains": {
+          "description": "Complete original finite-domain occurrence population, including empty carriers.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -393,7 +763,8 @@
         "instances",
         "members",
         "ports",
-        "connections"
+        "connections",
+        "domains"
       ],
       "type": "object"
     },
@@ -422,6 +793,27 @@
         "id",
         "symbol",
         "lineage"
+      ],
+      "type": "object"
+    },
+    "KindFactor": {
+      "additionalProperties": false,
+      "description": "One factor of a kind monomial: a kind and its nonzero rational exponent.",
+      "properties": {
+        "exponent": {
+          "$ref": "#/$defs/Ratio",
+          "description": "Its nonzero rational exponent."
+        },
+        "kind": {
+          "description": "The factor kind.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityKindId"
+        }
+      },
+      "required": [
+        "kind",
+        "exponent"
       ],
       "type": "object"
     },
@@ -621,21 +1013,26 @@
     },
     "Optimization": {
       "additionalProperties": false,
+      "description": "Explicit optimizer controls; no target-dependent or unbounded defaults.",
       "properties": {
         "cores": {
+          "description": "Positive bounded optimizer concurrency.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "cpe_iterations": {
+          "description": "Common-pair elimination rounds.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "evaluator": {
-          "$ref": "#/$defs/Evaluator"
+          "$ref": "#/$defs/Evaluator",
+          "description": "Explicit implementation for scalar Value arithmetic blocks."
         },
         "horner_iterations": {
+          "description": "Horner search budget.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -649,13 +1046,107 @@
       ],
       "type": "object"
     },
+    "PhysicalRefinement": {
+      "description": "Semantic roles retained above the physical numeric payload.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "One declared reduced coordinate slot; Scalar cannot substitute for it.",
+          "properties": {
+            "Coordinate": {
+              "properties": {
+                "map": {
+                  "description": "Owning map declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "slot": {
+                  "description": "Ordered slot declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "map",
+                "slot"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Coordinate"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Result of a reduced law awaiting its admitted scientific reconstruction.",
+          "properties": {
+            "ReducedLaw": {
+              "properties": {
+                "map": {
+                  "description": "Map used by the reduced implementation.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "reconstruction": {
+                  "description": "Admitted normalization and physical reconstruction family.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "map",
+                "reconstruction"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "ReducedLaw"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A signed datum-free transfer relative to an actual boundary.",
+          "properties": {
+            "Transfer": {
+              "properties": {
+                "boundary": {
+                  "$ref": "#/$defs/BoundaryRef",
+                  "description": "Owner-relative boundary."
+                },
+                "direction": {
+                  "$ref": "#/$defs/TransferDirection",
+                  "description": "Positive-direction convention."
+                }
+              },
+              "required": [
+                "boundary",
+                "direction"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Transfer"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "PreparationSettingsBody": {
       "additionalProperties": false,
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
         "compiler": {
-          "$ref": "#/$defs/StudyCompilerProfile",
-          "description": "Existing evaluator profile, encoded through its complete remote projection."
+          "$ref": "#/$defs/Profile",
+          "description": "Existing evaluator profile, encoded by its actual source declaration."
         },
         "limits": {
           "$ref": "#/$defs/Limits",
@@ -665,6 +1156,37 @@
       "required": [
         "compiler",
         "limits"
+      ],
+      "type": "object"
+    },
+    "Profile": {
+      "additionalProperties": false,
+      "description": "Consumed compilation controls, separate from semantic preparation.",
+      "properties": {
+        "assembly": {
+          "$ref": "#/$defs/AssemblyLimits",
+          "description": "Per-case sparse assembly and complete numerical-worker admission limits."
+        },
+        "class_proof_work": {
+          "description": "Shared finite conservative construction work for domain facts and demanded\nclass proof, including expression storage/substitution bounds and derivative\ncalls. These units are not measured library-operation counters and do not\nadmit byte allocations or numerical evaluator work.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/EvaluationLimits",
+          "description": "Local numeric limits affecting evaluator admission."
+        },
+        "optimization": {
+          "$ref": "#/$defs/Optimization",
+          "description": "Optimization controls."
+        }
+      },
+      "required": [
+        "optimization",
+        "evaluation",
+        "assembly",
+        "class_proof_work"
       ],
       "type": "object"
     },
@@ -761,6 +1283,110 @@
       "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
+    "QualifiedFactorWire": {
+      "description": "Passive complete quantity key with its original exact exponent.",
+      "properties": {
+        "exponent": {
+          "$ref": "#/$defs/Ratio"
+        },
+        "key": {
+          "$ref": "#/$defs/QuantityTypeKey"
+        }
+      },
+      "required": [
+        "key",
+        "exponent"
+      ],
+      "type": "object"
+    },
+    "QuantityScheme": {
+      "$ref": "#/$defs/SchemeWire",
+      "description": "Untrusted syntax of a physical scheme; retained resolved leaves are opaque contracts."
+    },
+    "QuantityTypeKey": {
+      "additionalProperties": false,
+      "description": "Components that determine one registered physical type.",
+      "properties": {
+        "basis": {
+          "description": "Optional material basis.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "BasisId"
+        },
+        "kind": {
+          "description": "The measured quantity kind.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityKindId"
+        },
+        "reference_state": {
+          "description": "Optional datum.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ReferenceStateId"
+        },
+        "scale_kind": {
+          "$ref": "#/$defs/ScaleKind",
+          "description": "Point or difference semantics."
+        },
+        "shape": {
+          "description": "Ordered domain kinds.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "EntityKindId"
+          },
+          "type": "array"
+        },
+        "subject_kind": {
+          "description": "Optional subject obligation; absent and explicit `none` stay distinct.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "EntityKindId"
+        }
+      },
+      "required": [
+        "kind",
+        "basis",
+        "reference_state",
+        "scale_kind",
+        "shape",
+        "subject_kind"
+      ],
+      "type": "object"
+    },
+    "Ratio": {
+      "additionalProperties": false,
+      "description": "A rational exponent in canonical reduced form (blueprint §4.4 `pse.dimension_vector`).\n\nThe invariant is total: `den > 0`, `gcd(|num|, den) == 1`, and zero is exactly `0/1`.\nConstruction goes through [`Ratio::new`] or [`Ratio::from_parts`], both of which reject\nanything else, and deserialization re-validates. Two `Ratio`s are equal exactly when\nthey are the same rational number.\n\n`Ord` is the lexicographic order of the canonical `(num, den)` pair, not numeric order:\nit exists so that a `Ratio` can key a `BTreeMap` deterministically. Compare magnitudes\nwith [`Ratio::checked_sub`] and [`Ratio::is_zero`] rather than with `<`.\n\n```\nuse pse_quantity::Ratio;\n\nassert_eq!(Ratio::new(2, 4)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(-1, -2)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(0, 5)?, Ratio::ZERO);\nassert!(Ratio::new(1, 0).is_err());\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+      "properties": {
+        "den": {
+          "format": "int16",
+          "maximum": 32767,
+          "minimum": -32768,
+          "type": "integer"
+        },
+        "num": {
+          "format": "int16",
+          "maximum": 32767,
+          "minimum": -32768,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "num",
+        "den"
+      ],
+      "type": "object"
+    },
     "ResearchSource": {
       "additionalProperties": false,
       "description": "Authenticated original research ancestry carried by actual operation inputs.",
@@ -803,33 +1429,922 @@
       ],
       "type": "object"
     },
-    "StudyCompilerProfile": {
+    "ScaleKind": {
+      "enum": [
+        "point",
+        "difference"
+      ],
+      "type": "string"
+    },
+    "SchemeWire": {
+      "description": "Untrusted actual source scheme document, with opaque resolved leaves.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A registered complete physical type identity retained as passive syntax.",
+          "properties": {
+            "Concrete": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "QuantityTypeId"
+            }
+          },
+          "required": [
+            "Concrete"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A captured complete physical contract whose restoration requires its qualified receipt.",
+          "properties": {
+            "Resolved": {
+              "$ref": "#/$defs/ContractRecord"
+            }
+          },
+          "required": [
+            "Resolved"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A universally quantified physical type name.",
+          "properties": {
+            "Variable": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Variable"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Difference type of the enclosed point or difference quantity scheme.",
+          "properties": {
+            "Delta": {
+              "$ref": "#/$defs/SchemeWire"
+            }
+          },
+          "required": [
+            "Delta"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Product of two schemes, interpreted by registered physical operation rules.",
+          "properties": {
+            "Product": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/SchemeWire"
+                },
+                {
+                  "$ref": "#/$defs/SchemeWire"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Product"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Quotient of two schemes, interpreted by registered physical operation rules.",
+          "properties": {
+            "Quotient": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/SchemeWire"
+                },
+                {
+                  "$ref": "#/$defs/SchemeWire"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Quotient"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A scheme raised to its exact rational power.",
+          "properties": {
+            "Power": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/SchemeWire"
+                },
+                {
+                  "$ref": "#/$defs/Ratio"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Power"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "TransferDirection": {
+      "description": "Positive direction is a convention, not a nonnegativity constraint.",
+      "oneOf": [
+        {
+          "const": "Into",
+          "description": "Positive magnitude enters the owner.",
+          "type": "string"
+        },
+        {
+          "const": "OutOf",
+          "description": "Positive magnitude leaves the owner.",
+          "type": "string"
+        }
+      ]
+    },
+    "Type": {
+      "description": "A checked language type. Kind and subject references never use scientific enums.",
+      "oneOf": [
+        {
+          "const": "Boolean",
+          "description": "Predicate value.",
+          "type": "string"
+        },
+        {
+          "const": "Integer",
+          "description": "Exact integer value.",
+          "type": "string"
+        },
+        {
+          "const": "Text",
+          "description": "Text or label.",
+          "type": "string"
+        },
+        {
+          "const": "QuantityType",
+          "description": "A named quantity type of the physical document (ADR-0123 Outcome 6).",
+          "type": "string"
+        },
+        {
+          "const": "ReferenceState",
+          "description": "A named reference state of the physical document, with its typed conditions\n(ADR-0123 Outcome 6).",
+          "type": "string"
+        },
+        {
+          "const": "Applicability",
+          "description": "Typed evidence claim result; no numerical or boolean coercion exists.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Declared receiving or emitting physical boundary.",
+          "properties": {
+            "Boundary": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Boundary"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Declared physical coordinate map, never a numerical value.",
+          "properties": {
+            "CoordinateMap": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "CoordinateMap"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Declared reconstruction family belonging to one physical coordinate map.",
+          "properties": {
+            "Reconstruction": {
+              "properties": {
+                "declaration": {
+                  "description": "Reconstruction declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "map": {
+                  "description": "Owning coordinate map.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "declaration",
+                "map"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Reconstruction"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Complete physical type scheme.",
+          "properties": {
+            "Quantity": {
+              "$ref": "#/$defs/QuantityScheme"
+            }
+          },
+          "required": [
+            "Quantity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A nominal coordinate, reduced-law application or directed boundary contract.\nThe refinement is checked before arithmetic consumes its physical payload.",
+          "properties": {
+            "RefinedQuantity": {
+              "properties": {
+                "quantity": {
+                  "$ref": "#/$defs/QuantityScheme",
+                  "description": "Underlying complete physical scheme, including anonymous intermediates."
+                },
+                "refinement": {
+                  "$ref": "#/$defs/PhysicalRefinement",
+                  "description": "Nominal context owned by the admitting modeling declaration."
+                }
+              },
+              "required": [
+                "quantity",
+                "refinement"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "RefinedQuantity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Member of a declared entity kind.",
+          "properties": {
+            "Entity": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Entity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Member of a package enumeration.",
+          "properties": {
+            "Enum": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Enum"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An opaque value of a declared identifier scheme, compared byte-exactly and never\nparsed (ADR-0123 Outcome 2).",
+          "properties": {
+            "Identifier": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Identifier"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Finite ordered membership.",
+          "properties": {
+            "Set": {
+              "$ref": "#/$defs/Type"
+            }
+          },
+          "required": [
+            "Set"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A continuous coordinate axis, realized before finite expansion.",
+          "properties": {
+            "Continuous": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                {
+                  "$ref": "#/$defs/Type"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Continuous"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ordered typed product coordinate.",
+          "properties": {
+            "Tuple": {
+              "items": {
+                "$ref": "#/$defs/Type"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Tuple"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Typed table declaration.",
+          "properties": {
+            "Table": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Table"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A row in a typed table.",
+          "properties": {
+            "Row": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Row"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Definition reference.",
+          "properties": {
+            "Definition": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Definition"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Interface-typed slot.",
+          "properties": {
+            "Interface": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Interface"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Explicit pure function reference with named arguments and result.",
+          "properties": {
+            "Function": {
+              "properties": {
+                "arguments": {
+                  "description": "Argument names and types in declared order.",
+                  "items": {
+                    "maxItems": 2,
+                    "minItems": 2,
+                    "prefixItems": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "$ref": "#/$defs/Type"
+                      }
+                    ],
+                    "type": "array"
+                  },
+                  "type": "array"
+                },
+                "result": {
+                  "$ref": "#/$defs/Type",
+                  "description": "Result type."
+                }
+              },
+              "required": [
+                "arguments",
+                "result"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Function"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Explicit optional value.",
+          "properties": {
+            "Optional": {
+              "$ref": "#/$defs/Type"
+            }
+          },
+          "required": [
+            "Optional"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Indexed values retain coordinate kind identities; membership is a structural binding.",
+          "properties": {
+            "Indexed": {
+              "properties": {
+                "axes": {
+                  "description": "Coordinate kind of each index, in order.",
+                  "items": {
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "type": "string",
+                    "x-pse-identity": "DeclarationId"
+                  },
+                  "type": "array"
+                },
+                "element": {
+                  "$ref": "#/$defs/Type",
+                  "description": "Type of each indexed element."
+                }
+              },
+              "required": [
+                "element",
+                "axes"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Indexed"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "UnitFactor": {
       "additionalProperties": false,
+      "description": "One canonical factor of a unit product: an atomic unit and its nonzero rational\nexponent (ADR-0124).",
       "properties": {
-        "assembly": {
-          "$ref": "#/$defs/AssemblyLimits",
-          "description": "Per-case sparse assembly and complete numerical-worker admission limits."
+        "exponent": {
+          "$ref": "#/$defs/Ratio",
+          "description": "The nonzero rational exponent."
         },
-        "class_proof_work": {
-          "description": "Conservative shared domain/class construction work, not measured operations.",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "evaluation": {
-          "$ref": "#/$defs/EvaluationLimits"
-        },
-        "optimization": {
-          "$ref": "#/$defs/Optimization"
+        "unit": {
+          "description": "The atomic unit, or, in an authored composition, any declared unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
         }
       },
       "required": [
-        "optimization",
-        "evaluation",
-        "assembly",
-        "class_proof_work"
+        "unit",
+        "exponent"
       ],
       "type": "object"
+    },
+    "Value": {
+      "description": "A fully explicit structural value.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Predicate.",
+          "properties": {
+            "Boolean": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "Boolean"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact integer.",
+          "properties": {
+            "Integer": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Integer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Finite scalar with its complete physical type.",
+          "properties": {
+            "Number": {
+              "additionalProperties": false,
+              "properties": {
+                "bits": {
+                  "description": "Bit pattern of the canonical `f64` value.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "quantity": {
+                  "description": "Physical quantity type.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "QuantityTypeId"
+                }
+              },
+              "required": [
+                "bits",
+                "quantity"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Number"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Generated continuous coordinate; identity is independent of its floating value.",
+          "properties": {
+            "Coordinate": {
+              "additionalProperties": false,
+              "properties": {
+                "bits": {
+                  "description": "Bit pattern of the canonical `f64` position.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "description": "Coordinate identity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "quantity": {
+                  "description": "Physical quantity type of the axis.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "QuantityTypeId"
+                }
+              },
+              "required": [
+                "id",
+                "bits",
+                "quantity"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Coordinate"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Textual label.",
+          "properties": {
+            "Text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Entity identity and its concrete kind; the kind is content, not identity\n(ADR-0123 Outcome 2).",
+          "properties": {
+            "Entity": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "description": "The entity declaration, or a keyed row's derived identity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "kind": {
+                  "description": "The most-derived kind of the entity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "id",
+                "kind"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Entity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Value of an authored closed enumeration.",
+          "properties": {
+            "Enum": {
+              "additionalProperties": false,
+              "properties": {
+                "enumeration": {
+                  "description": "Enumeration declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "member": {
+                  "description": "Member identity: renaming a member keeps it (ADR-0123 Outcome 2).",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                }
+              },
+              "required": [
+                "enumeration",
+                "member"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Enum"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An opaque value of a declared identifier scheme, compared byte-exactly and never\nparsed (ADR-0123 Outcome 2).",
+          "properties": {
+            "Identifier": {
+              "additionalProperties": false,
+              "properties": {
+                "scheme": {
+                  "description": "Identifier scheme declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "value": {
+                  "description": "The value as written.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "scheme",
+                "value"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Identifier"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Definition identity with named partial bindings.",
+          "properties": {
+            "Definition": {
+              "additionalProperties": false,
+              "properties": {
+                "bindings": {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "description": "Bound arguments by name.",
+                  "type": "object"
+                },
+                "id": {
+                  "description": "Definition declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "id",
+                "bindings"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Definition"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A pure function declaration selected as structural data.",
+          "properties": {
+            "Function": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Function"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Typed heterogeneous table row: positional cells and the column names they bind.",
+          "properties": {
+            "Row": {
+              "additionalProperties": false,
+              "properties": {
+                "fields": {
+                  "description": "Values in column order, shared with the admitted row.",
+                  "items": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "type": "array"
+                },
+                "names": {
+                  "description": "Column names in column order, shared with the admitted table.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "table": {
+                  "description": "Table declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "table",
+                "names",
+                "fields"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Row"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ordered finite set with no duplicates.",
+          "properties": {
+            "Set": {
+              "items": {
+                "$ref": "#/$defs/Value"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Set"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ragged coordinate or table key.",
+          "properties": {
+            "Tuple": {
+              "items": {
+                "$ref": "#/$defs/Value"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Tuple"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A named quantity type of the physical document (ADR-0123 Outcome 6).",
+          "properties": {
+            "QuantityType": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "QuantityTypeId"
+            }
+          },
+          "required": [
+            "QuantityType"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A named reference state of the physical document (ADR-0123 Outcome 6).",
+          "properties": {
+            "ReferenceState": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "ReferenceStateId"
+            }
+          },
+          "required": [
+            "ReferenceState"
+          ],
+          "type": "object"
+        },
+        {
+          "const": "Missing",
+          "description": "Explicit absence, never numeric zero.",
+          "type": "string"
+        }
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -841,12 +2356,23 @@
       "items": {
         "$ref": "#/$defs/InspectionConnection"
       },
+      "maxItems": 128,
+      "minItems": 0,
       "type": "array"
     },
     "document_version": {
       "const": 1,
       "default": 1,
       "type": "integer"
+    },
+    "domains": {
+      "description": "Original contextual finite carriers, preserving kind, exact values and semantic order.",
+      "items": {
+        "$ref": "#/$defs/InspectionDomain"
+      },
+      "maxItems": 128,
+      "minItems": 0,
+      "type": "array"
     },
     "execution": {
       "$ref": "#/$defs/InspectionExecution",
@@ -857,6 +2383,8 @@
       "items": {
         "$ref": "#/$defs/InspectionInstance"
       },
+      "maxItems": 128,
+      "minItems": 0,
       "type": "array"
     },
     "members": {
@@ -864,6 +2392,8 @@
       "items": {
         "$ref": "#/$defs/InspectionMember"
       },
+      "maxItems": 128,
+      "minItems": 0,
       "type": "array"
     },
     "next_offset": {
@@ -890,6 +2420,8 @@
       "items": {
         "$ref": "#/$defs/InspectionPort"
       },
+      "maxItems": 128,
+      "minItems": 0,
       "type": "array"
     },
     "preparation": {
@@ -912,6 +2444,7 @@
     "members",
     "ports",
     "connections",
+    "domains",
     "document_version"
   ],
   "title": "ModelingInspection",

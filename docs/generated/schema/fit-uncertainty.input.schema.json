@@ -16,7 +16,7 @@
     },
     "ProfileControls": {
       "additionalProperties": false,
-      "description": "Controls of the profile-likelihood pin chains (ADR-0118 item 8).",
+      "description": "Existing bounded profile-likelihood pin-chain controls.",
       "properties": {
         "points": {
           "$ref": "#/$defs/PositiveCount",
@@ -45,7 +45,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "What a fit derives from its estimate beyond the covariance, which every fit with free\nparameters derives (ADR-0118 item 8; Plan 22 S3).",
+  "description": "Confidence intervals and optional profile/prediction work of the actual fit.",
   "properties": {
     "document_version": {
       "const": 1,

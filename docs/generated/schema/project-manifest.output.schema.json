@@ -85,7 +85,7 @@
     },
     "AdjointSettings": {
       "additionalProperties": false,
-      "description": "Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary\ndocument (ADR-0116 Outcome 6): the version is required, and absent fields take these\ndefaults. The backward pass replays at most `steps_between_checkpoints` native steps\nfrom a stored checkpoint, and at most `max_checkpoints` are held at once, at least two\nper scheduled segment; a forward pass that needs more stops with a typed memory limit.\nTheir estimated bytes are charged against the caller's memory allowance before any\nnative work.",
+      "description": "Finite original adjoint-checkpoint controls.",
       "properties": {
         "max_checkpoints": {
           "$ref": "#/$defs/PositiveCount",
@@ -197,7 +197,7 @@
     },
     "AdmittedHorizonValues": {
       "additionalProperties": false,
-      "description": "Canonical horizon assignments admitted in the selected physical context.",
+      "description": "Canonical assignments admitted against the original physical context.",
       "properties": {
         "arrival": {
           "description": "Canonical estimator priors in declared arrival order.",
@@ -6135,7 +6135,7 @@
       "type": "object"
     },
     "BackendSettingsBody": {
-      "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
+      "description": "Explicit serializable native settings; routed defaults remain local to native dispatch.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -6988,7 +6988,7 @@
     },
     "BlockSolveOverrideBody": {
       "additionalProperties": false,
-      "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+      "description": "Native realization and finite work controls of one compiler-issued block.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -7197,7 +7197,7 @@
     },
     "CaseOperation": {
       "additionalProperties": false,
-      "description": "One authored solve operation under its admitted route and existing settings document.",
+      "description": "One existing authored solve and its native settings document.",
       "properties": {
         "case": {
           "description": "Authored case identity.",
@@ -7418,9 +7418,24 @@
       ],
       "type": "object"
     },
+    "ControllerMove": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "type": "string"
+        },
+        {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      ],
+      "type": "array"
+    },
     "ControllerOperation": {
       "additionalProperties": false,
-      "description": "Serializable controller inputs; package/prepared analysis handles are reconstructed.",
+      "description": "Original controller signal, move and advanced-step mapping intents.",
       "properties": {
         "bindings": {
           "description": "Existing signal binding intent.",
@@ -7436,36 +7451,14 @@
         "moves": {
           "description": "Existing move path/input-index mapping.",
           "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "format": "uint",
-                "minimum": 0,
-                "type": "integer"
-              }
-            ],
-            "type": "array"
+            "$ref": "#/$defs/ControllerMove"
           },
           "type": "array"
         },
         "predictions": {
           "description": "Existing advanced-step prediction mapping; absence means full solves.",
           "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "type": "array"
+            "$ref": "#/$defs/ControllerPrediction"
           },
           "type": [
             "array",
@@ -7480,6 +7473,19 @@
         "predictions"
       ],
       "type": "object"
+    },
+    "ControllerPrediction": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "type": "array"
     },
     "CovarianceOrigin": {
       "description": "Statistical provenance is independent of matrix admissibility.",
@@ -8270,6 +8276,7 @@
     },
     "DiffsolInitialConditionOptions": {
       "additionalProperties": false,
+      "description": "Source-owned remote declaration of the library's initialization controls.",
       "properties": {
         "armijo_constant": {
           "format": "double",
@@ -8326,6 +8333,7 @@
     },
     "DiffsolOdeSolverOptions": {
       "additionalProperties": false,
+      "description": "Source-owned remote declaration of the library's nonlinear integration controls.",
       "properties": {
         "max_error_test_failures": {
           "format": "uint",
@@ -8426,7 +8434,7 @@
     },
     "DiffsolSettings": {
       "additionalProperties": false,
-      "description": "Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):\nthe version is required, and absent fields take these defaults.",
+      "description": "Typed Diffsol method document with its required original version.",
       "properties": {
         "linear": {
           "$ref": "#/$defs/DiffsolLinear",
@@ -8477,7 +8485,7 @@
     },
     "EndpointRequirement": {
       "additionalProperties": false,
-      "description": "Explicit final-result obligation, independent of the requested output grid.",
+      "description": "Declared completion obligation, independent of requested output times.",
       "properties": {
         "event": {
           "description": "Allowed terminal guard identity, required only for declared-event completion.",
@@ -8528,9 +8536,27 @@
       ],
       "type": "object"
     },
+    "EstimatorMeasurement": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ],
+      "type": "array"
+    },
     "EstimatorOperation": {
       "additionalProperties": false,
-      "description": "Serializable estimator inputs for the existing horizon owner.",
+      "description": "Original estimator window, measurement, input and arrival mapping intents.",
       "properties": {
         "arrival": {
           "description": "Existing arrival prior mapping.",
@@ -8553,22 +8579,7 @@
         "measurements": {
           "description": "Existing measurement-to-case-path mapping.",
           "items": {
-            "maxItems": 2,
-            "minItems": 2,
-            "prefixItems": [
-              {
-                "pattern": "^[0-9a-fA-F]{32}$",
-                "type": "string",
-                "x-pse-identity": "SemanticId"
-              },
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              }
-            ],
-            "type": "array"
+            "$ref": "#/$defs/EstimatorMeasurement"
           },
           "type": "array"
         },
@@ -8590,23 +8601,28 @@
     },
     "EvaluationLimits": {
       "additionalProperties": false,
+      "description": "Explicit resource allowance for one compiled body and its worker.",
       "properties": {
         "derivative_components": {
+          "description": "Maximum Taylor components per scalar.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "operations": {
+          "description": "Maximum scalar arithmetic operations per compiled demand.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "provider_calls": {
+          "description": "Maximum provider calls in the admitted control schedule.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "scratch_bytes": {
+          "description": "Maximum owned numeric scratch bytes per worker.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -8730,6 +8746,7 @@
     },
     "FeralSettings": {
       "additionalProperties": false,
+      "description": "Complete original FERAL configuration binding, shared by Serde and typed projection.",
       "properties": {
         "bounded_storage_max_dimension": {
           "default": null,
@@ -8900,7 +8917,7 @@
     },
     "FitOperation": {
       "additionalProperties": false,
-      "description": "One authored fit selection; experiment data stays in the pinned source revision.",
+      "description": "One pinned authored fit and its pending physical experiment controls.",
       "properties": {
         "fit": {
           "description": "Existing authored fit identity.",
@@ -8920,11 +8937,11 @@
       "type": "object"
     },
     "FitOptimizer": {
-      "description": "Fitting owns selection between its residual method and class-specific native NLPs.",
+      "description": "Fitting owns selection between its residual method and native NLP methods.",
       "oneOf": [
         {
           "const": "automatic",
-          "description": "Use residual LM only when actual preparation establishes its complete eligibility.",
+          "description": "Use residual LM only when native preparation establishes complete eligibility.",
           "type": "string"
         },
         {
@@ -8941,7 +8958,7 @@
     },
     "FitPreparationDocumentForPhysicalSimulationRequest": {
       "additionalProperties": false,
-      "description": "Decoded fit preparation. Native fitting resolves its selected model and experiments.",
+      "description": "Decoded fit preparation; native fitting resolves selected models and experiments.",
       "properties": {
         "derivatives": {
           "$ref": "#/$defs/FitDerivatives",
@@ -9018,7 +9035,7 @@
     },
     "FitUncertaintyBody": {
       "additionalProperties": false,
-      "description": "What a fit derives from its estimate beyond the covariance, which every fit with free\nparameters derives (ADR-0118 item 8; Plan 22 S3).",
+      "description": "Confidence intervals and optional profile/prediction work of the actual fit.",
       "properties": {
         "level": {
           "$ref": "#/$defs/Fraction",
@@ -9124,7 +9141,7 @@
     },
     "HighsDiagnostics": {
       "additionalProperties": false,
-      "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
+      "description": "Requested native diagnostics, bounded by the original attempt's deadline.",
       "properties": {
         "basis_inverse": {
           "default": null,
@@ -9205,7 +9222,7 @@
     },
     "HighsPenalties": {
       "additionalProperties": false,
-      "description": "Complete physical penalty declarations for native feasibility relaxation.",
+      "description": "Complete physical penalties for native feasibility relaxation.",
       "properties": {
         "global": {
           "description": "Global lower-bound, upper-bound and constraint penalties.",
@@ -9217,6 +9234,7 @@
           "type": "array"
         },
         "lower": {
+          "default": null,
           "description": "Optional per-variable lower-bound penalties.",
           "items": {
             "format": "double",
@@ -9228,6 +9246,7 @@
           ]
         },
         "rows": {
+          "default": null,
           "description": "Optional per-row penalties.",
           "items": {
             "format": "double",
@@ -9239,6 +9258,7 @@
           ]
         },
         "upper": {
+          "default": null,
           "description": "Optional per-variable upper-bound penalties.",
           "items": {
             "format": "double",
@@ -9300,7 +9320,7 @@
     },
     "HorizonOperation": {
       "additionalProperties": false,
-      "description": "Reconstructable closed-loop operation in one pinned source/context.",
+      "description": "Reconstructable closed-loop operation in one pinned source context.",
       "properties": {
         "controller": {
           "anyOf": [
@@ -9440,7 +9460,7 @@
     },
     "IdasBand": {
       "additionalProperties": false,
-      "description": "Explicit half-bandwidths in the original admitted state ordering.\nZero retains only the diagonal on that side; no ordering is inferred.",
+      "description": "Explicit half-bandwidths in the original admitted state ordering.",
       "properties": {
         "lower": {
           "description": "Number of original state columns retained below a row's diagonal.",
@@ -9463,7 +9483,7 @@
     },
     "IdasInitialConditions": {
       "additionalProperties": false,
-      "description": "Exact IDAS consistent-initialization controls; no physical time stepping is requested.",
+      "description": "Exact native IDAS consistent-initialization work controls.",
       "properties": {
         "backtracks": {
           "default": null,
@@ -9532,7 +9552,7 @@
       "type": "object"
     },
     "IdasInitialStep": {
-      "description": "Origin of the first physical IDAS step; consistent initialization retains its\nseparate positive orientation scale in [`Profile::initial_step`].",
+      "description": "Origin of the first physical IDAS step, independent of the IC orientation scale.",
       "oneOf": [
         {
           "const": "configured",
@@ -9541,7 +9561,7 @@
         },
         {
           "const": "automatic",
-          "description": "Let the native integrator estimate its first physical step (the default).",
+          "description": "Let the native integrator estimate its first physical step.",
           "type": "string"
         }
       ]
@@ -9554,7 +9574,7 @@
       "type": "string"
     },
     "IdasLinear": {
-      "description": "IDAS Newton linear solver.",
+      "description": "IDAS Newton linear solver; original band and Krylov admission remains contextual.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -9585,7 +9605,7 @@
             "preconditioner": {
               "$ref": "#/$defs/Preconditioner",
               "default": "none",
-              "description": "Left preconditioner built from the compiled Jacobian; none when absent."
+              "description": "Left preconditioner built from the compiled Jacobian."
             }
           },
           "required": [
@@ -9597,7 +9617,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Exact matrix-free GMRES with the native library's band approximation as\na left preconditioner. Both bands name original state coordinates.",
+          "description": "Exact matrix-free GMRES with the native library's band approximation.",
           "properties": {
             "difference": {
               "$ref": "#/$defs/IdasBand",
@@ -9639,7 +9659,7 @@
             "preconditioner": {
               "$ref": "#/$defs/Preconditioner",
               "default": "none",
-              "description": "Left preconditioner built from the compiled Jacobian; none when absent."
+              "description": "Left preconditioner built from the compiled Jacobian."
             }
           },
           "required": [
@@ -9653,7 +9673,7 @@
     },
     "IdasSettings": {
       "additionalProperties": false,
-      "description": "Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document\n(ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.\nVersion 2 removes the per-state sign constraints: they derive from the authored bounds\n([`Contract::signs`], ADR-0119 Outcome 4).\nVersion 3 makes native automatic first-step selection the default (ADR-0207).",
+      "description": "Typed original IDAS method and consistent-initialization controls.",
       "properties": {
         "initial_conditions": {
           "$ref": "#/$defs/IdasInitialConditions",
@@ -9717,7 +9737,7 @@
     },
     "IntegrationControlsForArray_of_ScientificCoordinateValue": {
       "additionalProperties": false,
-      "description": "Finite integration policy. Tolerances apply to the normalized state coordinates.",
+      "description": "Finite integration policy; physical coordinate admission stays with the original owner.",
       "properties": {
         "adjoint": {
           "$ref": "#/$defs/AdjointSettings",
@@ -9853,6 +9873,7 @@
           "type": "array"
         },
         "out_rtol": {
+          "default": null,
           "description": "Explicit integrated-flux relative tolerance; required when conservation is declared.",
           "format": "double",
           "type": [
@@ -12382,7 +12403,7 @@
       "type": "object"
     },
     "OperationRequest": {
-      "description": "Supported operation owner selection, with no arbitrary closure or second engine.",
+      "description": "Supported operation owner selection; serialized host Shooting is not a native family.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -12507,21 +12528,26 @@
     },
     "Optimization": {
       "additionalProperties": false,
+      "description": "Explicit optimizer controls; no target-dependent or unbounded defaults.",
       "properties": {
         "cores": {
+          "description": "Positive bounded optimizer concurrency.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "cpe_iterations": {
+          "description": "Common-pair elimination rounds.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "evaluator": {
-          "$ref": "#/$defs/Evaluator"
+          "$ref": "#/$defs/Evaluator",
+          "description": "Explicit implementation for scalar Value arithmetic blocks."
         },
         "horner_iterations": {
+          "description": "Horner search budget.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -12547,7 +12573,7 @@
           "type": "integer"
         },
         {
-          "description": "Finite native real.",
+          "description": "Finite native real; nonfinite observations use the separate evidence owner.",
           "format": "double",
           "type": "number"
         },
@@ -12556,7 +12582,7 @@
           "type": "string"
         }
       ],
-      "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
+      "description": "Primitive native option values, preserving the original untagged document."
     },
     "PackResultPredicate": {
       "additionalProperties": false,
@@ -12744,6 +12770,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "scales": {
@@ -12850,11 +12878,11 @@
     },
     "PhysicalFitRequest": {
       "additionalProperties": false,
-      "description": "Host fitting settings whose experiment controls still carry physical coordinates.",
+      "description": "Host fit settings whose experiment controls retain physical coordinates.",
       "properties": {
         "settings": {
           "$ref": "#/$defs/FitPreparationDocumentForPhysicalSimulationRequest",
-          "description": "One shared fitting-settings declaration, with pending experiment controls."
+          "description": "One shared fitting declaration with pending experiment controls."
         },
         "version": {
           "const": 1,
@@ -12907,7 +12935,7 @@
     },
     "PhysicalSimulationRequest": {
       "additionalProperties": false,
-      "description": "Pending host simulation controls. Physical time stays signed binary64 seconds;\nall coordinate-bearing tolerances and characteristic scales carry keys and units.",
+      "description": "Pending host simulation controls; coordinates retain physical keys and units.",
       "properties": {
         "controls": {
           "$ref": "#/$defs/IntegrationControlsForArray_of_ScientificCoordinateValue",
@@ -13059,8 +13087,8 @@
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
         "compiler": {
-          "$ref": "#/$defs/StudyCompilerProfile",
-          "description": "Existing evaluator profile, encoded through its complete remote projection."
+          "$ref": "#/$defs/Profile",
+          "description": "Existing evaluator profile, encoded by its actual source declaration."
         },
         "limits": {
           "$ref": "#/$defs/Limits",
@@ -13162,9 +13190,40 @@
       ],
       "type": "object"
     },
+    "Profile": {
+      "additionalProperties": false,
+      "description": "Consumed compilation controls, separate from semantic preparation.",
+      "properties": {
+        "assembly": {
+          "$ref": "#/$defs/AssemblyLimits",
+          "description": "Per-case sparse assembly and complete numerical-worker admission limits."
+        },
+        "class_proof_work": {
+          "description": "Shared finite conservative construction work for domain facts and demanded\nclass proof, including expression storage/substitution bounds and derivative\ncalls. These units are not measured library-operation counters and do not\nadmit byte allocations or numerical evaluator work.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/EvaluationLimits",
+          "description": "Local numeric limits affecting evaluator admission."
+        },
+        "optimization": {
+          "$ref": "#/$defs/Optimization",
+          "description": "Optimization controls."
+        }
+      },
+      "required": [
+        "optimization",
+        "evaluation",
+        "assembly",
+        "class_proof_work"
+      ],
+      "type": "object"
+    },
     "ProfileControls": {
       "additionalProperties": false,
-      "description": "Controls of the profile-likelihood pin chains (ADR-0118 item 8).",
+      "description": "Existing bounded profile-likelihood pin-chain controls.",
       "properties": {
         "points": {
           "$ref": "#/$defs/PositiveCount",
@@ -13773,6 +13832,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         }
       },
@@ -13820,13 +13881,15 @@
         "proof_cells": {
           "description": "Maximum actual interval proof cells across all those rounds.",
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         },
         "rounds": {
           "description": "Maximum complete enclosure/correction rounds for this consumed product.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -15376,7 +15439,7 @@
     },
     "ScheduledInput": {
       "additionalProperties": false,
-      "description": "One contract parameter held piecewise constant: it takes a new value at each change\ntime. The integration parameter vector holds one value per interval, `times.len() + 1`\nof them, and a sensitivity column for each, so sensitivities cross every change\n(ADR-0119, I6).\n\n```\nuse pse_backend_native::dynamics::{Profile, ScheduledInput};\n\n// Two contract parameters; the second changes at t = 0.5.\nlet profile = Profile {\n    schedule: vec![ScheduledInput { parameter: 1, times: vec![0.5] }],\n    ..Profile::default()\n};\n// The static parameter comes first, then one value per interval.\nassert_eq!(profile.integration_width(2), 3);\nassert_eq!(profile.integration_parameters(&[4.0, 7.0]), vec![4.0, 7.0, 7.0]);\nassert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.25), vec![4.0, 7.0]);\n// A change takes effect at its time.\nassert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);\n```",
+      "description": "One original parameter's strictly ordered piecewise-constant change times.",
       "properties": {
         "parameter": {
           "description": "Position of the input in the contract's parameter order.",
@@ -15578,6 +15641,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "propagation": {
@@ -15612,7 +15677,7 @@
     },
     "SimulationOperation": {
       "additionalProperties": false,
-      "description": "One authored integrated simulation and its pending physical controls.",
+      "description": "One authored integration with optional pending physical controls.",
       "properties": {
         "case": {
           "description": "Authored integration case.",
@@ -15684,7 +15749,7 @@
     },
     "SolveControls": {
       "additionalProperties": false,
-      "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
+      "description": "Finite shared attempt controls chosen by the caller; accuracy stays with resolved policy.",
       "properties": {
         "foreign_bytes": {
           "description": "Positive foreign-library allowance of this solve, in bytes: its reservation charges\nit, and a library that enforces its own memory limit receives it. Absent, the\ndeployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is\nnot encoded, so controls without one keep their identity.",
@@ -15759,7 +15824,7 @@
     },
     "SolveSettings": {
       "additionalProperties": false,
-      "description": "The settings of one solve. The version is required; every other field takes the\ndefault of [`SolverProfile::default`] when absent.",
+      "description": "Settings of one solve; original per-field defaults and admission stay authoritative.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -16352,34 +16417,6 @@
       ],
       "type": "object"
     },
-    "StudyCompilerProfile": {
-      "additionalProperties": false,
-      "properties": {
-        "assembly": {
-          "$ref": "#/$defs/AssemblyLimits",
-          "description": "Per-case sparse assembly and complete numerical-worker admission limits."
-        },
-        "class_proof_work": {
-          "description": "Conservative shared domain/class construction work, not measured operations.",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "evaluation": {
-          "$ref": "#/$defs/EvaluationLimits"
-        },
-        "optimization": {
-          "$ref": "#/$defs/Optimization"
-        }
-      },
-      "required": [
-        "optimization",
-        "evaluation",
-        "assembly",
-        "class_proof_work"
-      ],
-      "type": "object"
-    },
     "StudyContinuationPermission": {
       "enum": [
         "require_usable",
@@ -16627,7 +16664,7 @@
     },
     "StudyOperation": {
       "additionalProperties": false,
-      "description": "Immutable request recorded by a study occurrence and replayed by either executor.",
+      "description": "Immutable Version8 operation descriptor recorded by an original study occurrence.",
       "properties": {
         "admitted_horizon": {
           "anyOf": [
@@ -17373,9 +17410,11 @@
       "type": "object"
     },
     "WindowInput": {
+      "description": "The original tagged study-input JSON binding, emitted from the native variants.",
       "oneOf": [
         {
           "additionalProperties": false,
+          "description": "One case value for the whole window; the input must have been constant over it.",
           "properties": {
             "kind": {
               "const": "constant",
@@ -17393,6 +17432,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "One case value per period of the window, oldest first.",
           "properties": {
             "kind": {
               "const": "periods",

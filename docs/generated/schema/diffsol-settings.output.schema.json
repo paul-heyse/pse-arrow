@@ -20,7 +20,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):\nthe version is required, and absent fields take these defaults.",
+  "description": "Typed Diffsol method document with its required original version.",
   "properties": {
     "linear": {
       "$ref": "#/$defs/DiffsolLinear",

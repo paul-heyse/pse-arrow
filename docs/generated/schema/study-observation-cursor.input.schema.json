@@ -85,6 +85,7 @@
         "offset": {
           "description": "Next event inside that batch.",
           "format": "uint",
+          "maximum": 512,
           "minimum": 0,
           "type": "integer"
         },
@@ -126,13 +127,15 @@
         "maximum_events": {
           "description": "Maximum events returned per poll, from one through 512.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 512,
+          "minimum": 1,
           "type": "integer"
         },
         "maximum_members": {
           "description": "Maximum complete selected point population, from one through 64.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 64,
+          "minimum": 1,
           "type": "integer"
         },
         "study": {
@@ -169,13 +172,7 @@
       "$ref": "#/$defs/StudyObservationRequestBody",
       "description": "Exact original observation selection and limits."
     },
-    "sources": {
-      "description": "Original parent and retry sources; older attempts remain present.",
-      "items": {
-        "$ref": "#/$defs/StudyObservationPosition"
-      },
-      "type": "array"
-    }
+    "sources": false
   },
   "required": [
     "issuing_store",

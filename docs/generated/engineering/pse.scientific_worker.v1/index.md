@@ -108,6 +108,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Evaluate (alternative tag 2).value` | 1 | `Named("Evaluate")` | `Both` | `[]` | `{}` |
 | `Stop (alternative tag 3).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
 | `Close (alternative tag 4).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
+| `Shutdown` | 5 | `Named("unit alternative")` | `Input` | `[Required]` | `{}` |
 
 ## `Response`
 
@@ -121,6 +122,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Values (alternative tag 2).value` | 1 | `Named("Values")` | `Both` | `[]` | `{}` |
 | `Failure (alternative tag 3).value` | 1 | `Named("Failure")` | `Both` | `[]` | `{}` |
 | `Closed (alternative tag 4).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
+| `Shutdown` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
 
 ## `Spec`
 

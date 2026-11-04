@@ -123,6 +123,8 @@
         "type": "string",
         "x-pse-identity": "SemanticId"
       },
+      "maxItems": 18446744073709551615,
+      "minItems": 1,
       "type": "array"
     },
     "scales": {

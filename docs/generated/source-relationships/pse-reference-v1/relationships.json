@@ -2957,6 +2957,22 @@
         "blueprint §4.7"
       ],
       "declaration_key": "ReferenceCaseContract",
+      "declaration_kind": "native_projection_adapters",
+      "direction": "Output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters_retaining_wire",
+      "output_path": "crates/pse-runtime/src/generated/reference-exchange/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/reference_exchange/case_contract.rs",
+      "source_role": "typed_owner",
+      "source_symbol": "pse_runtime::reference_exchange::case_contract::ReferenceCaseContract"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceCaseContract",
       "declaration_kind": "rust_projection",
       "direction": "Output",
       "generator_path": "xtask/src/codegen/engineering.rs",
@@ -3221,7 +3237,7 @@
       "source_identity": null,
       "source_path": "crates/pse-model/src/reference_exchange.rs",
       "source_role": "typed_owner",
-      "source_symbol": "reference_projection"
+      "source_symbol": "pse_model::reference_exchange::ReferenceEnvelope"
     },
     {
       "basis": "declared",

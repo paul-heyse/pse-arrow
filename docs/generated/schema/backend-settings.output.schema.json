@@ -46,6 +46,7 @@
     },
     "FeralSettings": {
       "additionalProperties": false,
+      "description": "Complete original FERAL configuration binding, shared by Serde and typed projection.",
       "properties": {
         "bounded_storage_max_dimension": {
           "default": null,
@@ -197,7 +198,7 @@
     },
     "HighsDiagnostics": {
       "additionalProperties": false,
-      "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
+      "description": "Requested native diagnostics, bounded by the original attempt's deadline.",
       "properties": {
         "basis_inverse": {
           "default": null,
@@ -278,7 +279,7 @@
     },
     "HighsPenalties": {
       "additionalProperties": false,
-      "description": "Complete physical penalty declarations for native feasibility relaxation.",
+      "description": "Complete physical penalties for native feasibility relaxation.",
       "properties": {
         "global": {
           "description": "Global lower-bound, upper-bound and constraint penalties.",
@@ -290,6 +291,7 @@
           "type": "array"
         },
         "lower": {
+          "default": null,
           "description": "Optional per-variable lower-bound penalties.",
           "items": {
             "format": "double",
@@ -301,6 +303,7 @@
           ]
         },
         "rows": {
+          "default": null,
           "description": "Optional per-row penalties.",
           "items": {
             "format": "double",
@@ -312,6 +315,7 @@
           ]
         },
         "upper": {
+          "default": null,
           "description": "Optional per-variable upper-bound penalties.",
           "items": {
             "format": "double",
@@ -958,7 +962,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
+  "description": "Explicit serializable native settings; routed defaults remain local to native dispatch.",
   "oneOf": [
     {
       "additionalProperties": false,

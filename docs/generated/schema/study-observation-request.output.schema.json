@@ -12,13 +12,15 @@
     "maximum_events": {
       "description": "Maximum events returned per poll, from one through 512.",
       "format": "uint",
-      "minimum": 0,
+      "maximum": 512,
+      "minimum": 1,
       "type": "integer"
     },
     "maximum_members": {
       "description": "Maximum complete selected point population, from one through 64.",
       "format": "uint",
-      "minimum": 0,
+      "maximum": 64,
+      "minimum": 1,
       "type": "integer"
     },
     "study": {

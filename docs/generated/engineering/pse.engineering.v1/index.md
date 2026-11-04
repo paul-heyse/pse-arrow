@@ -3,6 +3,145 @@
 
 Generated from actual typed declarations. Registry and contextual scientific admission retain authority.
 
+## `AccuracyGoalId`
+
+Rust owner: `pse_model::generated::identities::AccuracyGoalId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `AccuracyGoalSubject`
+
+Rust owner: `pse_model::generated::enums::AccuracyGoalSubject`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["selected_output", "optimal_objective"]`.
+
+## `AccuracyGoalUse`
+
+Rust owner: `pse_model::generated::enums::AccuracyGoalUse`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["assess", "require_satisfied"]`.
+
+## `AccuracyObservation`
+
+Rust owner: `pse_model::generated::enums::AccuracyObservation`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["steady", "sample", "endpoint", "integrated"]`.
+
+## `AdmittedBinding`
+
+Rust owner: `pse_runtime::workflow::bindings::AdmittedBinding`. Source: `crates/pse-runtime/src/workflow/bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `revision` | 1 | `Named("SourceRevisionHash")` | `Both` | `[]` | `{}` |
+| `context` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `entries` | 3 | `Map(Scalar(SemanticId), Named("AdmittedBindingEntry"))` | `Both` | `[]` | `{}` |
+
+## `AdmittedBindingEntry`
+
+Rust owner: `pse_runtime::workflow::bindings::AdmittedBindingEntry`. Source: `crates/pse-runtime/src/workflow/bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `member` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `quantity` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
+| `canonical` | 3 | `Named("FiniteBound")` | `Both` | `[]` | `{}` |
+| `parameter` | 4 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `supplied` | 5 | `Named("BindingTarget")` | `Both` | `[]` | `{}` |
+| `supplied_unit` | 6 | `Named("UnitId")` | `Both` | `[]` | `{}` |
+
+## `AdmittedHorizonValues`
+
+Rust owner: `pse_runtime::workflow::study_operations::AdmittedHorizonValues`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `inputs` | 1 | `Repeated(Named("AdmittedBindingEntry"))` | `Both` | `[]` | `{}` |
+| `arrival` | 2 | `Repeated(Named("AdmittedBindingEntry"))` | `Both` | `[]` | `{}` |
+| `trajectories` | 3 | `Map(Scalar(U64), Repeated(Named("AdmittedBindingEntry")))` | `Both` | `[]` | `{}` |
+
+## `AdmittedStudyPointPolicy`
+
+Rust owner: `pse_model::study::PointPolicy`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Named("StudyOccurrenceKey")` | `Both` | `[]` | `{}` |
+| `dependencies` | 2 | `Repeated(Named("StudyDependency"))` | `Both` | `[]` | `{}` |
+| `seed_need` | 3 | `Named("StudySeedNeed")` | `Both` | `[]` | `{}` |
+| `start` | 4 | `Named("StudyStartPolicy")` | `Both` | `[]` | `{}` |
+| `attempt_limit` | 5 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 4294967295 }]` | `{}` |
+
+## `Array16U8`
+
+Rust owner: `[u8; 16]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Scalar(Bytes)` | `Both` | `[Length { min: 16, max: 16 }]` | `{}` |
+
+## `Array2U64`
+
+Rust owner: `[u64; 2]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Repeated(Scalar(U64))` | `Both` | `[Length { min: 2, max: 2 }]` | `{}` |
+
+## `Array3Array16U8`
+
+Rust owner: `[[u8; 16]; 3]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Repeated(Named("Array16U8"))` | `Both` | `[Length { min: 3, max: 3 }]` | `{}` |
+
+## `Array3FiniteBound`
+
+Rust owner: `[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Repeated(Named("FiniteBound"))` | `Both` | `[Length { min: 3, max: 3 }]` | `{}` |
+
 ## `Array8PhysicalRatio`
 
 Rust owner: `[pse_quantity::dimension::Ratio; 8]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
@@ -12,6 +151,1727 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `values` | 1 | `Repeated(Named("PhysicalRatio"))` | `Both` | `[Length { min: 8, max: 8 }]` | `{}` |
+
+## `ArrivalDocument`
+
+Rust owner: `pse_runtime::workflow::study_operations::ArrivalDocument`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `prior` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `next` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `initial` | 3 | `Named("BindingQuantity")` | `Both` | `[]` | `{}` |
+
+## `AuthoredAccuracyGoalsRow`
+
+Rust owner: `pse_model::generated::authored::accuracy_goals::AuthoredAccuracyGoalsRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `goal_id` | 1 | `Named("AccuracyGoalId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "goal_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "accuracy_goal", "pse.domain.identity.owner": "true", "pse.domain.role": "key"}` |
+| `model_id` | 2 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "The definition selecting this engineering goal.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `case_id` | 3 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "The selected case declaring this goal.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `instance_id` | 4 | `Optional(Named("InstanceId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "The selected instance declaring this goal.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "instance", "pse.domain.role": "payload"}` |
+| `fit_id` | 5 | `Optional(Named("FitId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "The fit declaring this goal.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "fit", "pse.domain.role": "payload"}` |
+| `target_id` | 6 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "target_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `target_kind` | 7 | `Named("NumericalTarget")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "target_kind", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalTarget", "pse.domain.role": "payload"}` |
+| `quantity_id` | 8 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "quantity_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `unit_id` | 9 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `subject` | 10 | `Named("AccuracyGoalSubject")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "subject", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "AccuracyGoalSubject", "pse.domain.role": "payload"}` |
+| `observation` | 11 | `Named("AccuracyObservation")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "observation", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "AccuracyObservation", "pse.domain.role": "payload"}` |
+| `time` | 12 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "time", "pse.domain.role": "payload"}` |
+| `resolution` | 13 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "resolution", "pse.domain.role": "payload"}` |
+| `criterion_lower` | 14 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "criterion_lower", "pse.domain.role": "payload"}` |
+| `criterion_upper` | 15 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "15", "pse.domain.doc": "criterion_upper", "pse.domain.role": "payload"}` |
+| `required_class` | 16 | `Named("NumericalAccuracyClass")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "16", "pse.domain.doc": "required_class", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalAccuracyClass", "pse.domain.role": "payload"}` |
+| `use_policy` | 17 | `Named("AccuracyGoalUse")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "17", "pse.domain.doc": "use_policy", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "AccuracyGoalUse", "pse.domain.role": "payload"}` |
+| `refine` | 18 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "18", "pse.domain.doc": "refine", "pse.domain.role": "payload"}` |
+| `source` | 19 | `Named("NumericalSource")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "19", "pse.domain.doc": "source", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalSource", "pse.domain.role": "payload"}` |
+| `priority` | 20 | `Scalar(I32)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "20", "pse.domain.doc": "priority", "pse.domain.role": "payload"}` |
+| `provenance` | 21 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "21", "pse.domain.doc": "provenance", "pse.domain.role": "payload"}` |
+
+## `AuthoredCaloricRequirementsFieldConsumersItem`
+
+Rust owner: `pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequirementsFieldConsumersItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
+| `declaration_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.semantic_id"}` |
+| `power_rule_id` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.extension": "pse.semantic_id"}` |
+| `actual_flow_id` | 4 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.semantic_id"}` |
+| `exposure_expression` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+| `power_quantity_id` | 6 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.extension": "pse.semantic_id"}` |
+| `power_unit_id` | 7 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.extension": "pse.semantic_id"}` |
+| `power_allowance` | 8 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8"}` |
+| `exposure_quantity_id` | 9 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.extension": "pse.semantic_id"}` |
+| `exposure_unit_id` | 10 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.extension": "pse.semantic_id"}` |
+| `aggregate_exposure` | 11 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11"}` |
+
+## `AuthoredCaloricRequirementsRow`
+
+Rust owner: `pse_model::generated::authored::caloric_requirements::AuthoredCaloricRequirementsRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `requirement_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "requirement_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "key"}` |
+| `instance_id` | 2 | `Optional(Named("InstanceId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "The instance owning the selected physical target.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "instance", "pse.domain.role": "payload"}` |
+| `target_id` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "target_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `target_kind` | 4 | `Named("NumericalTarget")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "target_kind", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalTarget", "pse.domain.role": "payload"}` |
+| `quantity_id` | 5 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "quantity_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `unit_id` | 6 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `source` | 7 | `Named("NumericalSource")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "source", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalSource", "pse.domain.role": "payload"}` |
+| `science_revision` | 8 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "science_revision", "pse.domain.role": "payload"}` |
+| `science_records` | 9 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "science_records", "pse.domain.role": "payload", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `response_quantity_id` | 10 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "response_quantity_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `response_unit_id` | 11 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "response_unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `response` | 12 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "response", "pse.domain.role": "payload"}` |
+| `thermal_quantity_id` | 13 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "thermal_quantity_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `thermal_unit_id` | 14 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "thermal_unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `thermal_resolution` | 15 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "15", "pse.domain.doc": "thermal_resolution", "pse.domain.role": "payload"}` |
+| `consumers` | 16 | `Repeated(Named("AuthoredCaloricRequirementsFieldConsumersItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "16", "pse.domain.doc": "consumers", "pse.domain.role": "payload", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredDocumentsRow`
+
+Rust owner: `pse_model::generated::authored::documents::AuthoredDocumentsRow`. Source: `crates/pse-schema/src/catalog/s6_1_identity.rs`. Interpretation version: 2. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `document_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "&#96;named_id(package_id, path)&#96; (blueprint §11).", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "key"}` |
+| `package_id` | 2 | `Named("PackageId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "The owning package.", "pse.domain.extension": "pse.semantic_id", "pse.domain.fk.column": "package_id", "pse.domain.fk.relation": "authored.packages", "pse.domain.identity": "package", "pse.domain.role": "reference"}` |
+| `path` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "The document path, relative to the package root.", "pse.domain.role": "label"}` |
+| `source_text` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.", "pse.domain.role": "payload"}` |
+| `content` | 5 | `Optional(Scalar(Bytes))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "Exact original bytes of a package data document (ADR-0125); absent for a text document.", "pse.domain.role": "payload"}` |
+
+## `AuthoredEngineeringDefaultRulesRow`
+
+Rust owner: `pse_model::generated::authored::engineering_default_rules::AuthoredEngineeringDefaultRulesRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `rule_id` | 1 | `Named("EngineeringRuleId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "rule_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "engineering_rule", "pse.domain.identity.owner": "true", "pse.domain.role": "key"}` |
+| `quantity_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "quantity_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `unit_id` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `physical_allowance` | 4 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "physical_allowance", "pse.domain.role": "payload"}` |
+| `relative_fraction` | 5 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "relative_fraction", "pse.domain.role": "payload"}` |
+| `provenance` | 6 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "provenance", "pse.domain.role": "payload"}` |
+
+## `AuthoredEngineeringScalesRow`
+
+Rust owner: `pse_model::generated::authored::engineering_scales::AuthoredEngineeringScalesRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `scale_id` | 1 | `Named("EngineeringScaleId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "scale_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "engineering_scale", "pse.domain.identity.owner": "true", "pse.domain.role": "key"}` |
+| `model_id` | 2 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "The definition selecting this engineering scale.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `case_id` | 3 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "The selected case declaring this engineering scale.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `instance_id` | 4 | `Optional(Named("InstanceId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "The selected instance declaring this engineering scale.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "instance", "pse.domain.role": "payload"}` |
+| `fit_id` | 5 | `Optional(Named("FitId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "The fit declaring this engineering scale.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "fit", "pse.domain.role": "payload"}` |
+| `target_id` | 6 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "target_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `target_kind` | 7 | `Named("NumericalTarget")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "target_kind", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalTarget", "pse.domain.role": "payload"}` |
+| `quantity_id` | 8 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "quantity_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `unit_id` | 9 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `kind` | 10 | `Named("EngineeringScaleKind")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "kind", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "EngineeringScaleKind", "pse.domain.role": "payload"}` |
+| `value` | 11 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "value", "pse.domain.role": "payload"}` |
+| `source` | 12 | `Named("NumericalSource")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "source", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalSource", "pse.domain.role": "payload"}` |
+| `priority` | 13 | `Scalar(I32)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "priority", "pse.domain.role": "payload"}` |
+| `provenance` | 14 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "provenance", "pse.domain.role": "payload"}` |
+
+## `AuthoredFitCasesFieldExperimentsItem`
+
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `experiment_id` | 1 | `Named("InstanceId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "instance"}` |
+| `case_id` | 2 | `Named("DeclarationId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration"}` |
+| `route` | 3 | `Named("ModelingAnalysisRoute")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingAnalysisRoute"}` |
+| `bindings` | 4 | `Repeated(Named("AuthoredFitCasesFieldExperimentsItemBindingsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredFitCasesFieldExperimentsItemBindingsItem`
+
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `parameter_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
+| `path` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `AuthoredFitCasesFieldObservationsItem`
+
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `observation_id` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration"}` |
+| `value_attribute` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `standard_deviation_attribute` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `experiment_id` | 4 | `Named("InstanceId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "instance"}` |
+| `output_path` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+| `time` | 6 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6"}` |
+| `time_basis` | 7 | `Optional(Named("ObservationTimeBasis"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ObservationTimeBasis"}` |
+| `time_unit_id` | 8 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.extension": "pse.semantic_id"}` |
+| `included` | 9 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9"}` |
+| `importance` | 10 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10"}` |
+
+## `AuthoredFitCasesFieldParametersItem`
+
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `symbol_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
+| `fixed` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `value` | 3 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `lower` | 4 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `upper` | 5 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+| `scale` | 6 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6"}` |
+
+## `AuthoredFitCasesRow`
+
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `fit_id` | 1 | `Named("FitId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "fit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "fit", "pse.domain.identity.owner": "true", "pse.domain.role": "key"}` |
+| `parameters` | 2 | `Repeated(Named("AuthoredFitCasesFieldParametersItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "parameters", "pse.domain.role": "payload", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `experiments` | 3 | `Repeated(Named("AuthoredFitCasesFieldExperimentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "experiments", "pse.domain.role": "payload", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `observations` | 4 | `Repeated(Named("AuthoredFitCasesFieldObservationsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "observations", "pse.domain.role": "payload", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValue`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValue`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `accumulator (alternative tag 52).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueAccumulator")` | `Both` | `[Required]` | `{}` |
+| `alias (alternative tag 18).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `alternative (alternative tag 14).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `annotation (alternative tag 58).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueAnnotation")` | `Both` | `[Required]` | `{}` |
+| `applicability (alternative tag 42).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueApplicability")` | `Both` | `[Required]` | `{}` |
+| `atleast (alternative tag 36).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueCardinality")` | `Both` | `[Required]` | `{}` |
+| `atmost (alternative tag 35).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueCardinality")` | `Both` | `[Required]` | `{}` |
+| `attribute (alternative tag 45).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueAttribute")` | `Both` | `[Required]` | `{}` |
+| `boundary (alternative tag 30).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBoundary")` | `Both` | `[Required]` | `{}` |
+| `case (alternative tag 8).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `child (alternative tag 20).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `collocation_scheme (alternative tag 63).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueCollocationScheme")` | `Both` | `[Required]` | `{}` |
+| `complementarity (alternative tag 40).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueComplementarity")` | `Both` | `[Required]` | `{}` |
+| `connection (alternative tag 57).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueConnection")` | `Both` | `[Required]` | `{}` |
+| `constant (alternative tag 49).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueConstant")` | `Both` | `[Required]` | `{}` |
+| `continuation (alternative tag 3).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueContinuation")` | `Both` | `[Required]` | `{}` |
+| `continuous (alternative tag 61).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueContinuous")` | `Both` | `[Required]` | `{}` |
+| `contribution (alternative tag 53).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueContribution")` | `Both` | `[Required]` | `{}` |
+| `coordinate_map (alternative tag 25).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueCoordinateMap")` | `Both` | `[Required]` | `{}` |
+| `coordinate_slot (alternative tag 26).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueCoordinateSlot")` | `Both` | `[Required]` | `{}` |
+| `dataset (alternative tag 46).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueDataset")` | `Both` | `[Required]` | `{}` |
+| `definition (alternative tag 7).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `difference_scheme (alternative tag 62).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueDifferenceScheme")` | `Both` | `[Required]` | `{}` |
+| `discretization (alternative tag 64).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueDiscretization")` | `Both` | `[Required]` | `{}` |
+| `disjunction (alternative tag 13).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `entity (alternative tag 47).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueEntity")` | `Both` | `[Required]` | `{}` |
+| `entity_kind (alternative tag 5).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `enum (alternative tag 48).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueEnumeration")` | `Both` | `[Required]` | `{}` |
+| `envelope (alternative tag 44).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueEnvelope")` | `Both` | `[Required]` | `{}` |
+| `equation (alternative tag 32).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueEquation")` | `Both` | `[Required]` | `{}` |
+| `exactly (alternative tag 37).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueCardinality")` | `Both` | `[Required]` | `{}` |
+| `exchange (alternative tag 31).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueExchange")` | `Both` | `[Required]` | `{}` |
+| `expectation (alternative tag 60).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueExpectation")` | `Both` | `[Required]` | `{}` |
+| `function (alternative tag 24).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueFunction")` | `Both` | `[Required]` | `{}` |
+| `identifier_scheme` | 66 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `implicit (alternative tag 11).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `import (alternative tag 50).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueImport")` | `Both` | `[Required]` | `{}` |
+| `interface (alternative tag 6).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `inventory_balance (alternative tag 56).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueInventoryBalance")` | `Both` | `[Required]` | `{}` |
+| `let (alternative tag 17).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `logic (alternative tag 39).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueLogic")` | `Both` | `[Required]` | `{}` |
+| `package (alternative tag 4).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `parameter (alternative tag 15).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `permission (alternative tag 43).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValuePermission")` | `Both` | `[Required]` | `{}` |
+| `piecewise (alternative tag 38).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValuePiecewise")` | `Both` | `[Required]` | `{}` |
+| `port (alternative tag 21).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `preset (alternative tag 22).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `realization (alternative tag 65).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueRealization")` | `Both` | `[Required]` | `{}` |
+| `reconstruction (alternative tag 27).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueReconstruction")` | `Both` | `[Required]` | `{}` |
+| `reference_translation (alternative tag 29).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueReferenceTranslation")` | `Both` | `[Required]` | `{}` |
+| `regime (alternative tag 12).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `relaxation (alternative tag 2).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueRelaxation")` | `Both` | `[Required]` | `{}` |
+| `requirement (alternative tag 59).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueRequirement")` | `Both` | `[Required]` | `{}` |
+| `response (alternative tag 28).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueResponse")` | `Both` | `[Required]` | `{}` |
+| `scope_value (alternative tag 23).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `set (alternative tag 19).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `sos1 (alternative tag 33).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueOrderedSet")` | `Both` | `[Required]` | `{}` |
+| `sos2 (alternative tag 34).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueOrderedSet")` | `Both` | `[Required]` | `{}` |
+| `stage (alternative tag 10).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `state_port (alternative tag 55).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueStatePort")` | `Both` | `[Required]` | `{}` |
+| `state_specification (alternative tag 54).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueStateSpecification")` | `Both` | `[Required]` | `{}` |
+| `table (alternative tag 41).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueTable")` | `Both` | `[Required]` | `{}` |
+| `temporal (alternative tag 1).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueTemporal")` | `Both` | `[Required]` | `{}` |
+| `test (alternative tag 9).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueScope")` | `Both` | `[Required]` | `{}` |
+| `variable (alternative tag 16).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueBinding")` | `Both` | `[Required]` | `{}` |
+| `when (alternative tag 51).value` | 1 | `Named("AuthoredModelingDeclarationsFieldValueGuard")` | `Both` | `[Required]` | `{}` |
+
+## `AuthoredModelingDeclarationsFieldValueAccumulator`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAccumulator`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `boundary` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "accumulator.boundary", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `mode` | 4 | `Named("ModelingAccumulatorMode")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingAccumulatorMode"}` |
+| `tolerance` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "accumulator.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "accumulator.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAnnotation`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotation`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("ModelingAnnotationKind")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingAnnotationKind"}` |
+| `target` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "annotation_target"}` |
+| `arguments` | 3 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `scheme` | 4 | `Optional(Named("ConstraintScalingScheme"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ConstraintScalingScheme"}` |
+| `connectivity` | 5 | `Optional(Named("AuthoredModelingDeclarationsFieldValueAnnotationConnectivity"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "5"}` |
+| `objective` | 6 | `Optional(Named("AuthoredModelingDeclarationsFieldValueAnnotationObjective"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "6"}` |
+| `accuracy_goal` | 7 | `Optional(Named("AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "7"}` |
+| `engineering_scale` | 8 | `Optional(Named("AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "8"}` |
+| `engineering_default` | 9 | `Optional(Named("AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "9"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoal`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `subject` | 1 | `Named("AccuracyGoalSubject")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "AccuracyGoalSubject"}` |
+| `observation` | 2 | `Named("AccuracyObservation")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "AccuracyObservation"}` |
+| `time` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.accuracy_goal.time", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `resolution` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.accuracy_goal.resolution", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `criterion_lower` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.accuracy_goal.criterion_lower", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `criterion_upper` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.accuracy_goal.criterion_upper", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `required_class` | 7 | `Named("NumericalAccuracyClass")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalAccuracyClass"}` |
+| `use_policy` | 8 | `Named("AccuracyGoalUse")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "AccuracyGoalUse"}` |
+| `refine` | 9 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAnnotationConnectivity`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationConnectivity`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `incoming` | 1 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 4294967295 }]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.integer_range": "[0,4294967295]"}` |
+| `outgoing` | 2 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 4294967295 }]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.integer_range": "[0,4294967295]"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `rule` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("EngineeringScaleKind")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "EngineeringScaleKind"}` |
+| `value` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.engineering_scale.value", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAnnotationObjective`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAnnotationObjective`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `sense` | 1 | `Named("NativeObjectiveSense")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NativeObjectiveSense"}` |
+| `priority` | 2 | `Optional(Scalar(I64))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `weight` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.objective.weight", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `normalization` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.objective.normalization", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `absolute_tolerance` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.objective.absolute_tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `relative_tolerance` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "annotation.objective.relative_tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueApplicability`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueApplicability`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `arguments` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `owner` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `scope` | 3 | `Named("ModelingValidityLayer")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingValidityLayer"}` |
+| `evidence` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "applicability.evidence", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `claim_kind` | 5 | `Named("ModelingApplicabilityKind")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingApplicabilityKind"}` |
+| `basis` | 6 | `Optional(Named("ModelingApplicabilityBasis"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingApplicabilityBasis"}` |
+| `predicate` | 7 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "applicability.predicate", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+| `reason` | 8 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8"}` |
+| `axis` | 9 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "applicability.axis", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `lower` | 10 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "applicability.lower", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `upper` | 11 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "applicability.upper", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `alternatives` | 12 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `dependencies` | 13 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueAttribute`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAttribute`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `type` | 1 | `Optional(Repeated(Named("ModelingTypeArenaNode")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `key` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `value` | 3 | `Optional(Named("ModelingCell"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3", "pse.domain.structure": "ModelingCell"}` |
+| `unique` | 4 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `derived` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "attribute.derived", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `storage` | 6 | `Repeated(Named("ModelingColumnStorage"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueBinding`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueBinding`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `type` | 1 | `Optional(Repeated(Named("ModelingTypeArenaNode")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueBindingIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `expression` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "binding.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+| `defined_by` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "binding.defined_by", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "equation"}` |
+| `domain` | 5 | `Optional(Named("ModelingVariableDomain"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingVariableDomain"}` |
+
+## `AuthoredModelingDeclarationsFieldValueBindingIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueBindingIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "binding.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueBoundary`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueBoundary`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "boundary.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCardinality`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCardinality`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `count` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "cardinality.count", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `member` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "cardinality.member", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "cardinality.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCollocationScheme`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCollocationScheme`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `alpha` | 1 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `beta` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `right_endpoint` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueComplementarity`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueComplementarity`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `first` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "complementarity.first", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `second` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "complementarity.second", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "complementarity.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueConnection`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueConnection`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueConnectionIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `from` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "connection.from", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `to` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "connection.to", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueConnectionIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueConnectionIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "connection.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueConstant`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueConstant`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `type` | 1 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `value` | 2 | `Named("ModelingCell")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2", "pse.domain.structure": "ModelingCell"}` |
+| `provenance` | 3 | `Named("ModelingProvenance")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3", "pse.domain.structure": "ModelingProvenance"}` |
+
+## `AuthoredModelingDeclarationsFieldValueContinuation`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueContinuation`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "continuation.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `start` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "continuation.start", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `end` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "continuation.end", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueContinuous`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueContinuous`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `type` | 1 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `lower` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "continuous.lower", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `upper` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "continuous.upper", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueContribution`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueContribution`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueContributionIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `target` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "contribution.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `expression` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "contribution.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `role` | 4 | `Named("ModelingContributionRole")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingContributionRole"}` |
+
+## `AuthoredModelingDeclarationsFieldValueContributionIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueContributionIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "contribution.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCoordinateMap`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCoordinateMap`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `arguments` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `validity` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "coordinate_map.validity", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCoordinateSlot`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCoordinateSlot`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "coordinate_slot.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "coordinate_slot.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueDataset`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueDataset`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `provenance` | 2 | `Named("ModelingProvenance")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2", "pse.domain.structure": "ModelingProvenance"}` |
+| `bindings` | 3 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueDatasetBindingsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `complete_over` | 4 | `Repeated(Named("ModelingCompleteness"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `rows` | 5 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueDatasetRowsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `document` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6"}` |
+
+## `AuthoredModelingDeclarationsFieldValueDatasetBindingsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueDatasetBindingsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `value` | 2 | `Named("ModelingCell")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2", "pse.domain.structure": "ModelingCell"}` |
+
+## `AuthoredModelingDeclarationsFieldValueDatasetRowsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueDatasetRowsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `keys` | 1 | `Repeated(Named("ModelingCell"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `values` | 2 | `Repeated(Named("ModelingCell"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueDifferenceScheme`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueDifferenceScheme`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `order` | 1 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 64 }]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.integer_range": "[0,64]"}` |
+| `offsets` | 2 | `Repeated(Scalar(I64))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `weights` | 3 | `Repeated(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `quadrature` | 4 | `Repeated(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueDiscretization`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueDiscretization`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `scheme` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `elements` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "discretization.elements", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `order` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "discretization.order", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEntity`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEntity`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind_name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `provenance` | 2 | `Optional(Named("ModelingProvenance"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2", "pse.domain.structure": "ModelingProvenance"}` |
+| `attributes` | 3 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueEntityAttributesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEntityAttributesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEntityAttributesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `value` | 2 | `Named("ModelingCell")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2", "pse.domain.structure": "ModelingCell"}` |
+| `provenance` | 3 | `Optional(Named("ModelingProvenance"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3", "pse.domain.structure": "ModelingProvenance"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEnumeration`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEnumeration`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `members` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueEnumerationMembersItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEnumerationMembersItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEnumerationMembersItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `member_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
+| `name` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `facets` | 3 | `Repeated(Named("ModelingDataFacet"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEnvelope`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEnvelope`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `type` | 1 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `lower` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `upper` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEquation`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEquation`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueEquationIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "equation.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "equation"}` |
+| `condition` | 3 | `Optional(Named("AuthoredModelingDeclarationsFieldValueEquationCondition"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEquationCondition`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEquationCondition`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `variable` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "equation.condition.variable", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `active` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `AuthoredModelingDeclarationsFieldValueEquationIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEquationIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "equation.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueExchange`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueExchange`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueExchangeIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `from` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "exchange.from", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `to` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "exchange.to", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueExchangeIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueExchangeIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "exchange.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueExpectation`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueExpectation`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `actual` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "expectation.actual", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `expected` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "expectation.expected", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `tolerance` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "expectation.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `relative_tolerance` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "expectation.relative_tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueFunction`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueFunction`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `type_parameters` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `arguments` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `return_type` | 3 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `body` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "function.body", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `validity` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "function.validity", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+| `guards` | 6 | `Repeated(Named("ModelingEnvelopeGuard"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `applicability` | 7 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `continuity` | 8 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 2 }]` | `{"pse.domain.boundary.tag": "8", "pse.semantic.integer_range": "[0,2]"}` |
+| `external` | 9 | `Optional(Named("AuthoredModelingDeclarationsFieldValueFunctionExternal"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "9"}` |
+
+## `AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueFunctionExternal`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueFunctionExternal`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `implementation` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `revision` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `data` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `output` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "function.external.output", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `derivative_source` | 5 | `Named("ExternalDerivativeSource")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ExternalDerivativeSource"}` |
+| `derivatives` | 6 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 2 }]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.integer_range": "[0,2]"}` |
+| `smoothness` | 7 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 2 }]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.integer_range": "[0,2]"}` |
+
+## `AuthoredModelingDeclarationsFieldValueGuard`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueGuard`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `predicate` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "guard.predicate", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+
+## `AuthoredModelingDeclarationsFieldValueImport`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueImport`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("VersionRequirement")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":1}", "pse.domain.boundary.tag": "1", "pse.domain.structure": "VersionRequirement"}` |
+| `alias` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `AuthoredModelingDeclarationsFieldValueInventoryBalance`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueInventoryBalance`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `axis` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.axis", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `inventory` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.inventory", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `flux` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.flux", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `tolerance` | 6 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `transfers` | 7 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `event` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.transfers.event", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.transfers.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueLogic`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueLogic`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueLogicIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `proposition` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "logic.proposition", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "proposition"}` |
+
+## `AuthoredModelingDeclarationsFieldValueLogicIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueLogicIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "logic.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueOrderedSet`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueOrderedSet`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `member` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "ordered_set.member", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `weight` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "ordered_set.weight", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "ordered_set.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValuePermission`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValuePermission`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target_kind` | 1 | `Named("ModelingPermissionTarget")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingPermissionTarget"}` |
+| `targets` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `allow_unknown` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `allow_extrapolation` | 4 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+
+## `AuthoredModelingDeclarationsFieldValuePiecewise`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValuePiecewise`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `output` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.output", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `input` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.input", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `abscissa` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.abscissa", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `ordinate` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.ordinate", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueRealization`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueRealization`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `policy` | 2 | `Named("ModelingRealizationPolicy")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingRealizationPolicy"}` |
+| `accelerator` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `argument` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "realization.argument", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `function` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "realization.function", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueReconstruction`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueReconstruction`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `map` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `arguments` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `return_type` | 3 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `reference` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `normalization` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "reconstruction.normalization", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueReferenceTranslation`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueReferenceTranslation`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `arguments` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `return_type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `source_anchor` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `target_anchor` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `temperature` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "reference_translation.temperature", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `pressure` | 6 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "reference_translation.pressure", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `provenance` | 7 | `Named("ModelingProvenance")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "7", "pse.domain.structure": "ModelingProvenance"}` |
+
+## `AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueRelaxation`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueRelaxation`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "relaxation.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `nominal` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "relaxation.nominal", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueRequirement`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueRequirement`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `predicate` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "requirement.predicate", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+| `message` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `AuthoredModelingDeclarationsFieldValueResponse`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueResponse`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `witness` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `arguments` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueResponseArgumentsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `return_type` | 3 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `body` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "response.body", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueResponseArgumentsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueResponseArgumentsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScope`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScope`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `parameters` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeParametersItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `bases` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `type_parameters` | 3 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `selection` | 4 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeSelection"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "4"}` |
+| `branch` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.branch", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+| `operational` | 6 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeOperational"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "6"}` |
+| `eligibility` | 7 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.eligibility", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+| `oracle` | 8 | `Optional(Repeated(Scalar(String)))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `facets` | 9 | `Repeated(Named("ModelingKindFacet"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `fixture` | 10 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixture"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "10"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixture`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `degrees_of_freedom` | 1 | `Scalar(I64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `route` | 2 | `Optional(Named("ModelingAnalysisRoute"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingAnalysisRoute"}` |
+| `procedure` | 3 | `Optional(Named("ModelingProcedure"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingProcedure"}` |
+| `endpoint` | 4 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "4"}` |
+| `intent` | 5 | `Optional(Named("NativeSolveIntent"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NativeSolveIntent"}` |
+| `policy` | 6 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixturePolicy"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "6"}` |
+| `stages` | 7 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `initialization` | 8 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "8"}` |
+| `integration` | 9 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "9"}` |
+| `modes` | 10 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `shooting` | 11 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureShooting"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "11"}` |
+| `expected_failure` | 12 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "12"}` |
+| `diagnostics` | 13 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `specifications` | 14 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `rule` | 1 | `Named("DiagnosticRule")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "DiagnosticRule"}` |
+| `members` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureEndpoint`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("EndpointPolicy")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "EndpointPolicy"}` |
+| `event` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `class` | 1 | `Named("NativeBoundaryClass")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NativeBoundaryClass"}` |
+| `validity` | 2 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2"}` |
+| `applicability` | 3 | `Optional(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3"}` |
+| `members` | 4 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `layer` | 1 | `Named("ModelingValidityLayer")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingValidityLayer"}` |
+| `outcome` | 2 | `Named("ModelingApplicabilityOutcome")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingApplicabilityOutcome"}` |
+| `claim` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `form` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `sets` | 5 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `variables` | 6 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidity`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `layer` | 1 | `Named("ModelingValidityLayer")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingValidityLayer"}` |
+| `form` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `sets` | 3 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `variables` | 4 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `homotopy` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `initial_step` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `minimum_step` | 3 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `growth` | 4 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `maximum_attempts` | 5 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 100000 }]` | `{"pse.domain.boundary.tag": "5", "pse.semantic.integer_range": "[0,100000]"}` |
+| `time_limit_seconds` | 6 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `samples` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `relative_tolerance` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `normalized_absolute_tolerance` | 3 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `initial_step` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.fixture.integration.initial_step", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `quadrature_relative_tolerance` | 5 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+| `quadratures` | 6 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `schedules` | 7 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.fixture.integration.quadratures.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `absolute_tolerance` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.fixture.integration.quadratures.absolute_tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "zero", "pse.domain.expression.role": "scope.fixture.integration.schedules.{0}.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `times` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `values` | 3 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `free` | 4 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `lower` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "zero", "pse.domain.expression.role": "scope.fixture.integration.schedules.{0}.lower", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `upper` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.expression.ordinal": "zero", "pse.domain.expression.role": "scope.fixture.integration.schedules.{0}.upper", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `facts` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `events` | 3 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `guard` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "flatten", "pse.domain.expression.role": "scope.fixture.modes.events.guard", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `direction` | 2 | `Named("EventDirection")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "EventDirection"}` |
+| `tolerance` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "flatten", "pse.domain.expression.role": "scope.fixture.modes.events.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `reset` | 4 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `next` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "zero", "pse.domain.expression.role": "scope.fixture.modes.{0}.events.{1}.reset.{2}.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "zero", "pse.domain.expression.role": "scope.fixture.modes.{0}.events.{1}.reset.{2}.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `namespace` | 1 | `Named("ModelingFactNamespace")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingFactNamespace"}` |
+| `name` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `value` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixturePolicy`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixturePolicy`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `backend` | 1 | `Optional(Named("NativeBackend"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NativeBackend"}` |
+| `presolve` | 2 | `Optional(Named("PresolvePolicyKind"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "PresolvePolicyKind"}` |
+| `native_options` | 3 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `derivative_step` | 4 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `derivative_tolerance` | 5 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+| `derivative_cells` | 6 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `items` | 7 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `body_occurrences` | 8 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "8", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `body_slots` | 9 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "9", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `foreign_bytes` | 10 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "10", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `value` | 2 | `Named("ModelingCell")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2", "pse.domain.structure": "ModelingCell"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureShooting`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureShooting`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `method` | 1 | `Named("ShootingMethod")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ShootingMethod"}` |
+| `nodes` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.fixture.specifications.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `kind` | 2 | `Named("ModelingFixtureBinding")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingFixtureBinding"}` |
+| `expression` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.fixture.specifications.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeOperational`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOperational`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `anchors` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `settings` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `neighborhood` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.operational.neighborhood", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "predicate"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.operational.anchors.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.operational.anchors.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeParametersItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeParametersItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `default_value` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.parameters.default_value", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueScopeSelection`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeSelection`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `criterion` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.selection.criterion", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `tolerance` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "scope.selection.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStatePort`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStatePort`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStatePortIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `specification` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_port.specification", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStatePortIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStatePortIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_port.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecification`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecification`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `extends` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.extends", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `supplied` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.supplied", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `coordinates` | 4 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `reconstructions` | 5 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `transports` | 6 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `target` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.coordinates.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.coordinates.{0}.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `equation` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.reconstructions.equation", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "equation"}` |
+| `tolerance` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.reconstructions.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.reconstructions.{0}.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `expression` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.transports.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+| `tolerance` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.transports.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.transports.{0}.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+
+## `AuthoredModelingDeclarationsFieldValueTable`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueTable`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `keys` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueTableKeysItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `columns` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueTableColumnsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `value_type` | 3 | `Optional(Repeated(Named("ModelingTypeArenaNode")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `missing_policy` | 4 | `Named("ModelingMissingPolicy")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingMissingPolicy"}` |
+| `default_value` | 5 | `Optional(Named("ModelingCell"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "5", "pse.domain.structure": "ModelingCell"}` |
+| `complete_over` | 6 | `Repeated(Named("ModelingCompleteness"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `symmetry` | 7 | `Optional(Named("AuthoredModelingDeclarationsFieldValueTableSymmetry"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "7"}` |
+| `unique` | 8 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueTableUniqueItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `requirements` | 9 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `envelopes` | 10 | `Repeated(Named("ModelingEnvelope"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `storage` | 11 | `Repeated(Named("ModelingColumnStorage"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueTableColumnsItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueTableColumnsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `derived` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "table.columns.derived", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
+
+## `AuthoredModelingDeclarationsFieldValueTableKeysItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueTableKeysItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `range` | 3 | `Optional(Named("ModelingIntegerRange"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3", "pse.domain.structure": "ModelingIntegerRange"}` |
+
+## `AuthoredModelingDeclarationsFieldValueTableSymmetry`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueTableSymmetry`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `first` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `second` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `ordered` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `diagonal` | 4 | `Named("ModelingDiagonalPolicy")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingDiagonalPolicy"}` |
+
+## `AuthoredModelingDeclarationsFieldValueTableUniqueItem`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueTableUniqueItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `names` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `AuthoredModelingDeclarationsFieldValueTemporal`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueTemporal`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `axis` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `argument` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `AuthoredModelingDeclarationsRow`
+
+Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsRow`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `declaration_id` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "declaration_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.identity.owner": "true", "pse.domain.role": "key"}` |
+| `document_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "document_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `parent_id` | 3 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "parent_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `ordinal` | 4 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "ordinal", "pse.domain.role": "payload", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `name` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "name", "pse.domain.role": "payload"}` |
+| `is_override` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "is_override", "pse.domain.role": "payload"}` |
+| `source_start` | 7 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 4294967295 }]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "source_start", "pse.domain.role": "payload", "pse.semantic.integer_range": "[0,4294967295]"}` |
+| `source_end` | 8 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 4294967295 }]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "source_end", "pse.domain.role": "payload", "pse.semantic.integer_range": "[0,4294967295]"}` |
+| `value` | 9 | `Named("AuthoredModelingDeclarationsFieldValue")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[[\"accumulator\",52],[\"alias\",18],[\"alternative\",14],[\"annotation\",58],[\"applicability\",42],[\"atleast\",36],[\"atmost\",35],[\"attribute\",45],[\"boundary\",30],[\"case\",8],[\"child\",20],[\"collocation_scheme\",63],[\"complementarity\",40],[\"connection\",57],[\"constant\",49],[\"continuation\",3],[\"continuous\",61],[\"contribution\",53],[\"coordinate_map\",25],[\"coordinate_slot\",26],[\"dataset\",46],[\"definition\",7],[\"difference_scheme\",62],[\"discretization\",64],[\"disjunction\",13],[\"entity\",47],[\"entity_kind\",5],[\"enum\",48],[\"envelope\",44],[\"equation\",32],[\"exactly\",37],[\"exchange\",31],[\"expectation\",60],[\"function\",24],[\"identifier_scheme\",66],[\"implicit\",11],[\"import\",50],[\"interface\",6],[\"inventory_balance\",56],[\"let\",17],[\"logic\",39],[\"package\",4],[\"parameter\",15],[\"permission\",43],[\"piecewise\",38],[\"port\",21],[\"preset\",22],[\"realization\",65],[\"reconstruction\",27],[\"reference_translation\",29],[\"regime\",12],[\"relaxation\",2],[\"requirement\",59],[\"response\",28],[\"scope_value\",23],[\"set\",19],[\"sos1\",33],[\"sos2\",34],[\"stage\",10],[\"state_port\",55],[\"state_specification\",54],[\"table\",41],[\"temporal\",1],[\"test\",9],[\"variable\",16],[\"when\",51]],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "9", "pse.domain.doc": "value", "pse.domain.role": "payload", "pse.semantic.tagged_alternative": "{\"arms\":{\"accumulator\":\"accumulator\",\"alias\":\"binding\",\"alternative\":\"scope\",\"annotation\":\"annotation\",\"applicability\":\"applicability\",\"atleast\":\"cardinality\",\"atmost\":\"cardinality\",\"attribute\":\"attribute\",\"boundary\":\"boundary\",\"case\":\"scope\",\"child\":\"binding\",\"collocation_scheme\":\"collocation_scheme\",\"complementarity\":\"complementarity\",\"connection\":\"connection\",\"constant\":\"constant\",\"continuation\":\"continuation\",\"continuous\":\"continuous\",\"contribution\":\"contribution\",\"coordinate_map\":\"coordinate_map\",\"coordinate_slot\":\"coordinate_slot\",\"dataset\":\"dataset\",\"definition\":\"scope\",\"difference_scheme\":\"difference_scheme\",\"discretization\":\"discretization\",\"disjunction\":\"scope\",\"entity\":\"entity\",\"entity_kind\":\"scope\",\"enum\":\"enumeration\",\"envelope\":\"envelope\",\"equation\":\"equation\",\"exactly\":\"cardinality\",\"exchange\":\"exchange\",\"expectation\":\"expectation\",\"function\":\"function\",\"identifier_scheme\":null,\"implicit\":\"scope\",\"import\":\"import\",\"interface\":\"scope\",\"inventory_balance\":\"inventory_balance\",\"let\":\"binding\",\"logic\":\"logic\",\"package\":\"scope\",\"parameter\":\"binding\",\"permission\":\"permission\",\"piecewise\":\"piecewise\",\"port\":\"binding\",\"preset\":\"binding\",\"realization\":\"realization\",\"reconstruction\":\"reconstruction\",\"reference_translation\":\"reference_translation\",\"regime\":\"scope\",\"relaxation\":\"relaxation\",\"requirement\":\"requirement\",\"response\":\"response\",\"scope_value\":\"binding\",\"set\":\"binding\",\"sos1\":\"ordered_set\",\"sos2\":\"ordered_set\",\"stage\":\"scope\",\"state_port\":\"state_port\",\"state_specification\":\"state_specification\",\"table\":\"table\",\"temporal\":\"temporal\",\"test\":\"scope\",\"variable\":\"binding\",\"when\":\"guard\"},\"discriminator\":\"kind\"}"}` |
+
+## `AuthoredNumericalRequirementsRow`
+
+Rust owner: `pse_model::generated::authored::numerical_requirements::AuthoredNumericalRequirementsRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 3. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `requirement_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.doc": "requirement_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "key"}` |
+| `model_id` | 2 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `case_id` | 3 | `Optional(Named("DeclarationId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "declaration", "pse.domain.role": "payload"}` |
+| `instance_id` | 4 | `Optional(Named("InstanceId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "instance", "pse.domain.role": "payload"}` |
+| `fit_id` | 5 | `Optional(Named("FitId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "The fit whose parameter requirement this is; absent otherwise.", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "fit", "pse.domain.role": "payload"}` |
+| `target_id` | 6 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "target_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `target_kind` | 7 | `Named("NumericalTarget")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "target_kind", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalTarget", "pse.domain.role": "payload"}` |
+| `nominal` | 8 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "nominal", "pse.domain.role": "payload"}` |
+| `scaling_factor` | 9 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "scaling_factor", "pse.domain.role": "payload"}` |
+| `absolute_tolerance` | 10 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "absolute_tolerance", "pse.domain.role": "payload"}` |
+| `relative_tolerance` | 11 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "relative_tolerance", "pse.domain.role": "payload"}` |
+| `shared_engineering_allowance` | 12 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "shared_engineering_allowance", "pse.domain.role": "payload"}` |
+| `engineering_rule_id` | 13 | `Optional(Named("EngineeringRuleId"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "engineering_rule_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.identity": "engineering_rule", "pse.domain.role": "payload"}` |
+| `unit_id` | 14 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "unit_id", "pse.domain.extension": "pse.semantic_id", "pse.domain.role": "payload"}` |
+| `coordinates` | 15 | `Named("NumericalCoordinates")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "15", "pse.domain.doc": "coordinates", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "NumericalCoordinates", "pse.domain.role": "payload"}` |
+| `priority` | 16 | `Scalar(I32)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "16", "pse.domain.doc": "priority", "pse.domain.role": "payload"}` |
+| `required` | 17 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "17", "pse.domain.doc": "required", "pse.domain.role": "payload"}` |
+| `provenance` | 18 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "18", "pse.domain.doc": "provenance", "pse.domain.role": "payload"}` |
 
 ## `BasisId`
 
@@ -35,6 +1895,120 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["molar", "mass", "volume", "energy", "standard_volume", "dimensionless"]`.
 
+## `BindingAssignment`
+
+Rust owner: `pse_runtime::workflow::bindings::BindingAssignment`. Source: `crates/pse-runtime/src/workflow/bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Named("BindingTarget")` | `Both` | `[]` | `{}` |
+| `value` | 2 | `Named("BindingQuantity")` | `Both` | `[]` | `{}` |
+
+## `BindingHash`
+
+Rust owner: `pse_ids::roles::BindingHash`. Source: `crates/pse-ids/src/roles.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+
+## `BindingQuantity`
+
+Rust owner: `pse_runtime::workflow::bindings::BindingQuantity`. Source: `crates/pse-runtime/src/workflow/bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `magnitude` | 1 | `Named("FiniteBound")` | `Both` | `[]` | `{}` |
+| `quantity` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
+| `unit` | 3 | `Named("UnitId")` | `Both` | `[]` | `{}` |
+
+## `BindingTarget`
+
+Rust owner: `pse_runtime::workflow::bindings::BindingTarget`. Source: `crates/pse-runtime/src/workflow/bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Path (alternative tag 1).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Member (alternative tag 2).value` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+
+## `BlockSolveOverride`
+
+Rust owner: `pse_runtime::math::settings::BlockSolveOverride`. Source: `crates/pse-runtime/src/math/settings/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `backend` | 1 | `Optional(Named("NativeBackend"))` | `Both` | `[]` | `{}` |
+| `settings` | 2 | `Optional(Named("NativeBackendSettings"))` | `Both` | `[]` | `{}` |
+| `controls` | 3 | `Optional(Named("SolveControls"))` | `Both` | `[]` | `{}` |
+
+## `BoundIndexId`
+
+Rust owner: `pse_quantity::ids::BoundIndexId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `BoundIndexReference`
+
+Rust owner: `pse_quantity::index::BoundIndexRef`. Source: `crates/pse-quantity/src/index.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `bound_index` | 1 | `Named("BoundIndexId")` | `Output` | `[]` | `{}` |
+| `domain` | 2 | `Named("DomainId")` | `Output` | `[]` | `{}` |
+| `kind` | 3 | `Named("EntityKindId")` | `Output` | `[]` | `{}` |
+
+## `CandidateUse`
+
+Rust owner: `pse_model::generated::enums::CandidateUse`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["usable", "qualified_unclosed", "seed_only", "diagnostic_only", "unusable"]`.
+
+## `CanonicalContextCut`
+
+Rust owner: `pse_operations::canonical_contexts::ContextCut`. Source: `crates/pse-operations/src/canonical_contexts.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `issuing_store` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `project` | 2 | `Named("CanonicalProjectKey")` | `Both` | `[]` | `{}` |
+| `sequence` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `CanonicalContextSelection`
+
+Rust owner: `pse_operations::canonical_contexts::ContextSelection`. Source: `crates/pse-operations/src/canonical_contexts.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `cut` | 1 | `Named("CanonicalContextCut")` | `Both` | `[]` | `{}` |
+| `effective_at_us` | 2 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `context` | 3 | `Named("CanonicalProjectContext")` | `Both` | `[]` | `{}` |
+
 ## `CanonicalProducerClass`
 
 Rust owner: `pse_model::generated::enums::CanonicalProducerClass`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -46,6 +2020,207 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["general", "library_mathematics", "local_scientific_replay"]`.
+
+## `CanonicalProjectContext`
+
+Rust owner: `pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalProjectContextsRow`. Source: `crates/pse-schema/src/catalog/project_contexts.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.key": "project_context", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `project` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.canonical.key": "project", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "project", "pse.domain.role": "payload"}` |
+| `scope` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "scope", "pse.domain.role": "payload"}` |
+| `revision` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.canonical.key": "revision", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "revision", "pse.domain.role": "payload"}` |
+| `source_identity` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "source_identity", "pse.domain.role": "payload"}` |
+| `physical_context` | 6 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "physical_context", "pse.domain.role": "payload"}` |
+| `physical_revision` | 7 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "physical_revision", "pse.domain.role": "payload"}` |
+| `physical_source_identity` | 8 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "physical_source_identity", "pse.domain.role": "payload"}` |
+| `effective_from_us` | 9 | `Scalar(I64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "effective_from_us", "pse.domain.role": "payload"}` |
+| `effective_to_us` | 10 | `Optional(Scalar(I64))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "effective_to_us", "pse.domain.role": "payload"}` |
+| `recorded_sequence` | 11 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "recorded_sequence", "pse.domain.role": "payload"}` |
+| `corrects` | 12 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.canonical.key": "project_context", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "corrects", "pse.domain.role": "payload"}` |
+| `deleted` | 13 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "deleted", "pse.domain.role": "payload"}` |
+| `request` | 14 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.canonical.readonly": "true", "pse.domain.doc": "request", "pse.domain.role": "payload"}` |
+
+## `CanonicalProjectKey`
+
+Rust owner: `pse_model::generated::canonical::ProjectKey`. Source: `crates/pse-schema/src/model/canonical.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `CanonicalStudySummary`
+
+Rust owner: `pse_operations::canonical_studies::StudySummary`. Source: `crates/pse-operations/src/canonical_studies.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `run` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `problem` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `revision` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `interpretation` | 5 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `point_count` | 6 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `next_ordinal` | 7 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `active` | 8 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `cancelled` | 9 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `generation` | 10 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `terminal` | 11 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+
+## `CanonicalTerminalOutcome`
+
+Rust owner: `pse_model::generated::enums::CanonicalTerminalOutcome`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["succeeded", "failed", "partial", "cancelled"]`.
+
+## `CapturedStudyRowForStudyCohortMember`
+
+Rust owner: `pse_operations::canonical_study_workbench::CapturedStudyRow<pse_operations::canonical_study_workbench::StudyCohortMember>`. Source: `crates/pse-operations/src/canonical_study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `position` | 1 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `value` | 2 | `Named("StudyCohortMember")` | `Output` | `[Required]` | `{}` |
+
+## `CapturedStudyRowForStudyWorkbenchHeader`
+
+Rust owner: `pse_operations::canonical_study_workbench::CapturedStudyRow<pse_operations::canonical_study_workbench::StudyWorkbenchHeader>`. Source: `crates/pse-operations/src/canonical_study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `position` | 1 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `value` | 2 | `Named("StudyWorkbenchHeader")` | `Output` | `[Required]` | `{}` |
+
+## `CaseOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::CaseOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `case` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
+| `route` | 2 | `Named("ModelingAnalysisRoute")` | `Both` | `[]` | `{}` |
+| `settings` | 3 | `Named("SolveSettings")` | `Both` | `[]` | `{}` |
+
+## `ClarabelDirect`
+
+Rust owner: `pse_model::generated::enums::ClarabelDirect`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["qdldl", "mkl_pardiso"]`.
+
+## `ClarabelMergeMethod`
+
+Rust owner: `pse_model::generated::enums::ClarabelMergeMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["none", "parent_child", "clique_graph"]`.
+
+## `ClarabelMode`
+
+Rust owner: `pse_model::generated::enums::ClarabelMode`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["single_solve", "reusable_data"]`.
+
+## `ClarabelSettings`
+
+Rust owner: `pse_backend_native::conic::Settings`. Source: `crates/pse-backend-native/src/conic/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `mode` | 1 | `Named("ClarabelMode")` | `Both` | `[]` | `{}` |
+| `direct` | 2 | `Named("ClarabelDirect")` | `Both` | `[]` | `{}` |
+| `max_step_fraction` | 3 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `tol_infeas_abs` | 4 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `tol_infeas_rel` | 5 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `tol_ktratio` | 6 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `reduced_tol_infeas_abs` | 7 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `reduced_tol_infeas_rel` | 8 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `reduced_tol_ktratio` | 9 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `equilibrate_max_iter` | 10 | `Scalar(U32)` | `Both` | `[]` | `{}` |
+| `equilibrate_min_scaling` | 11 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `equilibrate_max_scaling` | 12 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `linesearch_backtrack_step` | 13 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `min_switch_step_length` | 14 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `min_terminate_step_length` | 15 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `static_regularization_enable` | 16 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `static_regularization_constant` | 17 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `static_regularization_proportional` | 18 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `dynamic_regularization_enable` | 19 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `dynamic_regularization_eps` | 20 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `dynamic_regularization_delta` | 21 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `iterative_refinement_enable` | 22 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `iterative_refinement_reltol` | 23 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `iterative_refinement_abstol` | 24 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `iterative_refinement_max_iter` | 25 | `Scalar(U32)` | `Both` | `[]` | `{}` |
+| `iterative_refinement_stop_ratio` | 26 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `presolve_enable` | 27 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `input_sparse_dropzeros` | 28 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `chordal_decomposition_enable` | 29 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `chordal_decomposition_merge_method` | 30 | `Named("ClarabelMergeMethod")` | `Both` | `[]` | `{}` |
+| `chordal_decomposition_compact` | 31 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `chordal_decomposition_complete_dual` | 32 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `ClosurePolicy`
+
+Rust owner: `pse_model::generated::enums::ClosurePolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["require_closed", "allow_unclosed"]`.
+
+## `CompilerProfile`
+
+Rust owner: `pse_compiler::workspace::Profile`. Source: `crates/pse-compiler/src/workspace.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `optimization` | 1 | `Named("MathOptimization")` | `Both` | `[]` | `{}` |
+| `evaluation` | 2 | `Named("MathEvaluationLimits")` | `Both` | `[]` | `{}` |
+| `assembly` | 3 | `Named("MathAssemblyLimits")` | `Both` | `[]` | `{}` |
+| `class_proof_work` | 4 | `Scalar(U64)` | `Both` | `[]` | `{}` |
 
 ## `CompositionBasis`
 
@@ -59,6 +2234,53 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["mole_fraction", "mass_fraction", "volume_fraction", "molality", "molarity"]`.
 
+## `ConstraintScalingScheme`
+
+Rust owner: `pse_model::generated::enums::ConstraintScalingScheme`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["harmonicMean", "inverseSum", "inverseRSS", "inverseMaximum", "inverseMinimum"]`.
+
+## `ControllerMove`
+
+Rust owner: `pse_runtime::workflow::study_operations::intent::ControllerMove`. Source: `crates/pse-runtime/src/workflow/study_operations/intent.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `path` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `input` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `ControllerOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::ControllerOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `case` | 1 | `Named("CaseOperation")` | `Both` | `[]` | `{}` |
+| `bindings` | 2 | `Repeated(Named("HorizonBinding"))` | `Both` | `[]` | `{}` |
+| `moves` | 3 | `Repeated(Named("ControllerMove"))` | `Both` | `[]` | `{}` |
+| `predictions` | 4 | `Optional(Repeated(Named("ControllerPrediction")))` | `Both` | `[]` | `{}` |
+
+## `ControllerPrediction`
+
+Rust owner: `pse_runtime::workflow::study_operations::intent::ControllerPrediction`. Source: `crates/pse-runtime/src/workflow/study_operations/intent.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `binding` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `predictor` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
 ## `DeclarationId`
 
 Rust owner: `pse_model::generated::identities::DeclarationId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
@@ -68,6 +2290,228 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `DiagnosticNonfiniteObservation`
+
+Rust owner: `pse_model::generated::enums::DiagnosticNonfiniteObservation`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["nan", "positive_infinity", "negative_infinity"]`.
+
+## `DiagnosticObservation`
+
+Rust owner: `pse_model::diagnostic::Observation`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Missing` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Real (alternative tag 2).value` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `Nonfinite (alternative tag 3).value` | 1 | `Named("DiagnosticNonfiniteObservation")` | `Both` | `[]` | `{}` |
+| `Physical (alternative tag 4).value` | 1 | `Named("DiagnosticPhysicalObservation")` | `Both` | `[]` | `{}` |
+| `Integer (alternative tag 5).value` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `Boolean (alternative tag 6).value` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `Text (alternative tag 7).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Contracts (alternative tag 8).value` | 1 | `Repeated(Named("DiagnosticOperandContract"))` | `Both` | `[]` | `{}` |
+
+## `DiagnosticOperandContract`
+
+Rust owner: `pse_diagnostics::OperandContract`. Source: `crates/pse-diagnostics/src/lib.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `quantity` | 1 | `Named("Array16U8")` | `Output` | `[]` | `{}` |
+| `indices` | 2 | `Repeated(Named("Array3Array16U8"))` | `Output` | `[]` | `{}` |
+
+## `DiagnosticOperationId`
+
+Rust owner: `pse_diagnostics::observation::OperationId`. Source: `crates/pse-diagnostics/src/observation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `process_instance` | 1 | `Named("Array2U64")` | `Output` | `[]` | `{}` |
+| `sequence` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+
+## `DiagnosticPhysicalObservation`
+
+Rust owner: `pse_model::diagnostic::PhysicalObservation`. Source: `crates/pse-model/src/diagnostic.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `magnitude` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `quantity` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `unit` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `context` | 4 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+
+## `DiagnosticProducerId`
+
+Rust owner: `pse_diagnostics::observation::producer::ProducerId`. Source: `crates/pse-diagnostics/src/observation/producer.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Named("DiagnosticOperationId")` | `Output` | `[]` | `{}` |
+| `sequence` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+
+## `DiagnosticProducerRole`
+
+Rust owner: `pse_diagnostics::observation::producer::ProducerRole`. Source: `crates/pse-diagnostics/src/observation/producer.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `NativeCallback` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `CoordinateTransport` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `OriginalOracle` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `NativeIteration` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Evaluator` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Provider` | 6 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Workflow` | 7 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `NativeFactor` | 8 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `DiagnosticRule`
+
+Rust owner: `pse_diagnostics::vocabulary::DiagnosticRule`. Source: `crates/pse-diagnostics/src/vocabulary.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["authoring.budget", "authoring.contract", "authoring.derived_write", "authoring.document_io", "authoring.missing_id", "authoring.package_unresolved", "authoring.package_version_conflict", "authoring.rename_named", "authoring.schema_version", "authoring.syntax", "authoring.unknown_key", "authoring.unknown_row_key", "authoring.unresolved_target", "candidate.evaluation_failed", "compiler.cancelled", "compiler.limit", "compiler.math", "compiler.missing", "compiler.modeling", "compiler.structure", "compiler.syntax", "domain.potential_evaluation_error", "equation.canceling_terms", "equation.large_residual", "equation.mismatched_term", "equation.term_evaluation_failed", "fit.candidate_validation", "fit.final_evaluation", "fit.objective_overflow", "fit.response_rank", "jacobian.analysis_inconclusive", "jacobian.condition_estimate", "jacobian.extreme_column", "jacobian.extreme_entry", "jacobian.extreme_row", "jacobian.numerical_rank_deficiency", "jacobian.parallel_columns", "jacobian.parallel_rows", "math.applicability", "math.cancelled", "math.coefficient_range", "math.contract", "math.domain", "math.evaluation", "math.library", "math.limit", "math.native", "math.provider", "math.quantity", "math.range", "math.validity", "modeling.budget", "modeling.cancelled", "modeling.capability", "modeling.conditional_unit.admission.invalid_model", "modeling.conditional_unit.admission.numerical", "modeling.conditional_unit.admission.trial_rejected", "modeling.contract", "modeling.diagnostic_samples", "modeling.diagnostics", "modeling.domain", "modeling.domain.tightened", "modeling.dynamic.algebraic_reset.unsupported", "modeling.dynamic.inventory_transfer.event.unsupported", "modeling.initialization.attempt_limit", "modeling.initialization.incomplete", "modeling.initialization.minimum_step", "modeling.initialization.outcome", "modeling.initialization.step_precision", "modeling.nonlinear.attempt_limit", "modeling.nonlinear.cancelled", "modeling.nonlinear.initial_inconclusive", "modeling.nonlinear.time_limit", "modeling.objective", "modeling.provenance", "modeling.qualification.infeasibility_contradicted", "modeling.qualification.rejected", "modeling.realization", "modeling.staged.start", "modeling.study.initialization", "modeling.study.predecessor", "modeling.study.procedure", "modeling.trajectory.incomplete", "modeling.trajectory.rejected", "native.cancelled", "native.contract", "native.internal", "native.limit", "native.numerical", "native.reuse", "native.route_refused", "native.structural", "native.unavailable", "native.unsupported", "objective.priority_optimization_incomplete", "shooting.candidate_validation", "shooting.evaluation", "structural.overdetermined", "structural.underdetermined", "variable.fixed_zero", "variable.large_value", "variable.missing_value", "variable.near_lower_bound", "variable.near_upper_bound", "variable.nonfinite", "variable.only_in_inequalities", "variable.outside_lower_bound", "variable.outside_upper_bound", "variable.small_value", "variable.unused", "workflow.contract", "workflow.ephemeral_publication", "workflow.export_expired", "workflow.job_payload_version", "workflow.legacy_workspace", "workflow.operations", "workflow.publication_unresolved", "workflow.unclassified", "quantity.unknown_id", "quantity.contract_mismatch", "quantity.unit_conversion", "quantity.incompatible", "quantity.nonfinite", "workflow.input", "workflow.internal", "workflow.panic", "diagnostic.aggregate", "study.binding.target", "study.binding.duplicate", "study.binding.physical", "study.binding.revision", "study.dependency.unusable", "study.seed.unavailable", "study.seed.incompatible", "study.seed.internal", "study.operation.unsupported", "modeling.conditional_unit.admission.unsupported", "modeling.conditional_unit.admission.cancelled", "modeling.conditional_unit.admission.resource_limit", "modeling.conditional_unit.admission.nonfinite", "modeling.conditional_unit.admission.infrastructure", "modeling.conditional_unit.admission.conflict", "modeling.conditional_unit.admission.incompatible", "modeling.conditional_unit.admission.internal", "modeling.conditional_unit.admission.inconclusive", "study.policy.admission"]`.
+
+## `DiffsolLinear`
+
+Rust owner: `pse_model::generated::enums::DiffsolLinear`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["faer_lu", "klu"]`.
+
+## `DiffsolMethod`
+
+Rust owner: `pse_model::generated::enums::DiffsolMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["bdf", "tr_bdf2", "esdirk34", "tsit45"]`.
+
+## `DocumentVersion1`
+
+Rust owner: `pse_model::document::Version<1>`. Source: `crates/pse-model/src/document.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 1 }]` | `{}` |
+
+## `DocumentVersion14`
+
+Rust owner: `pse_model::document::Version<14>`. Source: `crates/pse-model/src/document.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 14, max: 14 }]` | `{}` |
+
+## `DocumentVersion2`
+
+Rust owner: `pse_model::document::Version<2>`. Source: `crates/pse-model/src/document.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 2, max: 2 }]` | `{}` |
+
+## `DocumentVersion3`
+
+Rust owner: `pse_model::document::Version<3>`. Source: `crates/pse-model/src/document.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 3, max: 3 }]` | `{}` |
+
+## `DocumentVersion5`
+
+Rust owner: `pse_model::document::Version<5>`. Source: `crates/pse-model/src/document.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 5, max: 5 }]` | `{}` |
+
+## `DocumentVersion8`
+
+Rust owner: `pse_model::document::Version<8>`. Source: `crates/pse-model/src/document.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 8, max: 8 }]` | `{}` |
+
+## `DomainId`
+
+Rust owner: `pse_quantity::ids::DomainId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `DynamicSensitivity`
+
+Rust owner: `pse_model::generated::enums::DynamicSensitivity`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["none", "forward", "adjoint"]`.
+
+## `DynamicsMethod`
+
+Rust owner: `pse_model::generated::enums::DynamicsMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["auto", "diffsol", "idas"]`.
 
 ## `EffectFacts`
 
@@ -98,6 +2542,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Capture` | 6 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 | `NativeExecution` | 7 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 
+## `EndpointPolicy`
+
+Rust owner: `pse_model::generated::enums::EndpointPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["fixed_horizon", "declared_terminal_event"]`.
+
 ## `EngineeringAdmitSource`
 
 Rust owner: `pse_model::engineering::EngineeringAdmitSource`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Input`.
@@ -109,6 +2565,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `physical` | 2 | `Repeated(Named("EngineeringPackage"))` | `Input` | `[Length { min: 1, max: 16 }]` | `{}` |
 | `modeling` | 3 | `Repeated(Named("EngineeringPackage"))` | `Input` | `[Length { min: 1, max: 16 }]` | `{}` |
+
+## `EngineeringCohortRelease`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringCohortRelease`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Output` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `local_admission_closed` | 2 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
 
 ## `EngineeringContract`
 
@@ -195,6 +2662,28 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `field_path` | 5 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
 | `field_rule` | 6 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
 
+## `EngineeringFreezeStudyCohort`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringFreezeStudyCohort`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `request` | 2 | `Named("StudyCohortRequest")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringInspectModeling`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::inspection::EngineeringInspectModeling`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/inspection.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `source_operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `request` | 2 | `Named("ModelingInspectionRequest")` | `Input` | `[Required]` | `{}` |
+
 ## `EngineeringInspectPhysical`
 
 Rust owner: `pse_runtime::host_operations::engineering_contract::EngineeringInspectPhysical`. Source: `crates/pse-runtime/src/host_operations/engineering_contract.rs`. Interpretation version: 1. Direction: `Input`.
@@ -205,6 +2694,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `source_operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `request` | 2 | `Named("PhysicalInspectionRequest")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringInspectProviders`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::inspection::EngineeringInspectProviders`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/inspection.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `source_operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `request` | 2 | `Named("ProviderInspectionRequest")` | `Input` | `[Required]` | `{}` |
 
 ## `EngineeringInspectSource`
 
@@ -233,6 +2733,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `output_direction` | 5 | `Scalar(String)` | `Output` | `[]` | `{}` |
 | `server_streaming` | 6 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
 | `effects` | 7 | `Named("EffectFacts")` | `Output` | `[Required]` | `{}` |
+
+## `EngineeringObserveStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringObserveStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `original` | 1 | `Named("EngineeringStudyKey")` | `Input` | `[Required]` | `{}` |
+| `request` | 2 | `Named("StudyObservationRequest")` | `Input` | `[Required]` | `{}` |
+| `cursor` | 3 | `Optional(Named("StudyObservationCursor"))` | `Input` | `[]` | `{}` |
 
 ## `EngineeringOperationKey`
 
@@ -269,6 +2781,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `intent` | 5 | `Named("NativeSolveIntent")` | `Input` | `[Required]` | `{}` |
 | `backend` | 6 | `Optional(Named("NativeBackend"))` | `Input` | `[]` | `{}` |
 
+## `EngineeringPrepareStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringPrepareStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `source_operation` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `expected_source` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
+| `request` | 4 | `Named("StudyRequest")` | `Input` | `[Required]` | `{}` |
+
 ## `EngineeringPreparedSelection`
 
 Rust owner: `pse_model::engineering::EngineeringPreparedSelection`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Output`.
@@ -280,6 +2805,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `operation` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
 | `source` | 2 | `Named("EngineeringSourceSelection")` | `Output` | `[Required]` | `{}` |
 | `preparation` | 3 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
+
+## `EngineeringPreparedStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringPreparedStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Output` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `source` | 2 | `Optional(Named("EngineeringSourceSelection"))` | `Output` | `[]` | `{}` |
+| `preparation` | 3 | `Scalar(ContentHash)` | `Output` | `[Required]` | `{}` |
+| `occurrences` | 4 | `Scalar(U64)` | `Output` | `[UnsignedRange { min: 1, max: 100000 }]` | `{}` |
 
 ## `EngineeringProgressValue`
 
@@ -322,6 +2860,33 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `source_operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `request` | 2 | `Named("OriginalSourceFileRequest")` | `Input` | `[Required]` | `{}` |
 
+## `EngineeringReadStudyResult`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringReadStudyResult`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `position` | 2 | `Scalar(U64)` | `Input` | `[]` | `{}` |
+| `relation` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `start` | 4 | `Scalar(U64)` | `Input` | `[]` | `{}` |
+| `end` | 5 | `Scalar(U64)` | `Input` | `[]` | `{}` |
+| `maximum_bytes` | 6 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 16777216 }]` | `{}` |
+
+## `EngineeringRestoreStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringRestoreStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `expected_preparation` | 2 | `Scalar(ContentHash)` | `Input` | `[Required]` | `{}` |
+| `definition` | 3 | `Named("StudyDefinition")` | `Input` | `[Required]` | `{}` |
+
 ## `EngineeringResultPage`
 
 Rust owner: `pse_model::engineering::EngineeringResultPage`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Output`.
@@ -336,6 +2901,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `end` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 | `rows` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 | `ipc` | 6 | `Scalar(Bytes)` | `Output` | `[]` | `{}` |
+
+## `EngineeringRuleId`
+
+Rust owner: `pse_model::generated::identities::EngineeringRuleId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
 
 ## `EngineeringRunKey`
 
@@ -386,6 +2961,28 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `canonical_attempt` | 8 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
 | `progress` | 9 | `Optional(Named("EngineeringRunProgress"))` | `Output` | `[]` | `{}` |
 
+## `EngineeringScaleId`
+
+Rust owner: `pse_model::generated::identities::EngineeringScaleId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `EngineeringScaleKind`
+
+Rust owner: `pse_model::generated::enums::EngineeringScaleKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["magnitude", "range_width", "reference_difference"]`.
+
 ## `EngineeringSourceOutcome`
 
 Rust owner: `pse_model::engineering::EngineeringSourceOutcome`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Output`.
@@ -411,6 +3008,71 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `source_revision` | 3 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
 | `physical_context` | 4 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
 
+## `EngineeringStudyCohortPage`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringStudyCohortPage`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `request` | 2 | `Named("StudyCohortPageRequest")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringStudyHeaderPage`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringStudyHeaderPage`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `request` | 2 | `Named("StudyCohortHeaderRequest")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringStudyKey`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringStudyKey`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `study` | 2 | `Named("StudyId")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringStudyResultPage`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringStudyResultPage`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `capture` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `position` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `run` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `attempt` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `manifest` | 5 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `relation` | 6 | `Scalar(String)` | `Output` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `start` | 7 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `end` | 8 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `rows` | 9 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `ipc` | 10 | `Scalar(Bytes)` | `Output` | `[Length { min: 0, max: 16777216 }]` | `{}` |
+
+## `EngineeringStudyStatus`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringStudyStatus`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Output` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `study` | 2 | `Named("StudyId")` | `Output` | `[Required]` | `{}` |
+| `canonical` | 3 | `Optional(Named("CanonicalStudySummary"))` | `Output` | `[]` | `{}` |
+| `failure` | 4 | `Optional(Named("EngineeringFailure"))` | `Output` | `[]` | `{}` |
+
 ## `EngineeringSubmitRun`
 
 Rust owner: `pse_model::engineering::EngineeringSubmitRun`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Input`.
@@ -425,6 +3087,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `attempt` | 4 | `Scalar(SemanticId)` | `Input` | `[]` | `{}` |
 | `expected_preparation` | 5 | `Scalar(ContentHash)` | `Input` | `[]` | `{}` |
 
+## `EngineeringSubmitStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringSubmitStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `preparation_operation` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `expected_preparation` | 3 | `Scalar(ContentHash)` | `Input` | `[Required]` | `{}` |
+| `study` | 4 | `Named("StudyId")` | `Input` | `[Required]` | `{}` |
+
 ## `EntityKindId`
 
 Rust owner: `pse_quantity::ids::EntityKindId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
@@ -434,6 +3109,54 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `EstimatorInput`
+
+Rust owner: `pse_runtime::workflow::study_operations::EstimatorInput`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `input` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `binding` | 2 | `Named("HorizonWindowInput")` | `Both` | `[]` | `{}` |
+
+## `EstimatorMeasurement`
+
+Rust owner: `pse_runtime::workflow::study_operations::intent::EstimatorMeasurement`. Source: `crates/pse-runtime/src/workflow/study_operations/intent.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `output` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `paths` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `EstimatorOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::EstimatorOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `case` | 1 | `Named("CaseOperation")` | `Both` | `[]` | `{}` |
+| `window` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `measurements` | 3 | `Repeated(Named("EstimatorMeasurement"))` | `Both` | `[]` | `{}` |
+| `inputs` | 4 | `Repeated(Named("EstimatorInput"))` | `Both` | `[]` | `{}` |
+| `arrival` | 5 | `Repeated(Named("ArrivalDocument"))` | `Both` | `[]` | `{}` |
+
+## `EventDirection`
+
+Rust owner: `pse_model::generated::enums::EventDirection`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["either", "rising", "falling"]`.
 
 ## `EvidenceUnavailableReason`
 
@@ -447,6 +3170,476 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["not_requested", "not_computed", "not_applicable", "unsupported", "failed", "unknown", "nonfinite"]`.
 
+## `ExtensionQuantityValue`
+
+Rust owner: `pse_model::generated::extension_values::ExtensionQuantityValue`. Source: `crates/pse-schema/src/model/extension.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `quantity_type_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `unit_id` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `ExternalDerivativeSource`
+
+Rust owner: `pse_model::generated::enums::ExternalDerivativeSource`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["analytic", "symbolic", "automatic", "supplied", "implicit"]`.
+
+## `FeralOrdering`
+
+Rust owner: `pse_model::generated::enums::FeralOrdering`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["amd", "amf", "metis_nd", "scotch_nd", "kahip_nd", "auto", "auto_race"]`.
+
+## `FeralOrderingSetting`
+
+Rust owner: `pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>`. Source: `crates/pse-backend-native/src/settings/pounce/projection.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Named("FeralOrdering")` | `Both` | `[]` | `{}` |
+
+## `FeralScaling`
+
+Rust owner: `pse_model::generated::enums::FeralScaling`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["inf_norm", "mc64_symmetric", "identity", "auto"]`.
+
+## `FeralScalingSetting`
+
+Rust owner: `pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>`. Source: `crates/pse-backend-native/src/settings/pounce/projection.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Named("FeralScaling")` | `Both` | `[]` | `{}` |
+
+## `FeralSettings`
+
+Rust owner: `pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>`. Source: `crates/pse-backend-native/src/settings/pounce.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `bounded_storage_max_dimension` | 1 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `cascade_break` | 2 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{}` |
+| `fma` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `refine` | 4 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `increase_quality` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `refine_max_steps` | 6 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `refine_target` | 7 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `singular_pivot_floor` | 8 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `inertia_pivot_floor` | 9 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `pivtol` | 10 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `ordering` | 11 | `Named("FeralOrderingSetting")` | `Both` | `[]` | `{}` |
+| `scaling` | 12 | `Named("FeralScalingSetting")` | `Both` | `[]` | `{}` |
+| `parallel` | 13 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{}` |
+| `min_par_flops` | 14 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `static_pivoting` | 15 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{}` |
+
+## `FiniteBound`
+
+Rust owner: `pse_model::scalars::__nutype_FiniteBound__::FiniteBound`. Source: `crates/pse-model/src/scalars.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+
+## `FitDerivatives`
+
+Rust owner: `pse_model::generated::enums::FitDerivatives`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["responses", "gradient"]`.
+
+## `FitId`
+
+Rust owner: `pse_model::generated::identities::FitId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `FitOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::FitOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `fit` | 1 | `Named("FitId")` | `Both` | `[]` | `{}` |
+| `settings` | 2 | `Named("PhysicalFitRequest")` | `Both` | `[]` | `{}` |
+
+## `FitOptimizer`
+
+Rust owner: `pse_runtime::workflow::fitting::FitOptimizer`. Source: `crates/pse-runtime/src/workflow/fitting/optimizer_declaration.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Automatic` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `NativeNlp` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `ResidualLm` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `FitPreparationDocumentForPhysicalSimulationRequest`
+
+Rust owner: `pse_runtime::workflow::fitting::documents::FitPreparationDocument<pse_runtime::workflow::simulation_request::PhysicalSimulationRequest>`. Source: `crates/pse-runtime/src/workflow/fitting/preparation_declaration.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `optimizer` | 1 | `Named("FitOptimizer")` | `Both` | `[]` | `{}` |
+| `solver` | 2 | `Named("SolveSettings")` | `Both` | `[]` | `{}` |
+| `simulations` | 3 | `Map(Named("InstanceId"), Named("PhysicalSimulationRequest"))` | `Both` | `[]` | `{}` |
+| `rank_tolerance` | 4 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: false, upper_bits: 4607182418800017408, upper_inclusive: false }))]` | `{}` |
+| `max_cells` | 5 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `derivatives` | 6 | `Named("FitDerivatives")` | `Both` | `[]` | `{}` |
+| `experiment_workers` | 7 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `uncertainty` | 8 | `Optional(Named("FitUncertainty"))` | `Both` | `[]` | `{}` |
+
+## `FitProfileControls`
+
+Rust owner: `pse_runtime::workflow::fitting::ProfileControls`. Source: `crates/pse-runtime/src/workflow/fitting/input_declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `points` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `tolerance` | 2 | `Named("Fraction")` | `Both` | `[]` | `{}` |
+| `workers` | 3 | `Optional(Named("PositiveCount"))` | `Both` | `[]` | `{}` |
+
+## `FitUncertainty`
+
+Rust owner: `pse_runtime::workflow::fitting::FitUncertainty`. Source: `crates/pse-runtime/src/workflow/fitting/input_declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `level` | 1 | `Named("Fraction")` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: false, upper_bits: 4607182418800017408, upper_inclusive: false }))]` | `{}` |
+| `profile` | 2 | `Optional(Named("FitProfileControls"))` | `Both` | `[]` | `{}` |
+| `predictions` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `Fraction`
+
+Rust owner: `pse_model::scalars::__nutype_Fraction__::Fraction`. Source: `crates/pse-model/src/scalars.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveUnit)]` | `{}` |
+
+## `HessianMode`
+
+Rust owner: `pse_model::generated::enums::HessianMode`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["auto", "exact", "partitioned", "finite_difference", "limited_memory", "gauss_newton"]`.
+
+## `HighsDiagnostics`
+
+Rust owner: `pse_backend_native::settings::highs::Request`. Source: `crates/pse-backend-native/src/settings/highs/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `rays` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `iis` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `ranging` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `relaxation` | 4 | `Optional(Named("HighsPenalties"))` | `Both` | `[]` | `{}` |
+| `fixed_lp` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `basis_inverse` | 6 | `Optional(Repeated(Scalar(U64)))` | `Both` | `[]` | `{}` |
+| `presolve` | 7 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `cut_pool` | 8 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `HighsMethod`
+
+Rust owner: `pse_model::generated::enums::HighsMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["choose", "simplex", "ipm", "pdlp"]`.
+
+## `HighsPenalties`
+
+Rust owner: `pse_backend_native::settings::highs::Penalties`. Source: `crates/pse-backend-native/src/settings/highs/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `global` | 1 | `Named("Array3FiniteBound")` | `Both` | `[]` | `{}` |
+| `lower` | 2 | `Optional(Repeated(Scalar(F64Bits)))` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `upper` | 3 | `Optional(Repeated(Scalar(F64Bits)))` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `rows` | 4 | `Optional(Repeated(Scalar(F64Bits)))` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+
+## `HighsSettings`
+
+Rust owner: `pse_backend_native::settings::highs::Settings`. Source: `crates/pse-backend-native/src/settings/highs/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `method` | 1 | `Named("HighsMethod")` | `Both` | `[]` | `{}` |
+| `nodes` | 2 | `Optional(Scalar(U32))` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `diagnostics` | 3 | `Named("HighsDiagnostics")` | `Both` | `[]` | `{}` |
+| `sparse_start` | 4 | `Optional(Map(Scalar(SemanticId), Scalar(F64Bits)))` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+
+## `HorizonBinding`
+
+Rust owner: `pse_runtime::workflow::study_operations::HorizonBinding`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `signal` | 2 | `Named("HorizonSignalDocument")` | `Both` | `[]` | `{}` |
+
+## `HorizonInputDocument`
+
+Rust owner: `pse_runtime::workflow::study_operations::HorizonInputDocument`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `parameter` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `initial` | 2 | `Named("BindingQuantity")` | `Both` | `[]` | `{}` |
+
+## `HorizonOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::HorizonOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `plant` | 1 | `Named("SimulationOperation")` | `Both` | `[]` | `{}` |
+| `period` | 2 | `Named("Tolerance")` | `Both` | `[]` | `{}` |
+| `steps` | 3 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `inputs` | 4 | `Repeated(Named("HorizonInputDocument"))` | `Both` | `[]` | `{}` |
+| `estimator` | 5 | `Optional(Named("EstimatorOperation"))` | `Both` | `[]` | `{}` |
+| `controller` | 6 | `Optional(Named("ControllerOperation"))` | `Both` | `[]` | `{}` |
+
+## `HorizonSignalDocument`
+
+Rust owner: `pse_runtime::workflow::study_operations::HorizonSignalDocument`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Measured (alternative tag 1).value` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `Estimated (alternative tag 2).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Applied (alternative tag 3).value` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `Trajectory (alternative tag 4).value` | 1 | `Repeated(Named("BindingQuantity"))` | `Both` | `[]` | `{}` |
+
+## `HorizonWindowInput`
+
+Rust owner: `pse_runtime::workflow::horizon::WindowInput`. Source: `crates/pse-runtime/src/workflow/horizon.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Constant (alternative tag 1).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Periods (alternative tag 2).value` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `IdasInitialization`
+
+Rust owner: `pse_model::generated::enums::IdasInitialization`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["algebraic_and_rates", "steady_states"]`.
+
+## `IncumbentDocument`
+
+Rust owner: `pse_runtime::workflow::progress_documents::IncumbentDocument`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `objective` | 1 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `dual_bound` | 2 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `gap` | 3 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `nodes` | 4 | `Optional(Scalar(I64))` | `Output` | `[]` | `{}` |
+| `seconds` | 5 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `solution_id` | 6 | `Optional(Scalar(SemanticId))` | `Output` | `[]` | `{}` |
+
+## `IncumbentPolicy`
+
+Rust owner: `pse_model::generated::enums::IncumbentPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["refuse", "accept_feasible", "accept_within_gap"]`.
+
+## `InspectionConnection`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionConnection`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `from` | 2 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `to` | 3 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `lineage` | 4 | `Named("InspectionLineage")` | `Output` | `[]` | `{}` |
+
+## `InspectionDomain`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionDomain`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Named("ModelingDomainKey")` | `Output` | `[]` | `{}` |
+| `carrier` | 2 | `Named("ModelingCarrier")` | `Output` | `[]` | `{}` |
+
+## `InspectionExecution`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionExecution`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `route` | 1 | `Named("ModelingAnalysisRoute")` | `Output` | `[]` | `{}` |
+| `procedure` | 2 | `Named("ModelingProcedure")` | `Output` | `[]` | `{}` |
+| `requested_start` | 3 | `Named("NativeStartPolicy")` | `Output` | `[]` | `{}` |
+
+## `InspectionInstance`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionInstance`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Named("InstanceId")` | `Output` | `[]` | `{}` |
+| `definition` | 2 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `parent` | 3 | `Optional(Named("InstanceId"))` | `Output` | `[]` | `{}` |
+| `path` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `members` | 5 | `Map(Scalar(String), Named("DeclarationId"))` | `Output` | `[]` | `{}` |
+
+## `InspectionLineage`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionLineage`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `instance` | 2 | `Named("InstanceId")` | `Output` | `[]` | `{}` |
+| `path` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `demand` | 4 | `Repeated(Named("DeclarationId"))` | `Output` | `[]` | `{}` |
+| `default_owner` | 5 | `Optional(Named("DeclarationId"))` | `Output` | `[]` | `{}` |
+| `is_override` | 6 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `presets` | 7 | `Repeated(Named("DeclarationId"))` | `Output` | `[]` | `{}` |
+
+## `InspectionMember`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionMember`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `role` | 2 | `Named("ModelingDeclarationKind")` | `Output` | `[]` | `{}` |
+| `lineage` | 3 | `Named("InspectionLineage")` | `Output` | `[]` | `{}` |
+| `ty` | 4 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+
+## `InspectionPopulation`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionPopulation`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `instances` | 1 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `members` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `ports` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `connections` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `domains` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+
+## `InspectionPort`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::InspectionPort`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `symbol` | 2 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `lineage` | 3 | `Named("InspectionLineage")` | `Output` | `[]` | `{}` |
+
 ## `InstanceId`
 
 Rust owner: `pse_model::generated::identities::InstanceId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
@@ -456,6 +3649,151 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `IntegrationControlsForListScientificCoordinateValue`
+
+Rust owner: `pse_backend_native::dynamics::IntegrationControls<alloc::vec::Vec<pse_model::generated::structures::ScientificCoordinateValue>>`. Source: `crates/pse-backend-native/src/dynamics/integration_declaration.rs`. Interpretation version: 3. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion3")` | `Both` | `[]` | `{}` |
+| `method` | 2 | `Named("DynamicsMethod")` | `Both` | `[]` | `{}` |
+| `trial_failures` | 3 | `Named("TrialPolicy")` | `Both` | `[]` | `{}` |
+| `numerics` | 4 | `Named("NumericalPolicy")` | `Both` | `[]` | `{}` |
+| `endpoint` | 5 | `Named("NativeEndpointRequirement")` | `Both` | `[]` | `{}` |
+| `start` | 6 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `end` | 7 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `samples` | 8 | `Repeated(Scalar(F64Bits))` | `Both` | `[Length { min: 1, max: 18446744073709551615 }, Float64Domain(Finite)]` | `{}` |
+| `rtol` | 9 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `out_rtol` | 10 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `out_atol` | 11 | `Repeated(Named("ScientificCoordinateValue"))` | `Both` | `[]` | `{}` |
+| `atol` | 12 | `Repeated(Named("ScientificCoordinateValue"))` | `Both` | `[]` | `{}` |
+| `initial_step` | 13 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `max_steps` | 14 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `max_events` | 15 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `time_limit` | 16 | `Named("NonnegativeDuration")` | `Both` | `[PositiveDuration]` | `{}` |
+| `max_cells` | 17 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `sensitivity` | 18 | `Named("DynamicSensitivity")` | `Both` | `[]` | `{}` |
+| `adjoint` | 19 | `Named("NativeAdjointSettings")` | `Both` | `[]` | `{}` |
+| `parameter_scales` | 20 | `Repeated(Named("ScientificCoordinateValue"))` | `Both` | `[]` | `{}` |
+| `schedule` | 21 | `Repeated(Named("NativeScheduledInput"))` | `Both` | `[]` | `{}` |
+| `diffsol` | 22 | `Named("NativeDiffsolSettings")` | `Both` | `[]` | `{}` |
+| `idas` | 23 | `Named("NativeIdasSettings")` | `Both` | `[]` | `{}` |
+| `initialization` | 24 | `Named("SharedDiffsolInitialConditionOptions")` | `Both` | `[]` | `{}` |
+| `native` | 25 | `Named("SharedDiffsolOdeSolverOptions")` | `Both` | `[]` | `{}` |
+
+## `IpoptLinear`
+
+Rust owner: `pse_backend_native::settings::ipopt::Linear`. Source: `crates/pse-backend-native/src/settings/ipopt/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Mumps (alternative tag 1).ordering` | 1 | `Named("MumpsOrdering")` | `Both` | `[]` | `{}` |
+| `Mumps (alternative tag 1).pivot_tolerance` | 2 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: true, upper_bits: 4607182418800017408, upper_inclusive: true }))]` | `{}` |
+| `Mumps (alternative tag 1).maximum_pivot_tolerance` | 3 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: true, upper_bits: 4607182418800017408, upper_inclusive: true }))]` | `{}` |
+| `Mumps (alternative tag 1).memory_percent` | 4 | `Scalar(I32)` | `Both` | `[SignedRange { min: 0, max: 2147483647 }]` | `{}` |
+| `Mumps (alternative tag 1).permuting_scaling` | 5 | `Scalar(U8)` | `Both` | `[UnsignedRange { min: 0, max: 7 }]` | `{}` |
+| `Spral (alternative tag 2).ordering` | 1 | `Named("SpralOrdering")` | `Both` | `[]` | `{}` |
+| `Spral (alternative tag 2).scaling` | 2 | `Named("SpralScaling")` | `Both` | `[]` | `{}` |
+| `Spral (alternative tag 2).pivot` | 3 | `Named("SpralPivot")` | `Both` | `[]` | `{}` |
+| `PardisoMkl (alternative tag 3).ordering` | 1 | `Named("PardisoOrdering")` | `Both` | `[]` | `{}` |
+| `PardisoMkl (alternative tag 3).matching` | 2 | `Named("PardisoMatching")` | `Both` | `[]` | `{}` |
+
+## `IpoptLinearSolver`
+
+Rust owner: `pse_model::generated::enums::IpoptLinearSolver`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["mumps", "spral", "pardisomkl"]`.
+
+## `IpoptSettings`
+
+Rust owner: `pse_backend_native::settings::ipopt::Settings`. Source: `crates/pse-backend-native/src/settings/ipopt/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `linear` | 1 | `Named("IpoptLinear")` | `Both` | `[]` | `{}` |
+| `mu_strategy` | 2 | `Named("MuStrategy")` | `Both` | `[]` | `{}` |
+| `bound_push` | 3 | `Named("Tolerance")` | `Both` | `[]` | `{}` |
+| `bound_frac` | 4 | `Named("Fraction")` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: false, upper_bits: 4602678819172646912, upper_inclusive: true }))]` | `{}` |
+| `restart` | 5 | `Named("NativeWarmRestart")` | `Both` | `[]` | `{}` |
+
+## `KernelDerivativeOrder`
+
+Rust owner: `pse_kernels::DerivativeOrder`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Value` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `First` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Second` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `KernelProviderPort`
+
+Rust owner: `pse_kernels::Port`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[Required]` | `{}` |
+| `quantity` | 2 | `Named("QuantityTypeId")` | `Output` | `[Required]` | `{}` |
+| `unit` | 3 | `Named("UnitId")` | `Output` | `[Required]` | `{}` |
+
+## `KernelProviderShape`
+
+Rust owner: `pse_kernels::shape::ProviderShape`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[Required]` | `{}` |
+| `axes` | 2 | `Repeated(Scalar(SemanticId))` | `Output` | `[Length { min: 1, max: 16 }]` | `{}` |
+| `coordinates` | 3 | `Repeated(Repeated(Scalar(SemanticId)))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `cells` | 4 | `Repeated(Scalar(SemanticId))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+
+## `KernelProviderShapes`
+
+Rust owner: `pse_kernels::shape::ProviderShapes`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `inputs` | 1 | `Repeated(Named("KernelProviderShape"))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `outputs` | 2 | `Repeated(Named("KernelProviderShape"))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+
+## `KernelProviderSpec`
+
+Rust owner: `pse_kernels::ProviderSpec`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `shapes` | 1 | `Named("KernelProviderShapes")` | `Output` | `[Required]` | `{}` |
+| `derivative_source` | 2 | `Named("ExternalDerivativeSource")` | `Output` | `[Required]` | `{}` |
+| `id` | 3 | `Scalar(SemanticId)` | `Output` | `[Required]` | `{}` |
+| `revision` | 4 | `Scalar(ContentHash)` | `Output` | `[Required]` | `{}` |
+| `data` | 5 | `Scalar(ContentHash)` | `Output` | `[Required]` | `{}` |
+| `inputs` | 6 | `Repeated(Named("KernelProviderPort"))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `outputs` | 7 | `Repeated(Named("KernelProviderPort"))` | `Output` | `[Length { min: 1, max: 4096 }]` | `{}` |
+| `derivatives` | 8 | `Named("KernelDerivativeOrder")` | `Output` | `[Required]` | `{}` |
+| `smoothness` | 9 | `Named("KernelDerivativeOrder")` | `Output` | `[Required]` | `{}` |
 
 ## `KindDefinition`
 
@@ -483,6 +3821,209 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `kind` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
 | `exponent` | 2 | `Named("PhysicalRatio")` | `Both` | `[]` | `{}` |
 
+## `KinsolEta`
+
+Rust owner: `pse_backend_native::settings::kinsol::Eta`. Source: `crates/pse-backend-native/src/settings/kinsol/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Choice1` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Choice2 (alternative tag 2).gamma` | 1 | `Named("Fraction")` | `Both` | `[]` | `{}` |
+| `Choice2 (alternative tag 2).alpha` | 2 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 4607182418800017408, lower_inclusive: false, upper_bits: 4611686018427387904, upper_inclusive: true }))]` | `{}` |
+| `Constant (alternative tag 3).value` | 1 | `Named("Fraction")` | `Both` | `[]` | `{}` |
+
+## `KinsolLinear`
+
+Rust owner: `pse_backend_native::settings::kinsol::Linear`. Source: `crates/pse-backend-native/src/settings/kinsol/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Klu` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Dense (alternative tag 2).limit` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `Spgmr (alternative tag 3).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `Spfgmr (alternative tag 4).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `Spbcgs (alternative tag 5).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `Sptfqmr (alternative tag 6).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+
+## `KinsolOrthogonalization`
+
+Rust owner: `pse_model::generated::enums::KinsolOrthogonalization`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["modified_gram_schmidt", "inverse_compact_wy", "classical_gram_schmidt2", "delayed_classical_gram_schmidt2"]`.
+
+## `KinsolSettings`
+
+Rust owner: `pse_backend_native::settings::kinsol::Method`. Source: `crates/pse-backend-native/src/settings/kinsol/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `strategy` | 1 | `Named("KinsolStrategy")` | `Both` | `[]` | `{}` |
+| `linear` | 2 | `Named("KinsolLinear")` | `Both` | `[]` | `{}` |
+| `anderson` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `damping` | 4 | `Named("Fraction")` | `Both` | `[]` | `{}` |
+| `setup_interval` | 5 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 4294967295 }]` | `{}` |
+| `max_newton_step` | 6 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 4607182418800017408, lower_inclusive: true, upper_bits: 9218868437227405311, upper_inclusive: true }))]` | `{}` |
+| `eta` | 7 | `Named("KinsolEta")` | `Both` | `[]` | `{}` |
+| `preconditioner` | 8 | `Named("Preconditioner")` | `Both` | `[]` | `{}` |
+| `orthogonalization` | 9 | `Named("KinsolOrthogonalization")` | `Both` | `[]` | `{}` |
+| `anderson_delay` | 10 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `KinsolStrategy`
+
+Rust owner: `pse_model::generated::enums::KinsolStrategy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["picard", "newton", "line_search", "fixed_point"]`.
+
+## `LazyStudyDefinition`
+
+Rust owner: `pse_runtime::workflow::study_variants::LazyStudyDefinition`. Source: `crates/pse-runtime/src/workflow/study_variants.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `variants` | 1 | `Named("StudyVariants")` | `Both` | `[]` | `{}` |
+| `output` | 2 | `Named("StudyOutputDemand")` | `Both` | `[]` | `{}` |
+
+## `MathAssemblyLimits`
+
+Rust owner: `pse_math::assembly::AssemblyLimits`. Source: `crates/pse-math/src/assembly.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `contributions` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `native_index` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `worker_bytes` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `MathEvaluationLimits`
+
+Rust owner: `pse_math::jets::EvaluationLimits`. Source: `crates/pse-math/src/jets.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `derivative_components` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `operations` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `scratch_bytes` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `provider_calls` | 4 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+
+## `MathEvaluator`
+
+Rust owner: `pse_math::library::Evaluator`. Source: `crates/pse-math/src/library.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Interpreted` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `CompiledScalar (alternative tag 2).module_bytes` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `MathOptimization`
+
+Rust owner: `pse_math::library::Optimization`. Source: `crates/pse-math/src/library.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `cores` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 64 }]` | `{}` |
+| `horner_iterations` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 0, max: 1000 }]` | `{}` |
+| `cpe_iterations` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 0, max: 32 }]` | `{}` |
+| `evaluator` | 4 | `Named("MathEvaluator")` | `Both` | `[]` | `{}` |
+
+## `ModelingAccumulatorMode`
+
+Rust owner: `pse_model::generated::enums::ModelingAccumulatorMode`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["conservation", "accounting", "observation"]`.
+
+## `ModelingAnalysisRoute`
+
+Rust owner: `pse_model::generated::enums::ModelingAnalysisRoute`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["steady", "integrated", "simultaneous"]`.
+
+## `ModelingAnnotationKind`
+
+Rust owner: `pse_model::generated::enums::ModelingAnnotationKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["start", "nominal", "bounds", "scale", "report", "valid", "check", "objective", "connectivity", "accuracy_goal", "engineering_scale", "caloric_context", "energy_context", "engineering_default", "engineering_rule"]`.
+
+## `ModelingApplicabilityBasis`
+
+Rust owner: `pse_model::generated::enums::ModelingApplicabilityBasis`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["fitted", "recommended", "validated", "reported"]`.
+
+## `ModelingApplicabilityKind`
+
+Rust owner: `pse_model::generated::enums::ModelingApplicabilityKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["region", "interval", "unrestricted", "unknown", "union"]`.
+
+## `ModelingApplicabilityOutcome`
+
+Rust owner: `pse_model::generated::enums::ModelingApplicabilityOutcome`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["applicable", "outside_region", "unknown_evidence"]`.
+
 ## `ModelingBindings`
 
 Rust owner: `pse_modeling::specialize::Bindings`. Source: `crates/pse-modeling/src/specialize.rs`. Interpretation version: 1. Direction: `Both`.
@@ -497,6 +4038,236 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `facts` | 4 | `Map(Named("ModelingFact"), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
 | `demand` | 5 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
 
+## `ModelingBoundaryRef`
+
+Rust owner: `pse_modeling::contextual::BoundaryRef`. Source: `crates/pse-modeling/src/contextual.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Declared (alternative tag 1).value` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
+| `Bound (alternative tag 2).instance` | 1 | `Named("InstanceId")` | `Output` | `[]` | `{}` |
+| `Bound (alternative tag 2).declaration` | 2 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Bound (alternative tag 2).coordinates` | 3 | `Repeated(Named("StructuralValue"))` | `Output` | `[]` | `{}` |
+
+## `ModelingCarrier`
+
+Rust owner: `pse_modeling::resolved::Carrier`. Source: `crates/pse-modeling/src/resolved.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("ModelingCarrierKind")` | `Output` | `[]` | `{}` |
+| `element` | 2 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `members` | 3 | `Repeated(Named("StructuralValue"))` | `Output` | `[]` | `{}` |
+
+## `ModelingCarrierKind`
+
+Rust owner: `pse_modeling::resolved::CarrierKind`. Source: `crates/pse-modeling/src/resolved.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `OrderedSet` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Continuous (alternative tag 2).domain` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+
+## `ModelingCell`
+
+Rust owner: `pse_model::generated::structures::ModelingCell`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Named("ModelingCellValue")` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[[\"boolean\",1],[\"identifier\",5],[\"integer\",2],[\"missing\",9],[\"quantity\",3],[\"reference\",6],[\"references\",7],[\"row\",8],[\"text\",4]],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "1", "pse.semantic.tagged_alternative": "{\"arms\":{\"boolean\":\"boolean\",\"identifier\":\"identifier\",\"integer\":\"integer\",\"missing\":null,\"quantity\":\"quantity\",\"reference\":\"reference\",\"references\":\"references\",\"row\":\"row\",\"text\":\"text\"},\"discriminator\":\"kind\"}"}` |
+| `uncertainty` | 2 | `Optional(Named("ModelingCellUncertainty"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "2"}` |
+
+## `ModelingCellUncertainty`
+
+Rust owner: `pse_model::generated::structures::ModelingCellUncertainty`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("ModelingUncertaintyKind")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingUncertaintyKind"}` |
+| `magnitude` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `ModelingCellValue`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValue`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `boolean (alternative tag 1).value` | 1 | `Named("ModelingCellValueBoolean")` | `Both` | `[Required]` | `{}` |
+| `identifier (alternative tag 5).value` | 1 | `Named("ModelingCellValueIdentifier")` | `Both` | `[Required]` | `{}` |
+| `integer (alternative tag 2).value` | 1 | `Named("ModelingCellValueInteger")` | `Both` | `[Required]` | `{}` |
+| `missing` | 9 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `quantity (alternative tag 3).value` | 1 | `Named("ModelingCellValueQuantity")` | `Both` | `[Required]` | `{}` |
+| `reference (alternative tag 6).value` | 1 | `Named("ModelingCellValueReference")` | `Both` | `[Required]` | `{}` |
+| `references (alternative tag 7).value` | 1 | `Named("ModelingCellValueReferences")` | `Both` | `[Required]` | `{}` |
+| `row (alternative tag 8).value` | 1 | `Named("ModelingCellValueRow")` | `Both` | `[Required]` | `{}` |
+| `text (alternative tag 4).value` | 1 | `Named("ModelingCellValueText")` | `Both` | `[Required]` | `{}` |
+
+## `ModelingCellValueBoolean`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueBoolean`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+
+## `ModelingCellValueIdentifier`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueIdentifier`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `scheme` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `value` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `ModelingCellValueInteger`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueInteger`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(I64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+
+## `ModelingCellValueQuantity`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueQuantity`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `magnitude` | 1 | `Scalar(F64Bits)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `unit` | 2 | `Optional(Repeated(Named("ModelingUnitFactor")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingCellValueReference`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueReference`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `path` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingCellValueReferences`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueReferences`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `paths` | 1 | `Repeated(Named("ModelingCellValueReferencesPathsItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingCellValueReferencesPathsItem`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueReferencesPathsItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `path` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `keys` | 2 | `Optional(Repeated(Named("ModelingKeyCell")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingCellValueRow`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueRow`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `keys` | 2 | `Repeated(Named("ModelingKeyCell"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingCellValueText`
+
+Rust owner: `pse_model::generated::structures::ModelingCellValueText`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+
+## `ModelingColumnStorage`
+
+Rust owner: `pse_model::generated::structures::ModelingColumnStorage`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `storage_unit` | 2 | `Optional(Repeated(Named("ModelingUnitFactor")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `scheme` | 3 | `Optional(Repeated(Scalar(String)))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingCompleteness`
+
+Rust owner: `pse_model::generated::structures::ModelingCompleteness`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `set` | 2 | `Optional(Repeated(Scalar(String)))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `range` | 3 | `Optional(Named("ModelingIntegerRange"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3", "pse.domain.structure": "ModelingIntegerRange"}` |
+
+## `ModelingContributionRole`
+
+Rust owner: `pse_model::generated::enums::ModelingContributionRole`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["inflow", "outflow", "generation", "consumption", "accumulation", "positive", "negative", "directed"]`.
+
+## `ModelingDataFacet`
+
+Rust owner: `pse_model::generated::enums::ModelingDataFacet`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["test_only", "requires_lineage", "measured", "requires_fit"]`.
+
+## `ModelingDeclarationKind`
+
+Rust owner: `pse_model::generated::enums::ModelingDeclarationKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["temporal", "relaxation", "continuation", "package", "entity_kind", "interface", "definition", "case", "test", "stage", "implicit", "regime", "disjunction", "alternative", "parameter", "variable", "let", "alias", "set", "child", "port", "preset", "scope_value", "function", "coordinate_map", "coordinate_slot", "reconstruction", "response", "reference_translation", "boundary", "exchange", "equation", "sos1", "sos2", "atmost", "atleast", "exactly", "piecewise", "logic", "complementarity", "table", "applicability", "permission", "envelope", "attribute", "dataset", "entity", "enum", "constant", "import", "when", "accumulator", "contribution", "state_specification", "state_port", "inventory_balance", "connection", "annotation", "requirement", "expectation", "continuous", "difference_scheme", "collocation_scheme", "discretization", "realization", "identifier_scheme"]`.
+
 ## `ModelingDeclarationRequest`
 
 Rust owner: `pse_runtime::workflow::modeling::documents::ModelingDeclarationRequest`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Input`.
@@ -507,6 +4278,68 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `offset` | 1 | `Scalar(U64)` | `Input` | `[]` | `{}` |
 | `limit` | 2 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 128 }]` | `{}` |
+
+## `ModelingDiagonalPolicy`
+
+Rust owner: `pse_model::generated::enums::ModelingDiagonalPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["allowed", "excluded"]`.
+
+## `ModelingDomainKey`
+
+Rust owner: `pse_modeling::specialize::finite::DomainKey`. Source: `crates/pse-modeling/src/specialize/finite.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `family` | 1 | `Named("ModelingFamilyKey")` | `Output` | `[]` | `{}` |
+| `position` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `prefix` | 3 | `Repeated(Named("StructuralValue"))` | `Output` | `[]` | `{}` |
+
+## `ModelingEnvelope`
+
+Rust owner: `pse_model::generated::structures::ModelingEnvelope`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `lower` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `upper` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+
+## `ModelingEnvelopeExtent`
+
+Rust owner: `pse_model::generated::enums::ModelingEnvelopeExtent`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["point", "interval"]`.
+
+## `ModelingEnvelopeGuard`
+
+Rust owner: `pse_model::generated::structures::ModelingEnvelopeGuard`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `carrier` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `envelope` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `extent` | 3 | `Named("ModelingEnvelopeExtent")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingEnvelopeExtent"}` |
+| `arguments` | 4 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 
 ## `ModelingFact`
 
@@ -521,6 +4354,43 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `ObjectiveLevel` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 | `Stage (alternative tag 4).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
+## `ModelingFactNamespace`
+
+Rust owner: `pse_model::generated::enums::ModelingFactNamespace`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["analysis", "objective", "stage"]`.
+
+## `ModelingFamilyKey`
+
+Rust owner: `pse_modeling::specialize::finite::FamilyKey`. Source: `crates/pse-modeling/src/specialize/finite.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `instance` | 1 | `Named("InstanceId")` | `Output` | `[]` | `{}` |
+| `declaration` | 2 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `role` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `parents` | 4 | `Repeated(Named("StructuralValue"))` | `Output` | `[]` | `{}` |
+
+## `ModelingFixtureBinding`
+
+Rust owner: `pse_model::generated::enums::ModelingFixtureBinding`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["value", "fix", "free", "lower", "upper"]`.
+
 ## `ModelingFormulation`
 
 Rust owner: `pse_modeling::specialize::Formulation`. Source: `crates/pse-modeling/src/specialize.rs`. Interpretation version: 1. Direction: `Both`.
@@ -531,6 +4401,78 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `omitted` | 1 | `Set(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
 | `elastic` | 2 | `Map(Scalar(SemanticId), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
+
+## `ModelingInspection`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::ModelingInspection`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `source` | 1 | `Named("OperationSource")` | `Output` | `[]` | `{}` |
+| `preparation` | 2 | `Named("PreparationSettings")` | `Output` | `[]` | `{}` |
+| `population` | 3 | `Named("InspectionPopulation")` | `Output` | `[]` | `{}` |
+| `offset` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `next_offset` | 5 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `execution` | 6 | `Named("InspectionExecution")` | `Output` | `[]` | `{}` |
+| `instances` | 7 | `Repeated(Named("InspectionInstance"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `members` | 8 | `Repeated(Named("InspectionMember"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `ports` | 9 | `Repeated(Named("InspectionPort"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `connections` | 10 | `Repeated(Named("InspectionConnection"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `domains` | 11 | `Repeated(Named("InspectionDomain"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+
+## `ModelingInspectionRequest`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::ModelingInspectionRequest`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `case` | 1 | `Named("DeclarationId")` | `Input` | `[]` | `{}` |
+| `preparation` | 2 | `Named("PreparationSettings")` | `Input` | `[]` | `{}` |
+| `settings` | 3 | `Named("SolveSettings")` | `Input` | `[]` | `{}` |
+| `offset` | 4 | `Scalar(U64)` | `Input` | `[]` | `{}` |
+| `limit` | 5 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 128 }]` | `{}` |
+
+## `ModelingIntegerRange`
+
+Rust owner: `pse_model::generated::structures::ModelingIntegerRange`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `lower` | 1 | `Scalar(I64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `upper` | 2 | `Scalar(I64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `ModelingKeyCell`
+
+Rust owner: `pse_model::generated::structures::ModelingKeyCell`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `boolean (alternative tag 1).value` | 1 | `Named("ModelingCellValueBoolean")` | `Both` | `[Required]` | `{}` |
+| `identifier (alternative tag 5).value` | 1 | `Named("ModelingCellValueIdentifier")` | `Both` | `[Required]` | `{}` |
+| `integer (alternative tag 2).value` | 1 | `Named("ModelingCellValueInteger")` | `Both` | `[Required]` | `{}` |
+| `quantity (alternative tag 3).value` | 1 | `Named("ModelingCellValueQuantity")` | `Both` | `[Required]` | `{}` |
+| `reference (alternative tag 6).value` | 1 | `Named("ModelingCellValueReference")` | `Both` | `[Required]` | `{}` |
+| `text (alternative tag 4).value` | 1 | `Named("ModelingCellValueText")` | `Both` | `[Required]` | `{}` |
+
+## `ModelingKindFacet`
+
+Rust owner: `pse_model::generated::enums::ModelingKindFacet`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["provenance", "release", "abstract"]`.
 
 ## `ModelingLimits`
 
@@ -546,6 +4488,286 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `body_occurrences` | 4 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
 | `body_slots` | 5 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
 
+## `ModelingLineageEntry`
+
+Rust owner: `pse_model::generated::structures::ModelingLineageEntry`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("ModelingLineageKind")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingLineageKind"}` |
+| `path` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingLineageKind`
+
+Rust owner: `pse_model::generated::enums::ModelingLineageKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["dataset", "source", "fit"]`.
+
+## `ModelingMissingPolicy`
+
+Rust owner: `pse_model::generated::enums::ModelingMissingPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["required", "optional", "default"]`.
+
+## `ModelingPermissionTarget`
+
+Rust owner: `pse_model::generated::enums::ModelingPermissionTarget`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["records", "families"]`.
+
+## `ModelingPhysicalRefinement`
+
+Rust owner: `pse_modeling::contextual::PhysicalRefinement`. Source: `crates/pse-modeling/src/contextual.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Coordinate (alternative tag 1).map` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Coordinate (alternative tag 1).slot` | 2 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `ReducedLaw (alternative tag 2).map` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `ReducedLaw (alternative tag 2).reconstruction` | 2 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Transfer (alternative tag 3).boundary` | 1 | `Named("ModelingBoundaryRef")` | `Output` | `[]` | `{}` |
+| `Transfer (alternative tag 3).direction` | 2 | `Named("ModelingTransferDirection")` | `Output` | `[]` | `{}` |
+
+## `ModelingProcedure`
+
+Rust owner: `pse_model::generated::enums::ModelingProcedure`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["check", "solve", "initialize", "integrate", "shooting"]`.
+
+## `ModelingProvenance`
+
+Rust owner: `pse_model::generated::structures::ModelingProvenance`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `source` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `role` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `lineage` | 3 | `Repeated(Named("ModelingLineageEntry"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingRealizationPolicy`
+
+Rust owner: `pse_model::generated::enums::ModelingRealizationPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["inline", "nested", "accelerated", "big_m", "derived_big_m", "hull", "indicator", "linear", "native", "sos2", "incremental", "smooth", "penalty_l1", "disjunctive"]`.
+
+## `ModelingTransferDirection`
+
+Rust owner: `pse_modeling::contextual::TransferDirection`. Source: `crates/pse-modeling/src/contextual.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Into` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `OutOf` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ModelingType`
+
+Rust owner: `pse_modeling::types::Type`. Source: `crates/pse-modeling/src/types.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Boolean` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Integer` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Text` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `QuantityType` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `ReferenceState` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Applicability` | 6 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Boundary (alternative tag 7).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `CoordinateMap (alternative tag 8).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Reconstruction (alternative tag 9).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Reconstruction (alternative tag 9).map` | 2 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Quantity (alternative tag 10).scheme` | 1 | `Named("QuantityScheme")` | `Output` | `[]` | `{}` |
+| `RefinedQuantity (alternative tag 11).quantity` | 1 | `Named("QuantityScheme")` | `Output` | `[]` | `{}` |
+| `RefinedQuantity (alternative tag 11).refinement` | 2 | `Named("ModelingPhysicalRefinement")` | `Output` | `[]` | `{}` |
+| `Entity (alternative tag 12).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Enum (alternative tag 13).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Identifier (alternative tag 14).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Set (alternative tag 15).element` | 1 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `Continuous (alternative tag 16).domain` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Continuous (alternative tag 16).element` | 2 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `Tuple (alternative tag 17).elements` | 1 | `Repeated(Named("ModelingType"))` | `Output` | `[]` | `{}` |
+| `Table (alternative tag 18).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Row (alternative tag 19).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Definition (alternative tag 20).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Interface (alternative tag 21).declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `Function (alternative tag 22).arguments` | 1 | `Repeated(Named("Tuple2OfStringAndModelingType"))` | `Output` | `[]` | `{}` |
+| `Function (alternative tag 22).result` | 2 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `Optional (alternative tag 23).element` | 1 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `Indexed (alternative tag 24).element` | 1 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `Indexed (alternative tag 24).axes` | 2 | `Repeated(Named("DeclarationId"))` | `Output` | `[]` | `{}` |
+
+## `ModelingTypeArenaNode`
+
+Rust owner: `pse_model::generated::structures::ModelingTypeArenaNode`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("ModelingTypeNode")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingTypeNode"}` |
+| `path` | 2 | `Optional(Repeated(Scalar(String)))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `name` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `exponent` | 4 | `Optional(Named("ModelingTypeArenaNodeExponent"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "4"}` |
+| `children` | 5 | `Repeated(Scalar(U32))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+
+## `ModelingTypeArenaNodeExponent`
+
+Rust owner: `pse_model::generated::structures::ModelingTypeArenaNodeExponent`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `num` | 1 | `Scalar(I16)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `den` | 2 | `Scalar(I16)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+
+## `ModelingTypeNode`
+
+Rust owner: `pse_model::generated::enums::ModelingTypeNode`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["boolean", "integer", "text", "named", "variable", "optional", "set", "row", "table", "tuple", "indexed", "function", "argument", "delta", "product", "quotient", "power", "identifier", "quantity_type", "applicability", "reference_state", "coordinate", "reduced_law", "transfer"]`.
+
+## `ModelingUncertaintyKind`
+
+Rust owner: `pse_model::generated::enums::ModelingUncertaintyKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["standard", "relative", "bound"]`.
+
+## `ModelingUnitFactor`
+
+Rust owner: `pse_model::generated::structures::ModelingUnitFactor`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `symbol` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `num` | 2 | `Scalar(I16)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `den` | 3 | `Scalar(I16)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+
+## `ModelingValidityLayer`
+
+Rust owner: `pse_model::generated::enums::ModelingValidityLayer`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["form", "data", "closure"]`.
+
+## `ModelingVariableDomain`
+
+Rust owner: `pse_model::generated::enums::ModelingVariableDomain`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["continuous", "integer", "binary", "semicontinuous", "semiinteger"]`.
+
+## `ModelingVersionOperator`
+
+Rust owner: `pse_model::generated::enums::ModelingVersionOperator`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["exact"]`.
+
+## `MuStrategy`
+
+Rust owner: `pse_model::generated::enums::MuStrategy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["monotone", "adaptive"]`.
+
+## `MumpsOrdering`
+
+Rust owner: `pse_model::generated::enums::MumpsOrdering`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["amd", "amf", "pord", "metis", "qamd"]`.
+
+## `NativeAdjointSettings`
+
+Rust owner: `pse_backend_native::dynamics::AdjointSettings`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Both` | `[]` | `{}` |
+| `steps_between_checkpoints` | 2 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `max_checkpoints` | 3 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+
 ## `NativeBackend`
 
 Rust owner: `pse_model::generated::enums::NativeBackend`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -558,6 +4780,308 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["ipopt", "pounce", "kinsol", "highs", "clarabel", "diffsol", "idas", "scip", "pounce_convex", "uno", "petsc"]`.
 
+## `NativeBackendSettings`
+
+Rust owner: `pse_backend_native::execution::BackendSettings`. Source: `crates/pse-backend-native/src/execution/settings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Ipopt (alternative tag 1).value` | 1 | `Named("IpoptSettings")` | `Both` | `[]` | `{}` |
+| `Pounce (alternative tag 2).value` | 1 | `Named("PounceSettings")` | `Both` | `[]` | `{}` |
+| `Kinsol (alternative tag 3).value` | 1 | `Named("KinsolSettings")` | `Both` | `[]` | `{}` |
+| `Highs (alternative tag 4).value` | 1 | `Named("HighsSettings")` | `Both` | `[]` | `{}` |
+| `Clarabel (alternative tag 5).value` | 1 | `Named("ClarabelSettings")` | `Both` | `[]` | `{}` |
+| `Scip (alternative tag 6).value` | 1 | `Named("ScipSettings")` | `Both` | `[]` | `{}` |
+| `PounceConvex (alternative tag 7).value` | 1 | `Named("PounceConvexSettings")` | `Both` | `[]` | `{}` |
+| `Uno (alternative tag 8).value` | 1 | `Named("UnoSettings")` | `Both` | `[]` | `{}` |
+| `Petsc (alternative tag 9).value` | 1 | `Named("PetscDirectSettings")` | `Both` | `[]` | `{}` |
+
+## `NativeBoundaryClass`
+
+Rust owner: `pse_model::generated::enums::NativeBoundaryClass`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["invalid_model", "unsupported", "resource_limit", "trial_rejected", "nonfinite", "infrastructure", "cancelled", "conflict", "incompatible", "internal", "numerical", "inconclusive"]`.
+
+## `NativeCovarianceOrigin`
+
+Rust owner: `pse_runtime::math::settings::CovarianceOrigin`. Source: `crates/pse-runtime/src/math/settings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `QualifiedFit (alternative tag 1).run_id` | 1 | `Named("RunId")` | `Both` | `[]` | `{}` |
+| `QualifiedFit (alternative tag 1).record` | 2 | `Optional(Named("NativeFitCovarianceRecord"))` | `Both` | `[]` | `{}` |
+| `External (alternative tag 2).label` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `External (alternative tag 2).assumptions` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `NativeCovariancePropagation`
+
+Rust owner: `pse_runtime::math::settings::Propagation`. Source: `crates/pse-runtime/src/math/settings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `covariance` | 1 | `Named("NativeParameterCovariance")` | `Both` | `[]` | `{}` |
+| `outputs` | 2 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 1, max: 18446744073709551615 }]` | `{}` |
+
+## `NativeDiffsolSettings`
+
+Rust owner: `pse_backend_native::dynamics::DiffsolSettings`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Both` | `[]` | `{}` |
+| `method` | 2 | `Named("DiffsolMethod")` | `Both` | `[]` | `{}` |
+| `linear` | 3 | `Named("DiffsolLinear")` | `Both` | `[]` | `{}` |
+
+## `NativeEndpointRequirement`
+
+Rust owner: `pse_backend_native::dynamics::EndpointRequirement`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("EndpointPolicy")` | `Both` | `[]` | `{}` |
+| `event` | 2 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+
+## `NativeFitCovarianceRecord`
+
+Rust owner: `pse_runtime::math::settings::FitCovarianceRecord`. Source: `crates/pse-runtime/src/math/settings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `run` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `attempt` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `NativeIdasBand`
+
+Rust owner: `pse_backend_native::dynamics::IdasBand`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `upper` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `lower` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `NativeIdasInitialConditions`
+
+Rust owner: `pse_backend_native::dynamics::IdasInitialConditions`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `step_trials` | 1 | `Optional(Scalar(U32))` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `jacobian_attempts` | 2 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `newton_iterations` | 3 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `convergence_coefficient` | 4 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `line_search` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `backtracks` | 6 | `Optional(Scalar(U32))` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `step_tolerance` | 7 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+
+## `NativeIdasInitialStep`
+
+Rust owner: `pse_backend_native::dynamics::IdasInitialStep`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Configured` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Automatic` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `NativeIdasLinear`
+
+Rust owner: `pse_backend_native::dynamics::IdasLinear`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Klu` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Spgmr (alternative tag 2).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `Spgmr (alternative tag 2).preconditioner` | 2 | `Named("Preconditioner")` | `Both` | `[]` | `{}` |
+| `SpgmrBbd (alternative tag 3).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `SpgmrBbd (alternative tag 3).difference` | 2 | `Named("NativeIdasBand")` | `Both` | `[]` | `{}` |
+| `SpgmrBbd (alternative tag 3).retained` | 3 | `Named("NativeIdasBand")` | `Both` | `[]` | `{}` |
+| `Spfgmr (alternative tag 4).dimension` | 1 | `Named("PositiveCount")` | `Both` | `[]` | `{}` |
+| `Spfgmr (alternative tag 4).preconditioner` | 2 | `Named("Preconditioner")` | `Both` | `[]` | `{}` |
+
+## `NativeIdasSettings`
+
+Rust owner: `pse_backend_native::dynamics::IdasSettings`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion3")` | `Both` | `[]` | `{}` |
+| `linear` | 2 | `Named("NativeIdasLinear")` | `Both` | `[]` | `{}` |
+| `sensitivity` | 3 | `Named("SensitivityCorrector")` | `Both` | `[]` | `{}` |
+| `native_initial_step` | 4 | `Named("NativeIdasInitialStep")` | `Both` | `[]` | `{}` |
+| `initialization` | 5 | `Named("IdasInitialization")` | `Both` | `[]` | `{}` |
+| `initial_conditions` | 6 | `Named("NativeIdasInitialConditions")` | `Both` | `[]` | `{}` |
+
+## `NativeObjectiveSense`
+
+Rust owner: `pse_model::generated::enums::NativeObjectiveSense`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["minimize", "maximize"]`.
+
+## `NativeOptionValue`
+
+Rust owner: `pse_backend_native::solve::OptionValue`. Source: `crates/pse-backend-native/src/solve/controls.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Bool (alternative tag 1).value` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `Integer (alternative tag 2).value` | 1 | `Scalar(I32)` | `Both` | `[]` | `{}` |
+| `Real (alternative tag 3).value` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `Text (alternative tag 4).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `NativeParameterCovariance`
+
+Rust owner: `pse_runtime::math::settings::ParameterCovariance`. Source: `crates/pse-runtime/src/math/settings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Both` | `[]` | `{}` |
+| `origin` | 2 | `Named("NativeCovarianceOrigin")` | `Both` | `[]` | `{}` |
+| `parameters` | 3 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `values` | 4 | `Repeated(Named("FiniteBound"))` | `Both` | `[]` | `{}` |
+| `scales` | 5 | `Repeated(Named("FiniteBound"))` | `Both` | `[]` | `{}` |
+| `parameter_quantities` | 6 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `parameter_units` | 7 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+
+## `NativePetscLinear`
+
+Rust owner: `pse_model::generated::enums::NativePetscLinear`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["gmres", "fgmres", "bicgstab", "preonly"]`.
+
+## `NativePetscMethod`
+
+Rust owner: `pse_model::generated::enums::NativePetscMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["newton_trust_region"]`.
+
+## `NativePetscPreconditioner`
+
+Rust owner: `pse_model::generated::enums::NativePetscPreconditioner`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["none", "jacobi", "ilu", "lu"]`.
+
+## `NativeProgressEventSource`
+
+Rust owner: `pse_backend_native::solve::EventSource`. Source: `crates/pse-backend-native/src/solve.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `role` | 1 | `Named("DiagnosticProducerRole")` | `Output` | `[]` | `{}` |
+| `family` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `generation` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `sequence` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `coordinates` | 5 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `norm` | 6 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `producer` | 7 | `Optional(Named("DiagnosticProducerId"))` | `Output` | `[]` | `{}` |
+| `producer_generation` | 8 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `producer_sequence` | 9 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `producer_family_sequence` | 10 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `observed_at` | 11 | `Optional(Named("NonnegativeDuration"))` | `Output` | `[]` | `{}` |
+
+## `NativeReconstructionAccuracy`
+
+Rust owner: `pse_backend_native::derived::ReconstructionAccuracy`. Source: `crates/pse-backend-native/src/derived.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `point` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `action` | 2 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `class` | 3 | `Named("NumericalAccuracyClass")` | `Both` | `[]` | `{}` |
+| `refinement` | 4 | `Named("ReconstructionRefinementLimits")` | `Both` | `[]` | `{}` |
+
+## `NativeRestartBarrier`
+
+Rust owner: `pse_backend_native::solve::RestartBarrier`. Source: `crates/pse-backend-native/src/solve.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Seed` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Value (alternative tag 2).value` | 1 | `Named("Tolerance")` | `Both` | `[]` | `{}` |
+
+## `NativeScheduledInput`
+
+Rust owner: `pse_backend_native::dynamics::ScheduledInput`. Source: `crates/pse-backend-native/src/dynamics/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `parameter` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `times` | 2 | `Repeated(Scalar(F64Bits))` | `Both` | `[Length { min: 1, max: 18446744073709551615 }, Float64Domain(Finite)]` | `{}` |
+
+## `NativeSensitivityRequest`
+
+Rust owner: `pse_runtime::math::settings::SensitivityRequest`. Source: `crates/pse-runtime/src/math/settings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `parameters` | 1 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `reduced_hessian` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `propagation` | 3 | `Optional(Named("NativeCovariancePropagation"))` | `Both` | `[]` | `{}` |
+
 ## `NativeSolveIntent`
 
 Rust owner: `pse_model::generated::enums::NativeSolveIntent`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -569,6 +5093,354 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["optimize", "root", "feasible_point", "initialize", "certify"]`.
+
+## `NativeStartPolicy`
+
+Rust owner: `pse_model::generated::enums::NativeStartPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["no_prior_start", "previous_accepted", "explicit"]`.
+
+## `NativeUnoMethod`
+
+Rust owner: `pse_model::generated::enums::NativeUnoMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["sqp", "slp"]`.
+
+## `NativeWarmRestart`
+
+Rust owner: `pse_backend_native::solve::WarmRestart`. Source: `crates/pse-backend-native/src/solve.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `barrier` | 1 | `Named("NativeRestartBarrier")` | `Both` | `[]` | `{}` |
+| `bound_push` | 2 | `Named("Tolerance")` | `Both` | `[]` | `{}` |
+| `bound_frac` | 3 | `Named("Fraction")` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: false, upper_bits: 4602678819172646912, upper_inclusive: true }))]` | `{}` |
+| `slack_bound_push` | 4 | `Named("Tolerance")` | `Both` | `[]` | `{}` |
+| `slack_bound_frac` | 5 | `Named("Fraction")` | `Both` | `[Float64Domain(Interval(Float64Interval { lower_bits: 0, lower_inclusive: false, upper_bits: 4602678819172646912, upper_inclusive: true }))]` | `{}` |
+| `mult_bound_push` | 6 | `Named("Tolerance")` | `Both` | `[]` | `{}` |
+
+## `NonnegativeDuration`
+
+Rust owner: `core::time::Duration`. Source: `crates/pse-model/src/boundary_projection/standard.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `secs` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `nanos` | 2 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 0, max: 999999999 }]` | `{}` |
+
+## `NumericalAccuracyClass`
+
+Rust owner: `pse_model::generated::enums::NumericalAccuracyClass`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["certified", "estimated", "unresolved"]`.
+
+## `NumericalAdviceCohort`
+
+Rust owner: `pse_model::strategy::advice::AdviceCohort`. Source: `crates/pse-model/src/strategy/advice.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `original` | 1 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `profiles` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `branch_start` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `accuracy` | 4 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `exposure` | 5 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+
+## `NumericalAdviceMetric`
+
+Rust owner: `pse_model::strategy::advice::AdviceMetric`. Source: `crates/pse-model/src/strategy/advice.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `NativeExecutionNanoseconds` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `OriginalNormalizedResidual` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `NumericalAdviceObservation`
+
+Rust owner: `pse_model::strategy::advice::AdviceObservation`. Source: `crates/pse-model/src/strategy/advice.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `cohort` | 1 | `Named("NumericalAdviceCohort")` | `Both` | `[]` | `{}` |
+| `matched` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `candidate` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `attempt` | 4 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `outcome` | 5 | `Named("NumericalAdviceOutcome")` | `Both` | `[]` | `{}` |
+| `value` | 6 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+
+## `NumericalAdviceOutcome`
+
+Rust owner: `pse_model::strategy::advice::AdviceOutcome`. Source: `crates/pse-model/src/strategy/advice.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Complete` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `BudgetExhausted` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `PolicyPreempted` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Cancelled` | 4 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `InfrastructureInterrupted` | 5 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `NumericalFailure` | 6 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Partial` | 7 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `NumericalAdviceSupport`
+
+Rust owner: `pse_model::strategy::advice::AdviceSupport`. Source: `crates/pse-model/src/strategy/advice.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `CompleteMatched (alternative tag 1).pairs` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `BaselineTie` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `NumericalBranchPolicy`
+
+Rust owner: `pse_model::generated::enums::NumericalBranchPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["any_qualified", "connected"]`.
+
+## `NumericalBranchRequest`
+
+Rust owner: `pse_model::strategy::BranchPolicy`. Source: `crates/pse-model/src/strategy.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `kind` | 1 | `Named("NumericalBranchPolicy")` | `Both` | `[]` | `{}` |
+| `connected` | 2 | `Optional(Named("NumericalConnectedPath"))` | `Both` | `[]` | `{}` |
+
+## `NumericalCompositionPolicy`
+
+Rust owner: `pse_model::generated::enums::NumericalCompositionPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["auto", "declared"]`.
+
+## `NumericalCompositionRequest`
+
+Rust owner: `pse_model::strategy::CompositionRequest`. Source: `crates/pse-model/src/strategy.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `policy` | 1 | `Named("NumericalCompositionPolicy")` | `Both` | `[]` | `{}` |
+| `branch` | 2 | `Named("NumericalBranchRequest")` | `Both` | `[]` | `{}` |
+| `limits` | 3 | `Optional(Named("NumericalWorkLimits"))` | `Both` | `[]` | `{}` |
+| `recovery` | 4 | `Repeated(Named("NumericalStartOrigin"))` | `Both` | `[]` | `{}` |
+| `advice` | 5 | `Optional(Named("NumericalFrozenAdvice"))` | `Both` | `[]` | `{}` |
+
+## `NumericalConnectedPath`
+
+Rust owner: `pse_model::strategy::ConnectedPath`. Source: `crates/pse-model/src/strategy.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `path` | 1 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `sheet` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `transport` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `orientation` | 4 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+
+## `NumericalCoordinates`
+
+Rust owner: `pse_model::generated::enums::NumericalCoordinates`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["physical", "normalized"]`.
+
+## `NumericalFrozenAdvice`
+
+Rust owner: `pse_model::strategy::advice::FrozenAdvice`. Source: `crates/pse-model/src/strategy/advice.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `cohort` | 1 | `Named("NumericalAdviceCohort")` | `Both` | `[]` | `{}` |
+| `metric` | 2 | `Named("NumericalAdviceMetric")` | `Both` | `[]` | `{}` |
+| `baseline` | 3 | `Repeated(Scalar(ContentHash))` | `Both` | `[Length { min: 1, max: 64 }]` | `{}` |
+| `ordered` | 4 | `Repeated(Scalar(ContentHash))` | `Both` | `[Length { min: 1, max: 64 }]` | `{}` |
+| `observations` | 5 | `Repeated(Named("NumericalAdviceObservation"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `support` | 6 | `Named("NumericalAdviceSupport")` | `Both` | `[]` | `{}` |
+| `limits` | 7 | `Named("NumericalWorkLimits")` | `Both` | `[]` | `{}` |
+
+## `NumericalKktTolerances`
+
+Rust owner: `pse_model::numerics::KktTolerances`. Source: `crates/pse-model/src/numerics.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `stationarity` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `complementarity` | 2 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+
+## `NumericalPolicy`
+
+Rust owner: `pse_model::numerics::NumericalPolicy`. Source: `crates/pse-model/src/numerics.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Both` | `[]` | `{}` |
+| `requirements` | 2 | `Repeated(Named("AuthoredNumericalRequirementsRow"))` | `Both` | `[]` | `{}` |
+| `goals` | 3 | `Repeated(Named("AuthoredAccuracyGoalsRow"))` | `Both` | `[]` | `{}` |
+| `engineering_scales` | 4 | `Repeated(Named("AuthoredEngineeringScalesRow"))` | `Both` | `[]` | `{}` |
+| `engineering_rules` | 5 | `Repeated(Named("AuthoredEngineeringDefaultRulesRow"))` | `Both` | `[]` | `{}` |
+| `caloric_requirements` | 6 | `Repeated(Named("AuthoredCaloricRequirementsRow"))` | `Both` | `[]` | `{}` |
+| `strict_engineering_context` | 7 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `engineering_relative_fraction` | 8 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `strict_nominals` | 9 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `native_scaling` | 10 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `supplier_action_accuracy` | 11 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `linear_backward_error` | 12 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `kkt` | 13 | `Named("NumericalKktTolerances")` | `Both` | `[]` | `{}` |
+| `acceptable` | 14 | `Optional(Named("NumericalKktTolerances"))` | `Both` | `[]` | `{}` |
+| `integrality` | 15 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `gap_absolute` | 16 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `gap_relative` | 17 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `mip_absolute_gap` | 18 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `mip_relative_gap` | 19 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `closure` | 20 | `Named("ClosurePolicy")` | `Both` | `[]` | `{}` |
+| `incumbent` | 21 | `Named("IncumbentPolicy")` | `Both` | `[]` | `{}` |
+
+## `NumericalSource`
+
+Rust owner: `pse_model::generated::enums::NumericalSource`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["analysis", "case", "model", "model_hint", "property_default", "derived_nominal", "quantity_nominal", "canonical_fallback"]`.
+
+## `NumericalStartOrigin`
+
+Rust owner: `pse_model::generated::enums::NumericalStartOrigin`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["specification", "explicit", "accepted", "predicted", "auxiliary", "partial", "modified_specification", "surrogate"]`.
+
+## `NumericalTarget`
+
+Rust owner: `pse_model::generated::enums::NumericalTarget`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["variable", "row", "objective", "observable", "closure"]`.
+
+## `NumericalWorkLimits`
+
+Rust owner: `pse_model::strategy::WorkLimits`. Source: `crates/pse-model/src/strategy.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `attempts` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `evaluations` | 2 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `iterations` | 3 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `factorizations` | 4 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `proof_steps` | 5 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+
+## `ObservationTimeBasis`
+
+Rust owner: `pse_model::generated::enums::ObservationTimeBasis`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["elapsed", "model_clock"]`.
+
+## `OperationRequest`
+
+Rust owner: `pse_runtime::workflow::study_operations::OperationRequest`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `DeclaredCase (alternative tag 1).value` | 1 | `Named("CaseOperation")` | `Both` | `[]` | `{}` |
+| `Simulation (alternative tag 2).value` | 1 | `Named("SimulationOperation")` | `Both` | `[]` | `{}` |
+| `Fit (alternative tag 3).value` | 1 | `Named("FitOperation")` | `Both` | `[]` | `{}` |
+| `Horizon (alternative tag 4).value` | 1 | `Named("HorizonOperation")` | `Both` | `[]` | `{}` |
+
+## `OperationSource`
+
+Rust owner: `pse_runtime::workflow::study_operations::OperationSource`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `research` | 1 | `Optional(Named("ResearchSource"))` | `Both` | `[]` | `{}` |
+| `context` | 2 | `Optional(Named("CanonicalContextSelection"))` | `Both` | `[]` | `{}` |
+| `revision` | 3 | `Named("SourceRevisionHash")` | `Both` | `[]` | `{}` |
+| `physical_context` | 4 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
 
 ## `OriginalSourceFile`
 
@@ -600,6 +5472,65 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `path` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
 | `maximum_bytes` | 4 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 16777216 }]` | `{}` |
 
+## `PackageId`
+
+Rust owner: `pse_model::generated::identities::PackageId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `PardisoMatching`
+
+Rust owner: `pse_model::generated::enums::PardisoMatching`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["complete", "complete_plus2x2", "constraints"]`.
+
+## `PardisoOrdering`
+
+Rust owner: `pse_model::generated::enums::PardisoOrdering`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["amd", "metis", "parallel_metis"]`.
+
+## `PetscDirectSettings`
+
+Rust owner: `pse_backend_native::settings::petsc::DirectSettings`. Source: `crates/pse-backend-native/src/settings/petsc.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `method` | 1 | `Named("NativePetscMethod")` | `Both` | `[]` | `{}` |
+| `linear` | 2 | `Named("NativePetscLinear")` | `Both` | `[]` | `{}` |
+| `preconditioner` | 3 | `Named("NativePetscPreconditioner")` | `Both` | `[]` | `{}` |
+| `trust` | 4 | `Named("PetscTrustRegion")` | `Both` | `[]` | `{}` |
+
+## `PetscTrustRegion`
+
+Rust owner: `pse_backend_native::settings::petsc::TrustRegion`. Source: `crates/pse-backend-native/src/settings/petsc.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `minimum` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `maximum` | 2 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `initial` | 3 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+
 ## `PhysicalBasis`
 
 Rust owner: `pse_quantity::basis::Basis`. Source: `crates/pse-quantity/src/basis.rs`. Interpretation version: 1. Direction: `Both`.
@@ -613,6 +5544,35 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `composition_basis` | 3 | `Optional(Named("CompositionBasis"))` | `Both` | `[]` | `{}` |
 | `rate_basis` | 4 | `Optional(Named("RateBasis"))` | `Both` | `[]` | `{}` |
 | `reference_conditions` | 5 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
+
+## `PhysicalContractFacts`
+
+Rust owner: `pse_quantity::resolved::receipts::ContractWire`. Source: `crates/pse-quantity/src/resolved_receipts.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `named` | 1 | `Optional(Named("QuantityTypeId"))` | `Output` | `[]` | `{}` |
+| `kinds` | 2 | `Repeated(Named("KindFactor"))` | `Output` | `[]` | `{}` |
+| `qualified` | 3 | `Repeated(Named("PhysicalQualifiedFactor"))` | `Output` | `[]` | `{}` |
+| `axes` | 4 | `Repeated(Named("EntityKindId"))` | `Output` | `[]` | `{}` |
+| `indices` | 5 | `Repeated(Named("BoundIndexReference"))` | `Output` | `[]` | `{}` |
+| `factors` | 6 | `Repeated(Named("UnitFactor"))` | `Output` | `[]` | `{}` |
+| `dimension` | 7 | `Named("PhysicalDimensionVector")` | `Output` | `[]` | `{}` |
+| `scale_bits` | 8 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `pure_number` | 9 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `formula` | 10 | `Optional(Named("PhysicalFormulaFacts"))` | `Output` | `[]` | `{}` |
+
+## `PhysicalContractRecord`
+
+Rust owner: `pse_quantity::resolved::receipts::ContractRecord`. Source: `crates/pse-quantity/src/resolved_receipts.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Named("PhysicalContractFacts")` | `Output` | `[]` | `{}` |
 
 ## `PhysicalDimensionVector`
 
@@ -634,6 +5594,30 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Named("EntityKindId")` | `Both` | `[]` | `{}` |
 | `name` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `PhysicalFitRequest`
+
+Rust owner: `pse_runtime::workflow::simulation_request::PhysicalFitRequest`. Source: `crates/pse-runtime/src/workflow/simulation_request/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Both` | `[]` | `{}` |
+| `settings` | 2 | `Named("FitPreparationDocumentForPhysicalSimulationRequest")` | `Both` | `[]` | `{}` |
+
+## `PhysicalFormulaFacts`
+
+Rust owner: `pse_quantity::resolved::receipts::FormulaWire`. Source: `crates/pse-quantity/src/resolved_receipts.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `authority` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `operation` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `operands` | 3 | `Repeated(Named("PhysicalContractFacts"))` | `Output` | `[]` | `{}` |
+| `powers` | 4 | `Repeated(Named("PhysicalRatio"))` | `Output` | `[]` | `{}` |
 
 ## `PhysicalInspectionDocument`
 
@@ -677,6 +5661,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `query` | 1 | `Named("PhysicalInspectionQuery")` | `Input` | `[Required]` | `{}` |
 | `offset` | 2 | `Scalar(U64)` | `Input` | `[]` | `{}` |
 | `limit` | 3 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 16 }]` | `{}` |
+
+## `PhysicalQualifiedFactor`
+
+Rust owner: `pse_quantity::resolved::receipts::QualifiedFactorWire`. Source: `crates/pse-quantity/src/resolved_receipts.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Named("QuantityTypeKey")` | `Output` | `[]` | `{}` |
+| `exponent` | 2 | `Named("PhysicalRatio")` | `Output` | `[]` | `{}` |
 
 ## `PhysicalQuantityDescription`
 
@@ -724,6 +5719,57 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `num` | 1 | `Scalar(I16)` | `Both` | `[]` | `{}` |
 | `den` | 2 | `Scalar(I16)` | `Both` | `[]` | `{}` |
 
+## `PhysicalSchemeRecord`
+
+Rust owner: `pse_quantity::resolved::receipts::SchemeRecord`. Source: `crates/pse-quantity/src/resolved_receipts.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+
+## `PhysicalSchemeShape`
+
+Rust owner: `pse_quantity::resolved::receipts::SchemeWire`. Source: `crates/pse-quantity/src/resolved_receipts.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Concrete (alternative tag 1).quantity` | 1 | `Named("QuantityTypeId")` | `Output` | `[]` | `{}` |
+| `Resolved (alternative tag 2).contract` | 1 | `Named("PhysicalContractRecord")` | `Output` | `[]` | `{}` |
+| `Variable (alternative tag 3).name` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `Delta (alternative tag 4).value` | 1 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+| `Product (alternative tag 5).left` | 1 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+| `Product (alternative tag 5).right` | 2 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+| `Quotient (alternative tag 6).left` | 1 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+| `Quotient (alternative tag 6).right` | 2 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+| `Power (alternative tag 7).value` | 1 | `Named("PhysicalSchemeShape")` | `Output` | `[]` | `{}` |
+| `Power (alternative tag 7).power` | 2 | `Named("PhysicalRatio")` | `Output` | `[]` | `{}` |
+
+## `PhysicalSimulationRequest`
+
+Rust owner: `pse_runtime::workflow::simulation_request::PhysicalSimulationRequest`. Source: `crates/pse-runtime/src/workflow/simulation_request/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Both` | `[]` | `{}` |
+| `controls` | 2 | `Named("IntegrationControlsForListScientificCoordinateValue")` | `Both` | `[]` | `{}` |
+
+## `PhysicalSource`
+
+Rust owner: `pse_runtime::workflow::worker::PhysicalSource`. Source: `crates/pse-runtime/src/workflow/worker.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `revision` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `identity` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+
 ## `PhysicalUnit`
 
 Rust owner: `pse_quantity::unit::Unit`. Source: `crates/pse-quantity/src/unit.rs`. Interpretation version: 1. Direction: `Both`.
@@ -740,6 +5786,151 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `is_affine` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
 | `reference_state` | 7 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
 | `definition` | 8 | `Optional(Repeated(Named("UnitFactor")))` | `Both` | `[]` | `{}` |
+
+## `PointOverlay`
+
+Rust owner: `pse_runtime::workflow::bindings::PointOverlay`. Source: `crates/pse-runtime/src/workflow/bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `assignments` | 1 | `Repeated(Named("BindingAssignment"))` | `Both` | `[]` | `{}` |
+
+## `PositiveCount`
+
+Rust owner: `pse_model::scalars::__nutype_PositiveCount__::PositiveCount`. Source: `crates/pse-model/src/scalars.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+
+## `PounceConvexSettings`
+
+Rust owner: `pse_backend_native::settings::pounce_convex::Settings`. Source: `crates/pse-backend-native/src/settings/pounce_convex/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `self_dual` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `equilibrate` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `crossover` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `linear` | 4 | `Named("FeralSettings")` | `Both` | `[]` | `{}` |
+
+## `PounceFdColoring`
+
+Rust owner: `pse_model::generated::enums::PounceFdColoring`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["cpr", "star"]`.
+
+## `PounceFdPattern`
+
+Rust owner: `pse_model::generated::enums::PounceFdPattern`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["declared", "jacobian"]`.
+
+## `PounceFiniteDifferenceSettings`
+
+Rust owner: `pse_backend_native::settings::pounce::FiniteDifferenceSettings`. Source: `crates/pse-backend-native/src/settings/pounce.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `pattern` | 1 | `Named("PounceFdPattern")` | `Both` | `[]` | `{}` |
+| `coloring` | 2 | `Named("PounceFdColoring")` | `Both` | `[]` | `{}` |
+| `reuse_tolerance` | 3 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+
+## `PounceMethod`
+
+Rust owner: `pse_model::generated::enums::PounceMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["interior_point", "active_set_sqp", "l1_exact_penalty"]`.
+
+## `PouncePartitionedElements`
+
+Rust owner: `pse_model::generated::enums::PouncePartitionedElements`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["per_constraint", "primal_block"]`.
+
+## `PouncePartitionedSettings`
+
+Rust owner: `pse_backend_native::settings::pounce::PartitionedSettings`. Source: `crates/pse-backend-native/src/settings/pounce.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `update_type` | 1 | `Optional(Named("PouncePartitionedUpdate"))` | `Both` | `[]` | `{}` |
+| `max_element` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `elements` | 3 | `Named("PouncePartitionedElements")` | `Both` | `[]` | `{}` |
+| `block_size` | 4 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `curvature_cap` | 5 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+
+## `PouncePartitionedUpdate`
+
+Rust owner: `pse_model::generated::enums::PouncePartitionedUpdate`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["bfgs", "sr1"]`.
+
+## `PounceSettings`
+
+Rust owner: `pse_backend_native::settings::pounce::Settings`. Source: `crates/pse-backend-native/src/settings/pounce.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `method` | 1 | `Named("PounceMethod")` | `Both` | `[]` | `{}` |
+| `linear` | 2 | `Named("FeralSettings")` | `Both` | `[]` | `{}` |
+| `restart` | 3 | `Named("NativeWarmRestart")` | `Both` | `[]` | `{}` |
+| `partitioned` | 4 | `Named("PouncePartitionedSettings")` | `Both` | `[]` | `{}` |
+| `finite_difference` | 5 | `Named("PounceFiniteDifferenceSettings")` | `Both` | `[]` | `{}` |
+
+## `Preconditioner`
+
+Rust owner: `pse_model::generated::enums::Preconditioner`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["none", "jacobi", "block_factor"]`.
 
 ## `PreparationDiscoveryAction`
 
@@ -805,6 +5996,41 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["selected_admission", "body", "encoded_body", "frontier", "basis"]`.
 
+## `PreparationSettings`
+
+Rust owner: `pse_runtime::workflow::study_operations::PreparationSettings`. Source: `crates/pse-runtime/src/workflow/study_operations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `compiler` | 1 | `Named("CompilerProfile")` | `Both` | `[]` | `{}` |
+| `limits` | 2 | `Named("ModelingLimits")` | `Both` | `[]` | `{}` |
+
+## `PresolvePass`
+
+Rust owner: `pse_model::generated::enums::PresolvePass`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["linear_bounds", "redundant_rows", "affine_elimination", "fbbt", "rank_diagnostics", "auxiliary"]`.
+
+## `PresolvePolicyKind`
+
+Rust owner: `pse_model::generated::enums::PresolvePolicyKind`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["off", "auto", "explicit"]`.
+
 ## `ProductHeader`
 
 Rust owner: `pse_operations::canonical_selection::ProductHeader`. Source: `crates/pse-operations/src/canonical_selection.rs`. Interpretation version: 1. Direction: `Output`.
@@ -846,6 +6072,145 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `rows` | 1 | `Repeated(Named("ProductHeader"))` | `Output` | `[]` | `{}` |
 | `next` | 2 | `Optional(Named("ProductHeaderCursor"))` | `Output` | `[]` | `{}` |
 
+## `ProgressCheckpointDocument`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressCheckpointDocument`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion1")` | `Output` | `[]` | `{}` |
+| `current` | 2 | `Optional(Named("ProgressEventDocument"))` | `Output` | `[]` | `{}` |
+| `generation` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `highest_issued_sequence` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `dropped` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `current_is_latest` | 6 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+
+## `ProgressCoverage`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressCoverage`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Unknown` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Sampled (alternative tag 2).observed` | 1 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `Sampled (alternative tag 2).queued` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `Sampled (alternative tag 2).dropped_before_queue` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `Sampled (alternative tag 2).acknowledged` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `Sampled (alternative tag 2).unacknowledged` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `Sampled (alternative tag 2).writer` | 6 | `Named("ProgressWriterOutcome")` | `Output` | `[]` | `{}` |
+
+## `ProgressEventDocument`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressEventDocument`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 2. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion2")` | `Output` | `[]` | `{}` |
+| `source` | 2 | `Optional(Named("NativeProgressEventSource"))` | `Output` | `[]` | `{}` |
+| `phase` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `elapsed_seconds` | 4 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `values` | 5 | `Map(Scalar(String), Named("ProgressMetricDocument"))` | `Output` | `[]` | `{}` |
+| `incumbent` | 6 | `Optional(Named("IncumbentDocument"))` | `Output` | `[]` | `{}` |
+| `step` | 7 | `Optional(Scalar(I32))` | `Output` | `[]` | `{}` |
+| `sequence` | 8 | `Optional(Scalar(I64))` | `Output` | `[]` | `{}` |
+| `at` | 9 | `Optional(Scalar(I64))` | `Output` | `[]` | `{}` |
+
+## `ProgressMetricDocument`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressMetricDocument`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Integer (alternative tag 1).value` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `Real (alternative tag 2).value` | 1 | `Named("DiagnosticObservation")` | `Both` | `[]` | `{}` |
+| `Text (alternative tag 3).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `Boolean (alternative tag 4).value` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `Unavailable (alternative tag 5).value` | 1 | `Named("EvidenceUnavailableReason")` | `Both` | `[]` | `{}` |
+
+## `ProgressWriteStage`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressWriteStage`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Claim` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Allocation` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Encoding` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `CanonicalAppend` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Acknowledgment` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Publication` | 6 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ProgressWriterFailure`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressWriterFailure`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `stage` | 1 | `Named("ProgressWriteStage")` | `Output` | `[]` | `{}` |
+
+## `ProgressWriterOutcome`
+
+Rust owner: `pse_runtime::workflow::progress_documents::ProgressWriterOutcome`. Source: `crates/pse-runtime/src/workflow/progress_documents.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Complete` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `MemoryRefused` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Failed (alternative tag 3).value` | 1 | `Named("ProgressWriterFailure")` | `Both` | `[]` | `{}` |
+| `JoinFailed` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ProviderInspectionEntry`
+
+Rust owner: `pse_runtime::workflow::modeling::providers::ProviderInspectionEntry`. Source: `crates/pse-runtime/src/workflow/modeling/providers.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `registration` | 2 | `Optional(Named("KernelProviderSpec"))` | `Output` | `[]` | `{}` |
+| `configuration` | 3 | `Optional(Scalar(ContentHash))` | `Output` | `[]` | `{}` |
+
+## `ProviderInspectionPage`
+
+Rust owner: `pse_runtime::workflow::modeling::providers::ProviderInspectionPage`. Source: `crates/pse-runtime/src/workflow/modeling/providers.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `source` | 1 | `Named("OperationSource")` | `Output` | `[]` | `{}` |
+| `total` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `offset` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `next_offset` | 4 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `entries` | 5 | `Repeated(Named("ProviderInspectionEntry"))` | `Output` | `[Length { min: 0, max: 16 }]` | `{}` |
+
+## `ProviderInspectionRequest`
+
+Rust owner: `pse_runtime::workflow::modeling::providers::ProviderInspectionRequest`. Source: `crates/pse-runtime/src/workflow/modeling/providers.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Optional(Scalar(String))` | `Input` | `[Utf8Bytes { min: 0, max: 1024 }]` | `{}` |
+| `offset` | 2 | `Scalar(U64)` | `Input` | `[]` | `{}` |
+| `limit` | 3 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 16 }]` | `{}` |
+
 ## `QuantityAdditionKind`
 
 Rust owner: `pse_quantity::enums::QuantityAdditionKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -879,6 +6244,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `QuantityScheme`
+
+Rust owner: `pse_quantity::scheme::Scheme`. Source: `crates/pse-quantity/src/scheme.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `document` | 1 | `Named("PhysicalSchemeRecord")` | `Output` | `[]` | `{}` |
 
 ## `QuantityType`
 
@@ -930,6 +6305,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["per_volume", "per_mass", "per_area"]`.
+
+## `ReconstructionRefinementLimits`
+
+Rust owner: `pse_math::derived::RefinementLimits`. Source: `crates/pse-math/src/derived.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `rounds` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `proof_cells` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 
 ## `ReferenceCondition`
 
@@ -1015,6 +6401,21 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `nominal_magnitude` | 10 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "nominal_magnitude", "pse.domain.role": "payload"}` |
 | `doc` | 11 | `Scalar(String)` | `Output` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "doc", "pse.domain.role": "payload"}` |
 
+## `ResearchSource`
+
+Rust owner: `pse_runtime::workflow::research::ResearchSource`. Source: `crates/pse-runtime/src/workflow/research.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `issuing_store` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `selection` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `dataset` | 3 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `revision` | 4 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `physical_context` | 5 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `publication` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+
 ## `ResidentPreparation`
 
 Rust owner: `pse_runtime::workflow::modeling::project_preparation::ResidentPreparation`. Source: `crates/pse-runtime/src/workflow/modeling/project_preparation.rs`. Interpretation version: 1. Direction: `Output`.
@@ -1028,6 +6429,28 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `retained_bytes` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 | `semantic_identity` | 4 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
 
+## `ReusePolicy`
+
+Rust owner: `pse_model::generated::enums::ReusePolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["fresh", "allow_rebuild", "require_reuse"]`.
+
+## `RunId`
+
+Rust owner: `pse_model::generated::identities::RunId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
 ## `ScaleKind`
 
 Rust owner: `pse_quantity::enums::ScaleKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -1039,6 +6462,198 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["point", "difference"]`.
+
+## `ScientificCoordinateValue`
+
+Rust owner: `pse_model::generated::structures::ScientificCoordinateValue`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `coordinate_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
+| `value` | 2 | `Named("ExtensionQuantityValue")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.quantity_value"}` |
+
+## `ScipSettings`
+
+Rust owner: `pse_backend_native::execution::scip::Settings`. Source: `crates/pse-backend-native/src/execution/scip/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `nlp_linear_solver` | 1 | `Named("IpoptLinearSolver")` | `Both` | `[]` | `{}` |
+| `seed` | 2 | `Scalar(U16)` | `Both` | `[]` | `{}` |
+| `nodes` | 3 | `Optional(Scalar(U32))` | `Both` | `[]` | `{}` |
+| `pool` | 4 | `Scalar(U16)` | `Both` | `[]` | `{}` |
+| `iis` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `exact` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `reoptimize` | 7 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `SelectedStudyVariant`
+
+Rust owner: `pse_runtime::workflow::study_variants::SelectedStudyVariant`. Source: `crates/pse-runtime/src/workflow/study_variants.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `ordinal` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `point` | 2 | `Named("StudyPoint")` | `Both` | `[]` | `{}` |
+
+## `SensitivityCorrector`
+
+Rust owner: `pse_model::generated::enums::SensitivityCorrector`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["simultaneous", "staggered"]`.
+
+## `SharedDiffsolInitialConditionOptions`
+
+Rust owner: `pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>`. Source: `crates/pse-backend-native/src/dynamics.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `use_linesearch` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `max_linesearch_iterations` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `max_newton_iterations` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `max_linear_solver_setups` | 4 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `step_reduction_factor` | 5 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `armijo_constant` | 6 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+
+## `SharedDiffsolOdeSolverOptions`
+
+Rust owner: `pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>`. Source: `crates/pse-backend-native/src/dynamics.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `max_nonlinear_solver_iterations` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `max_error_test_failures` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `max_nonlinear_solver_failures` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `nonlinear_solver_tolerance` | 4 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `min_timestep` | 5 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `max_timestep_growth` | 6 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
+| `min_timestep_growth` | 7 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
+| `max_timestep_shrink` | 8 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
+| `min_timestep_shrink` | 9 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
+| `update_jacobian_after_steps` | 10 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `update_rhs_jacobian_after_steps` | 11 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `threshold_to_update_jacobian` | 12 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `threshold_to_update_rhs_jacobian` | 13 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `pi_control_proportional` | 14 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+| `pi_control_integral` | 15 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
+
+## `ShootingMethod`
+
+Rust owner: `pse_model::generated::enums::ShootingMethod`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["single", "multiple"]`.
+
+## `SimulationOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::SimulationOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `case` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
+| `settings` | 2 | `Optional(Named("PhysicalSimulationRequest"))` | `Both` | `[]` | `{}` |
+
+## `SolutionId`
+
+Rust owner: `pse_model::generated::identities::SolutionId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `SolveControls`
+
+Rust owner: `pse_backend_native::solve::Controls`. Source: `crates/pse-backend-native/src/solve/controls.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `time_limit` | 1 | `Named("NonnegativeDuration")` | `Both` | `[PositiveDuration]` | `{}` |
+| `iterations` | 2 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `threads` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 2147483647 }]` | `{}` |
+| `history` | 4 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 0, max: 1000000 }]` | `{}` |
+| `hessian` | 5 | `Named("HessianMode")` | `Both` | `[]` | `{}` |
+| `reuse` | 6 | `Named("ReusePolicy")` | `Both` | `[]` | `{}` |
+| `start` | 7 | `Named("NativeStartPolicy")` | `Both` | `[]` | `{}` |
+| `options` | 8 | `Map(Scalar(String), Named("NativeOptionValue"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `foreign_bytes` | 9 | `Optional(Scalar(U64))` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+
+## `SolveSettings`
+
+Rust owner: `pse_runtime::math::settings::SolveSettings`. Source: `crates/pse-runtime/src/math/settings/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `block_overrides` | 1 | `Map(Named("StructuralBlockId"), Named("BlockSolveOverride"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `block_workers` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 4096 }]` | `{}` |
+| `version` | 3 | `Named("DocumentVersion5")` | `Both` | `[]` | `{}` |
+| `composition` | 4 | `Named("NumericalCompositionRequest")` | `Both` | `[]` | `{}` |
+| `reconstruction` | 5 | `Optional(Named("NativeReconstructionAccuracy"))` | `Both` | `[]` | `{}` |
+| `intent` | 6 | `Named("NativeSolveIntent")` | `Both` | `[]` | `{}` |
+| `backend` | 7 | `Optional(Named("NativeBackend"))` | `Both` | `[]` | `{}` |
+| `settings` | 8 | `Optional(Named("NativeBackendSettings"))` | `Both` | `[]` | `{}` |
+| `presolve` | 9 | `Named("PresolvePolicyKind")` | `Both` | `[]` | `{}` |
+| `presolve_options` | 10 | `Map(Scalar(String), Named("NativeOptionValue"))` | `Both` | `[]` | `{}` |
+| `required_passes` | 11 | `Set(Named("PresolvePass"))` | `Both` | `[]` | `{}` |
+| `controls` | 12 | `Named("SolveControls")` | `Both` | `[]` | `{}` |
+| `numerics` | 13 | `Named("NumericalPolicy")` | `Both` | `[]` | `{}` |
+| `convexity_absolute` | 14 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `convexity_relative` | 15 | `Optional(Scalar(F64Bits))` | `Both` | `[Float64Domain(NonnegativeFinite)]` | `{}` |
+| `sensitivity` | 16 | `Optional(Named("NativeSensitivityRequest"))` | `Both` | `[]` | `{}` |
+
+## `SourceDelta`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::SourceDelta`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `parent` | 1 | `Scalar(String)` | `Input` | `[]` | `{}` |
+| `additions` | 2 | `Repeated(Named("AuthoredModelingDeclarationsRow"))` | `Input` | `[]` | `{}` |
+| `replacements` | 3 | `Repeated(Named("AuthoredModelingDeclarationsRow"))` | `Input` | `[]` | `{}` |
+| `removals` | 4 | `Repeated(Named("DeclarationId"))` | `Input` | `[]` | `{}` |
+| `documents` | 5 | `Named("SourceDocumentDelta")` | `Input` | `[]` | `{}` |
+| `fits` | 6 | `Named("SourceFitDelta")` | `Input` | `[]` | `{}` |
+
+## `SourceDocumentDelta`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::SourceDocumentDelta`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `additions` | 1 | `Repeated(Named("AuthoredDocumentsRow"))` | `Input` | `[]` | `{}` |
+| `replacements` | 2 | `Repeated(Named("AuthoredDocumentsRow"))` | `Input` | `[]` | `{}` |
+| `removals` | 3 | `Repeated(Scalar(SemanticId))` | `Input` | `[]` | `{}` |
 
 ## `SourceFileChange`
 
@@ -1075,6 +6690,74 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `path` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
 | `change` | 3 | `Named("SourceFileChange")` | `Input` | `[Required]` | `{}` |
 
+## `SourceFitDelta`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::SourceFitDelta`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `additions` | 1 | `Repeated(Named("AuthoredFitCasesRow"))` | `Input` | `[]` | `{}` |
+| `replacements` | 2 | `Repeated(Named("AuthoredFitCasesRow"))` | `Input` | `[]` | `{}` |
+| `removals` | 3 | `Repeated(Named("FitId"))` | `Input` | `[]` | `{}` |
+
+## `SourceRevisionHash`
+
+Rust owner: `pse_ids::roles::SourceRevisionHash`. Source: `crates/pse-ids/src/roles.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+
+## `SpralOrdering`
+
+Rust owner: `pse_model::generated::enums::SpralOrdering`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["metis", "matching"]`.
+
+## `SpralPivot`
+
+Rust owner: `pse_model::generated::enums::SpralPivot`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["aggressive", "block", "threshold"]`.
+
+## `SpralScaling`
+
+Rust owner: `pse_model::generated::enums::SpralScaling`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["none", "mc64", "auction", "matching", "ruiz"]`.
+
+## `StructuralBlockId`
+
+Rust owner: `pse_structural::incidence::BlockId`. Source: `crates/pse-structural/src/incidence.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+
 ## `StructuralValue`
 
 Rust owner: `pse_modeling::specialize::value::Value`. Source: `crates/pse-modeling/src/specialize/value.rs`. Interpretation version: 1. Direction: `Both`.
@@ -1109,6 +6792,680 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `ReferenceState (alternative tag 15).value` | 1 | `Named("ReferenceStateId")` | `Both` | `[]` | `{}` |
 | `Missing` | 16 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 
+## `StudyCohortCursor`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortCursor`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `issuing_store` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `capture` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `after` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `StudyCohortHeaderPage`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortHeaderPage`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `headers` | 1 | `Repeated(Named("CapturedStudyRowForStudyWorkbenchHeader"))` | `Output` | `[Length { min: 0, max: 64 }]` | `{}` |
+| `next` | 2 | `Optional(Named("StudyCohortCursor"))` | `Output` | `[]` | `{}` |
+
+## `StudyCohortHeaderRequest`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortHeaderRequest`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `maximum` | 1 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 64 }]` | `{}` |
+| `cursor` | 2 | `Optional(Named("StudyCohortCursor"))` | `Input` | `[]` | `{}` |
+
+## `StudyCohortMember`
+
+Rust owner: `pse_operations::canonical_study_workbench::StudyCohortMember`. Source: `crates/pse-operations/src/canonical_study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `study` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `ordinal` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `run` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `attempt` | 5 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `manifest` | 6 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `metadata_revision` | 7 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `settled` | 8 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `facts` | 9 | `Named("StudyPointFacts")` | `Output` | `[Required]` | `{}` |
+
+## `StudyCohortMemberPage`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortMemberPage`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `members` | 1 | `Repeated(Named("CapturedStudyRowForStudyCohortMember"))` | `Output` | `[Length { min: 0, max: 256 }]` | `{}` |
+| `next` | 2 | `Optional(Named("StudyCohortCursor"))` | `Output` | `[]` | `{}` |
+
+## `StudyCohortPageRequest`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortPageRequest`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `maximum` | 1 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 256 }]` | `{}` |
+| `cursor` | 2 | `Optional(Named("StudyCohortCursor"))` | `Input` | `[]` | `{}` |
+
+## `StudyCohortReceipt`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortReceipt`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `issuing_store` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `capture` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `request` | 3 | `Named("StudyCohortRequest")` | `Output` | `[Required]` | `{}` |
+| `header_count` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `member_count` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `complete` | 6 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+
+## `StudyCohortRequest`
+
+Rust owner: `pse_runtime::workflow::study_workbench::StudyCohortRequest`. Source: `crates/pse-runtime/src/workflow/study_workbench.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `filter` | 1 | `Named("StudyWorkbenchFilter")` | `Both` | `[]` | `{}` |
+| `maximum_studies` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 64 }]` | `{}` |
+| `maximum_members` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 10000 }]` | `{}` |
+
+## `StudyContinuationPermission`
+
+Rust owner: `pse_model::generated::enums::StudyContinuationPermission`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["require_usable", "allow_seed_only"]`.
+
+## `StudyDefinition`
+
+Rust owner: `pse_runtime::workflow::study::StudyDefinition`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 14. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `research` | 1 | `Optional(Named("ResearchSource"))` | `Both` | `[]` | `{}` |
+| `context` | 2 | `Optional(Named("CanonicalContextSelection"))` | `Both` | `[]` | `{}` |
+| `version` | 3 | `Named("DocumentVersion14")` | `Both` | `[]` | `{}` |
+| `physical` | 4 | `Named("PhysicalSource")` | `Both` | `[]` | `{}` |
+| `modeling_revision` | 5 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `variants` | 6 | `Optional(Named("LazyStudyDefinition"))` | `Both` | `[]` | `{}` |
+| `points` | 7 | `Repeated(Named("StudyPointDefinition"))` | `Both` | `[Length { min: 0, max: 100000 }]` | `{}` |
+
+## `StudyDependency`
+
+Rust owner: `pse_model::study::Dependency`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Ordering (alternative tag 1).value` | 1 | `Named("StudyOccurrenceKey")` | `Both` | `[]` | `{}` |
+| `UsableResult (alternative tag 2).value` | 1 | `Named("StudyOccurrenceKey")` | `Both` | `[]` | `{}` |
+
+## `StudyDetailDemand`
+
+Rust owner: `pse_runtime::workflow::study_demand::StudyDetailDemand`. Source: `crates/pse-runtime/src/workflow/study_demand.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `relations` | 1 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
+| `members` | 2 | `Repeated(Named("StudyMemberDemand"))` | `Both` | `[]` | `{}` |
+| `maximum_rows` | 3 | `Scalar(U32)` | `Both` | `[]` | `{}` |
+| `maximum_bytes` | 4 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `StudyEffectState`
+
+Rust owner: `pse_model::generated::enums::StudyEffectState`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["absent", "present", "unknown", "idempotent"]`.
+
+## `StudyId`
+
+Rust owner: `pse_model::generated::identities::StudyId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `StudyInputs`
+
+Rust owner: `pse_runtime::workflow::study_variants::StudyInputs`. Source: `crates/pse-runtime/src/workflow/study_variants.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Explicit (alternative tag 1).value` | 1 | `Repeated(Named("StudyPoint"))` | `Both` | `[Length { min: 0, max: 100000 }]` | `{}` |
+| `Lazy (alternative tag 2).value` | 1 | `Named("StudyVariants")` | `Both` | `[]` | `{}` |
+
+## `StudyMemberDemand`
+
+Rust owner: `pse_runtime::workflow::study_demand::StudyMemberDemand`. Source: `crates/pse-runtime/src/workflow/study_demand.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Variable (alternative tag 1).step` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `Variable (alternative tag 1).symbol_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `Constraint (alternative tag 2).step` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `Constraint (alternative tag 2).row_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `FitParameter (alternative tag 3).parameter_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `FitObservation (alternative tag 4).experiment_id` | 1 | `Named("InstanceId")` | `Both` | `[]` | `{}` |
+| `FitObservation (alternative tag 4).observation_id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `Trajectory (alternative tag 5).symbol_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+
+## `StudyObservationContext`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationContext`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `run` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `source` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `physical_revision` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `physical_identity` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `context` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `StudyObservationContinuity`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationContinuity`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `CatchUp` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `GapCurrentResync` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `LiveNumericsUnavailable` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `HistoryUnavailable` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `StudyObservationCursor`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationCursor`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `issuing_store` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `request` | 2 | `Named("StudyObservationRequest")` | `Both` | `[Required]` | `{}` |
+| `context` | 3 | `Named("StudyObservationContext")` | `Both` | `[Required]` | `{}` |
+| `sources` | 4 | `Repeated(Named("StudyObservationPosition"))` | `Both` | `[Length { min: 0, max: 64 }]` | `{}` |
+
+## `StudyObservationPage`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationPage`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `status` | 1 | `Named("StudyObservationStatus")` | `Output` | `[]` | `{}` |
+| `sources` | 2 | `Repeated(Named("StudyObservedSource"))` | `Output` | `[Length { min: 0, max: 64 }]` | `{}` |
+| `cursor` | 3 | `Named("StudyObservationCursor")` | `Output` | `[]` | `{}` |
+
+## `StudyObservationPosition`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationPosition`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `run` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `attempt` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `attempt_generation` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `metadata_revision` | 4 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `source_generation` | 5 | `Optional(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `source_sequence` | 6 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `batch` | 7 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `offset` | 8 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 0, max: 512 }]` | `{}` |
+| `durable_sequence` | 9 | `Optional(Scalar(I64))` | `Both` | `[]` | `{}` |
+| `history_complete` | 10 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `StudyObservationRequest`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationRequest`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `study` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `maximum_members` | 2 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 64 }]` | `{}` |
+| `maximum_events` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 512 }]` | `{}` |
+
+## `StudyObservationStatus`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservationStatus`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `receipt` | 1 | `Named("StudyCohortReceipt")` | `Output` | `[]` | `{}` |
+| `header` | 2 | `Named("StudyWorkbenchHeader")` | `Output` | `[]` | `{}` |
+| `members` | 3 | `Named("StudyCohortMemberPage")` | `Output` | `[]` | `{}` |
+
+## `StudyObservedSource`
+
+Rust owner: `pse_runtime::workflow::study_observation::StudyObservedSource`. Source: `crates/pse-runtime/src/workflow/study_observation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `position` | 1 | `Named("StudyObservationPosition")` | `Output` | `[]` | `{}` |
+| `continuity` | 2 | `Named("StudyObservationContinuity")` | `Output` | `[]` | `{}` |
+| `events` | 3 | `Repeated(Named("ProgressEventDocument"))` | `Output` | `[Length { min: 0, max: 512 }]` | `{}` |
+| `checkpoint` | 4 | `Optional(Named("ProgressCheckpointDocument"))` | `Output` | `[]` | `{}` |
+| `coverage` | 5 | `Optional(Named("ProgressCoverage"))` | `Output` | `[]` | `{}` |
+| `history_refusal` | 6 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+
+## `StudyOccurrenceKey`
+
+Rust owner: `pse_model::study::OccurrenceKey`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(U32)` | `Both` | `[]` | `{}` |
+
+## `StudyOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::StudyOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion8")` | `Both` | `[]` | `{}` |
+| `output` | 2 | `Named("StudyOutputDemand")` | `Both` | `[]` | `{}` |
+| `source` | 3 | `Named("OperationSource")` | `Both` | `[]` | `{}` |
+| `preparation` | 4 | `Named("PreparationSettings")` | `Both` | `[]` | `{}` |
+| `operation` | 5 | `Named("OperationRequest")` | `Both` | `[]` | `{}` |
+| `admitted_horizon` | 6 | `Optional(Named("AdmittedHorizonValues"))` | `Both` | `[]` | `{}` |
+
+## `StudyOutputDemand`
+
+Rust owner: `pse_runtime::workflow::study_demand::StudyOutputDemand`. Source: `crates/pse-runtime/src/workflow/study_demand.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Full` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Compact (alternative tag 2).detail` | 1 | `Named("StudyDetailDemand")` | `Both` | `[]` | `{}` |
+| `Compact (alternative tag 2).failed_detail` | 2 | `Named("StudyDetailDemand")` | `Both` | `[]` | `{}` |
+
+## `StudyPoint`
+
+Rust owner: `pse_runtime::workflow::study::StudyPoint`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Named("OperationRequest")` | `Both` | `[]` | `{}` |
+| `preparation` | 2 | `Named("PreparationSettings")` | `Both` | `[]` | `{}` |
+| `overlay` | 3 | `Named("PointOverlay")` | `Both` | `[]` | `{}` |
+| `policy` | 4 | `Named("StudyPointPolicy")` | `Both` | `[]` | `{}` |
+
+## `StudyPointDefinition`
+
+Rust owner: `pse_runtime::workflow::study::StudyPointDefinition`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Named("StudyOperation")` | `Both` | `[]` | `{}` |
+| `binding_hash` | 2 | `Named("BindingHash")` | `Both` | `[]` | `{}` |
+| `binding` | 3 | `Named("AdmittedBinding")` | `Both` | `[]` | `{}` |
+| `policy` | 4 | `Named("AdmittedStudyPointPolicy")` | `Both` | `[]` | `{}` |
+
+## `StudyPointFacts`
+
+Rust owner: `pse_model::study::PointFacts`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `admitted_seed_need` | 1 | `Optional(Named("StudySeedNeed"))` | `Both` | `[]` | `{}` |
+| `key` | 2 | `Named("StudyOccurrenceKey")` | `Both` | `[]` | `{}` |
+| `revision` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `lifecycle` | 4 | `Named("StudyPointState")` | `Both` | `[]` | `{}` |
+| `native_started` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `scientific` | 6 | `Named("StudyScientificFacts")` | `Both` | `[]` | `{}` |
+| `attempt_count` | 7 | `Scalar(U32)` | `Both` | `[]` | `{}` |
+| `retry_failure` | 8 | `Optional(Named("StudyRetryFailure"))` | `Both` | `[]` | `{}` |
+| `effect` | 9 | `Named("StudyEffectState")` | `Both` | `[]` | `{}` |
+| `seed` | 10 | `Optional(Named("StudySeedFact"))` | `Both` | `[]` | `{}` |
+
+## `StudyPointPolicy`
+
+Rust owner: `pse_runtime::workflow::study::StudyPointPolicy`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Named("StudyOccurrenceKey")` | `Both` | `[]` | `{}` |
+| `dependencies` | 2 | `Repeated(Named("StudyDependency"))` | `Both` | `[]` | `{}` |
+| `start` | 3 | `Named("StudyStartPolicy")` | `Both` | `[]` | `{}` |
+| `attempt_limit` | 4 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 4294967295 }]` | `{}` |
+
+## `StudyPointState`
+
+Rust owner: `pse_model::generated::enums::StudyPointState`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["pending", "assigned", "completed", "failed", "cancelled"]`.
+
+## `StudyRequest`
+
+Rust owner: `pse_runtime::workflow::study::StudyRequest`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 8. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion8")` | `Both` | `[]` | `{}` |
+| `output` | 2 | `Named("StudyOutputDemand")` | `Both` | `[]` | `{}` |
+| `inputs` | 3 | `Named("StudyInputs")` | `Both` | `[]` | `{}` |
+
+## `StudyRetryFailure`
+
+Rust owner: `pse_model::generated::enums::StudyRetryFailure`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["transient", "deterministic"]`.
+
+## `StudyScientificFacts`
+
+Rust owner: `pse_model::study::ScientificFacts`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `usable` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `candidate_use` | 2 | `Optional(Named("CandidateUse"))` | `Both` | `[]` | `{}` |
+| `seed_permission` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `StudySeedAvailability`
+
+Rust owner: `pse_model::study::SeedAvailability`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Unresolved` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Compatible (alternative tag 2).seed` | 1 | `Named("SolutionId")` | `Both` | `[]` | `{}` |
+| `Absent` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Incompatible` | 4 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `InternalFailure` | 5 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `StudySeedEdge`
+
+Rust owner: `pse_model::study::SeedEdge`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `predecessor` | 1 | `Named("StudyOccurrenceKey")` | `Both` | `[]` | `{}` |
+| `role` | 2 | `Named("StudySeedRole")` | `Both` | `[]` | `{}` |
+| `permission` | 3 | `Named("StudyContinuationPermission")` | `Both` | `[]` | `{}` |
+| `unavailable` | 4 | `Named("StudyUnavailableSeedPolicy")` | `Both` | `[]` | `{}` |
+
+## `StudySeedFact`
+
+Rust owner: `pse_model::study::SeedFact`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `role` | 1 | `Named("StudySeedRole")` | `Both` | `[]` | `{}` |
+| `availability` | 2 | `Named("StudySeedAvailability")` | `Both` | `[]` | `{}` |
+
+## `StudySeedNeed`
+
+Rust owner: `pse_model::generated::enums::StudySeedNeed`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["pending", "not_needed", "required"]`.
+
+## `StudySeedRole`
+
+Rust owner: `pse_model::generated::enums::StudySeedRole`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["primal_solution", "parameter_estimates", "trajectory", "horizon_state"]`.
+
+## `StudySourceChoice`
+
+Rust owner: `pse_runtime::workflow::study_variants::SourceChoice`. Source: `crates/pse-runtime/src/workflow/study_variants.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `alternatives` | 1 | `Repeated(Named("SourceDelta"))` | `Both` | `[Length { min: 1, max: 100000 }]` | `{}` |
+
+## `StudyStartPolicy`
+
+Rust owner: `pse_model::study::StartPolicy`. Source: `crates/pse-model/src/study.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Fresh` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Continuation (alternative tag 2).value` | 1 | `Named("StudySeedEdge")` | `Both` | `[]` | `{}` |
+| `Explicit (alternative tag 3).role` | 1 | `Named("StudySeedRole")` | `Both` | `[]` | `{}` |
+| `Explicit (alternative tag 3).seed` | 2 | `Named("SolutionId")` | `Both` | `[]` | `{}` |
+
+## `StudyUnavailableSeedPolicy`
+
+Rust owner: `pse_model::generated::enums::StudyUnavailableSeedPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["refuse", "fresh_on_unavailable"]`.
+
+## `StudyVariants`
+
+Rust owner: `pse_runtime::workflow::study_variants::StudyVariants`. Source: `crates/pse-runtime/src/workflow/study_variants.rs`. Interpretation version: 2. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Named("DocumentVersion2")` | `Both` | `[]` | `{}` |
+| `source` | 2 | `Named("OperationSource")` | `Both` | `[]` | `{}` |
+| `choices` | 3 | `Repeated(Named("StudySourceChoice"))` | `Both` | `[Length { min: 1, max: 64 }]` | `{}` |
+| `selected` | 4 | `Repeated(Named("SelectedStudyVariant"))` | `Both` | `[Length { min: 1, max: 100000 }]` | `{}` |
+
+## `StudyWorkbenchCursor`
+
+Rust owner: `pse_operations::canonical_control::StudyWorkbenchCursor`. Source: `crates/pse-operations/src/canonical_control.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `issuing_store` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `filter` | 2 | `Named("StudyWorkbenchFilter")` | `Both` | `[]` | `{}` |
+| `after` | 3 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `StudyWorkbenchFilter`
+
+Rust owner: `pse_operations::canonical_study_workbench::StudyWorkbenchFilter`. Source: `crates/pse-operations/src/canonical_study_workbench.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `study` | 1 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `project` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `branch` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `source` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `physical_revision` | 5 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `context` | 6 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+| `outcome` | 7 | `Optional(Named("CanonicalTerminalOutcome"))` | `Both` | `[]` | `{}` |
+| `research_reference` | 8 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `StudyWorkbenchHeader`
+
+Rust owner: `pse_operations::canonical_study_workbench::StudyWorkbenchHeader`. Source: `crates/pse-operations/src/canonical_study_workbench.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `study` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `run` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `problem` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `source` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `physical_revision` | 5 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `physical_identity` | 6 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `context` | 7 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `point_count` | 8 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `generation` | 9 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `active` | 10 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `cancelled` | 11 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `terminal` | 12 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `result_attempt` | 13 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `outcome` | 14 | `Optional(Named("CanonicalTerminalOutcome"))` | `Output` | `[]` | `{}` |
+
+## `StudyWorkbenchPage`
+
+Rust owner: `pse_operations::canonical_control::StudyWorkbenchPage`. Source: `crates/pse-operations/src/canonical_control.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `headers` | 1 | `Repeated(Named("StudyWorkbenchHeader"))` | `Output` | `[]` | `{}` |
+| `next` | 2 | `Optional(Named("StudyWorkbenchCursor"))` | `Output` | `[]` | `{}` |
+
+## `StudyWorkbenchRequest`
+
+Rust owner: `pse_operations::canonical_control::StudyWorkbenchRequest`. Source: `crates/pse-operations/src/canonical_control.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `filter` | 1 | `Named("StudyWorkbenchFilter")` | `Input` | `[]` | `{}` |
+| `maximum` | 2 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 64 }]` | `{}` |
+| `cursor` | 3 | `Optional(Named("StudyWorkbenchCursor"))` | `Input` | `[]` | `{}` |
+
+## `Tolerance`
+
+Rust owner: `pse_model::scalars::__nutype_Tolerance__::Tolerance`. Source: `crates/pse-model/src/scalars.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+
+## `TrialPolicy`
+
+Rust owner: `pse_model::generated::enums::TrialPolicy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["terminal", "recoverable"]`.
+
+## `Tuple2OfStringAndModelingType`
+
+Rust owner: `(alloc::string::String, pse_modeling::types::Type)`. Source: `crates/pse-model/src/boundary_projection/tuple_pair.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `first` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `second` | 2 | `Named("ModelingType")` | `Both` | `[]` | `{}` |
+
 ## `UnitFactor`
 
 Rust owner: `pse_quantity::unit::UnitFactor`. Source: `crates/pse-quantity/src/unit.rs`. Interpretation version: 1. Direction: `Both`.
@@ -1129,6 +7486,31 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `UnoSettings`
+
+Rust owner: `pse_backend_native::settings::uno::Settings`. Source: `crates/pse-backend-native/src/settings/uno.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `method` | 1 | `Named("NativeUnoMethod")` | `Both` | `[]` | `{}` |
+| `trust_radius` | 2 | `Scalar(F64Bits)` | `Both` | `[Float64Domain(PositiveFinite)]` | `{}` |
+| `limited_memory` | 3 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+
+## `VersionRequirement`
+
+Rust owner: `pse_model::generated::structures::VersionRequirement`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operator` | 1 | `Named("ModelingVersionOperator")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingVersionOperator"}` |
+| `major` | 2 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `minor` | 3 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+| `patch` | 4 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
 
 ## Service `EngineeringService`
 
@@ -1160,3 +7542,33 @@ Reserved numbers: `[]`. Reserved names: `[]`.
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
 - `InspectPhysical`: `Named("EngineeringInspectPhysical")` -> `Named("PhysicalInspectionDocument")`.
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `InspectModeling`: `Named("EngineeringInspectModeling")` -> `Named("ModelingInspection")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `InspectProviders`: `Named("EngineeringInspectProviders")` -> `Named("ProviderInspectionPage")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `BrowseStudies`: `Named("StudyWorkbenchRequest")` -> `Named("StudyWorkbenchPage")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `PrepareStudy`: `Named("EngineeringPrepareStudy")` -> `Named("EngineeringPreparedStudy")`.
+  Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
+- `RestoreStudy`: `Named("EngineeringRestoreStudy")` -> `Named("EngineeringPreparedStudy")`.
+  Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
+- `ReadPreparedStudy`: `Named("EngineeringOperationKey")` -> `Named("StudyDefinition")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `SubmitStudy`: `Named("EngineeringSubmitStudy")` -> `Named("EngineeringStudyStatus")`.
+  Owner effects: `NativeExecution`; read only: false; idempotent: true; destructive: false.
+- `StudyStatus`: `Named("EngineeringStudyKey")` -> `Named("EngineeringStudyStatus")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `CancelStudy`: `Named("EngineeringStudyKey")` -> `Named("EngineeringStudyStatus")`.
+  Owner effects: `CanonicalCommand`; read only: false; idempotent: true; destructive: false.
+- `ObserveStudy`: `Named("EngineeringObserveStudy")` -> `Named("StudyObservationPage")` (server stream).
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `FreezeStudyCohort`: `Named("EngineeringFreezeStudyCohort")` -> `Named("StudyCohortReceipt")`.
+  Owner effects: `Capture`; read only: false; idempotent: false; destructive: false.
+- `ReadStudyHeaders`: `Named("EngineeringStudyHeaderPage")` -> `Named("StudyCohortHeaderPage")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `ReadStudyMembers`: `Named("EngineeringStudyCohortPage")` -> `Named("StudyCohortMemberPage")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `ReadStudyResult`: `Named("EngineeringReadStudyResult")` -> `Named("EngineeringStudyResultPage")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `ReleaseStudyCohort`: `Named("EngineeringOperationKey")` -> `Named("EngineeringCohortRelease")`.
+  Owner effects: `RetentionRelease`; read only: false; idempotent: true; destructive: true.

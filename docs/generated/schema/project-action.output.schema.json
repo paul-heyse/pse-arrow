@@ -1339,7 +1339,7 @@
       "type": "object"
     },
     "BackendSettingsBody": {
-      "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
+      "description": "Explicit serializable native settings; routed defaults remain local to native dispatch.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -2158,7 +2158,7 @@
     },
     "BlockSolveOverrideBody": {
       "additionalProperties": false,
-      "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+      "description": "Native realization and finite work controls of one compiler-issued block.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -3325,23 +3325,28 @@
     },
     "EvaluationLimits": {
       "additionalProperties": false,
+      "description": "Explicit resource allowance for one compiled body and its worker.",
       "properties": {
         "derivative_components": {
+          "description": "Maximum Taylor components per scalar.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "operations": {
+          "description": "Maximum scalar arithmetic operations per compiled demand.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "provider_calls": {
+          "description": "Maximum provider calls in the admitted control schedule.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "scratch_bytes": {
+          "description": "Maximum owned numeric scratch bytes per worker.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -3461,6 +3466,7 @@
     },
     "FeralSettings": {
       "additionalProperties": false,
+      "description": "Complete original FERAL configuration binding, shared by Serde and typed projection.",
       "properties": {
         "bounded_storage_max_dimension": {
           "default": null,
@@ -3730,7 +3736,7 @@
     },
     "HighsDiagnostics": {
       "additionalProperties": false,
-      "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
+      "description": "Requested native diagnostics, bounded by the original attempt's deadline.",
       "properties": {
         "basis_inverse": {
           "default": null,
@@ -3811,7 +3817,7 @@
     },
     "HighsPenalties": {
       "additionalProperties": false,
-      "description": "Complete physical penalty declarations for native feasibility relaxation.",
+      "description": "Complete physical penalties for native feasibility relaxation.",
       "properties": {
         "global": {
           "description": "Global lower-bound, upper-bound and constraint penalties.",
@@ -3823,6 +3829,7 @@
           "type": "array"
         },
         "lower": {
+          "default": null,
           "description": "Optional per-variable lower-bound penalties.",
           "items": {
             "format": "double",
@@ -3834,6 +3841,7 @@
           ]
         },
         "rows": {
+          "default": null,
           "description": "Optional per-row penalties.",
           "items": {
             "format": "double",
@@ -3845,6 +3853,7 @@
           ]
         },
         "upper": {
+          "default": null,
           "description": "Optional per-variable upper-bound penalties.",
           "items": {
             "format": "double",
@@ -5373,21 +5382,26 @@
     },
     "Optimization": {
       "additionalProperties": false,
+      "description": "Explicit optimizer controls; no target-dependent or unbounded defaults.",
       "properties": {
         "cores": {
+          "description": "Positive bounded optimizer concurrency.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "cpe_iterations": {
+          "description": "Common-pair elimination rounds.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
         },
         "evaluator": {
-          "$ref": "#/$defs/Evaluator"
+          "$ref": "#/$defs/Evaluator",
+          "description": "Explicit implementation for scalar Value arithmetic blocks."
         },
         "horner_iterations": {
+          "description": "Horner search budget.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -5413,7 +5427,7 @@
           "type": "integer"
         },
         {
-          "description": "Finite native real.",
+          "description": "Finite native real; nonfinite observations use the separate evidence owner.",
           "format": "double",
           "type": "number"
         },
@@ -5422,7 +5436,7 @@
           "type": "string"
         }
       ],
-      "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
+      "description": "Primitive native option values, preserving the original untagged document."
     },
     "ParameterCovariance": {
       "additionalProperties": false,
@@ -5457,6 +5471,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "scales": {
@@ -5697,8 +5713,8 @@
       "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
       "properties": {
         "compiler": {
-          "$ref": "#/$defs/StudyCompilerProfile",
-          "description": "Existing evaluator profile, encoded through its complete remote projection."
+          "$ref": "#/$defs/Profile",
+          "description": "Existing evaluator profile, encoded by its actual source declaration."
         },
         "limits": {
           "$ref": "#/$defs/Limits",
@@ -5826,6 +5842,37 @@
         "branch",
         "allowance",
         "class"
+      ],
+      "type": "object"
+    },
+    "Profile": {
+      "additionalProperties": false,
+      "description": "Consumed compilation controls, separate from semantic preparation.",
+      "properties": {
+        "assembly": {
+          "$ref": "#/$defs/AssemblyLimits",
+          "description": "Per-case sparse assembly and complete numerical-worker admission limits."
+        },
+        "class_proof_work": {
+          "description": "Shared finite conservative construction work for domain facts and demanded\nclass proof, including expression storage/substitution bounds and derivative\ncalls. These units are not measured library-operation counters and do not\nadmit byte allocations or numerical evaluator work.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evaluation": {
+          "$ref": "#/$defs/EvaluationLimits",
+          "description": "Local numeric limits affecting evaluator admission."
+        },
+        "optimization": {
+          "$ref": "#/$defs/Optimization",
+          "description": "Optimization controls."
+        }
+      },
+      "required": [
+        "optimization",
+        "evaluation",
+        "assembly",
+        "class_proof_work"
       ],
       "type": "object"
     },
@@ -6730,6 +6777,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         }
       },
@@ -6777,13 +6826,15 @@
         "proof_cells": {
           "description": "Maximum actual interval proof cells across all those rounds.",
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         },
         "rounds": {
           "description": "Maximum complete enclosure/correction rounds for this consumed product.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -8811,6 +8862,8 @@
             "type": "string",
             "x-pse-identity": "SemanticId"
           },
+          "maxItems": 18446744073709551615,
+          "minItems": 1,
           "type": "array"
         },
         "propagation": {
@@ -8882,7 +8935,7 @@
     },
     "SolveControls": {
       "additionalProperties": false,
-      "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
+      "description": "Finite shared attempt controls chosen by the caller; accuracy stays with resolved policy.",
       "properties": {
         "foreign_bytes": {
           "description": "Positive foreign-library allowance of this solve, in bytes: its reservation charges\nit, and a library that enforces its own memory limit receives it. Absent, the\ndeployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is\nnot encoded, so controls without one keep their identity.",
@@ -8957,7 +9010,7 @@
     },
     "SolveSettings": {
       "additionalProperties": false,
-      "description": "The settings of one solve. The version is required; every other field takes the\ndefault of [`SolverProfile::default`] when absent.",
+      "description": "Settings of one solve; original per-field defaults and admission stay authoritative.",
       "properties": {
         "backend": {
           "anyOf": [
@@ -9324,13 +9377,15 @@
         "maximum_members": {
           "description": "Capture refuses if complete selected population exceeds this or the declared cohort admission bound.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 10000,
+          "minimum": 1,
           "type": "integer"
         },
         "maximum_studies": {
           "description": "Capture refuses if more studies match; maximum 64.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 64,
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -9338,34 +9393,6 @@
         "filter",
         "maximum_studies",
         "maximum_members"
-      ],
-      "type": "object"
-    },
-    "StudyCompilerProfile": {
-      "additionalProperties": false,
-      "properties": {
-        "assembly": {
-          "$ref": "#/$defs/AssemblyLimits",
-          "description": "Per-case sparse assembly and complete numerical-worker admission limits."
-        },
-        "class_proof_work": {
-          "description": "Conservative shared domain/class construction work, not measured operations.",
-          "format": "uint",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "evaluation": {
-          "$ref": "#/$defs/EvaluationLimits"
-        },
-        "optimization": {
-          "$ref": "#/$defs/Optimization"
-        }
-      },
-      "required": [
-        "optimization",
-        "evaluation",
-        "assembly",
-        "class_proof_work"
       ],
       "type": "object"
     },
@@ -9473,13 +9500,7 @@
           "$ref": "#/$defs/StudyObservationRequestBody",
           "description": "Exact original observation selection and limits."
         },
-        "sources": {
-          "description": "Original parent and retry sources; older attempts remain present.",
-          "items": {
-            "$ref": "#/$defs/StudyObservationPosition"
-          },
-          "type": "array"
-        }
+        "sources": false
       },
       "required": [
         "issuing_store",
@@ -9533,6 +9554,7 @@
         "offset": {
           "description": "Next event inside that batch.",
           "format": "uint",
+          "maximum": 512,
           "minimum": 0,
           "type": "integer"
         },
@@ -9577,13 +9599,15 @@
         "maximum_events": {
           "description": "Maximum events returned per poll, from one through 512.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 512,
+          "minimum": 1,
           "type": "integer"
         },
         "maximum_members": {
           "description": "Maximum complete selected point population, from one through 64.",
           "format": "uint",
-          "minimum": 0,
+          "maximum": 64,
+          "minimum": 1,
           "type": "integer"
         },
         "study": {

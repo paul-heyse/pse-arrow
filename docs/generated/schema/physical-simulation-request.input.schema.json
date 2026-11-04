@@ -26,7 +26,7 @@
     },
     "AdjointSettings": {
       "additionalProperties": false,
-      "description": "Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary\ndocument (ADR-0116 Outcome 6): the version is required, and absent fields take these\ndefaults. The backward pass replays at most `steps_between_checkpoints` native steps\nfrom a stored checkpoint, and at most `max_checkpoints` are held at once, at least two\nper scheduled segment; a forward pass that needs more stops with a typed memory limit.\nTheir estimated bytes are charged against the caller's memory allowance before any\nnative work.",
+      "description": "Finite original adjoint-checkpoint controls.",
       "properties": {
         "max_checkpoints": {
           "$ref": "#/$defs/PositiveCount",
@@ -741,6 +741,7 @@
     },
     "DiffsolInitialConditionOptions": {
       "additionalProperties": false,
+      "description": "Source-owned remote declaration of the library's initialization controls.",
       "properties": {
         "armijo_constant": {
           "format": "double",
@@ -797,6 +798,7 @@
     },
     "DiffsolOdeSolverOptions": {
       "additionalProperties": false,
+      "description": "Source-owned remote declaration of the library's nonlinear integration controls.",
       "properties": {
         "max_error_test_failures": {
           "format": "uint",
@@ -893,7 +895,7 @@
     },
     "DiffsolSettings": {
       "additionalProperties": false,
-      "description": "Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):\nthe version is required, and absent fields take these defaults.",
+      "description": "Typed Diffsol method document with its required original version.",
       "properties": {
         "linear": {
           "$ref": "#/$defs/DiffsolLinear",
@@ -942,7 +944,7 @@
     },
     "EndpointRequirement": {
       "additionalProperties": false,
-      "description": "Explicit final-result obligation, independent of the requested output grid.",
+      "description": "Declared completion obligation, independent of requested output times.",
       "properties": {
         "event": {
           "description": "Allowed terminal guard identity, required only for declared-event completion.",
@@ -1002,7 +1004,7 @@
     },
     "IdasBand": {
       "additionalProperties": false,
-      "description": "Explicit half-bandwidths in the original admitted state ordering.\nZero retains only the diagonal on that side; no ordering is inferred.",
+      "description": "Explicit half-bandwidths in the original admitted state ordering.",
       "properties": {
         "lower": {
           "description": "Number of original state columns retained below a row's diagonal.",
@@ -1025,7 +1027,7 @@
     },
     "IdasInitialConditions": {
       "additionalProperties": false,
-      "description": "Exact IDAS consistent-initialization controls; no physical time stepping is requested.",
+      "description": "Exact native IDAS consistent-initialization work controls.",
       "properties": {
         "backtracks": {
           "default": null,
@@ -1085,7 +1087,7 @@
       "type": "object"
     },
     "IdasInitialStep": {
-      "description": "Origin of the first physical IDAS step; consistent initialization retains its\nseparate positive orientation scale in [`Profile::initial_step`].",
+      "description": "Origin of the first physical IDAS step, independent of the IC orientation scale.",
       "oneOf": [
         {
           "const": "configured",
@@ -1094,7 +1096,7 @@
         },
         {
           "const": "automatic",
-          "description": "Let the native integrator estimate its first physical step (the default).",
+          "description": "Let the native integrator estimate its first physical step.",
           "type": "string"
         }
       ]
@@ -1107,7 +1109,7 @@
       "type": "string"
     },
     "IdasLinear": {
-      "description": "IDAS Newton linear solver.",
+      "description": "IDAS Newton linear solver; original band and Krylov admission remains contextual.",
       "oneOf": [
         {
           "additionalProperties": false,
@@ -1138,7 +1140,7 @@
             "preconditioner": {
               "$ref": "#/$defs/Preconditioner",
               "default": "none",
-              "description": "Left preconditioner built from the compiled Jacobian; none when absent."
+              "description": "Left preconditioner built from the compiled Jacobian."
             }
           },
           "required": [
@@ -1149,7 +1151,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Exact matrix-free GMRES with the native library's band approximation as\na left preconditioner. Both bands name original state coordinates.",
+          "description": "Exact matrix-free GMRES with the native library's band approximation.",
           "properties": {
             "difference": {
               "$ref": "#/$defs/IdasBand",
@@ -1191,7 +1193,7 @@
             "preconditioner": {
               "$ref": "#/$defs/Preconditioner",
               "default": "none",
-              "description": "Left preconditioner built from the compiled Jacobian; none when absent."
+              "description": "Left preconditioner built from the compiled Jacobian."
             }
           },
           "required": [
@@ -1204,7 +1206,7 @@
     },
     "IdasSettings": {
       "additionalProperties": false,
-      "description": "Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document\n(ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.\nVersion 2 removes the per-state sign constraints: they derive from the authored bounds\n([`Contract::signs`], ADR-0119 Outcome 4).\nVersion 3 makes native automatic first-step selection the default (ADR-0207).",
+      "description": "Typed original IDAS method and consistent-initialization controls.",
       "properties": {
         "initial_conditions": {
           "$ref": "#/$defs/IdasInitialConditions",
@@ -1263,7 +1265,7 @@
     },
     "IntegrationControlsForArray_of_ScientificCoordinateValue": {
       "additionalProperties": false,
-      "description": "Finite integration policy. Tolerances apply to the normalized state coordinates.",
+      "description": "Finite integration policy; physical coordinate admission stays with the original owner.",
       "properties": {
         "adjoint": {
           "$ref": "#/$defs/AdjointSettings",
@@ -1399,6 +1401,7 @@
           "type": "array"
         },
         "out_rtol": {
+          "default": null,
           "description": "Explicit integrated-flux relative tolerance; required when conservation is declared.",
           "format": "double",
           "type": [
@@ -1703,7 +1706,7 @@
     },
     "ScheduledInput": {
       "additionalProperties": false,
-      "description": "One contract parameter held piecewise constant: it takes a new value at each change\ntime. The integration parameter vector holds one value per interval, `times.len() + 1`\nof them, and a sensitivity column for each, so sensitivities cross every change\n(ADR-0119, I6).\n\n```\nuse pse_backend_native::dynamics::{Profile, ScheduledInput};\n\n// Two contract parameters; the second changes at t = 0.5.\nlet profile = Profile {\n    schedule: vec![ScheduledInput { parameter: 1, times: vec![0.5] }],\n    ..Profile::default()\n};\n// The static parameter comes first, then one value per interval.\nassert_eq!(profile.integration_width(2), 3);\nassert_eq!(profile.integration_parameters(&[4.0, 7.0]), vec![4.0, 7.0, 7.0]);\nassert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.25), vec![4.0, 7.0]);\n// A change takes effect at its time.\nassert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);\n```",
+      "description": "One original parameter's strictly ordered piecewise-constant change times.",
       "properties": {
         "parameter": {
           "description": "Position of the input in the contract's parameter order.",
@@ -1764,7 +1767,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Pending host simulation controls. Physical time stays signed binary64 seconds;\nall coordinate-bearing tolerances and characteristic scales carry keys and units.",
+  "description": "Pending host simulation controls; coordinates retain physical keys and units.",
   "properties": {
     "controls": {
       "$ref": "#/$defs/IntegrationControlsForArray_of_ScientificCoordinateValue",
