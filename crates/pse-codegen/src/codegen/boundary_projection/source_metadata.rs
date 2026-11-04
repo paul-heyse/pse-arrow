@@ -9,16 +9,18 @@ use super::ProjectionCodegenError;
 type DomainCheck = fn(&DynamicMessage) -> Result<(), ProjectionCodegenError>;
 #[derive(Debug)]
 pub(super) struct SelectionNames {
+    pub(super) interpretations: Vec<(String, u32)>,
     pub(super) owners: Vec<String>,
     pub(super) fields: Vec<String>,
     pub(super) methods: Vec<String>,
 }
 pub(super) fn native_selection(graph: &pse_contract::boundary_projection::ProjectionGraph, package: &str, direction: Direction) -> SelectionNames {
     use pse_contract::boundary_projection::Shape;
-    let mut selection = SelectionNames { owners: vec![], fields: vec![], methods: vec![] };
+    let mut selection = SelectionNames { interpretations: vec![], owners: vec![], fields: vec![], methods: vec![] };
     for owner in graph.definitions().values() {
         let name = format!("{package}.{}", owner.name);
         selection.owners.push(name.clone());
+        selection.interpretations.push((name.clone(), owner.version));
         match &owner.shape {
             Shape::Record(fields) => for field in fields.iter().filter(|field| field.direction.includes(direction)) { selection.fields.push(format!("{name}.{}", field.name)); },
             Shape::Alternatives(alternatives) => for alternative in alternatives {

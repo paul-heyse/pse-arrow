@@ -56,6 +56,27 @@ fn error(reason: impl Into<String>) -> ProjectionCodegenError {
     }.into()
 }
 
+fn validate_package(package: &str) -> Result<(), ProjectionCodegenError> {
+    if package.split('.').any(|part| !identifier(part))
+        || !package.split('.').next_back().is_some_and(|part| part.strip_prefix('v').is_some_and(|major| major.parse::<u32>().is_ok_and(|major| major > 0))) {
+        return Err(error("externally consumed package must end in an explicit nonzero major (for example pse.engineering.v1)"));
+    }
+    Ok(())
+}
+
+/// Emit immutable native interpretation/coverage constants from the actual source
+/// graph, for independent consumers that cannot import the original native owner.
+/// Acquired descriptor contents never approve their own missing source coverage.
+pub fn native_policy_source(graph: &ProjectionGraph, package: &str, direction: Direction) -> Result<String, ProjectionCodegenError> {
+    validate_package(package)?;
+    let selection = source_metadata::native_selection(graph, package, direction);
+    if selection.owners.is_empty() { return Err(error("native source policy requires at least one actual owner")); }
+    Ok(format!(
+        "// Source-derived immutable interpretation and coverage; no native authority.\npub const INTERPRETATIONS: &[(&str, u32)] = &{:?};\npub const NATIVE_SELECTION: pse_contract_proto::NativeSelection<'static> = pse_contract_proto::NativeSelection {{ owners: &{:?}, fields: &{:?}, methods: &{:?} }};\n",
+        selection.interpretations, selection.owners, selection.fields, selection.methods,
+    ))
+}
+
 /// Lower a graph without external imports. Required typed metadata imports refuse.
 pub fn descriptors(
     graph: &ProjectionGraph,
@@ -84,16 +105,7 @@ pub fn descriptors_for_direction(
     imports: &[FileDescriptorProto],
     direction: Direction,
 ) -> Result<FileDescriptorSet, ProjectionCodegenError> {
-    if package.split('.').any(|part| !identifier(part))
-        || !package.split('.').next_back().is_some_and(|part| {
-            part.strip_prefix('v')
-                .is_some_and(|major| major.parse::<u32>().is_ok_and(|major| major > 0))
-        })
-    {
-        return Err(error(
-            "externally consumed package must end in an explicit nonzero major (for example pse.engineering.v1)",
-        ));
-    }
+    validate_package(package)?;
     if !file_name.ends_with(".proto")
         || file_name.starts_with('/')
         || file_name.split('/').any(|p| p == ".." || p.is_empty())
@@ -269,9 +281,8 @@ pub fn descriptors_for_direction(
         ..Default::default()
     };
     let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<(), ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
-    let owner_versions = graph.definitions().values().map(|owner| (format!("{package}.{}", owner.name), owner.version)).collect::<Vec<_>>();
-    let interpretations = owner_versions.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
     let names = source_metadata::native_selection(graph, package, direction);
+    let interpretations = names.interpretations.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
     let owners = names.owners.iter().map(String::as_str).collect::<Vec<_>>();
     let fields = names.fields.iter().map(String::as_str).collect::<Vec<_>>();
     let methods = names.methods.iter().map(String::as_str).collect::<Vec<_>>();

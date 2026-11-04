@@ -688,6 +688,23 @@ pub(super) fn imports() -> Vec<FileDescriptorProto> {
 }
 
 #[test]
+fn immutable_native_policy_uses_source_versions_and_nested_field_coverage() {
+    let mut graph = ProjectionGraph::of::<Request>().unwrap();
+    let service = Service::new("Reader").unary::<Request, Request>(&mut graph, "Inspect").unwrap()
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION).unwrap();
+    graph.service(service).unwrap();
+    let source = native_policy_source(&graph, "pse.policy.v1", Direction::Input).unwrap();
+    syn::parse_file(&source).unwrap();
+    assert!(source.contains("(\"pse.policy.v1.Request\", 2)"));
+    assert!(source.contains("pse.policy.v1.Request.value"));
+    assert!(source.contains("pse.policy.v1.Value.Alternative3.value"));
+    assert!(source.contains("pse.policy.v1.Reader.Inspect"));
+    assert!(!source.contains("pse.policy.v1.Request.output_only"));
+    assert!(native_policy_source(&ProjectionGraph::default(), "pse.policy.v1", Direction::Both).is_err());
+    assert!(native_policy_source(&graph, "pse.policy", Direction::Both).is_err());
+}
+
+#[test]
 fn optional_unsigned_range_retains_presence_and_only_constrains_supplied_values() {
     projection_struct! {
         struct OptionalDeadline {
