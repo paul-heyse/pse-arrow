@@ -5,6 +5,7 @@
 //! as the integer `N`, its JSON Schema is the constant `N`, and decoding any other number
 //! is refused, never reinterpreted. A change to a document's encoding is a new `N`.
 use std::borrow::Cow;
+pub mod finite;
 
 /// The native decoding phase, separate from authored scientific source locations.
 #[derive(
@@ -291,30 +292,59 @@ impl<const N: u32> Version<N> {
 }
 
 impl<const N: u32> crate::boundary_projection::ProjectionType for Version<N> {
-    fn projection(graph: &mut crate::boundary_projection::ProjectionGraph)
-        -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError>
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError>
     {
         use crate::boundary_projection::{Direction, Field, LocalRule, Shape};
-        graph.declare::<Self>(&format!("DocumentVersion{N}"), file!(), 1, Direction::Both, &[], &[], |graph|
-            Ok(Shape::Record(vec![Field::of::<u32>(graph, "value", 1, Direction::Both,
-                vec![LocalRule::UnsignedRange { min: u64::from(Self::NUMBER), max: u64::from(Self::NUMBER) }])?])))
+        graph.declare::<Self>(
+            &format!("DocumentVersion{N}"),
+            file!(),
+            1,
+            Direction::Both,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![Field::of::<u32>(
+                    graph,
+                    "value",
+                    1,
+                    Direction::Both,
+                    vec![LocalRule::UnsignedRange {
+                        min: u64::from(Self::NUMBER),
+                        max: u64::from(Self::NUMBER),
+                    }],
+                )?]))
+            },
+        )
     }
 }
 impl<const N: u32> crate::boundary_projection::ProjectionRecord for Version<N> {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (u32,);
-    fn into_projection_fields(self) -> Self::Fields { (Self::NUMBER,) }
-    fn from_projection_fields((value,): Self::Fields) -> Result<Self, crate::boundary_projection::AdapterError> {
-        if value == Self::NUMBER { Ok(Self) }
-        else { Err(crate::boundary_projection::AdapterError::refused("value",
-            crate::boundary_projection::AdapterFailure::InvalidValue,
-            format!("document requires interpretation version {}", Self::NUMBER))) }
+    fn into_projection_fields(self) -> Self::Fields {
+        (Self::NUMBER,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        if value == Self::NUMBER {
+            Ok(Self)
+        } else {
+            Err(crate::boundary_projection::AdapterError::refused(
+                "value",
+                crate::boundary_projection::AdapterFailure::InvalidValue,
+                format!("document requires interpretation version {}", Self::NUMBER),
+            ))
+        }
     }
 }
 impl<const N: u32> crate::boundary_projection::ValidateProjection for Version<N> {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> { Ok(()) }
+    fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 
 impl<const N: u32> serde::Serialize for Version<N> {

@@ -4,6 +4,8 @@
 use super::*;
 use std::collections::BTreeSet;
 
+mod float_collections;
+
 #[test]
 fn source_vocabulary_sets_keep_wrappers_and_emit_maintained_uniqueness_rules() {
     projection_struct! {
@@ -289,6 +291,74 @@ fn binary64_setting_domains_lower_to_exact_fixed64_bounds_and_finite_cel() {
         Some(
             "this < 9218868437227405312u || (this >= 9223372036854775808u && this < 18442240474082181120u)"
         )
+    );
+}
+
+#[test]
+fn nonnegative_binary64_domain_preserves_signed_zeros_and_refuses_negative_values() {
+    use pse_model::boundary_projection::{Float64Domain, ValidateProjection as _};
+    projection_struct! {
+        struct NonnegativeAllowance {
+            projection: { name: "NonnegativeAllowance", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            value: f64 => { tag: 1, direction: Direction::Both,
+                rules: [LocalRule::Float64Domain(Float64Domain::NonnegativeFinite)] };
+        }
+    }
+    for value in [0.0, -0.0, f64::from_bits(1), 1.0, f64::MAX] {
+        NonnegativeAllowance { value }
+            .validate_projection()
+            .unwrap();
+    }
+    for value in [
+        -f64::from_bits(1),
+        -1.0,
+        -f64::MAX,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+        f64::from_bits(0xfff8_0000_0000_0001),
+    ] {
+        assert!(
+            NonnegativeAllowance { value }
+                .validate_projection()
+                .is_err(),
+            "{value:?}"
+        );
+    }
+    let graph = ProjectionGraph::of::<NonnegativeAllowance>().unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.allowance.v1", "allowance.proto", &imports())
+            .unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("allowance.proto"))
+        .unwrap();
+    let field = &file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("NonnegativeAllowance"))
+        .unwrap()
+        .field[0];
+    assert_eq!(field.r#type, Some(Type::TYPE_FIXED64));
+    let rules = field
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    assert!(
+        rules.r#type.is_none(),
+        "signed zero requires a union of bit domains"
+    );
+    assert_eq!(rules.cel.len(), 1);
+    assert_eq!(
+        rules.cel[0].id.as_deref(),
+        Some("float64.nonnegative_finite")
+    );
+    assert_eq!(
+        rules.cel[0].expression.as_deref(),
+        Some("this <= 9218868437227405311u || this == 9223372036854775808u")
     );
 }
 

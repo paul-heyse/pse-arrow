@@ -80,15 +80,10 @@ quantity_vocabulary!(
 impl<T: ProjectionType, const N: usize> ProjectionType for [T; N] {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         let element = T::projection(graph)?;
-        let element_name = match element {
-            TypeRef::Named(name) => name,
+        let element_name = match &element {
+            TypeRef::Named(name) => name.clone(),
             TypeRef::Scalar(scalar) => format!("{scalar:?}"),
-            _ => {
-                return Err(ProjectionError::invalid(
-                    std::any::type_name::<Self>(),
-                    "fixed arrays require a scalar or named element owner",
-                ));
-            }
+            _ => T::projection_argument_name(graph)?,
         };
         let name = format!("Array{N}{element_name}");
         let length = u64::try_from(N)
@@ -106,6 +101,7 @@ impl<T: ProjectionType, const N: usize> ProjectionType for [T; N] {
                     }],
                 )?]))
             })?;
+        graph.array_container::<T, N>(&root, element)?;
         let element = T::projection_rust_path(graph)?;
         graph.public_path::<Self>(&root, &format!("[{element};{N}]"))?;
         Ok(root)
@@ -135,6 +131,7 @@ impl<T, const N: usize> ProjectionRecord for [T; N] {
     }
 }
 impl<T: ValidateProjection, const N: usize> ValidateProjection for [T; N] {
+    const SUPPORTS_FLOAT64_DOMAIN: bool = T::SUPPORTS_FLOAT64_DOMAIN;
     const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         if !Self::NEEDS_RECURSIVE_VALIDATION {
@@ -147,5 +144,11 @@ impl<T: ValidateProjection, const N: usize> ValidateProjection for [T; N] {
     }
     fn projection_length(&self) -> Option<usize> {
         Some(N)
+    }
+    fn projection_float64_domain(&self, domain: Float64Domain) -> Option<bool> {
+        Self::SUPPORTS_FLOAT64_DOMAIN.then(|| {
+            self.iter()
+                .all(|value| value.projection_float64_domain(domain) == Some(true))
+        })
     }
 }

@@ -27,6 +27,7 @@ use pse_model::boundary_projection::{
 use pse_schema::error::SchemaError;
 
 mod adapters;
+mod float_collections;
 pub use adapters::{native_adapters, native_adapters_retaining_wire};
 
 /// One complete generation closure. The caller owns publication and generated roots.
@@ -499,7 +500,7 @@ impl Lower<'_> {
             if !field.rules.is_empty() {
                 let mut rules = self.base_rules(&field.ty);
                 for rule in &field.rules {
-                    apply_rule(&mut rules, &field.ty, rule)?;
+                    apply_rule(&mut rules, &field.ty, rule, self.graph)?;
                 }
                 self.options(&mut lowered, rules)?;
                 if field.rules.contains(&LocalRule::Required)
@@ -774,7 +775,13 @@ impl Lower<'_> {
     }
 }
 
-fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<(), SchemaError> {
+fn apply_rule(
+    rules: &mut FieldRules,
+    ty: &TypeRef,
+    rule: &LocalRule,
+    graph: &ProjectionGraph,
+) -> Result<(), SchemaError> {
+    let source_type = ty;
     let ty = match (rule, ty) {
         (
             LocalRule::UnsignedRange { .. }
@@ -787,31 +794,60 @@ fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<
     match rule {
         LocalRule::Float64Domain(domain) => {
             if !matches!(ty, TypeRef::Scalar(Scalar::F64Bits)) {
-                return Err(error("binary64 domain requires actual fixed64 float bits"));
-            }
-            if let Some(maximum) = domain.positive_maximum_bits() {
-                rules.r#type = Some(
-                    Fixed64Rules {
-                        greater_than: Some(fixed64rules::GreaterThan::Gt(0)),
-                        less_than: Some(fixed64rules::LessThan::Lte(maximum)),
-                        ..Default::default()
-                    }
-                    .into(),
-                );
-            } else {
-                // Each IEEE sign interval is monotonic in the transported unsigned
-                // bits. Exclude both infinities and every NaN, preserving both zeros.
                 rules.cel.push(Rule {
-                    id: Some("float64.finite".into()),
-                    message: Some("binary64 value must be finite".into()),
-                    expression: Some(format!(
-                        "this < {}u || (this >= {}u && this < {}u)",
-                        f64::INFINITY.to_bits(),
-                        (-0.0_f64).to_bits(),
-                        f64::NEG_INFINITY.to_bits()
-                    )),
+                    id: Some("float64.collection_domain".into()),
+                    message: Some(format!("binary64 leaves must satisfy {domain:?}")),
+                    expression: Some(float_collections::collection_expression(
+                        graph,
+                        source_type,
+                        *domain,
+                    )?),
                     ..Default::default()
                 });
+                return Ok(());
+            }
+            match domain {
+                pse_model::boundary_projection::Float64Domain::PositiveFinite
+                | pse_model::boundary_projection::Float64Domain::PositiveUnit => {
+                    let maximum = domain.positive_maximum_bits().ok_or_else(|| {
+                        error("positive binary64 domain has no declared bit interval")
+                    })?;
+                    rules.r#type = Some(
+                        Fixed64Rules {
+                            greater_than: Some(fixed64rules::GreaterThan::Gt(0)),
+                            less_than: Some(fixed64rules::LessThan::Lte(maximum)),
+                            ..Default::default()
+                        }
+                        .into(),
+                    );
+                }
+                pse_model::boundary_projection::Float64Domain::NonnegativeFinite => {
+                    rules.cel.push(Rule {
+                        id: Some("float64.nonnegative_finite".into()),
+                        message: Some("binary64 value must be finite and nonnegative".into()),
+                        expression: Some(format!(
+                            "this <= {}u || this == {}u",
+                            f64::MAX.to_bits(),
+                            (-0.0_f64).to_bits()
+                        )),
+                        ..Default::default()
+                    });
+                }
+                pse_model::boundary_projection::Float64Domain::Finite => {
+                    // Each IEEE sign interval is monotonic in the transported unsigned
+                    // bits. Exclude both infinities and every NaN, preserving both zeros.
+                    rules.cel.push(Rule {
+                        id: Some("float64.finite".into()),
+                        message: Some("binary64 value must be finite".into()),
+                        expression: Some(format!(
+                            "this < {}u || (this >= {}u && this < {}u)",
+                            f64::INFINITY.to_bits(),
+                            (-0.0_f64).to_bits(),
+                            f64::NEG_INFINITY.to_bits()
+                        )),
+                        ..Default::default()
+                    });
+                }
             }
         }
         LocalRule::Required => rules.required = Some(true),

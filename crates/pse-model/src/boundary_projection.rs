@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
 mod diagnostics;
+mod float_collections;
 mod float_domain;
 mod generic;
 mod nominal;
@@ -20,6 +21,7 @@ pub use access::{
     ProjectionAlternative, ProjectionRecord, SharedAdapter, adapter_source_path,
     clone_adapter_field, validate_adapted,
 };
+pub use float_collections::NativeContainer;
 pub use float_domain::Float64Domain;
 pub use generic::generic_argument;
 
@@ -246,6 +248,8 @@ pub struct Definition {
     pub shape: Shape,
     /// Checked foreign extraction is required; ordinary actual-owner records remain infallible.
     pub checked_record: bool,
+    /// Intrinsic container facts supplied by the checked standard-container owner.
+    pub native_container: Option<NativeContainer>,
 }
 
 /// One actual unary service boundary, resolved in the same descriptor world.
@@ -404,6 +408,9 @@ impl crate::diagnostic::DiagnosticProjection for ValidationError {}
 
 /// Native validation derived by the same owner declaration as protobuf rules.
 pub trait ValidateProjection {
+    /// Whether this actual scalar/container declaration consists of binary64 leaves.
+    /// Unrelated named records never opt in by resembling a numeric container.
+    const SUPPORTS_FLOAT64_DOMAIN: bool = false;
     /// Whether recursive traversal can discover any additional native predicate.
     /// The conservative default preserves validation for custom owner implementations.
     const NEEDS_RECURSIVE_VALIDATION: bool = true;
@@ -428,6 +435,11 @@ pub trait ValidateProjection {
     /// Actual binary64 scalar, where a source-owned domain rule is declared.
     fn projection_float64(&self) -> Option<f64> {
         None
+    }
+    /// Evaluate a declared binary64 domain across the actual scalar/container.
+    fn projection_float64_domain(&self, domain: Float64Domain) -> Option<bool> {
+        self.projection_float64()
+            .map(|value| domain.contains(value))
     }
     /// Logical length (Unicode scalar values for text), where applicable.
     fn projection_length(&self) -> Option<usize> {
@@ -454,8 +466,8 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
         let failure = match rule {
             LocalRule::Float64Domain(domain)
                 if !value
-                    .projection_float64()
-                    .is_some_and(|value| domain.contains(value)) =>
+                    .projection_float64_domain(*domain)
+                    .is_some_and(|valid| valid) =>
             {
                 Some((
                     "float64.domain",
@@ -644,8 +656,9 @@ impl ProjectionGraph {
             reserved_names: reserved_names.iter().map(|s| (*s).into()).collect(),
             shape: result?,
             checked_record: false,
+            native_container: None,
         };
-        validate_definition(&definition)?;
+        validate_definition(&definition, &self.definitions)?;
         self.definitions.insert(name.into(), definition);
         Ok(TypeRef::Named(name.into()))
     }
@@ -789,6 +802,7 @@ macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProject
 })* }; }
 inline_validation!(bool, f32);
 impl ValidateProjection for f64 {
+    const SUPPORTS_FLOAT64_DOMAIN: bool = true;
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
         Ok(())
@@ -858,6 +872,7 @@ impl ValidateProjection for crate::Bytes {
     }
 }
 impl<T: ValidateProjection> ValidateProjection for Option<T> {
+    const SUPPORTS_FLOAT64_DOMAIN: bool = T::SUPPORTS_FLOAT64_DOMAIN;
     const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         match self {
@@ -880,6 +895,12 @@ impl<T: ValidateProjection> ValidateProjection for Option<T> {
         self.as_ref()
             .and_then(ValidateProjection::projection_float64)
     }
+    fn projection_float64_domain(&self, domain: Float64Domain) -> Option<bool> {
+        Self::SUPPORTS_FLOAT64_DOMAIN.then(|| {
+            self.as_ref()
+                .is_none_or(|value| value.projection_float64_domain(domain) == Some(true))
+        })
+    }
     fn projection_length(&self) -> Option<usize> {
         self.as_ref()
             .and_then(ValidateProjection::projection_length)
@@ -890,6 +911,7 @@ impl<T: ValidateProjection> ValidateProjection for Option<T> {
     }
 }
 impl<T: ValidateProjection> ValidateProjection for Vec<T> {
+    const SUPPORTS_FLOAT64_DOMAIN: bool = T::SUPPORTS_FLOAT64_DOMAIN;
     const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         if !Self::NEEDS_RECURSIVE_VALIDATION {
@@ -903,8 +925,15 @@ impl<T: ValidateProjection> ValidateProjection for Vec<T> {
     fn projection_length(&self) -> Option<usize> {
         Some(self.len())
     }
+    fn projection_float64_domain(&self, domain: Float64Domain) -> Option<bool> {
+        Self::SUPPORTS_FLOAT64_DOMAIN.then(|| {
+            self.iter()
+                .all(|value| value.projection_float64_domain(domain) == Some(true))
+        })
+    }
 }
 impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
+    const SUPPORTS_FLOAT64_DOMAIN: bool = T::SUPPORTS_FLOAT64_DOMAIN;
     const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         self.as_ref().validate_at(path)
@@ -921,6 +950,9 @@ impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
     fn projection_float64(&self) -> Option<f64> {
         self.as_ref().projection_float64()
     }
+    fn projection_float64_domain(&self, domain: Float64Domain) -> Option<bool> {
+        self.as_ref().projection_float64_domain(domain)
+    }
     fn projection_length(&self) -> Option<usize> {
         self.as_ref().projection_length()
     }
@@ -929,6 +961,7 @@ impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
     }
 }
 impl<K: ValidateProjection + Ord, V: ValidateProjection> ValidateProjection for BTreeMap<K, V> {
+    const SUPPORTS_FLOAT64_DOMAIN: bool = V::SUPPORTS_FLOAT64_DOMAIN;
     const NEEDS_RECURSIVE_VALIDATION: bool =
         K::NEEDS_RECURSIVE_VALIDATION || V::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
@@ -943,6 +976,12 @@ impl<K: ValidateProjection + Ord, V: ValidateProjection> ValidateProjection for 
     }
     fn projection_length(&self) -> Option<usize> {
         Some(self.len())
+    }
+    fn projection_float64_domain(&self, domain: Float64Domain) -> Option<bool> {
+        Self::SUPPORTS_FLOAT64_DOMAIN.then(|| {
+            self.values()
+                .all(|value| value.projection_float64_domain(domain) == Some(true))
+        })
     }
 }
 
@@ -1120,7 +1159,10 @@ fn valid_tag(tag: u32) -> bool {
     tag != 0 && tag <= 536_870_911 && !(19_000..=19_999).contains(&tag)
 }
 
-fn validate_definition(definition: &Definition) -> Result<(), ProjectionError> {
+fn validate_definition(
+    definition: &Definition,
+    definitions: &BTreeMap<String, Definition>,
+) -> Result<(), ProjectionError> {
     let mut reserved_tags = BTreeSet::new();
     for tag in &definition.reserved_tags {
         if !valid_tag(*tag) || !reserved_tags.insert(*tag) {
@@ -1169,7 +1211,7 @@ fn validate_definition(definition: &Definition) -> Result<(), ProjectionError> {
     };
     validate_tags(&definition.name, fields, &reserved_tags, &reserved_names)?;
     match &definition.shape {
-        Shape::Record(fields) => validate_fields(&definition.name, fields)?,
+        Shape::Record(fields) => validate_fields(&definition.name, fields, definitions)?,
         Shape::Alternatives(alternatives) => {
             for alternative in alternatives {
                 let path = format!("{}.{}", definition.name, alternative.name);
@@ -1183,7 +1225,7 @@ fn validate_definition(definition: &Definition) -> Result<(), ProjectionError> {
                     &BTreeSet::new(),
                     &BTreeSet::new(),
                 )?;
-                validate_fields(&path, &alternative.fields)?;
+                validate_fields(&path, &alternative.fields, definitions)?;
             }
         }
         Shape::StringEnum(_) => {}
@@ -1216,7 +1258,11 @@ fn validate_tags(
     Ok(())
 }
 
-fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError> {
+fn validate_fields(
+    owner: &str,
+    fields: &[Field],
+    definitions: &BTreeMap<String, Definition>,
+) -> Result<(), ProjectionError> {
     for field in fields {
         let mut families = BTreeSet::new();
         for rule in &field.rules {
@@ -1235,11 +1281,7 @@ fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError>
             }
             let valid = match rule {
                 LocalRule::Float64Domain(_) => {
-                    let scalar = match &field.ty {
-                        TypeRef::Optional(inner) => inner.as_ref(),
-                        scalar => scalar,
-                    };
-                    matches!(scalar, TypeRef::Scalar(Scalar::F64Bits))
+                    float_collections::supports_float64_domain(&field.ty, definitions)
                 }
                 LocalRule::Utf8Bytes { min, max } => {
                     min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::String))
@@ -1481,5 +1523,7 @@ macro_rules! projection_enum {
     };
 }
 
+#[cfg(test)]
+mod float_collections_tests;
 #[cfg(test)]
 mod tests;

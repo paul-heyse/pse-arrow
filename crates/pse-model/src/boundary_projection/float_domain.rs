@@ -7,6 +7,8 @@
 pub enum Float64Domain {
     /// Finite values of either sign, including both signed zeros.
     Finite,
+    /// Finite values greater than or equal to zero, preserving both signed zeros.
+    NonnegativeFinite,
     /// Finite strictly positive values, including positive subnormals.
     PositiveFinite,
     /// Finite values greater than zero and at most one.
@@ -17,6 +19,7 @@ impl Float64Domain {
     pub const fn contains(self, value: f64) -> bool {
         match self {
             Self::Finite => value.is_finite(),
+            Self::NonnegativeFinite => value.is_finite() && value >= 0.0,
             Self::PositiveFinite => value.is_finite() && value > 0.0,
             Self::PositiveUnit => value.is_finite() && value > 0.0 && value <= 1.0,
         }
@@ -25,7 +28,7 @@ impl Float64Domain {
     /// Signed finite domains require both IEEE sign intervals instead.
     pub const fn positive_maximum_bits(self) -> Option<u64> {
         match self {
-            Self::Finite => None,
+            Self::Finite | Self::NonnegativeFinite => None,
             Self::PositiveFinite => Some(f64::MAX.to_bits()),
             Self::PositiveUnit => Some(1.0_f64.to_bits()),
         }
