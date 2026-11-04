@@ -101,15 +101,8 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
     })?;
     let mut columns = BTreeSet::new();
     for column in &decl.columns {
-        if column.canonical_key().is_some()
-            && (column.data_type() != arrow_schema::DataType::Utf8
-                || column.identity().is_some()
-                || column.enum_name().is_some())
-        {
-            return Err(invalid(
-                format!("{context}.{}", column.name()),
-                "canonical lookup keys require opaque text, distinct from semantic identities and vocabularies",
-            ));
+        if let Some(contract) = column.canonical_contract()? {
+            contract.validate_field(column, &format!("{context}.{}", column.name()))?;
         }
         if let Some(initial) = column.canonical_initial()
             && (column.enum_name().is_none() || initial.is_empty())

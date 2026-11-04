@@ -100,6 +100,7 @@ impl CanonicalFieldPolicy {
     /// # Errors
     /// Initial members without an enum or referenced kinds without a foreign key refuse.
     pub fn validate_field(&self, field: &FieldContract, path: &str) -> Result<(), SchemaError> {
+        if let Some(contract) = self.contract { contract.validate_field(field, path)?; }
         if self.initial.is_some() && field.enum_name().is_none() { return Err(crate::checks::invalid(path, "canonical initial member requires an actual native enum field")); }
         if self.reference_kind.is_some() && field.checked_fk()?.is_none() { return Err(crate::checks::invalid(path, "canonical reference-kind member requires an actual native foreign-key association")); }
         Ok(())
@@ -185,6 +186,21 @@ mod tests {
     fn canonical_policy_is_checked_by_native_field_admission_with_owning_path() {
         let field = FieldContract::native(arrow_schema::DataType::Boolean).with_canonical_default("true trailing");
         assert!(matches!(field.validate_facets("runtime.original.flag"), Err(SchemaError::CanonicalExpression { context, facet: CANONICAL_DEFAULT, .. }) if context == "runtime.original.flag"));
+    }
+    #[test]
+    fn canonical_policy_reuses_opaque_key_physical_coherence_for_incoming_fields() {
+        use super::super::CanonicalKeyKind;
+        let valid = FieldContract::native(arrow_schema::DataType::Utf8).with_canonical_key(CanonicalKeyKind::Run);
+        valid.canonical_policy().unwrap().unwrap().validate_field(&valid, "runtime.original.id").unwrap();
+        for field in [
+            FieldContract::native(arrow_schema::DataType::UInt64).with_canonical_key(CanonicalKeyKind::Run),
+            FieldContract::enumeration("Phase").with_canonical_key(CanonicalKeyKind::Run),
+            valid.with_identity("OriginalIdentity"),
+        ] {
+            let policy = CanonicalFieldPolicy::parse_metadata(field.field().metadata(), "runtime.original.id").unwrap().unwrap();
+            assert!(policy.validate_field(&field, "runtime.original.id").is_err());
+            assert!(field.validate_facets("runtime.original.id").is_err());
+        }
     }
     #[test]
     fn canonical_policy_parses_actual_canonical_catalog_population() {

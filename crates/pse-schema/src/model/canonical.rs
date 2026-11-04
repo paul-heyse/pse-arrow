@@ -15,6 +15,15 @@ pub struct CanonicalFieldContract {
 }
 
 impl CanonicalFieldContract {
+    /// Check the existing opaque-key physical contract at the actual native field.
+    /// # Errors
+    /// Canonical lookup keys require Utf8 text without semantic identity or enum meaning.
+    pub fn validate_field(&self, field: &super::FieldContract, path: &str) -> Result<(), crate::SchemaError> {
+        if self.key.is_some() && (field.data_type() != arrow_schema::DataType::Utf8 || field.identity().is_some() || field.enum_name().is_some()) {
+            return Err(crate::checks::invalid(path, "canonical lookup keys require opaque text, distinct from semantic identities and vocabularies"));
+        }
+        Ok(())
+    }
     /// Parse source facets without admitting or operating a database record.
     /// # Errors
     /// Unknown key kinds or noncanonical boolean markers refuse at the source path.
