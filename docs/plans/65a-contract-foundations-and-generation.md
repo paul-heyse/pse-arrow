@@ -3,7 +3,7 @@ title: "Plan65a: Contract foundations and generation"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, preparation]
@@ -32,6 +32,14 @@ CBO-196 retains its separate acquired-rustdoc interpretation question. Supportin
 is the [generation briefing](../library_leverage/libraries/proto/briefings/contract-ownership-and-generation.md).
 
 ## Focused foundation assessment and decisions
+
+The [improvement review](../plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md)
+refines the target through its I05/I07–I09/I11 recommendations. Before A01 fixes the shared
+interfaces, consume the design-level operation/product semantics from
+[65i I01](65i-scientific-operations-and-product-semantics.md) and developer evidence/construction
+direction from [65j J01](65j-workflow-lifecycle-and-developer-evidence.md). These are agreed
+meaning and consumer inputs, not whole-companion implementation barriers. A narrow working
+A/B slice then enables those companions' actual delivery; no universal graph must be finished first.
 
 Current `pse-model::boundary_projection` contains useful resolved shape and stable tags,
 `ProjectionType`, owner-local `ProjectionRecord`/`ProjectionAlternative` adoption, local
@@ -100,7 +108,57 @@ Dynamic option inspection cannot recover data carried only there. After the type
 serve all selected machine consumers, remove comment parsing and duplicated machine-policy
 sidecars. Human documentation may render the same metadata without becoming another authority.
 
+### Observation is not executable authority
+
+The pure declaration vocabulary must distinguish inspectable data from native owner-issued
+capabilities. Generated messages may describe a prepared handle, admission decision, completion,
+test verdict or protection, but decoding that description cannot construct the authority-bearing
+native value. Generate fallible correspondence only for the observable product; owner factories
+resolve issued identities and establish current context, custody and permission. Keep sealed
+constructors and handles outside generic `ProjectionRecord` adoption where reconstruction would
+manufacture a grant. An authentic historical record is evidence of its original scope, not a
+current execution capability. Test a structurally valid serialized grant-shaped record and require
+that it remains an observation until the actual owner independently authorizes the operation.
+This gives review I05 a concrete construction-direction obligation without treating every ordinary
+domain constructor as security-sensitive.
+
+### One semantic metadata checker and evolution comparison
+
+A02 selects one native checking operation over an approved contract world and an explicit
+interpretation policy. It validates required/known metadata versions, resolvable semantic links,
+effect declarations and declared interpretation relationships. Generation, bundle import and
+offline inspection reuse it; they do not each restate those rules. The old/new-world comparison
+returns compatible, incompatible or unknown under a named policy and attributes meaningful
+option changes even when ordinary wire checks pass. Scientific admissibility remains at the
+scientific owner; a metadata check cannot establish physics or mint authority.
+
+The existing native generation/import entry points are the initial consumers. Buf check plugins
+are an optional adapter for a real independent authoring/publication consumer, not another rule
+authority. They use Bufplugin/PluginRPC rather than `CodeGeneratorRequest`/`CodeGeneratorResponse`.
+The documented Go SDK offers `check.RuleSpec`, descriptor handlers and source-attached
+annotations; a native implementation must honor the underlying protocol. A04 compares adapter
+maintenance/dependencies with invoking the native checker directly, and implements the adapter
+only when it removes useful integration work. Never introduce a Go subsystem solely to repeat
+the same checks. See [Buf check-plugin API](https://buf.build/docs/bsr/checks/plugins/)
+and [descriptor-rule tutorial](https://buf.build/docs/bsr/checks/plugins/tutorial/).
+
 ## Generation and artifact flow
+
+Review I07 extends preservation to the complete real acquisition route: compiler output →
+descriptor/image conversion → import normalization → generator request → effective runtime
+and independent inspection artifacts. Identify each actual initial producer and its intended
+loss/normalization contract. Linking successfully after a typed intermediary has discarded
+custom options is insufficient. Use a lossless selected route and independently specified
+message/field/method options, including imported extensions and unknown forwardable options.
+
+`protox::Compiler::encode_file_descriptor_set()` is a concrete comparison capability: it includes
+extension options unlike re-encoding the ordinary typed `prost_types::FileDescriptorSet`.
+`include_imports(true)` and `include_source_info(...)` govern separate material. This versioned
+[Protox 0.9.1 API](https://docs.rs/protox/0.9.1/protox/struct.Compiler.html#method.encode_file_descriptor_set)
+demonstrates the loss trap and a supplied preservation route; it does not mandate adopting Protox
+or assert that the current Buffa producer loses options. Keep intentional source-info omission,
+effective feature transformation, logical metadata preservation and archival byte identity
+separate. An independent client must observe required option meaning after the complete route.
 
 The current custom generator encodes the full `FileDescriptorSet` and passes those bytes to
 `buffa_codegen::shared_descriptor_root_module`. Buffa's normal `encode_descriptor_set` applies
@@ -138,13 +196,33 @@ All statuses are **planned**. Dependencies describe available products, not whol
 
 | Package | Status | Consumes → delivers | Migration, deletion and targeted acceptance |
 | --- | --- | --- | --- |
-| A01 | planned | Post-Plan64 baseline and required ADR decision → pure structural foundation plus owner-local domain adapters | Move graph/macros/adoption interfaces, update all current product/codegen consumers and selected host declarations, remove the old product-owned generic implementation. Compile dependency boundaries and test recursive types, private fields, fixed IDs, unsupported types and fallible construction; no forwarding compatibility module. |
+| A01 | planned | Post-Plan64 baseline, 65i I01/65j J01 design products and required ADR decision → pure structural foundation plus owner-local domain adapters | Move graph/macros/adoption interfaces, update all current product/codegen consumers and selected host declarations, remove the old product-owned generic implementation. Preserve observation-to-authority construction direction. Compile dependency boundaries and test recursive types, private fields, fixed IDs, unsupported types and fallible construction; no forwarding compatibility module. |
 | A02 | planned | A01 field/method semantics → versioned typed metadata option schema and owner emission | Generate owner/version/direction/facets/effects once; migrate machine consumers from comments/sidecars. Test missing/unknown options, source association without invented spans, collisions, option import closure and a new physical facet reaching inspection. |
 | A03 | planned | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Replace direct full-byte runtime embedding and inconsistent override handling. Test nondefault feature changes against generated/reflected semantics, runtime compaction preserving typed options, full-source retention and immutable old-world readers. |
 | A04 | planned | A03 closed worlds → shared generation composition for all four initial boundary populations | Integrate Buffa, packaging, validation, Connect and selected external Prost generation. Remove repeated module/descriptor assembly and hand-kept plugin naming maps. Test warning/refusal propagation, orphan companions, duplicate filenames, excluded packages and exact import identity. |
 | A05 | planned | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Migrate host native request/fact families, engineering/worker/reference structural adapters, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps at implementation baseline; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
 | A06 | planned | Current registry/function owners plus A02/A03 → source-declared selected storage/Arrow projection metadata consumed by C packages | Reuse source facts without decoding ProtoJSON or inferring database behavior from field spelling. Delete duplicate selected field/schema declarations with producer/consumer migration. Preserve transactional/domain-specific logic; test precise numeric, relationship and mapping-version changes. |
 | A07 | planned | Complete selected consumer migration → regeneration equivalence, extension controls and handoff | Add provider request, method effect, diagnostic and result facet through their actual owners and verify every selected projection follows. Run package compile/targeted checks during work and generation when declarations change; scope-end assembled/static checks belong to 65h. Delete remaining obsolete fixtures and parallel publication paths. |
+
+Review-driven package obligations are part of these existing packages:
+
+- **A01:** consume 65i I01/65j J01 design products before fixing generic interfaces. Classify
+  observable records versus non-reconstructible issued capabilities and preserve sealed native
+  construction through extraction and every generated adoption surface (review I05/I11).
+- **A02:** implement the shared metadata checker and old/new semantic comparison together with
+  typed options. Independent wire-compatible descriptor pairs must expose changed semantic
+  references, validation interpretation and method effects with attributable outcomes (I08).
+- **A03/A04:** prove required options at each real acquisition/publication consumer; deliberately
+  insert a lossy typed conversion in a negative control. Configure complete import/source/effective
+  semantics and use the same checker at generation/import/inspection. A04 selects a Buf adapter
+  only for the identified useful consumer, otherwise delivers native invocation without an adapter
+  or duplicate rule set (I07/I08).
+- **A05/A07:** use bounded schema-driven inputs and controlled perturbations for mechanical
+  correspondence. Buffa 0.9.2 `CodeGenConfig::generate_arbitrary` emits `arbitrary::Arbitrary`
+  support gated on the consuming crate's `arbitrary` feature; qualify actual custom/extern
+  storage and representation closure rather than force it everywhere. Retain input bytes/seed,
+  contract world and the original native test inventory/report/failure identity through 65j.
+  Independently specified semantic/scientific cases remain separate evidence (I09).
 
 An early A01/A02/A03 slice may serve diagnostics and tooling without waiting for every registry
 projection. A05 is complete only for its actual declared migration population, not one demo

@@ -3,7 +3,7 @@ title: "Plan65e: Scientific portability and execution"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, numerical-execution, preparation, validation]
@@ -35,6 +35,18 @@ kernel portable specifications and quantity receipts contain separate capture/re
 These are actual migration populations, not a demand to serialize arbitrary native state.
 Blueprint §7/§14–§18 supply existing scientific contracts; Plan65 may improve their realization.
 
+[65i](65i-scientific-operations-and-product-semantics.md) now owns scientific operation,
+product-use and consuming-dependency semantics from review I01–I03. This companion owns
+their portable realization and execution placement. Native semantic agreement in 65i I01
+precedes the general declaration design; working generated delivery follows narrow A/B
+slices. Neither a new crate nor a complete scientific catalogue is needed to agree the
+first operation's required meanings and independent discriminators.
+
+The review-driven amendment was prepared against
+`5f4fa0246c0b9fac68493b608f0b2eefe79f116d` with concurrent dirty source preserved. Earlier
+source observations retain their original scope and date; the added semantic and dependency
+obligations are Proposed implementation work, not newly tested scientific behavior.
+
 ## Selected design and alternatives
 
 Use the pure structural contract owner from [65a](65a-contract-foundations-and-generation.md)
@@ -44,6 +56,12 @@ descriptor metadata and independent exchange bindings together. Keep exact scala
 ordered quantity/unit identities, precision/formulation/implementation identities and
 declared approximation scope explicit. A schema fingerprint is not a scientific cache key.
 
+The operation carries its admitted route/procedure, physical/data/formulation context,
+required initial/boundary/observation inputs, derivative/validity requirements and product
+assessment contracts from 65i. Generated options expose those decisions; native authored
+guards and checked functions govern them. The receiver must preserve unsupported scientific
+combinations rather than infer support from matching descriptors or dimensions.
+
 Three portable products are deliberately distinct:
 
 | Product | Content and admissible consumer |
@@ -51,6 +69,12 @@ Three portable products are deliberately distinct:
 | Reconstructible scientific input | Authored body/source, resolved binding context, physical registry interpretation, unknown/row ordering, exact parameters, solver/evaluation policy and complete dependencies. A receiving compiler reconstructs and admits it; serialized admission labels confer no authority. |
 | Prepared capability/demand | Exact implementation/data/configuration identity, ordered ports, derivative product/order, validity regime and immutable prepared handle. The selected implementation confirms support before numerical execution. |
 | Outcome/evidence | Native termination and status, candidate availability, original-coordinate qualification, physical closure, usable extent and context. Transport success cannot substitute for any scientific conclusion. |
+
+Outcome projection includes the original task/step/point product scope, local mathematical
+validity, governing request coverage/qualification and selected accuracy attempt where relevant.
+Use the native completion/product selectors; do not recompute permission in wire clients.
+Raw/provisional evidence may remain readable without becoming an ordinary usable result.
+A decoded prior permission reports its original decision and cannot issue current admission.
 
 Retain source versus optimized mathematical artifact distinctions. Do not reconstruct authored
 expressions from optimized evaluator instructions or claim that an exported instruction set
@@ -105,16 +129,26 @@ native numeric buffer construction. Select compact copies where retaining a smal
 pin a large allocation. ConnectRPC clients and transports provide protocol work; the prepared
 handle and native custody still establish scientific continuity and release.
 
+For scientific metadata, Buffa `DynamicMessage::from_options` reads 65a's typed options in
+the selected `DescriptorPool`; generated `ReflectMessage::for_each_set` avoids an unnecessary
+owned dynamic bridge for read-only inspection. Neither mechanism executes physical admission.
+Use maintained generated `Validate` for supported local shapes, then 65i's native receiving
+operation and product-use rules. Precise conditions are in
+[Buffa 0.9.2 reflection](https://docs.rs/buffa-descriptor/0.9.2/buffa_descriptor/reflect/index.html),
+[generation APIs](https://docs.rs/buffa-codegen/0.9.2/buffa_codegen/) and the maintained
+validator source linked below. Interpretation/validation/mapping changes affect their actual
+consumers; the whole descriptor world must not become a blanket mathematical preparation key.
+
 ## Packages and migration
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
-| E01 | planned | Completed Plan64 baseline; 65a structural contract and metadata decisions | Classify every portable source/spec/context/receipt shape in `typed_math_portable`, kernel portable and quantity receipt routes by reconstruction, inspection or private transport consumer. Define shared source-owned products and exact unsupported scope. Controls distinguish physical/datatype/configuration changes from compatible value-only changes; no unused universal artifact catalogue. |
-| E02 | planned | E01; working 65a generation and 65b adoption/validation | Generate portable scientific records/adapters and migrate their existing producers/readers. Cover ordering, exact bits, missing/unknown alternatives, original dependencies and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain semantic reconstruction and qualification. Test every changed native variant in both directions with independent known-value expectations. |
+| E01 | planned | Completed Plan64 baseline; agreed native scientific contract from 65i I01; co-designed 65a metadata | Classify every portable source/spec/context/receipt shape in `typed_math_portable`, kernel portable and quantity receipt routes by reconstruction, inspection or private transport consumer. Bind its operation inputs, support/refusal and product-use semantics before selecting Buffa option/record projections. Controls distinguish physical/datatype/configuration changes from compatible value-only changes; no unused universal artifact catalogue. |
+| E02 | planned | E01; narrow working 65a/65b and receiving operation from 65i I02 | Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
 | E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
-| E04 | planned | E02 provider slice; 65d session/custody behavior | Implement per-handle prepare/evaluate/stop/close and process-wide shutdown semantics across the post-64 provider population. Two independent sessions must prove no cross-cancellation, no stale-handle adoption, no global close and admission held through native and I/O drain. Migrate all worker clients, server handlers and fixtures together. |
+| E04 | planned | E02 provider slice; 65d session/custody behavior; 65i I04 dependency policy | Implement per-handle prepare/evaluate/stop/close and process-wide shutdown semantics across the post-64 provider population. Separate mutable handle invalidation from reusable immutable math and regenerated descriptor artifacts. Two independent sessions must prove no cross-cancellation, no stale-handle adoption, no global close and admission held through native and I/O drain. Migrate all worker clients, server handlers and fixtures together. |
 | E05 | planned | E04; real implementation-native grouped evaluation identified | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
-| E06 | planned | E02–E05 functional population; 65f outcome and 65g independent readers | Integrate generated capability/outcome inspection and independent exchange across existing post-64 scientific modes. Record direct/isolated cold/warm complete-operation measurements including construction, transfer, validation and drain, without a presumed speedup. Supply implemented population and limitations to 65h; publish extension guidance and remove all superseded selected paths. |
+| E06 | planned | E02–E05 functional population; 65i product-use contract; 65f outcome and 65g readers | Integrate generated capability/outcome inspection and independent exchange across supported post-64 modes; `DynamicMessage::from_options` exposes metadata while native selectors govern use. Prove raw versus scientific access, original task/step/point coverage and final-attempt interpretation. Record matched direct/isolated complete-operation measurements without presumed speedup. Supply actual population/limits to 65h and remove superseded selected paths. |
 
 The E05 prerequisites are a bounded implementation question: does the selected native provider
 support coherent reuse across a group without changing point/state semantics? Inspect and test
@@ -131,6 +165,13 @@ outcome/readback journeys. Independent scientific expectations must not come fro
 adapters or the candidate provider. Retain physically independent water/derivative controls
 and original equipment balances. Exact derivative actions are checked against independently
 constructed asymmetric cases that expose transpose/order mistakes.
+
+Preserve 65i's spatial-without-temporal-closure refusal through reconstruction; use an existing
+supported dynamic model for positive preparation and independent inspection. Test a locally
+valid derived product with failed governing coverage and a nonselected accuracy attempt.
+Raw readers may expose them while ordinary scientific selection refuses or qualifies use.
+Interface-only changes must not rebuild unchanged mathematics; changed datum/data/applicability
+must invalidate or explicitly readmit affected science despite identical wire shape.
 
 Challenge adding a physical provider capability, a solver outcome and a time/axis-bearing
 result without editing unrelated transport code. New science still needs its domain model,

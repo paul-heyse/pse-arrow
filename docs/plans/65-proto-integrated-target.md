@@ -3,7 +3,7 @@ title: "Plan65: Integrated Proto target after Plan64"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, validation]
@@ -68,6 +68,42 @@ engineering/worker/diagnostic/result owners. Blueprint §4/§6, §14, §18–§2
 current contracts; revisions follow the later decision route.
 
 ## Combined target
+
+### Integrated revision from the improvement review
+
+This revision consumes the [improvement review](../plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md)
+at source `0d9e921cf0c87b8a688a4cd96b68ca1f7f0001d5`. It adds scientific operation/product
+semantics and developer evidence as first-class consumers of the structural foundation.
+The original baseline above remains historical evidence; concurrent Plan64 edits are not
+claimed complete. Core 3.4, heuristics 1.0, process-simulator 1.5 and test-assessment 1.2
+govern this revision. All revised deliveries remain **Proposed**.
+
+An executable scientific operation connects its formulation, physical/data context, route,
+inputs, provider demands, preparation and products. Native authored guards and constructors
+govern those meanings. Generated metadata exposes their relationships without becoming a
+second scientific policy table. Scientific selectors distinguish raw evidence, local validity,
+coverage, governing completion and final selected attempt; a readable product does not alone
+permit scientific use. Scientific preparation dependencies, boundary admission, generated
+artifacts and mutable handles have distinct invalidation contracts.
+
+Developer evidence includes native list/check/rustdoc/test actions, selected and executed
+populations, fixture/capture failures and exact failed-case rerun. Generated adoption has
+owner-declared directions: contextual request, decodable observation or sealed native capability.
+Neither historical scientific completion nor a decoded test report grants current authority.
+Retained reads resolve the original context and interpretation required by that family and
+report absent, expired, incomplete, incompatible or corrupt evidence truthfully.
+
+The extension target is process-system breadth: thermo/reactions/equipment, supported steady,
+dynamic and spatial formulations, fitting, studies, control and optimization. Future workflows
+reuse owner composition and the same projection/admission/inspection machinery. New physics
+still needs executable equations, validity and independent evidence; extensible schemas do not
+establish support. No molecular/atomistic engine or universal simulator ontology is implied.
+
+Material library functionality must be explained in the relevant target and package body,
+including API/configuration, applicable release, composition, retained responsibilities,
+limits and a precise characterization source. Existing content is additive to this requirement:
+neither a link list nor a capability name replaces design, migration or acceptance reasoning.
+Source-specific uncertainty is an explicit bounded investigation, not assumed functionality.
 
 One executable owner defines each domain meaning. A pure shared structural vocabulary
 describes selected records, alternatives, rules, methods and effects without depending on
@@ -144,6 +180,8 @@ require explicit migration or an explicit incompatibility result.
 | [65f Diagnostics and results](65f-diagnostics-and-result-delivery.md) | Structured evidence, selected production and protected readback |
 | [65g Intelligence and tooling](65g-code-intelligence-and-client-tooling.md) | Host adoption, offline inspection, generated clients and references |
 | [65h Integrated acceptance](65h-integration-and-qualification.md) | Cross-domain extension/failure controls, benefit evidence and handoff |
+| [65i Scientific semantics](65i-scientific-operations-and-product-semantics.md) | Executable scientific operation/product-use contracts and dependency validity |
+| [65j Workflow evidence](65j-workflow-lifecycle-and-developer-evidence.md) | Developer evidence semantics, construction authority, retained-read and rerun lifecycle |
 
 Companion package tables own their native progress. This coordinator owns only P packages,
 the combined target and source dispositions. Documentation boundaries are not synchronization
@@ -183,11 +221,35 @@ home; the old account remains in Git rather than becoming a competing target.
 
 ## Decision and rule impacts
 
+### Improvement recommendation dispositions
+
+The following table owns scheduled disposition of review I01–I11. Its source identifiers
+refer to the improvement review; `65i I01` is a different package identity.
+
+| Recommendation | Disposition | Work owner | Completion or settling evidence |
+| --- | --- | --- | --- |
+| I01 | scheduled | 65i I01/I02; A02/A05; E01/E02/E06 | Supported operation composition and explicit unsupported-formulation refusal survive reconstruction |
+| I02 | scheduled | 65i; E02/E06; F01/F04; C03 | Raw read versus governing scientific-use selection, coverage and final-attempt controls |
+| I03 | scheduled | 65i; A03/A06; B01; C04; E04 | Scientific versus artifact/admission/handle differential invalidation |
+| I04 | scheduled | 65j; A05; F01/F03; G01/G02 | Native action/inventory/report/fixture/rerun population fully migrated |
+| I05 | scheduled | A01/A05; B01/B02; 65i/65j; D04/D05 | Observation decode cannot construct sealed native verdict, permission or settlement |
+| I06 | scheduled | 65j; C03/C04; F03; G02 | Complete family-specific retained context and truthful missing/expired/corrupt outcomes |
+| I07 | scheduled | A02–A04; B05/B07; G02 | Independently specified options survive actual acquisition and publication chains |
+| I08 | scheduled | A02–A04; B01/B07; G02; C01/D03 | One native semantic checker and independent wire-compatible semantic-change controls; optional Buf adapter explicitly selected or declined |
+| I09 | scheduled | A05/A07; B07; G01/G02; 65j | Bounded generated cases have explicit assurance role and reproducible original failure identity |
+| I10 | scheduled | B02/B06; G02; H02/H03 | Released strict-JSON comparison with retain/simplify outcome; no main-only dependency or mandatory upgrade |
+| I11 | scheduled | P02/P03; 65i I01; 65j J01; A01/A02; H01 | Early semantic agreement and two complete working slices precede broad migration |
+
+Scheduling is not resolution. H02 owns assembled evidence across these contributors. I10's
+investigation is scheduled, while adoption remains conditional and cannot block the core target.
+
+### Proposed rule changes
+
 | Item | Proposed change | Execution prerequisite |
 | --- | --- | --- |
 | R01 | Add pure `pse-contract` and move generic graph/adoption dependencies | A01: proposed crate/dependency-placement ADR and applicable independent design review before implementation |
-| R02 | Typed semantic/effect options and explicit interpretation/validation/mapping policy | A/B: metadata contract decision and architecture revision before affected publication; no replacement of semantic hashing by wire digest |
-| R03 | New scientific batch/session or backend binding contracts | E: applicable kernel/binding ADR and scientific support/refusal decision before activation |
+| R02 | Typed semantic/effect options, directional construction, shared semantic checking and explicit interpretation/validation/mapping policy | A/B/I/J: metadata and sealed-authority contract decision before affected publication; no replacement of semantic hashing by wire digest |
+| R03 | Scientific operation/product-use, dependency-validity, batch/session or backend binding contracts | I/E: applicable kernel/binding ADR and scientific support/refusal decision before activation |
 | R04 | Intentional durable/external major breaks and retained-read disposition | B/C/D/G: affected readers/writers and migration/rebuild/activation decision before cutover |
 
 The operator permits proposing any breaking change (2026-11-03). These concrete authority
@@ -201,12 +263,17 @@ production foundation. Ordinary dependency moves remain ordinary pinned changes.
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | P01 | planned | Completed Plan64 implementation and its actual support/evidence limits | Reconcile source/consumer baseline against this assumed target; identify already delivered work without claiming untested scope; preserve target improvements |
-| P02 | planned | P01 and A/B/C/D/E design decisions | Settle R01–R04 as applicable, publish approved shared contract slices and revise dependent proposals on any rejection |
-| P03 | planned | Working narrow A/B generation/adoption slices | Deliver first complete diagnostic/native-owner to generated contract to retained inspection route through F/G and required C/D slices; remove replaced maps/interpretations |
+| P02 | planned | P01; 65i I01 and 65j J01 owner/design agreement; applicable A/B/C/D/E decisions | Settle R01–R04 as applicable; agree scientific operation/product semantics and developer evidence/construction directions before finalizing broad A01/A02 interfaces; publish approved shared design slices |
+| P03 | planned | P02; working narrow A/B generation/adoption and G02 inspection slices | Deliver both scientific admission→partial products→qualification→publication/readback and developer execution→full failed report/inventory→readback→exact rerun slices; include original cancellation/lost-ACK settlement; remove replaced maps/interpretations. Existing diagnostic slice is included, not dropped |
 | P04 | planned | Ready per-consumer contracts, not completion of every companion | Integrate all selected storage/runtime/scientific/host migrations, reconcile every companion and source disposition; no exemplar-only completion |
 | P05 | planned | All functional scope integrated, decisions settled, replacements deleted | Complete H qualification/benefit accounting, enduring architecture/operator guidance and retirement preflight; proposed benefits remain qualified by actual measurements |
 
-Early implementation co-designs A/B with F/G's first real consumer. C can develop exact mapping
+Early owner/design agreement requires existing native semantics, not the new crate or complete
+65i/65j implementation. Working narrow A/B contracts then support I/J's first complete consumers;
+their integration informs broad A05/E/F/G migrations. H01 reconciles the final population rather
+than discovering semantic requirements for the first time. Narrow G02 inspection need not await
+all G01 families; developer private report readback need not await all canonical storage or D.
+C can develop exact mapping
 against a ready record contract without waiting for all services. E consumes common wire and
 custody capabilities without depending on an engineering dispatcher. Shared declarations,
 manifests, generated inventory and integration have one coordinated writer. No full-catalogue

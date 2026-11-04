@@ -6943,3 +6943,92 @@ id_column = 0
 id_pattern = '^(H[0-9]+)'
 status_profile = "packet"
 status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/65i-scientific-operations-and-product-semantics.md"
+name = "package-state"
+heading = "Early readiness and packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/65j-workflow-lifecycle-and-developer-evidence.md"
+name = "package-state"
+heading = "Packages and acceptance"
+headers = ["ID", "State", "Prerequisite", "Delivery and targeted acceptance"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(J[0-9]+)'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/65-proto-integrated-target.md"
+name = "improvement-dispositions"
+heading = "Improvement recommendation dispositions"
+headers = ["Recommendation", "Disposition", "Work owner", "Completion or settling evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I01"
+to = "docs/plans/65i-scientific-operations-and-product-semantics.md::package-state::I02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I02"
+to = "docs/plans/65i-scientific-operations-and-product-semantics.md::package-state::I03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I03"
+to = "docs/plans/65i-scientific-operations-and-product-semantics.md::package-state::I04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I04"
+to = "docs/plans/65j-workflow-lifecycle-and-developer-evidence.md::package-state::J05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I05"
+to = "docs/plans/65a-contract-foundations-and-generation.md::package-state::A05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I06"
+to = "docs/plans/65j-workflow-lifecycle-and-developer-evidence.md::package-state::J04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I07"
+to = "docs/plans/65a-contract-foundations-and-generation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I08"
+to = "docs/plans/65a-contract-foundations-and-generation.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I09"
+to = "docs/plans/65b-representation-validation-and-interpretation.md::package-state::B07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I10"
+to = "docs/plans/65b-representation-validation-and-interpretation.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/65-proto-integrated-target.md::improvement-dispositions::I11"
+to = "docs/plans/65-proto-integrated-target.md::package-state::P03"
+kind = "depends-on"

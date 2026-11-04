@@ -3,7 +3,7 @@ title: "Plan65h: Integrated acceptance and handoff"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, validation, performance]
@@ -26,6 +26,15 @@ establishes correspondence under that mapping, not independent physical meaning.
 
 ## Complete journeys and discriminators
 
+Consume early 65i/65j semantic agreement and P03's two complete working slices. H owns final
+reconciliation across A–G/I/J, not the first definition of scientific product meaning or developer
+evidence. A generated value is a mechanical assurance input; independent physical/format/history
+expectations remain necessary. The [Buffa 0.9.2 generator](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs)
+`CodeGenConfig::generate_arbitrary` supplies bounded schema-driven construction under the
+consumer's `arbitrary` feature. Retain bytes/seed, world/policy and original native failure
+identity through J/G; qualify the actual custom/extern field feature closure. H must not derive
+both expected scientific meaning and observed output from the same generated declaration.
+
 | Journey | Success and revealing failure controls | Independent evidence |
 | --- | --- | --- |
 | Owner to independent inspector | New alternative/quantity/rule/effect yields consistent descriptors, native maps, validator, docs and client; unknown option/version and missing imports refuse rather than silently degrading | Separately specified expected identities/options and negative ingress; inspect generated artifact rather than regenerate expected output with same producer |
@@ -36,9 +45,14 @@ establishes correspondence under that mapping, not independent physical meaning.
 | Interrupted effect and selected replay | Always lose acknowledgement after commit and settle the original effect identity without duplication. Where C06 selects a continuity promise, also expire cursors and rebuild without false caught-up state | Actual effects/commit and separately faulted acknowledgement; selected replay additionally uses original cursors/ordinal and retention-gap reconstruction |
 | Stream lifetime and native drain | Valid prefix followed by terminal error; stalled reader, absolute deadline, quiet numerical phase, cancel and worker death retain original outcomes and custody | Real process/thread/I/O settlement, inner transport errors and independent cleanup failure; handler drop/EOF is not evidence of drain |
 | Extension locality | Add non-water capability/action, solver diagnostic and result product through their owners | Actual supported implementation/control and unknown/refusal case, source change footprint plus complete consumer checks; no required universal IR |
+| Scientific operation and product use | Existing supported steady/dynamic/fitting routes retain formulation, inputs, provider demands, coverage and selected attempt; raw covariance or unselected samples remain inspectable without false scientific permission | Independently specified completion/product-use controls; spatial ControlVolume1D refuses unsupported dynamics, with an existing supported dynamic model as positive case |
+| Developer evidence and exact rerun | List/check/rustdoc/test, zero match, expected-refusal assertion pass, setup/assertion failure and incomplete capture retain distinct original report/inventory meanings | Native waited exit/private report/extent/digest reconciliation; original input/report/inventory binding plus current listing; no new runner/store |
+| Observation versus authority | Historical/foreign decoded observations remain inspectable without minting readiness, publication, scientific admission or native drain capability | Owner construction restrictions plus mismatched waited exit, digest, extent and historical-context attacks |
+| Dependency and evidence lifetime | Diagnostic/redaction changes preserve unaffected science; datum/correlation changes invalidate affected science despite unchanged wire shape; retained reads lose dependencies truthfully | Independently varied scientific/artifact/handle dependencies; absent/expired/incomplete/incompatible/corrupt evidence; active readers and failed release |
+| Descriptor semantics and ingress | Required custom options survive actual acquisition chains; wire-compatible semantic changes are detected; generated/mutated values have expected acceptance/preservation/refusal | Independently specified options and old/new worlds, legal wire reordering and unknowns; I10 simplification only after equivalent alias/trailing/extern/allocation controls |
 
 These are required scenario families; their illustrative examples do not bound migration to
-one operation. H01 resolves the actual selected producer/consumer population from A–G and
+one operation. H01 resolves the actual selected producer/consumer population from A–G/I/J and
 preserves all important supported distinctions. Do not restore a retired harness merely to
 reuse an old command: use current Rust fixture/reference owners and their actual routes.
 
@@ -60,8 +74,8 @@ host caps, serial lanes or a new permanent accounting system to make a benchmark
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| H01 | planned | Working selected A–G contracts and actual post64 source population | Enumerate acceptance consumers and exact current test/fixture/reference routes; select independent controls and scope limits without a second status ledger |
-| H02 | planned | All functional A–G scope integrated; P04 | Run required service/database/native/independent-reference and fault/recovery journeys; retain actual failures and corrected reruns; no skipped/missing fixture counted as pass |
+| H01 | planned | Working selected A–G/I/J consumer contracts, P03 slices and actual post64 population; no dependency on I06/J05 final handoff evidence | Reconcile final acceptance population against early I01/J01 design inputs and all selected migrations; select exact native test/fixture/reference routes and independent controls without a second status ledger |
+| H02 | planned | All functional A–G/I/J scope integrated; P04; H01 acceptance population | Run required service/database/native/reference, developer evidence/rerun, scientific permission/invalidation and fault/recovery journeys; retain actual failures and corrected reruns; no listing/check/zero-match/expected scientific refusal mislabeled as successful scientific execution |
 | H03 | planned | H02 correctness and matched baseline/configuration | Measure selected whole-lifetime benefits and regressions; distinguish qualitative removals from Measured outcomes and explicitly defer only nonrequired measurements with triggers |
 | H04 | planned | H02/H03 plus complete generated replacement population | Run scope-end hygiene and selected governance/docs/native/powerset checks; fix failures; reconcile zero baseline, enduring contracts/operator guidance and deletion/retirement obligations |
 

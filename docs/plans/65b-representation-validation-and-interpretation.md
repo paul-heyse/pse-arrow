@@ -3,7 +3,7 @@ title: "Plan65b: Representation, validation and interpretation"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [current-work, design, libraries, validation]
@@ -33,6 +33,14 @@ These are useful foundations to improve rather than a requirement to retain ever
 
 ## Interpretation policy and validity lifetime
 
+Consume the scientific operation/product design from
+[65i I01](65i-scientific-operations-and-product-semantics.md) and developer-evidence construction
+direction from [65j J01](65j-workflow-lifecycle-and-developer-evidence.md) when B01 fixes policies.
+These design products enable a narrow A/B implementation; they do not require completed I/J
+workflows. The [improvement review](../plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md)
+I05/I07–I10/I11 recommendations refine this plan's original policy, assurance and optimization
+choices without replacing its preserved domain distinctions.
+
 Represent the policy selected by an actual operation as part of its closed contract world:
 accepted grammar, message/type identity, presence/unknown behavior, local validation policy,
 supported native interpretation and caller-selected admission limits. Separate these facts
@@ -59,6 +67,14 @@ their premises. Revalidate when uncontrolled mutation, policy/world change, nati
 new context invalidates them. Do not turn every internal layer crossing into another full
 encode/decode/validate pass. Conversely a type named Validated does not establish bounded
 allocation, current context or scientific readiness.
+
+Serialized proof-shaped data is an observation, not an owner-issued grant. B01 classifies
+records for inspection/forwarding separately from native issued handles, admission grants,
+test verdict capabilities and protected-reader authority. B02's generic adapters cannot use
+successful decoding, a matching digest or an old authentic report to invoke their sealed
+constructors. A current owner may resolve original identity and issue a fresh capability only
+through its actual admission/custody contract. Test both a forged well-formed record and a valid
+historical record whose authority has expired; neither becomes current authority by adoption.
 
 ## Concrete representation decisions
 
@@ -100,7 +116,33 @@ semantics. The reference's 0.14.4 implicit-packed-option issue is a concrete imp
 discriminator, settled by explicit packing or a verified corrected release for that population,
 not a reason to rewrite a working external protocol.
 
+### Release-gated strict-JSON simplification
+
+Review I10 supplies a concrete optional branch for B02/G02. First retain the entire existing
+uncontrolled-input contract: unknown keys, duplicate literal keys and logical aliases, trailing
+data, actual external/WKT behavior and allocation admission. Compare an **actually released and
+verified** generated strict-JSON composition with the current intermediate-tree/key-checking
+route. Current upstream documentation describes global/per-message `deny_unknown_json_fields`
+configuration, but tagged Buffa 0.9.2 lacks that control. The
+[development guide](https://github.com/anthropics/buffa/blob/main/docs/guide.md) is a research
+lead, not a released API promise. Verify the selected release, generated output and every
+`extern_path` type's own policy before a pin change or deletion.
+
+Select the generated route only if it removes worthwhile repeated interpretation/materialization
+with equivalent complete protection. Unknown-key rejection alone does not establish duplicate,
+alias, trailing-input or pre-allocation behavior. If no released composition earns that change,
+retain the strict route or make only the independently justified narrower simplification.
+This optional investigation cannot block the scientific/domain/lifecycle target; any claimed
+allocation or latency benefit requires a matched whole-boundary measurement.
+
 ## Validation composition
+
+Reuse A02's native semantic metadata checker when resolving this policy's approved world.
+Its generation/import/offline entry points and compatible/incompatible/unknown evolution
+comparison replace repeated metadata interpretation, not payload validation or scientific
+admission. B01/B07 must challenge wire-compatible option changes with independent expectations.
+I07's acquisition controls also apply to B05 external mappings: typed descriptor conversion
+must not silently drop extensions that select validation or interpretation policy.
 
 Stable first-party contracts select owner-declared rules → A02 typed/options emission →
 maintained generator preflight → generated `Validate` for owned/view messages. Cover uncontrolled
@@ -153,13 +195,32 @@ their common discrimination controls without pretending a codec benchmark qualif
 
 | Package | Status | Inputs → deliverable | Migration/deletion and targeted acceptance |
 | --- | --- | --- | --- |
-| B01 | planned | Post-Plan64 producer/consumer population plus A01/A02 semantics → explicit operation policies and historical interpretation | Classify every selected boundary as forwarding/archive/adoption/transformation/inspection; publish policy and identity associations once. Remove inherited implicit format assumptions. Test original-policy read versus current-policy adoption and unavailable old policy. |
+| B01 | planned | Post-Plan64 population, 65i I01/65j J01 design products and A01/A02 semantics → explicit operation policies and historical interpretation | Classify every selected boundary as forwarding/archive/adoption/transformation/inspection, including non-reconstructible native authority; publish policy and identity associations once. Remove inherited implicit format assumptions. Test original-policy read versus current-policy adoption, unavailable old policy and proof-shaped observations that cannot issue current grants. |
 | B02 | planned | B01 policies and A03 world artifacts → faithful binary/JSON/text decode and fallible native adoption | Migrate host, engineering, worker, reference and selected durable diagnostic/document consumers. Remove replaced per-consumer presence/default/key/type checks only after equivalent shared policy exists. Test large integers, exact bits, alias keys, unknowns, fresh-decode merge and typed refusal. |
 | B03 | planned | Actual selected local-rule needs plus A02 options → complete native/generated rule parity | Extend the narrow rule vocabulary where useful, update maintained preflight and owned/view generated validators, and delete duplicate local scalar checks. Test unsupported combinations, mixed arithmetic, error masking, codepoint/byte differences, outgoing violations and category-preserving failures. |
 | B04 | planned | Approved dynamic schema inspection/import consumer, B01 policy and closed descriptors → choose whether dynamic execution is warranted | Compare eager closed-world runtime validation with generated stable support and explicit unsupported refusal. A runtime choice must pass logical-clock replay, unknown constraints, filtered/FailFast scope, initialization and retained-world controls. If no consumer benefits, record non-selection and remove prototype-only code; do not install a fallback. |
 | B05 | planned | B02/B03 and selected external protocol population → exact WKT/Any/Proto2/alias conversion contracts | Configure only actual external mappings; migrate affected ProtoJSON readers/writers together. Delete redundant JSON conversion routes. Independently test Timestamp limits/offsets, signed Duration, FieldMask intent, nonfinite Value, required/default fields and unknown enum/extension behavior. |
 | B06 | planned | Actual D/F/G selected producer paths → demand-shaped representations and bounded lifetimes | Integrate eager views/owned values/direct reflection, bounded encoding and conditional segmented output; remove superseded temporary buffers and repeated conversions. Test async retention, oversized backing slices, compression/flattening, cumulative limits and cancellation release; compare matched complete boundaries for measured claims. |
 | B07 | planned | All selected population migrated → conformance/fidelity controls and documented extension route | Add a field/alternative/rule to one boundary and show generated/adopted/readback behavior; test stale-world reuse, mutable invalidation and public omission. Remove old adapters/fixtures only with migrated consumers. Hand assembled controls to65h; do not infer science or throughput from wire conformance. |
+
+Additive package obligations from review I05/I07–I10/I11:
+
+- **B01/B02:** use I01/J01 design meanings to classify adoption and authority direction; no
+  generic reconstructible authority. Run I10's release-gated comparison with explicit select,
+  narrower-simplification or retain outcomes. Delete the old JSON path only after all required
+  countercontrols pass across actual host and independent consumers.
+- **B02/B05/B07:** select bounded Buffa `generate_arbitrary` inputs and controlled mutations for
+  relevant recursive/alternative/presence/extent shapes. Test owned/view/dynamic and independent
+  decoder behavior, including legal wire ordering and selected unknown fields. Generated valid
+  structures need not be scientifically valid; generated expected answers cannot establish
+  declaration correctness. Keep independent format, physical and historical-interpretation
+  cases and native original failure identity from 65j (I09).
+- **B05/B07:** observe imported typed options through the actual lossless chain and metadata
+  checker; distinguish semantic compatibility from wire compatibility, and unavailable old
+  interpretation from ordinary validation failure (I07/I08).
+- **B06:** measure any selected strict-JSON simplification through producer/read/parse/adopt/
+  release, with duplicate-alias, trailing-data, external-type and size controls. Do not require
+  an upgrade or extra dynamic validation machinery merely to complete an optional optimization.
 
 ## Verification and completion
 
@@ -193,5 +254,8 @@ Precise mechanisms: [Buffa 0.9.2 reflection](https://github.com/anthropics/buffa
 [runtime validator 0.6.0](https://docs.rs/prost-protovalidate/0.6.0/prost_protovalidate/enum.ValidatorOption.html),
 [native builder](https://docs.rs/prost-protovalidate-build/0.6.0/prost_protovalidate_build/struct.Builder.html),
 and [maintained generator](../../vendor/protoc-gen-protovalidate-buffa/README.md).
+For bounded generated inputs, see [Buffa-codegen 0.9.2 `generate_arbitrary` and feature gating](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-codegen/src/lib.rs).
+For semantic checking adapters, see [Buf check plugins](https://buf.build/docs/bsr/checks/plugins/);
+they implement Bufplugin/PluginRPC, not ordinary protoc generation. A02 owns the native rules.
 The plan selects exact local mechanisms where researched; implementation may move an exact pin
 or family with its affected controls, rather than freezing an obsolete defect into the target.

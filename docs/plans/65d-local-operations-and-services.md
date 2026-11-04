@@ -3,7 +3,7 @@ title: "Plan65d: Local operations and service composition"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, deployment, libraries, validation]
@@ -53,6 +53,21 @@ the same custody. A newer released composition remains eligible through D02's ex
 ## Interface and lifecycle design
 
 ### Native operation and transport identities
+
+Consume [65i](65i-scientific-operations-and-product-semantics.md)'s operation/product semantics
+and [65j](65j-workflow-lifecycle-and-developer-evidence.md)'s construction directions. Generated
+requests enter trusted contextual constructors; decoded observations expose recorded facts;
+sealed execution, publication and settlement capabilities have no generic inverse wire map.
+Native `managed::workflow::validate_report` and `TerminalResult` remain custody owners, not
+payload validators that can be replaced by successful decode. Shared adoption must preserve
+these distinctions for service status, test evidence and scientific completion alike.
+
+The [ConnectRPC 0.9.1 Router](https://docs.rs/connectrpc/0.9.1/connectrpc/router/struct.Router.html)
+provides registration/dispatch, and [ServerStream](https://docs.rs/connectrpc/0.9.1/connectrpc/client/struct.ServerStream.html)
+provides message/terminal-error observation. Neither grants native effect or drain authority.
+Use those mechanisms with the original native owner: a terminal transport observation may be
+readable while native effects remain unsettled. The local connector's trusted context remains
+an input to authorization, never reconstructed from reflected options or a client claim.
 
 Retain a native handler interface for inspect/edit/admit/prepare/submit/status/cancel/read and
 scientific operations actually supported by their owner. Generate service bindings from typed
@@ -149,7 +164,7 @@ All statuses are **planned**. This table owns D-package progress; 65h owns assem
 | D01 | planned | Completed Plan64 baseline; 65a effects/contract identity and 65b ingress semantics | Reconcile actual operation/transport populations and original identity/effect contracts. Select the shared native handler and authentication interfaces; remove no scientific guard as mechanical dispatch. Tests compare direct/client typed outcomes and refuse untrusted peer/context before native work. |
 | D02 | planned | D01 usable custody/lifecycle contract | Decide hosting with an exact released composition spike: custom Hyper versus available library host/Tonic adapter. Exercise original-image/reconnect refusal, preface/header timeout, shutdown with active native work and inner connection failure. Select library hosting only if it expresses every consumed obligation and removes worthwhile glue; otherwise use the selected released Hyper adapter. Record the chosen version/features and delete the losing production route. |
 | D03 | planned | D01; narrow 65a generated registrations; D02 selected host | Integrate typed effects, route policy, early protocol-aware rejection, binary ingress, whole-limit profiles and optional authorized health/reflection. Tests attack duplicate/replaced routes, unauthorized symbol disclosure, unsupported codec and no implicit preparation. Delete hand-maintained route/effect/health protocol mirrors. |
-| D04 | planned | D03; 65f typed diagnostic/result contracts; 65c retained identity | Migrate selected operation submission/status/cancel/progress/readback and independent clients to original identity and explicit terminal/partial outcomes. Lost ACK never auto-replays effects. Tests cover cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
+| D04 | planned | D03; narrow 65f result and 65c identity contracts; 65i/65j authority design | Migrate submission/status/cancel/progress/readback to original identity and explicit terminal/partial outcomes. Decode observations without reconstructing native permission or settlement. Lost ACK never auto-replays effects. Test foreign/historical verdicts, cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
 | D05 | planned | D02/D03; 65e actual multi-session requirement | Carry native/allocation custody through transport bodies and actual drain; implement declared session-scoped shutdown and permitted concurrency. Test stalled readers, abandoned uploads, optional deadlines, legitimate long silence, child failure, inner/outer task failures and independent cleanup aggregation. Delete replaced reservation/connection choreography only after its complete population moves. |
 | D06 | planned | D04/D05 producer ownership; selected large response consumer | Apply views/segmented encoding only where producer selection and representation already avoid work. Compare complete producer→encode→transport→decode→release. Compression/interceptor flattening and backing-buffer retention are countercontrols. Keep contiguous output when simpler; delete duplicate materialization only with equivalent extent protection. |
 | D07 | planned | All D functional migrations and selected 65c/e/f/g consumers | Run actual independent service/client journeys and failure/settlement population through 65h; document protocol/support/operation semantics, remove replaced paths and publish operator extension guidance. |

@@ -3,7 +3,7 @@ title: "Plan65c: Storage projections and historical interpretation"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, storage, libraries, validation]
@@ -132,6 +132,37 @@ cursors may repeat entries; table-filtered empty batches may precede later relev
 Neither empty output nor a live reconnect proves caught-up status. Persist acknowledgements
 with the consumer effect where atomicity is required, otherwise make duplicate handling explicit.
 
+## Scientific use, evidence closure and independent changes
+
+Consume [65i](65i-scientific-operations-and-product-semantics.md)'s operation/product-use
+semantics and [65j](65j-workflow-lifecycle-and-developer-evidence.md)'s family-specific evidence
+contract. A scientific retained read resolves original request/context, completion scope,
+manifest/payload and the descriptor, interpretation, validation and mapping versions actually
+needed by its promised reader. A developer report instead needs its original selection and
+inventory for exact rerun; it need not move into canonical scientific storage. Share reference
+mechanics only where useful, preserving existing owners and avoiding a second evidence store.
+
+Use the selected [surrealdb-types 3.3.4 Proto codec](https://docs.rs/crate/surrealdb-types/3.3.4/source/src/proto/mod.rs)
+for native Value interchange only. Its `encode_proto`/`decode_proto` operations do not supply
+these family retention dependencies or scientific-use decisions. Generate checked native field
+mapping with `SurrealValue::{kind_of,into_value,from_value}`, while native publication and
+protected-reader owners keep atomic reference publication and release. This separates library
+conversion from the context it cannot establish; the [3.3 guide](../libraries/proto/Protobuf_SurrealDB_v3.3.md)
+characterizes the mapping APIs and numeric/duplicate limitations in detail.
+
+Resolve retained interpretation once per appropriate immutable artifact/world, then carry it
+through reads. Missing dependencies yield incomplete or incompatible evidence, not an empty
+successful result. Expiry, absence, corruption and failed release remain distinct. An active
+reader retains its required protection; historical storage does not keep a live fixture, worker
+or evaluator ready. Old product permission is an original-context observation: current scientific
+selection reuses or renews admission only under 65i's explicit premises.
+
+Separate schema/projection rebuild from scientific dependency invalidation. Diagnostic-only
+metadata evolution may rebuild a projection without rebuilding unchanged mathematics. A selected
+correlation or physical datum change must invalidate affected science even with identical wire
+shape. C01/C04 consume A's shared metadata checker for option meaning and evolution; they do not
+reconstruct its rules or equate a wire-compatible revision with compatible interpretation.
+
 ## Packages and dependencies
 
 All packages are **planned**. Their table is this companion's native progress owner. A dependency
@@ -141,8 +172,8 @@ names a usable slice, not completion of every package in another companion.
 | --- | --- | --- | --- |
 | C01 | planned | Completed Plan64 baseline; 65a declaration/options design and 65b fidelity policy | Reconcile actual native server/codec contracts and emit one selected owner-to-native/Proto mapping for retained diagnostic/result metadata. Establish exact field policies and first migration population; target controls distinguish u64, bits, absence/null/remove, IDs and duplicates. |
 | C02 | planned | C01 working generator; 65a usable contract graph and emitted adapters | Migrate all scientific/runtime metadata and canonical request/result mappings selected by the coordinator's population closure. Each mapping carries its actual owner policy; generated native converters/DDL replace mechanical copies together with consumers and fixtures. Preserve transaction-specific code and preflight until equivalence is established. |
-| C03 | planned | C01; 65b original-policy/adoption contract; 65f evidence shape | Deliver retained artifact headers, descriptor/policy/mapping resolution and optional hybrid storage for genuine archive/read consumers. Historical read, forwarding and current adoption remain distinct. Delete replaced ad hoc headers and repeated interpretation lookup. |
-| C04 | planned | C02/C03 schemas and protected publication | Implement coherent rebuild/activation and selected retained-data migration. Attack interruption before/after payload/reference publication, uncertain ACK and stale membership. Delete the replaced write path after complete cutover; retain only deliberately supported historical readers. |
+| C03 | planned | C01; 65b original-policy/adoption; 65i product-use and 65j evidence design; 65f evidence shape | Deliver retained artifact headers, complete family-specific context/descriptor/policy/mapping resolution and optional hybrid storage. Historical read, forwarding and current scientific use remain distinct. Test absent/expired/incomplete/incompatible/corrupt dependencies and active-reader protection; no retention of live fixture/worker readiness. Delete replaced ad hoc headers and repeated interpretation lookup. |
+| C04 | planned | C02/C03 schemas and protected publication; 65i dependency-validity contract | Implement coherent rebuild/activation and selected retained-data migration using shared option-evolution decisions. Separate artifact rebuilding from scientific invalidation and renewed admission. Attack interruption before/after publication, uncertain ACK, stale membership and unavailable original policy. Delete the replaced write path after complete cutover; retain only deliberately supported historical readers. |
 | C05 | planned | Actual graph/query consumers from C02; C04 interpretation generation | Migrate graph/query projections to explicit pair/occurrence identity and complete freshness dependencies. Prefer native access paths; repair initial/update identity and related-record invalidation controls. Remove redundant adjacency/materialization machinery where replaced. |
 | C06 | planned | C03/C04; an identified continuity consumer | Deliver durable incremental consumption only for that selected consumer: cursor/ordinal, duplicate policy, acknowledgement crash windows, expiry and reconstruction. If no selected operation promises continuity, close with a documented non-selection and implement no generic replay engine. |
 | C07 | planned | C01–C06 dispositions and all selected migrations | Supply 65h storage/publication acceptance, selected complete-operation measurements and enduring schema/recovery documentation. Reconcile all migrated producers, readers, generators, fixtures and deletions before completion. |

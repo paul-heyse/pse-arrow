@@ -3,7 +3,7 @@ title: "Plan65g: Code intelligence and client tooling"
 status: proposed
 date: 2026-11-03
 adrs: []
-review_sources: [docs/library_leverage/reviews/proto/README.md]
+review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
 doc_topics: [design, libraries, preparation, validation]
@@ -89,6 +89,31 @@ Descriptor-provided source comments are useful explanation, not exact Rust byte 
 
 ## Independent local clients and reference exchange
 
+### Early developer-evidence inspection
+
+[65j](65j-workflow-lifecycle-and-developer-evidence.md) adds actual test reports,
+inventory/failure references, fixture context and exact rerun to independent-reader consumers.
+J01 defines their meanings before A01/A02 harden. G supplies inspection/client presentation
+while native test owners perform execution, reconciliation and rerun.
+
+G02 has a narrow early slice consuming working A/B artifacts and existing `schema::payload`
+directly, without awaiting every G01 family. Use Buffa `DescriptorPool` and
+`DynamicMessage::from_options` for selected worlds, and generated `ReflectMessage::for_each_set`
+where an observational record already exists. The [0.9.2 reflection source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs)
+and [runtime reflection source](https://github.com/anthropics/buffa/tree/v0.9.2/buffa/src)
+characterize these separate dynamic/vtable routes. Successful decode or generated `Validate`
+cannot construct a native verdict or settlement capability. Reuse A's shared semantic-option
+checker for import/offline validation and old/new interpretation comparison; do not duplicate
+its meaning in a tool-specific field walker.
+
+Preserve original invocation/action, selection/inventory/report identity, executed population,
+fixture requirements, assertion outcome, capture completeness and retained-reader status.
+Exact rerun requests go to native `test_workflow::source` after original evidence and current
+listing reconciliation, never command reconstruction from displayed failure text. Scientific
+inspection consumes I's operation/product semantics and original decisions without minting
+current admission. Bounded generated failure inputs retain bytes/seed/world/native test identity
+for replay through J; they do not create a separate fuzz-result store.
+
 Generate native Rust clients and publish complete offline descriptor bundles for independent
 tools. One Rust client over generated bindings is the product-local route; a standard tool
 or separately generated runtime must supply independent interoperability evidence. `grpcurl`
@@ -115,11 +140,17 @@ science; stale policy/mapping/physical interpretations refuse or migrate explici
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | G01 | planned | Completed Plan64 baseline; 65a pure contract and bundle slice | Add native owner annotations and generated correspondence for actual host configuration/request/fact/graph/investigation families. Preserve fallible context/path/provider hooks. Exhaustive native-variant and independent expected-wire tests cover guards, raw paths, original/adjusted facts and unknown alternatives. Delete replaced mechanical maps and mirror declarations with migrated callers. |
-| G02 | planned | G01; effective descriptor/validation identity from 65a/b | Publish reusable family bundles and extend existing offline schema/payload inspection to engineering/science/diagnostic worlds. Required controls: missing/duplicate imports, changed effective options, unknown options/version, cross-pool identity, absent source coordinates and malicious nesting. Remove duplicate descriptor acquisition/walking and JSON passes only with equivalent admission. |
+| G02 | planned | Working narrow A/B family artifacts; G01 only for host families it migrates; I01/J01 design | Publish reusable bundles and extend inspection to engineering/science/diagnostic/developer evidence worlds. Narrow J02 readback can proceed before full G01. Test option preservation/evolution, missing imports/interpretation, cross-pool identity, nesting and valid observation without native authority. Reuse shared semantic checker; remove duplicate acquisition/walkers and JSON passes only with equivalent admission. |
 | G03 | planned | G02; 65d working native operation/client route | Deliver generated client packages, explicit offline/reflection discovery and independent local invocation through full operation/readback. Client-side message limits, terminal errors, reconnect auth, unauthorized reflection and expired protected results must remain observable. Delete superseded client-specific contract copies/dispatch translations. |
-| G04 | planned | G02; 65e scientific products and 65f typed outcomes | Migrate independent reference case/output helpers and diagnostic readers to approved bundle identity and generated/dynamic types. Test future unknown fields, exact bits, changed datum/formulation, intended failures and complete output coverage using independently constructed references. Remove obsolete exchange mappers while preserving numerical independence. |
+| G04 | planned | G02; narrow E/F scientific/outcome and J03/J04 developer integrations according to family | Migrate independent reference helpers, diagnostic/developer readers and exact-rerun clients to approved bundles and generated/dynamic types. Test unknowns, exact bits, changed datum/formulation, original report/inventory binding, retained-context failure and complete coverage with independent expectations. Delete obsolete exchange/rerun maps while preserving authority and numerical independence. |
 | G05 | planned | G01/G02; exact acquired rustdoc supplier population | Replace the API presentation JSON intermediate with typed projection where direct supplier fields have exact correspondence. First compare current Serde bridge against generated typed traversal on recursive types, attributes and unavailable shapes. Select generated traversal only if all curated fields remain explicit with less repeated representation; otherwise retain the bounded bridge with documented reason. No silent widening of accepted rustdoc formats. |
 | G06 | planned | G01–G05 selected consumers; 65a/b generation and fidelity controls | Complete developer-tool integration: compiler/plugin/edition/external mappings, explicit preparation, actionable generation diagnostics and Buf compatibility policy. Use one independently driven client/reference journey per actual supported contract family; reconcile every migrated consumer/deletion and supply evidence/limits to 65h. |
+
+G01's full population includes J01-selected developer observational families with no inverse
+native verdict/control constructors. G06 also reconciles J's completed developer reader
+population without owning its verdict or lifecycle. G04's independently constructed cases
+retain intended failures as well as successful outputs. J's developer readers can proceed
+independently of E's scientific references, consuming their respective ready slices.
 
 G05 is a bounded decision package: compare exact supplier/public type correspondence and
 construction cost using one recursive signature population plus unknown/new-format controls.
