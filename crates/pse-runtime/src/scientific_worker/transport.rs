@@ -146,29 +146,40 @@ impl IoOwner {
                     _ = stopping.cancelled() => return,
                 };
                 let connection = match connection {
-                    Ok(Ok(value)) => value.shared(1),
+                    Ok(Ok(value)) => value.shared(2),
                     Ok(Err(error)) => { let _ = ready.send(Err(infrastructure(error))); return; }
                     Err(error) => { let _ = ready.send(Err(infrastructure(error))); return; }
                 };
                 let client = services::ScientificWorkerClient::new(connection, config);
                 if ready.send(Ok(())).is_err() { return; }
+                use futures_util::{stream::FuturesUnordered, StreamExt as _};
+                let mut pending = FuturesUnordered::new();
                 loop {
-                    let outgoing = tokio::select! { result = receiver.recv() => match result { Some(value) => value, None => break }, _ = stopping.cancelled() => break };
-                    let options = call_options(outgoing.timeout);
-                    let response = tokio::select! {
-                        result = client.exchange_with_options(outgoing.request.into(), options) => result,
+                    tokio::select! {
+                        completed = pending.next(), if !pending.is_empty() => {
+                            if completed != Some(false) { break; }
+                        },
+                        result = receiver.recv(), if pending.len() < 2 => {
+                            let Some(outgoing) = result else { break; };
+                            let client = &client;
+                            pending.push(async move {
+                                let response = client.exchange_with_options(
+                                    outgoing.request.into(), call_options(outgoing.timeout),
+                                ).await;
+                                let result = response
+                                    .map_err(|error| WorkerError::UnknownCompletion(error.to_string()))
+                                    .and_then(|response| {
+                                        let response = response.into_owned();
+                                        response.validate().map_err(|error| WorkerError::UnknownCompletion(format!("scientific worker response constraint: {error}")))?;
+                                        p::Response::try_from(response)
+                                    });
+                                let failed = result.is_err();
+                                let _ = outgoing.reply.send(result);
+                                failed
+                            });
+                        },
                         _ = stopping.cancelled() => break,
-                    };
-                    let result = response
-                        .map_err(|error| WorkerError::UnknownCompletion(error.to_string()))
-                        .and_then(|response| {
-                            let response = response.into_owned();
-                            response.validate().map_err(|error| WorkerError::UnknownCompletion(format!("scientific worker response constraint: {error}")))?;
-                            p::Response::try_from(response)
-                        });
-                    let failed = result.is_err();
-                    let _ = outgoing.reply.send(result);
-                    if failed { break; }
+                    }
                 }
             });
             #[cfg(test)]

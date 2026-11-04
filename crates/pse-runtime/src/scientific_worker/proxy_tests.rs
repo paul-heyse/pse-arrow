@@ -37,7 +37,8 @@ struct ControlledNative {
 }
 impl Provider for ControlledNative {
     fn supports(&self, demand: &ProviderDemand) -> bool {
-        self.mode == "actions" || matches!(demand, ProviderDemand::CompleteJets)
+        matches!(self.mode.as_str(), "actions" | "actions-cooperative")
+            || matches!(demand, ProviderDemand::CompleteJets)
     }
     fn fill(
         &mut self,
@@ -45,7 +46,7 @@ impl Provider for ControlledNative {
         request: &PreparedProviderRequest,
         runtime: ProviderRuntime<'_>,
         output: ProviderOutput<'_>,
-        _: &EvaluationContext<'_>,
+        context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
         let mut marker = std::fs::OpenOptions::new()
             .create(true)
@@ -60,7 +61,14 @@ impl Provider for ControlledNative {
         if self.mode == "delay" {
             std::thread::sleep(Duration::from_secs(30));
         }
-        if self.mode == "actions" {
+        if self.mode == "actions-cooperative" && inputs[0] == 13. {
+            std::fs::write(self.marker.with_extension("active"), b"native active").unwrap();
+            loop {
+                context.check()?;
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+        if matches!(self.mode.as_str(), "actions" | "actions-cooperative") {
             return polynomial_products(inputs, request, runtime, output);
         }
         output.values.fill(1.0);
@@ -507,7 +515,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         .unwrap()
         .test_entry(
             "scientific_worker::proxy::tests::controlled_child",
-            "actions",
+            "actions-cooperative",
             marker.clone(),
         );
     let factory =
@@ -727,13 +735,14 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         assert_eq!(values.hessians.len(), checked.extents().hessians);
     }
     assert_eq!(
-        std::fs::read_to_string(marker).unwrap().lines().count(),
+        std::fs::read_to_string(&marker).unwrap().lines().count(),
         10,
         "one coherent native invocation per product and output selection"
     );
-    let first = proxy.prepared[0].1.clone();
+    let active = proxy.prepared[0].1.clone();
+    let first = proxy.prepared[2].1.clone();
     let survivor = proxy.prepared[1].1.clone();
-    let stopped = proxy.prepared[2].1.clone();
+    let stopped = proxy.prepared[3].1.clone();
     let remote = proxy.remote.as_ref().unwrap();
     assert!(matches!(
         remote.exchange(p::Request::Close(first.clone()), &proxy.scope, None).unwrap(),
@@ -749,6 +758,26 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         remote.exchange(p::Request::Stop(foreign), &proxy.scope, None).unwrap(),
         p::Response::Failure(_)
     ));
+    let io = remote.io.as_ref().unwrap();
+    let scope = &proxy.scope;
+    std::thread::scope(|threads| {
+        let evaluate_handle = active.clone();
+        let evaluating = threads.spawn(move || io.exchange(p::Request::Evaluate(p::Evaluate {
+            handle: evaluate_handle, invocation: 20_000, inputs: vec![13., 5.],
+            directions: vec![], cotangents: vec![], weights: vec![],
+        }), scope, None));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !marker.with_extension("active").exists() {
+            assert!(Instant::now() < deadline, "controlled native evaluation never entered");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(matches!(
+            io.exchange(p::Request::Stop(active.clone()), scope, None).unwrap(),
+            p::Response::Closed(actual) if actual == active
+        ));
+        assert!(matches!(evaluating.join().unwrap().unwrap(),
+            p::Response::Failure(p::Failure::Cancelled)));
+    });
     // Independent scalar values for the still-live selected-columns handle. Neither
     // another handle's close/stop nor a foreign context may cancel this preparation.
     let response = remote.exchange(p::Request::Evaluate(p::Evaluate {
