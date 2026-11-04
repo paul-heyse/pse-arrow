@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+pse_contract::projection_enum! {
 /// Current authored function vocabulary. Source-only forms have no numerical handler.
 #[derive(
     serde::Serialize,
@@ -16,26 +17,29 @@
 )]
 #[strum(serialize_all = "snake_case")]
 pub enum Function {
+    projection: { name: "AuthoredBuiltinFunction", rust_path: crate::functions::Function,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exponential.
-    Exp,
+    Exp => 1;
     /// Natural logarithm.
-    Log,
+    Log => 2;
     /// Square root.
-    Sqrt,
+    Sqrt => 3;
     /// Value-only absolute value.
-    Abs,
+    Abs => 4;
     /// Sine.
-    Sin,
+    Sin => 5;
     /// Cosine.
-    Cos,
+    Cos => 6;
     /// Guarded minimum.
-    Min,
+    Min => 7;
     /// Guarded maximum.
-    Max,
+    Max => 8;
     /// Source inspection and physical unit rename; not executable arithmetic.
-    Convert,
+    Convert => 9;
     /// Source inspection and lexical index binding; not executable arithmetic.
-    Broadcast,
+    Broadcast => 10;
+}
 }
 impl Function {
     /// Exact current spellings, generated from the enum declaration.

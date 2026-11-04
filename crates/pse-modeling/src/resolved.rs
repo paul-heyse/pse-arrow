@@ -182,13 +182,17 @@ impl PartialEq for FunctionSelection {
 }
 impl Eq for FunctionSelection {}
 
+pse_contract::projection_struct! {
 /// One output of an actual complete executable provider descriptor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ProviderSelection {
+    projection: { name: "ModelingProviderSelection", rust_path: crate::resolved::ProviderSelection,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Full descriptor content identity; it is never narrowed to a semantic identifier.
-    pub identity: ContentHash,
+    pub identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual selected output ordinal.
-    pub output: usize,
+    pub output: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 /// An actual finite domain or scalar selected before entering the resolved arena.
@@ -212,182 +216,198 @@ pub trait Names {
     fn provider(&self, name: &str) -> Option<ProviderSelection>;
 }
 
+pse_contract::projection_tuple_enum! {
 /// A resolved reference preserves lexical and scalar/indexed roles.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Reference {
+    projection: { name: "ModelingResolvedReference", rust_path: crate::resolved::Reference,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// A scalar from the single symbol table.
-    Symbol(SymbolIx),
+    Symbol [symbol: SymbolIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
     /// A lexical binder or local value.
-    Lexical(BinderIx),
+    Lexical [binder: BinderIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 2;
     /// Ordered subscripts select a member of an actual indexed layout.
     Indexed {
         /// Actual typed indexed layout.
-        group: GroupIx,
+        group: GroupIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Subscript expressions in declared axis order.
-        indices: Vec<NodeIx>,
-    },
+        indices: Vec<NodeIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
+}
 }
 
+pse_contract::projection_tuple_enum! {
 /// One lexical declaration; names and source spans are separate attribution data.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Binding {
+    projection: { name: "ModelingResolvedBinding", rust_path: crate::resolved::Binding,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// A local value whose definition precedes its uses.
-    Value(NodeIx),
+    Value [value: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
     /// A bound coordinate from an actual typed finite carrier.
-    Coordinate(CarrierIx),
+    Coordinate [carrier: CarrierIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 2;
     /// A fold accumulator, initialized from the first selected value.
-    Accumulator,
+    Accumulator => 3;
     /// The current fold value.
-    Item,
+    Item => 4;
+}
 }
 
+pse_contract::projection_tuple_enum! {
 /// An immutable operation with explicit child edges and no unresolved identifier strings.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Node {
+    projection: { name: "ModelingResolvedNode", rust_path: crate::resolved::Node,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact authored scalar, including integer token and canonical unit factors.
-    Number(dsl::Number),
+    Number [number: dsl::Number => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
     /// Resolved scalar, lexical value or indexed member.
-    Reference(Reference),
+    Reference [reference: Reference => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 2;
     /// Unary negation.
-    Neg(NodeIx),
+    Neg [value: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 3;
     /// Ordered binary arithmetic.
     Binary {
         /// Actual operation.
-        op: BinaryOp,
+        op: BinaryOp => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Left child.
-        lhs: NodeIx,
+        lhs: NodeIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Right child.
-        rhs: NodeIx,
-    },
+        rhs: NodeIx => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 4;
     /// Closed builtin application.
     Call {
         /// Library-owned builtin.
-        function: dsl::Function,
+        function: dsl::Function => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Ordered arguments.
-        args: Vec<NodeIx>,
-    },
+        args: Vec<NodeIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 5;
     /// Selected pure function application.
     Apply {
         /// Complete selected contract.
-        function: FunctionIx,
+        function: FunctionIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Ordered arguments.
-        args: Vec<NodeIx>,
-    },
+        args: Vec<NodeIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 6;
     /// A derivative of a selected function at ordered formal ordinals.
     Partial {
         /// Complete selected contract.
-        function: FunctionIx,
+        function: FunctionIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Ordered differentiated formal ordinals.
-        wrt: Vec<usize>,
+        wrt: Vec<usize> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Applied arguments.
-        args: Vec<NodeIx>,
-    },
+        args: Vec<NodeIx> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 7;
     /// Executable provider application.
     Provider {
         /// Actual admitted descriptor selection.
-        selection: ProviderSelection,
+        selection: ProviderSelection => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Ordered arguments.
-        args: Vec<NodeIx>,
-    },
+        args: Vec<NodeIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 8;
     /// Original finite or continuous reduction, before library normalization.
     Reduce {
         /// Mathematical reduction kind.
-        kind: dsl::ReduceKind,
+        kind: dsl::ReduceKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Actual lexical coordinate.
-        binder: BinderIx,
+        binder: BinderIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Original membership filter.
-        filter: Option<PredicateIx>,
+        filter: Option<PredicateIx> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Element expression.
-        body: NodeIx,
-    },
+        body: NodeIx => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 9;
     /// Required observed effects precede the selected numerical value.
     /// Unlike an ordinary local binding, every listed prerequisite is demanded.
     Sequence {
         /// Returned value.
-        value: NodeIx,
+        value: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Ordered demanded source observations.
-        prerequisites: Vec<NodeIx>,
-    },
+        prerequisites: Vec<NodeIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 10;
     /// Scientific evidence demanded only when this exact value is read.
     Evidence {
         /// Returned value.
-        value: NodeIx,
+        value: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Actual claim, predicates and numerical observations.
-        evidence: EvidenceIx,
-    },
+        evidence: EvidenceIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 11;
     /// Nonempty ordered fold.
     Fold {
         /// Actual lexical coordinate.
-        binder: BinderIx,
+        binder: BinderIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Original membership filter.
-        filter: Option<PredicateIx>,
+        filter: Option<PredicateIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Value expression.
-        value: NodeIx,
+        value: NodeIx => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Accumulator local.
-        accumulator: BinderIx,
+        accumulator: BinderIx => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Current value local.
-        item: BinderIx,
+        item: BinderIx => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Combination expression.
-        step: NodeIx,
-    },
+        step: NodeIx => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 12;
     /// Derivative in the explicitly selected physical domain.
     Derivative {
         /// Differentiated value.
-        body: NodeIx,
+        body: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Actual physical domain.
-        domain: CarrierIx,
-    },
+        domain: CarrierIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 13;
     /// Numerical zero/one indicator of an actual original predicate.
-    Indicator(PredicateIx),
+    Indicator [predicate: PredicateIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 14;
     /// Original branch order, before simplification.
     Conditional {
         /// Strict original guard.
-        guard: PredicateIx,
+        guard: PredicateIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// True branch.
-        then: NodeIx,
+        then: NodeIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// False branch.
-        otherwise: NodeIx,
-    },
+        otherwise: NodeIx => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 15;
     /// Local definitions, visited once in declaration order.
     Let {
         /// Sequential local declarations.
-        bindings: Vec<BinderIx>,
+        bindings: Vec<BinderIx> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Returned value.
-        body: NodeIx,
-    },
+        body: NodeIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 16;
+}
 }
 
+pse_contract::projection_tuple_enum! {
 /// Resolved predicates retain original validity and comparison order.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ResolvedPredicate {
+    projection: { name: "ModelingResolvedPredicate", rust_path: crate::resolved::ResolvedPredicate,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Ordered scalar comparison.
     Compare {
         /// Actual comparison.
-        op: CompareOp,
+        op: CompareOp => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Left child.
-        lhs: NodeIx,
+        lhs: NodeIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Right child.
-        rhs: NodeIx,
-    },
+        rhs: NodeIx => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 1;
     /// Exact typed domain membership.
     In {
         /// Tested value.
-        value: NodeIx,
+        value: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Actual finite carrier.
-        domain: CarrierIx,
-    },
+        domain: CarrierIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
     /// Ordered conjunction.
-    And(PredicateIx, PredicateIx),
+    And [left: PredicateIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] }; right: PredicateIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 3;
     /// Ordered disjunction.
-    Or(PredicateIx, PredicateIx),
+    Or [left: PredicateIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] }; right: PredicateIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 4;
     /// Logical negation.
-    Not(PredicateIx),
+    Not [value: PredicateIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 5;
     /// Actual boolean expression.
-    Atom(NodeIx),
+    Atom [value: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 6;
     /// Boolean literal.
-    Bool(bool),
+    Bool [value: bool => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 7;
     /// Explicit unknown, never false.
-    Null,
+    Null => 8;
+}
 }
 
 /// Which immutable inventory issued a source coordinate.
@@ -455,15 +475,19 @@ impl std::ops::Deref for View<'_> {
         self.arena
     }
 }
+pse_contract::projection_struct! {
 /// Source-issued hard range, applied whenever the original scalar is demanded.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MemberRange {
+    projection: { name: "ModelingMemberRange", rust_path: crate::resolved::MemberRange,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Actual typed lower endpoint.
-    pub lower: NodeIx,
+    pub lower: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual typed upper endpoint.
-    pub upper: NodeIx,
+    pub upper: NodeIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original validity owner, never inferred from source spelling.
-    pub layer: pse_model::generated::enums::ModelingValidityLayer,
+    pub layer: pse_model::generated::enums::ModelingValidityLayer => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// One immutable operation owner, shared by cheap reached-root views.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -1154,6 +1178,10 @@ pub fn frame_type(ty: &Type, hash: &mut FramedHasher) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "resolved/projection_tests.rs"]
+mod projection_tests;
 
 #[cfg(test)]
 mod tests {

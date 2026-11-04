@@ -127,19 +127,23 @@ impl std::fmt::Display for Path {
     }
 }
 
+pse_contract::projection_enum! {
 /// An arithmetic binary operator.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOp {
+    projection: { name: "AuthoredBinaryOperator", rust_path: crate::dsl::BinaryOp,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Ordered addition.
-    Add,
+    Add => 1;
     /// Ordered subtraction.
-    Sub,
+    Sub => 2;
     /// Ordered multiplication.
-    Mul,
+    Mul => 3;
     /// Ordered division.
-    Div,
+    Div => 4;
     /// Right-associative power.
-    Pow,
+    Pow => 5;
+}
 }
 
 impl BinaryOp {
@@ -158,15 +162,19 @@ impl BinaryOp {
 // The same declaration drives parsing and typed library admission.
 pub use pse_quantity::functions::Function;
 
+pse_contract::projection_enum! {
 /// A domain reduction.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReduceKind {
+    projection: { name: "AuthoredReductionKind", rust_path: crate::dsl::ReduceKind,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Summation.
-    Sum,
+    Sum => 1;
     /// Product.
-    Prod,
+    Prod => 2;
     /// Continuous integral.
-    Integral,
+    Integral => 3;
+}
 }
 
 impl ReduceKind {
@@ -295,21 +303,25 @@ pub enum ExprKind {
     },
 }
 
+pse_contract::projection_enum! {
 /// A comparison token.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CompareOp {
+    projection: { name: "AuthoredComparisonOperator", rust_path: crate::dsl::CompareOp,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Equality.
-    Eq,
+    Eq => 1;
     /// Inequality.
-    NotEq,
+    NotEq => 2;
     /// Strict less-than.
-    Lt,
+    Lt => 3;
     /// Less-than or equal.
-    Le,
+    Le => 4;
     /// Strict greater-than.
-    Gt,
+    Gt => 5;
     /// Greater-than or equal.
-    Ge,
+    Ge => 6;
+}
 }
 
 impl CompareOp {

@@ -1987,11 +1987,15 @@ pub struct PhysicalEvidence {
     identity: ContentHash,
     live: Option<pse_quantity::premises::PhysicalPremises>,
 }
+pse_contract::projection_struct! {
 /// Opaque exact captured premise identity. Decode alone supplies no qualified authority.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalEvidenceRecord {
-    identity: ContentHash,
+    projection: { name: "ModelingPhysicalEvidenceRecord", rust_path: crate::resolved::PhysicalEvidenceRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl PhysicalEvidence {
     /// The sole normal issuer consumes the complete actual captured questions and answers.
