@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan65 integrated Proto and simulation-extensibility review](plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md)
+recommends eleven coordinated amendments across scientific operations/product use, developer
+and production evidence lifecycles, directional authority, descriptor/option fidelity and
+concrete library leverage. It reviews the proposed post-Plan64 target; it does not revise plans
+or authorize implementation.
+
 The [Plan64 Proto integration and extensibility review](plan64-proto-integration-and-extensibility-2026-11-03.md)
 develops six proposed interventions from the Proto discovery briefing: owner-derived
 engineering contracts, constraints and editing, a finite engineering service, prepared
