@@ -200,10 +200,16 @@ race-test snapshot error and its stalled-capture control passed.
 1/1, invocation `01a1a369-cfac-77a3-abe8-7d439578ae02`: an unchanged authenticated
 readonly artifact in a newly owned frozen-v3 fixture, restart/quiescence, migration,
 exact receipt replay, module promotion and current readiness. This is not a recovered
-historical deployment or a full migration population. The legacy helper's latest
-fixture correction restores two original count-seal events; that final overlay needs
-a rerun. Obsolete Busy refusal/classifier/retry remnants still require retirement once
-replacement controls pass. G08 and DA-063 are not closed.
+historical deployment or a full migration population. The corrected legacy overlay,
+including its original count-seal events, now passes both active-owner/stale-commit
+and paged abandoned-capture cleanup controls. Current Busy classification, retry
+branch, source-publication shortcuts and their obsolete tests were deleted after
+the replacement capture controls passed. The immutable V2/V3 declarations and their
+wire refusal identity remain interpretable; that identity grants no current retry.
+Six targeted retry/refusal/legacy controls passed on main with zero failures/build
+warnings and complete original fixture/capture/settlement. The full predecessor
+service restart/upgrade must still be rerun against the selected pure target artifact.
+G08 and DA-063 are not closed.
 
 **Tested, targeted on main, 2026-11-04:** `scripts/pse test pse-operations --lib
 --features canonical-tests,canonical-maintenance,native-service` selected all
@@ -217,8 +223,8 @@ the latter is not a throughput qualification. Shared clock type erasure removes 
 compiler Send proof-depth warning without a recursion-limit increase or suppression.
 Fresh module preparation succeeded; `scripts/pse test pse-host --lib -E
 'test(study_module_)'` passed 11 artifact/admission controls with the same zero
-failure/warning baseline. Full generation passed all 14 targets. Migration rerun,
-obsolete Busy retirement and complete G08/DA-063 acceptance remain open.
+failure/warning baseline. Full generation passed all 14 targets. Complete migration
+and G08/DA-063 acceptance remain open.
 
 Clippy, hygiene, final generated comparison and further regressions/campaigns were
 explicitly skipped; the

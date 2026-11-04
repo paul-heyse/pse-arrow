@@ -430,16 +430,6 @@ impl CanonicalError {
         }
         self
     }
-    pub(crate) fn is_capture_busy(&self) -> bool {
-        matches!(
-            self,
-            Self::Refused {
-                code: RefusalCode::StudyCapturePublicationBusy,
-                effect: FailureEffect::StatementRefused,
-                ..
-            }
-        )
-    }
     pub(crate) fn is_conflict(&self) -> bool {
         matches!(self, Self::Driver(error) if matches!(error.query_details(), Some(surrealdb_types::QueryError::TransactionConflict)))
     }
@@ -1909,9 +1899,6 @@ impl CanonicalStore {
                                     result
                                 };
                                 if let Err(error) = result {
-                                    if error.is_capture_busy() {
-                                        return Err(error);
-                                    }
                                     // A lost acknowledgment or concurrent identical activation is settled
                                     // exclusively by the immutable operation receipt, never by the head.
                                     let acknowledgement = self.revision(&stage.operation).await;
@@ -2339,7 +2326,6 @@ impl CanonicalStore {
                     )?)
                 }
                 Err(error) => {
-                    if error.is_capture_busy() { return Err(error); }
                     // This immutable acknowledgment remains meaningful even if the
                     // preparation pin expired after the successful commit.
                     if let Ok(Some(key)) = self.product_acknowledged(product).await {
@@ -5679,34 +5665,6 @@ pub(crate) const RELEASE_PROTECTION: &str = r#"
 #[cfg(test)]
 mod source_refusal_tests {
     use super::*;
-    #[test]
-    fn publication_busy_retries_only_the_exact_native_rollback_tag() {
-        let busy = CanonicalError::from(surrealdb_types::Error::thrown(
-            "PSE_REFUSAL:study_capture_publication_busy".into(),
-        ));
-        assert!(busy.is_capture_busy());
-        assert!(!busy.is_conflict());
-        assert!(busy.source_transaction_refused());
-        assert!(!busy.effect_is_unknown());
-        for text in [
-            "PSE_BUSY:other",
-            "PSE_REFUSAL:study_capture_publication_busy changed",
-            "PSE_REFUSAL:study_capture_publication_gate",
-        ] {
-            assert!(
-                !CanonicalError::from(surrealdb_types::Error::thrown(text.into()))
-                    .is_capture_busy()
-            );
-        }
-        assert!(!CanonicalError::Timeout.is_capture_busy());
-        assert!(
-            !CanonicalError::from(surrealdb_types::Error::internal(
-                RefusalCode::StudyCapturePublicationBusy.wire().into()
-            ))
-            .is_capture_busy()
-        );
-    }
-
     #[test]
     fn native_refusal_type_is_not_proof_without_the_source_effect_phase() {
         let raw = CanonicalError::Driver(surrealdb_types::Error::thrown(

@@ -3,14 +3,13 @@
 
 //! Pacing for complete, settled operation attempts. Classification belongs to
 //! the effect owner: a lost acknowledgement must be reconciled before another
-//! attempt can be labelled Conflict or Busy.
+//! attempt can be labelled Conflict.
 use crate::canonical::CanonicalError;
 use std::time::Duration;
 
 pub(crate) enum Attempt<T> {
     Done(Result<T, CanonicalError>),
     Conflict(CanonicalError),
-    Busy(CanonicalError),
 }
 
 impl<T> Attempt<T> {
@@ -18,7 +17,6 @@ impl<T> Attempt<T> {
     pub(crate) fn settled(result: Result<T, CanonicalError>) -> Self {
         match result {
             Err(error) if error.is_conflict() => Self::Conflict(error),
-            Err(error) if error.is_capture_busy() => Self::Busy(error),
             result => Self::Done(result),
         }
     }
@@ -177,13 +175,8 @@ where
                 }
                 pacing(policy.conflict(conflicts - 1)).await;
             }
-            Attempt::Busy(error)
-                if error.is_capture_busy() && matches!(policy, RetryPolicy::Guarded) =>
-            {
-                pacing(Pace::Guarded(4)).await;
-            }
             Attempt::Done(result) => return result,
-            Attempt::Conflict(error) | Attempt::Busy(error) => return Err(error),
+            Attempt::Conflict(error) => return Err(error),
         }
     }
 }
@@ -267,41 +260,6 @@ mod tests {
             assert_eq!(pauses.borrow().len(), expected as usize - 1);
             assert_eq!(pauses.borrow()[0], first);
         }
-    }
-
-    #[tokio::test]
-    async fn busy_waits_preserve_the_full_conflict_allowance() {
-        let calls = AtomicU32::new(0);
-        let pauses = RefCell::new(Vec::new());
-        let result = retry_with_pacing::<(), _, _, _, _, _>(
-            RetryPolicy::Guarded,
-            "mixed retry",
-            (),
-            |(), _round| async {
-                let call = calls.fetch_add(1, Ordering::Relaxed);
-                let outcome = if call < 5 {
-                    Attempt::settled(Err(CanonicalError::from(surrealdb_types::Error::thrown(
-                        "PSE_REFUSAL:study_capture_publication_busy".into(),
-                    ))))
-                } else {
-                    Attempt::Conflict(conflict())
-                };
-                ((), outcome)
-            },
-            |pause| {
-                pauses.borrow_mut().push(pause);
-                std::future::ready(())
-            },
-        )
-        .await;
-        assert!(matches!(
-            result,
-            Err(CanonicalError::ConflictExhausted { attempts: 32, .. })
-        ));
-        assert_eq!(calls.load(Ordering::Relaxed), 37);
-        assert_eq!(&pauses.borrow()[..5], &[Pace::Guarded(4); 5]);
-        assert_eq!(pauses.borrow()[5], Pace::Guarded(0));
-        assert_eq!(pauses.borrow().len(), 36);
     }
 
     #[tokio::test]

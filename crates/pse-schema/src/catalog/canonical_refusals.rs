@@ -44,6 +44,8 @@ macro_rules! refusals {
         }
     };
 }
+// StudyCapturePublicationBusy remains an interpretation of immutable V2/V3
+// predecessor failures. Current atomic capture has no gate or Busy retry policy.
 refusals! {
     ExecutionCancellationAttemptChanged: "execution_cancellation_attempt_changed" => (Fence, "original cancellation attempt or generation is no longer current"),
     SchemaEpochChanged: "schema_epoch_changed" => (Fence, "opened schema epoch or issuer changed; reconstruct the capability"),
