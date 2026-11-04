@@ -778,9 +778,9 @@ mod observation_tests {
         fs::set_permissions(invocation.path(), fs::Permissions::from_mode(0o700)).unwrap();
         let workflow = invocation.path().join("workflow");
         fs::DirBuilder::new().mode(0o700).create(&workflow).unwrap();
-        let original = b"accepted-original-input";
-        let replacement = b"replaced-original-input";
-        assert_eq!(original.len(), replacement.len());
+        let original = b"{\"accepted\":\"original-input\"}\n";
+        let replacement = b"{\"accepted\":\"original-input\"}\n \n\t";
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(original).unwrap(), serde_json::from_slice::<serde_json::Value>(replacement).unwrap());
         let path = invocation.path().join("workflow-input.json");
         fs::write(&path, replacement).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
@@ -790,6 +790,10 @@ mod observation_tests {
         let input = report.evidence.as_ref().unwrap().iter().find(|file| file.role == EvidenceRole::Input).unwrap();
         assert_eq!(input.content.as_ref().unwrap(), &ContentIdentity::of(original));
         assert!(!workflow.join(REPORT).exists());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, original).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(report.publish(&workflow).is_ok(), "restoring exact original bytes preserves the original sealed promise");
     }
     #[test]
     fn original_report_facts_cannot_change_after_a_failed_publication_attempt() {

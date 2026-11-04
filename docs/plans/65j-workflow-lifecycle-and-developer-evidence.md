@@ -327,7 +327,10 @@ seals the actual source-enumerated dependencies once after the phase/capture cut
 revalidates those exact promises on publication retries. Immutable original omissions retain
 their typed diagnostic or unsettled disposition. A missing, changed or expired committed
 file later refuses full acquisition; it never changes the original account. The performing
-owner binds the same original input accepted through its live `InputBinding`, excluding
+owner retains the exact authenticated startup file identity before execution, including the
+native publication newline, rather than re-reading and hashing input after execution.
+`InputBinding` authenticates the JSON value; surrounding whitespace cannot redefine the
+already accepted full-file commitment. This excludes
 metadata/control requests, environment bags, executable/provider and live fixture custody.
 
 `--scope report|selection|full` defaults to full. The existing borrowed report root carries

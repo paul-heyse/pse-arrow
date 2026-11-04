@@ -215,14 +215,15 @@ pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostE
         .operation
         .workflow
         .ok_or_else(|| host(invalid("original workflow input binding is absent")))?;
-    let input = input(&directory, &binding, &id, &metadata.selection.command)?;
+    let (input, accepted_bytes) = bound_input(&directory, &binding, &id, &metadata.selection.command)?;
+    let accepted_content = crate::test_workflow::execute::ContentIdentity::of(&accepted_bytes);
     let destination = directory.path().join("workflow");
     let mut report = crate::test_workflow::execute::run(&input, &root, &destination, environment)
         .await
         .map_err(host)?;
-    // Reuse the binding actually accepted at startup. A replacement metadata file
-    // cannot select different input bytes for the original performing commitment.
-    report.input_cutoff = Some(bound_input(&directory, &binding, &id, &metadata.selection.command).map(|(_,bytes)| crate::test_workflow::execute::ContentIdentity::of(&bytes)));
+    // Keep the exact full-file identity accepted before execution, including the
+    // native publisher's newline. A later read cannot redefine original input.
+    report.input_cutoff = Some(Ok(accepted_content));
     let terminal = report.publish(&destination).map_err(host)?;
     terminal.validate(&id, input.action).map_err(host)?;
     let status = terminal.helper_exit();
@@ -544,6 +545,31 @@ mod tests {
         assert!(retained_input(&store, &id, Action::Check, &report).is_err());
         let path = directory.path().join("workflow-input.json");
         let before = fs::read_to_string(&path).unwrap();
+        let (_, accepted_bytes) = bound_input(&directory, &binding, &id, "test").unwrap();
+        assert_eq!(accepted_bytes, before.as_bytes());
+        assert_eq!(accepted_bytes.last(), Some(&b'\n'), "native publication includes its original newline");
+        let accepted_content = crate::test_workflow::execute::ContentIdentity::of(&accepted_bytes);
+        let mut current = report.clone();
+        current.version = 3;
+        current.evidence = Some(vec![crate::test_workflow::execute::EvidenceFile {
+            root: crate::test_workflow::execute::EvidenceRoot::Invocation,
+            path: "workflow-input.json".into(),
+            role: crate::test_workflow::execute::EvidenceRole::Input,
+            group: None,
+            content: Some(accepted_content.clone()),
+            omission: None,
+            failure: None,
+        }]);
+        assert!(retained_input(&store, &id, Action::Test, &current).is_ok());
+        let whitespace_replacement = format!("{before} \n\t");
+        fs::write(&path, &whitespace_replacement).unwrap();
+        let (_, rebound_bytes) = bound_input(&directory, &binding, &id, "test").unwrap();
+        assert_ne!(crate::test_workflow::execute::ContentIdentity::of(&rebound_bytes), accepted_content,
+            "metadata authenticates JSON value bytes, so it cannot redefine the accepted full-file identity");
+        assert!(retained_input(&store, &id, Action::Test, &current).is_err(),
+            "appended whitespace must refuse against the original full-file commitment");
+        fs::write(&path, &before).unwrap();
+        assert!(retained_input(&store, &id, Action::Test, &current).is_ok());
         assert_eq!(before.matches("alpha").count(), 1);
         let after = before.replace("alpha", "omega");
         assert_eq!(before.len(), after.len());
