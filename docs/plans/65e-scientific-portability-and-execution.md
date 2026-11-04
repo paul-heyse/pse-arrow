@@ -526,6 +526,14 @@ proposed ADR before implementation. Neither an artifact digest nor successful lo
 may mint this authority. The existing recipe leaf remains unchanged until a complete approved
 replacement and its original reconstruction/refusal controls are in place.
 
+The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
+allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their
+variant counterparts expose elements, entries and completion without requiring a value DOM.
+Preservation must follow the [serde_json 1.0.151 native value serializer](https://github.com/serde-rs/json/blob/v1.0.151/src/value/ser.rs)
+and [number representation](https://github.com/serde-rs/json/blob/v1.0.151/src/number.rs), including
+the actual root's parsed-JSON versus native-value numeric behavior. These are enabling library
+interfaces; they do not supply the qualification or surviving-membership contract themselves.
+
 Use source/admit → encode → independent decoder → receiving adoption → actual execution →
 outcome/readback journeys. Independent scientific expectations must not come from generated
 adapters or the candidate provider. Retain physically independent water/derivative controls
