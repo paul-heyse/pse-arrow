@@ -1,7 +1,7 @@
 {
   "descriptor_sha256": "4894a2c4f56301628f0a8627553aad28d58c5b711da4780739b31dc22c179ca1",
   "inputs": {
-    "Cargo.lock": "b553df3bd48dce8967d7222de14445a72664d521be691109e919a20b77190642",
+    "Cargo.lock": "9a39db2d87754e75f0d02462d33046cfd534dc10c456c8747ad18c58d9d6b8f8",
     "Cargo.toml": "f4c70f43bb2eca8cea5d080a8ebece993702925db5e3ba2bf850d5d365df270b",
     "crates/pse-host/proto/buf.gen.yaml": "a2c12699e9c7eb24cba739e18b2c777abb75734612894eb882834a6b80a26be3",
     "crates/pse-host/proto/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
@@ -9,7 +9,7 @@
     "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto": "263fafafa9b53cffb155042cf87a2349d2508e2c4320b5d817e0eef588e0db7a",
     "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto": "a4ca9080f9e7b823960a1d5bfd2382b8f93ee9cd2635e45c8003213596e180bb",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "418615191c2f95ea32dea2fdb24ee94651f33e51eb177b2e0e90b465cd9add9f",
+    "xtask/Cargo.toml": "c3359c5222ce834ddb7cf4163a1c7ae96260d795ad5a1a3376a6a043290a1917",
     "xtask/src/codegen/code_intelligence.rs": "3ad101cab78ca36ddfe7380b1e3e343e33796c4baed0bd7237661c5000361f65",
     "xtask/src/codegen/code_intelligence/associations.rs": "75b8f68ae52e489a443ae03d720f8c78a52ff47774720446224f7771bef1e534"
   },

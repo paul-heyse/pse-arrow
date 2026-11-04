@@ -71,6 +71,106 @@
       "contributors": null
     },
     {
+      "producer": "developer-evidence",
+      "outputs": [
+        {
+          "path": "crates/pse-host/src/generated/developer-evidence",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/developer-evidence/pse.developer.evidence.v1",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-developer-evidence-v1",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-developer-evidence-v1",
+          "kind": "tree"
+        }
+      ],
+      "regenerate": [
+        "just",
+        "codegen"
+      ],
+      "inputs": [
+        {
+          "path": "crates/pse-codegen/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/array.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/vocabulary.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/discovery.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/envelope.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/envelope/diagnostic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/investigation/config.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/investigation/model.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/semantic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/test_inventory.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/test_workflow/execute/report.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src",
+          "kind": "tree"
+        },
+        {
+          "path": "scripts/generated-outputs.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen",
+          "kind": "tree"
+        },
+        {
+          "path": "xtask/src/codegen.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/proto_projection.rs",
+          "kind": "file"
+        }
+      ],
+      "contributors": null
+    },
+    {
       "producer": "engineering",
       "outputs": [
         {
@@ -233,6 +333,10 @@
         },
         {
           "path": "crates/pse-kernels/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/portable.rs",
           "kind": "file"
         },
         {
@@ -572,7 +676,7 @@
           "kind": "file"
         },
         {
-          "path": "xtask/src/codegen/engineering.rs",
+          "path": "xtask/src/codegen/proto_projection.rs",
           "kind": "file"
         }
       ],
@@ -668,6 +772,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-buildinfo/src/identity.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-buildinfo/src/lib.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-codegen/src",
           "kind": "tree"
         },
@@ -724,6 +836,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-contract/src/boundary_projection/path.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-contract/src/boundary_projection/standard.rs",
           "kind": "file"
         },
@@ -772,6 +888,38 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src/discovery.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/envelope.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/envelope/diagnostic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/investigation/config.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/investigation/model.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/semantic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/test_inventory.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-host/src/test_workflow/execute/report.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto",
           "kind": "file"
         },
@@ -788,6 +936,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-kernels/src/portable.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-kernels/src/shape.rs",
           "kind": "file"
         },
@@ -796,7 +948,15 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/binding.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/derived.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/implicit.rs",
           "kind": "file"
         },
         {
@@ -805,6 +965,10 @@
         },
         {
           "path": "crates/pse-math/src/library.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/applicability.rs",
           "kind": "file"
         },
         {
@@ -977,6 +1141,10 @@
         },
         {
           "path": "crates/pse-runtime/src/host_operations/project.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/math/native_root_protocol.rs",
           "kind": "file"
         },
         {
@@ -1172,10 +1340,6 @@
           "kind": "file"
         },
         {
-          "path": "xtask/src/codegen/engineering.rs",
-          "kind": "file"
-        },
-        {
           "path": "xtask/src/codegen/ipopt.rs",
           "kind": "file"
         },
@@ -1185,6 +1349,10 @@
         },
         {
           "path": "xtask/src/codegen/private_store.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/proto_projection.rs",
           "kind": "file"
         },
         {
@@ -1221,6 +1389,122 @@
         },
         {
           "path": "docker/solvers/Dockerfile",
+          "kind": "file"
+        }
+      ],
+      "contributors": null
+    },
+    {
+      "producer": "native-root",
+      "outputs": [
+        {
+          "path": "crates/pse-runtime/src/generated/native-root",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/engineering/pse.native_root.v2",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-native-root-v2",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-native-root-v2",
+          "kind": "tree"
+        }
+      ],
+      "regenerate": [
+        "just",
+        "codegen"
+      ],
+      "inputs": [
+        {
+          "path": "crates/pse-buildinfo/src/identity.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-buildinfo/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-codegen/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/array.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/path.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/standard.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/observation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/vocabulary.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/binding.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/implicit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/jets.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/applicability.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/diagnostic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/math/native_root_protocol.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src",
+          "kind": "tree"
+        },
+        {
+          "path": "scripts/generated-outputs.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen",
+          "kind": "tree"
+        },
+        {
+          "path": "xtask/src/codegen.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/proto_projection.rs",
           "kind": "file"
         }
       ],

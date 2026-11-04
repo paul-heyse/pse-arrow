@@ -104,6 +104,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `invocation` | 2 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 | `points` | 3 | `Repeated(Named("BatchPoint"))` | `Input` | `[Length { min: 1, max: 4096 }]` | `{}` |
 
+## `ExternalDerivativeSource`
+
+Rust owner: `pse_model::generated::enums::ExternalDerivativeSource`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["analytic", "symbolic", "automatic", "supplied", "implicit"]`.
+
 ## `Failure`
 
 Rust owner: `pse_runtime::scientific_worker::protocol::Failure`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
@@ -135,6 +147,84 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `attempt` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
 | `session` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
 | `generation` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+
+## `KernelDerivativeOrder`
+
+Rust owner: `pse_kernels::DerivativeOrder`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Value` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `First` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Second` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+
+## `KernelProviderPort`
+
+Rust owner: `pse_kernels::Port`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+| `quantity` | 2 | `Named("QuantityTypeId")` | `Both` | `[Required]` | `{}` |
+| `unit` | 3 | `Named("UnitId")` | `Both` | `[Required]` | `{}` |
+
+## `KernelProviderRecord`
+
+Rust owner: `pse_kernels::portable::ProviderRecord`. Source: `crates/pse-kernels/src/portable.rs`. Interpretation version: 2. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 2, max: 2 }]` | `{}` |
+| `key` | 2 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+| `spec` | 3 | `Named("KernelProviderSpec")` | `Both` | `[Required]` | `{}` |
+
+## `KernelProviderShape`
+
+Rust owner: `pse_kernels::shape::ProviderShape`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+| `axes` | 2 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 1, max: 16 }]` | `{}` |
+| `coordinates` | 3 | `Repeated(Repeated(Scalar(SemanticId)))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `cells` | 4 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+
+## `KernelProviderShapes`
+
+Rust owner: `pse_kernels::shape::ProviderShapes`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `inputs` | 1 | `Repeated(Named("KernelProviderShape"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `outputs` | 2 | `Repeated(Named("KernelProviderShape"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+
+## `KernelProviderSpec`
+
+Rust owner: `pse_kernels::ProviderSpec`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `shapes` | 1 | `Named("KernelProviderShapes")` | `Both` | `[Required]` | `{}` |
+| `derivative_source` | 2 | `Named("ExternalDerivativeSource")` | `Both` | `[Required]` | `{}` |
+| `id` | 3 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+| `revision` | 4 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+| `data` | 5 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+| `inputs` | 6 | `Repeated(Named("KernelProviderPort"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `outputs` | 7 | `Repeated(Named("KernelProviderPort"))` | `Both` | `[Length { min: 1, max: 4096 }]` | `{}` |
+| `derivatives` | 8 | `Named("KernelDerivativeOrder")` | `Both` | `[Required]` | `{}` |
+| `smoothness` | 9 | `Named("KernelDerivativeOrder")` | `Both` | `[Required]` | `{}` |
 
 ## `Port`
 
@@ -178,6 +268,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `handle` | 1 | `Named("Handle")` | `Output` | `[]` | `{}` |
 | `batch_supported` | 2 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+
+## `QuantityTypeId`
+
+Rust owner: `pse_quantity::ids::QuantityTypeId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
 
 ## `Request`
 
@@ -225,6 +325,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `derivative_source` | 6 | `Scalar(String)` | `Both` | `[Length { min: 1, max: 64 }]` | `{}` |
 | `derivatives` | 7 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 0, max: 2 }]` | `{}` |
 | `smoothness` | 8 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 0, max: 2 }]` | `{}` |
+
+## `UnitId`
+
+Rust owner: `pse_quantity::ids::UnitId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
 
 ## `Values`
 
