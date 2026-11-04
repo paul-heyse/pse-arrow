@@ -33,9 +33,9 @@ Current engineering RPC uses Buffa/ConnectRPC 0.9.1 over an authenticated custom
 connection. Native handlers address original run identity and protected results; shutdown closes
 admission and drains native work before the transport deadline. Scientific-worker transport has
 separate native-lane/process custody. These are useful foundations but not immutable boundaries.
-The source currently nests a connection result inside a task join; capturing an outer join error
-alone is not complete error propagation. Recheck the final Plan64 implementation before changing
-it, then retain both inner connection failures and independent shutdown/cleanup failures.
+The inspected baseline nested a connection result inside a task join and captured only outer
+join failures. The scoped implementation below replaces that handling while retaining
+independent native shutdown/cleanup failures; it does not qualify the complete service.
 
 | Complete route | Selected use and consequence |
 | --- | --- |
@@ -165,7 +165,7 @@ All statuses are **planned**. This table owns D-package progress; 65h owns assem
 | D02 | planned | D01 usable custody/lifecycle contract | Decide hosting with an exact released composition spike: custom Hyper versus available library host/Tonic adapter. Exercise original-image/reconnect refusal, preface/header timeout, shutdown with active native work and inner connection failure. Select library hosting only if it expresses every consumed obligation and removes worthwhile glue; otherwise use the selected released Hyper adapter. Record the chosen version/features and delete the losing production route. |
 | D03 | planned | D01; narrow 65a generated registrations; D02 selected host | Integrate typed effects, route policy, early protocol-aware rejection, binary ingress, whole-limit profiles and optional authorized health/reflection. Tests attack duplicate/replaced routes, unauthorized symbol disclosure, unsupported codec and no implicit preparation. Delete hand-maintained route/effect/health protocol mirrors. |
 | D04 | planned | D03; narrow 65f result and 65c identity contracts; 65i/65j authority design | Migrate submission/status/cancel/progress/readback to original identity and explicit terminal/partial outcomes. Decode observations without reconstructing native permission or settlement. Lost ACK never auto-replays effects. Test foreign/historical verdicts, cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
-| D05 | planned | D02/D03; 65e actual multi-session requirement | Carry native/allocation custody through transport bodies and actual drain; implement declared session-scoped shutdown and permitted concurrency. Test stalled readers, abandoned uploads, optional deadlines, legitimate long silence, child failure, inner/outer task failures and independent cleanup aggregation. Delete replaced reservation/connection choreography only after its complete population moves. |
+| D05 | in-progress | D02/D03; 65e actual multi-session requirement | Inner/outer task failure and independent shutdown aggregation corrected and targeted-tested; remaining custody/session population stays open. Carry native/allocation custody through bodies and actual drain; test stalled readers, abandoned uploads, deadlines, long silence, child failure and session-scoped concurrency. Delete replaced choreography only after its complete population moves. |
 | D06 | planned | D04/D05 producer ownership; selected large response consumer | Apply views/segmented encoding only where producer selection and representation already avoid work. Compare complete producer→encode→transport→decode→release. Compression/interceptor flattening and backing-buffer retention are countercontrols. Keep contiguous output when simpler; delete duplicate materialization only with equivalent extent protection. |
 | D07 | planned | All D functional migrations and selected 65c/e/f/g consumers | Run actual independent service/client journeys and failure/settlement population through 65h; document protocol/support/operation semantics, remove replaced paths and publish operator extension guidance. |
 
@@ -173,6 +173,36 @@ D02 is a bounded decision package, not a reason to leave the architecture unspec
 Its baseline outcome is the released custom-Hyper adapter. Failure of an unavailable newer API
 cannot block D03 onward. No dependency requires completion of unrelated storage/science packages;
 consume the narrow result/effect/identity slices each operation uses.
+
+### Initial connection settlement correction — 2026-11-04
+
+**Implemented:** the engineering RPC connection owner now
+handles both layers of `Result<Result<(), hyper::Error>, tokio::task::JoinError>` through one
+local `connection_failure` operation. Active joins, graceful drain and post-abort drain all
+retain inner connection failure as well as outer task failure. The original typed errors are
+kept through the existing `EngineeringServiceError::Owner` source rather than reduced to a
+display string. Independently returned native shutdown failures remain alongside them in
+`EngineeringServiceError::Shutdown`.
+
+The exact consumed library contracts are [Hyper 1.11.1 HTTP/2 Connection](https://docs.rs/hyper/1.11.1/hyper/server/conn/http2/struct.Connection.html)
+and [Tokio 1.53.3 JoinSet](https://docs.rs/tokio/1.53.3/tokio/task/struct.JoinSet.html).
+The former is a future whose output is `Result<(), hyper::Error>`; `graceful_shutdown` requests
+shutdown but the connection must still be polled to completion. `JoinSet::join_next` returns
+the task's output inside a separate `Result<_, JoinError>`. `abort_all` requests task abort
+without removing tasks, so the owner continues joining them. Only an `is_cancelled()` result
+after this owner's explicit abort request is expected cleanup; an earlier cancellation or
+panic remains failure, and an inner connection error is retained even during abort drain.
+Native work still settles before transport abort and retains its own failures.
+
+Three targeted JoinSet controls distinguish successful connections, inner typed failure,
+independent native shutdown refusal, task panic and expected versus unexpected cancellation.
+**Tested:** native `scripts/pse test pse-runtime --lib --features engineering-service -E 'test(connection_settlement_)'`
+reconciled three selected/completed tests, zero failures against a zero-failure baseline,
+complete original capture and settled native test ownership. Actual source-build selection
+retained Arrow force-validation for the consuming closure. These controls exercise the
+nested task-result and aggregation mechanism; they are not actual socket/client journeys.
+This slice contributes to D01/D05; it does not establish authentication, full streaming,
+multi-session worker behavior or D07 assembled acceptance.
 
 ## Physical realization and alternatives not selected
 

@@ -578,7 +578,9 @@ pub async fn serve(
             },
             _ = stopping.cancelled() => break,
             joined = connections.join_next(), if !connections.is_empty() => {
-                if let Some(Err(error)) = joined { failures.push(infrastructure(error)); }
+                if let Some(error) = joined.and_then(|joined| connection_failure(joined, false)) {
+                    failures.push(error);
+                }
             },
         }
     }
@@ -588,8 +590,8 @@ pub async fn serve(
     stopping.cancel();
     let drained = tokio::time::timeout(connection_drain, async {
         while let Some(joined) = connections.join_next().await {
-            if let Err(error) = joined {
-                failures.push(infrastructure(error));
+            if let Some(error) = connection_failure(joined, false) {
+                failures.push(error);
             }
         }
     })
@@ -602,17 +604,89 @@ pub async fn serve(
         ));
         connections.abort_all();
         while let Some(joined) = connections.join_next().await {
-            if let Err(error) = joined
-                && !error.is_cancelled()
-            {
-                failures.push(infrastructure(error));
+            if let Some(error) = connection_failure(joined, true) {
+                failures.push(error);
             }
         }
     }
+    shutdown_result(failures)
+}
+
+// A task joining successfully does not establish that its Hyper connection succeeded.
+// Retain original typed sources; ignore cancellation only after our explicit abort_all.
+fn connection_failure<E>(
+    joined: Result<Result<(), E>, tokio::task::JoinError>,
+    expected_abort: bool,
+) -> Option<EngineeringServiceError>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    match joined {
+        Ok(Ok(())) => None,
+        Ok(Err(error)) => Some(EngineeringServiceError::Owner(Box::new(error))),
+        Err(error) if expected_abort && error.is_cancelled() => None,
+        Err(error) => Some(EngineeringServiceError::Owner(Box::new(error))),
+    }
+}
+
+fn shutdown_result(failures: Vec<EngineeringServiceError>) -> Result<(), EngineeringServiceError> {
     if failures.is_empty() {
         Ok(())
     } else {
         Err(EngineeringServiceError::Shutdown(failures))
+    }
+}
+
+#[cfg(test)]
+mod connection_settlement_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn connection_settlement_preserves_inner_failure_and_independent_native_shutdown() {
+        let mut connections = tokio::task::JoinSet::new();
+        connections.spawn(async { Ok::<_, std::io::Error>(()) });
+        connections.spawn(async { Err(std::io::Error::other("original connection failure")) });
+        let mut failures = vec![EngineeringServiceError::Request("original native shutdown refusal".into())];
+        while let Some(joined) = connections.join_next().await {
+            if let Some(error) = connection_failure(joined, false) {
+                failures.push(error);
+            }
+        }
+        let EngineeringServiceError::Shutdown(failures) = shutdown_result(failures).unwrap_err() else {
+            panic!("independent failures must remain an aggregate")
+        };
+        assert_eq!(failures.len(), 2);
+        assert!(matches!(&failures[0], EngineeringServiceError::Request(message) if message == "original native shutdown refusal"));
+        let EngineeringServiceError::Owner(source) = &failures[1] else { panic!("connection cause lost") };
+        assert_eq!(source.downcast_ref::<std::io::Error>().unwrap().to_string(), "original connection failure");
+        assert!(connection_failure(Ok(Err(std::io::Error::other("completed before abort"))), true).is_some());
+        assert!(shutdown_result(Vec::new()).is_ok());
+    }
+
+    #[tokio::test]
+    async fn connection_settlement_retains_panics_even_after_abort_request() {
+        let mut connections = tokio::task::JoinSet::<Result<(), std::io::Error>>::new();
+        connections.spawn(async { panic!("original connection panic") });
+        let joined = connections.join_next().await.unwrap();
+        assert!(joined.as_ref().unwrap_err().is_panic());
+        let EngineeringServiceError::Owner(source) = connection_failure(joined, true).unwrap() else {
+            panic!("original task failure lost")
+        };
+        assert!(source.downcast_ref::<tokio::task::JoinError>().unwrap().is_panic());
+    }
+
+    #[tokio::test]
+    async fn connection_settlement_ignores_only_expected_abort_cancellation() {
+        for expected_abort in [false, true] {
+            let mut connections = tokio::task::JoinSet::<Result<(), std::io::Error>>::new();
+            connections.spawn(std::future::pending());
+            connections.abort_all();
+            let joined = connections.join_next().await.unwrap();
+            assert!(joined.as_ref().unwrap_err().is_cancelled());
+            let failure = connection_failure(joined, expected_abort);
+            assert_eq!(failure.is_none(), expected_abort);
+            assert!(connections.is_empty());
+        }
     }
 }
 
