@@ -10,9 +10,19 @@ use serde::Serialize;
 use sha2::{Digest as _, Sha256};
 use std::{fs::OpenOptions, io::Write as _, os::unix::fs::OpenOptionsExt as _, path::Path};
 
+pub(crate) const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+
 /// Source-attributed refusal, retaining the original decoder and native owner causes.
 #[derive(Debug, thiserror::Error)]
 pub enum EvidenceError {
+    /// A bounded read or supplied buffer exceeded the selected evidence family limit.
+    #[error("evidence input contains at least {observed_at_least} bytes, exceeding limit {maximum}")]
+    InputLimit {
+        /// Observed extent; a bounded file read need not consume the remaining bytes.
+        observed_at_least: usize,
+        /// Explicit reader limit; no partial native interpretation was produced.
+        maximum: usize,
+    },
     /// Original encoder refusal.
     #[error("evidence encoding: {0}")]
     Encode(#[from] buffa::EncodeError),
@@ -113,7 +123,7 @@ pub struct Readback {
 /// This constructs passive data only, never CapturedEvidence, Report or a verdict.
 pub fn inspect(descriptors: &buffa_descriptor::generated::descriptor::FileDescriptorSet, message: &str, bytes: &[u8]) -> Result<Readback, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
-    if bytes.len() > 64 * 1024 * 1024 { return Err(EvidenceError::Invalid("acquired evidence exceeds this reader's explicit 64 MiB input limit; no partial interpretation is returned".into())); }
+    if bytes.len() > MAX_INPUT_BYTES { return Err(EvidenceError::InputLimit { observed_at_least: bytes.len(), maximum: MAX_INPUT_BYTES }); }
     let assessment = pse_contract_proto::check_descriptors(descriptors, "developer_evidence.proto", &contracts::Policy, &[])?;
     if assessment.disposition != pse_contract::metadata::Disposition::Compatible {
         return Err(EvidenceError::Interpretation { assessment });
@@ -122,7 +132,7 @@ pub fn inspect(descriptors: &buffa_descriptor::generated::descriptor::FileDescri
     if descriptors != &compiled {
         return Err(EvidenceError::Invalid("developer_evidence.proto: this compiled reader requires the complete compiled descriptor content; acquired wire tags, kinds, nested shapes or options cannot select a different decoder world".into()));
     }
-    let options = buffa::DecodeOptions::new().with_max_message_size(64 * 1024 * 1024).with_recursion_limit(64).with_element_memory_limit(64 * 1024 * 1024);
+    let options = buffa::DecodeOptions::new().with_max_message_size(MAX_INPUT_BYTES).with_recursion_limit(64).with_element_memory_limit(MAX_INPUT_BYTES);
     let (invocation, original, observation, terminal, inventory, selected, complete, settlement, pending) = match message {
         "pse.developer.evidence.v1.CapturedWorkflowReport" => {
             let wire: pb::CapturedWorkflowReport = options.decode_from_slice(bytes)?;
@@ -261,7 +271,64 @@ mod tests {
     }
     #[test]
     fn independent_report_refuses_oversize_without_partial_readback() {
-        let oversized = vec![0; 64 * 1024 * 1024 + 1];
-        assert!(matches!(inspect(&descriptors(), "pse.developer.evidence.v1.CapturedWorkflowReport", &oversized), Err(EvidenceError::Invalid(reason)) if reason.contains("64 MiB")));
+        let oversized = vec![0; MAX_INPUT_BYTES + 1];
+        assert!(matches!(inspect(&descriptors(), "pse.developer.evidence.v1.CapturedWorkflowReport", &oversized), Err(EvidenceError::InputLimit { observed_at_least, maximum }) if observed_at_least == MAX_INPUT_BYTES + 1 && maximum == MAX_INPUT_BYTES));
+    }
+
+    fn raw_preview(bytes: &[u8], descriptors: &FileDescriptorSet) -> Result<crate::schema::payload::Report, crate::schema::SchemaError> {
+        let directory = tempfile::tempdir().unwrap();
+        let descriptor = directory.path().join("original-descriptor.bin");
+        let input = directory.path().join("original-payload.bin");
+        std::fs::write(&descriptor, descriptors.encode_to_vec()).unwrap();
+        std::fs::write(&input, bytes).unwrap();
+        crate::schema::payload::inspect(&crate::schema::payload::Args { descriptor, input, message: "pse.developer.evidence.v1.CapturedWorkflowReport".into(), encoding: crate::schema::payload::Encoding::Binary, depth: 1, limit: 10, original: true })
+    }
+    #[test]
+    fn raw_payload_preserves_corrupt_original_without_constructing_native_facts() {
+        let mut wire = original();
+        wire.report_original[0] = b'[';
+        assert!(matches!(read(&wire), Err(EvidenceError::Workflow(_))), "the direct native integrity reader remains strict");
+        let bytes = wire.encode_to_vec();
+        let report = raw_preview(&bytes, &descriptors()).unwrap();
+        assert_eq!(report.validation.state, "passed", "local wire validity is separate from original content integrity");
+        assert!(report.developer_evidence.is_none());
+        assert!(report.developer_evidence_refusal.is_some());
+        assert!(matches!(report.preview, crate::schema::payload::Preview::Message { .. }));
+        use base64::Engine as _;
+        assert_eq!(base64::engine::general_purpose::STANDARD.decode(report.original_base64.unwrap()).unwrap(), bytes);
+    }
+    #[test]
+    fn raw_payload_keeps_unavailable_policy_in_its_original_acquired_world() {
+        use buffa_descriptor::{DescriptorPool, DynamicMessage, ReflectMessageMut, Value};
+        let mut descriptors = descriptors();
+        let pool = std::sync::Arc::new(DescriptorPool::new(descriptors.clone()).unwrap());
+        let root = descriptors.file.iter_mut().find(|file| file.name.as_deref() == Some("developer_evidence.proto")).unwrap().message_type.iter_mut().find(|message| message.name.as_deref() == Some("CapturedWorkflowReport")).unwrap();
+        let mut options = DynamicMessage::from_options(std::sync::Arc::clone(&pool), root.options.as_option().unwrap()).unwrap();
+        let extension = pool.extension_by_name("pse.contract.v1.message").unwrap();
+        let Some(Value::Message(mut metadata)) = options.field_by_number(extension.field().number()).cloned() else { panic!("actual typed source option"); };
+        let version = pool.message(metadata.message_index()).field_by_name("metadata_version").unwrap();
+        metadata.try_set(version, Value::U32(99)).unwrap();
+        options.try_set(extension.field(), Value::Message(metadata)).unwrap();
+        root.options = buffa::MessageField::some(buffa_descriptor::generated::descriptor::MessageOptions::decode_from_slice(&options.try_encode_to_vec().unwrap()).unwrap());
+        let bytes = original().encode_to_vec();
+        assert!(matches!(inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowReport", &bytes), Err(EvidenceError::Interpretation { assessment }) if assessment.disposition == pse_contract::metadata::Disposition::Unknown));
+        let report = raw_preview(&bytes, &descriptors).unwrap();
+        assert_eq!(report.representation, "acquired_dynamic");
+        assert_eq!(report.validation.state, "not_evaluated");
+        assert!(report.developer_evidence.is_none());
+        let refusal = report.developer_evidence_refusal.unwrap();
+        assert!(refusal.message.contains("CapturedWorkflowReport"));
+        assert!(refusal.message.contains("developer_evidence.proto"));
+        assert!(matches!(report.preview, crate::schema::payload::Preview::Message { .. }));
+    }
+    #[test]
+    fn raw_payload_file_read_stops_at_the_evidence_family_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let descriptor = directory.path().join("descriptor.bin");
+        let input = directory.path().join("oversized.bin");
+        std::fs::write(&descriptor, contracts::DESCRIPTORS).unwrap();
+        std::fs::File::create(&input).unwrap().set_len((MAX_INPUT_BYTES * 4) as u64).unwrap();
+        let result = crate::schema::payload::inspect(&crate::schema::payload::Args { descriptor, input, message: "pse.developer.evidence.v1.CapturedWorkflowReport".into(), encoding: crate::schema::payload::Encoding::Binary, depth: 1, limit: 10, original: false });
+        assert!(matches!(result, Err(crate::schema::SchemaError::DeveloperEvidence(error)) if matches!(*error, EvidenceError::InputLimit { observed_at_least, maximum } if observed_at_least == MAX_INPUT_BYTES + 1 && maximum == MAX_INPUT_BYTES)));
     }
 }

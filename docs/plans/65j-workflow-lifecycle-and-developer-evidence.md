@@ -124,7 +124,7 @@ migrated, retained, or explicitly reported incompatible.
 | --- | --- | --- | --- |
 | J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze. |
 | J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Native v2 publication commits original inventory content; source-built one-way roots retain complete bytes and diagnostics. First generated bundle, independent binary readback and foreign/malformed/oversized/missing-import controls are implemented and narrowly tested. Full lifecycle/population delivery, intentional-failure-to-exact-rerun journey and retained raw-artifact protection remain. |
-| J03 | planned | J02; native failed-test rerun and current listing | Bind exact rerun to original input/report/inventory and reconcile present listing. Test changed package/features/identity, absent evidence and stale binaries. Delete client-side command reconstruction; historical success never becomes present evidence. |
+| J03 | in-progress | J02; native failed-test rerun and current listing | Existing native rerun now consumes the shared v2 report/inventory commitment; the representative controlled failure/export/readback/exact-rerun journey passed. Complete changed package/features/identity, absent-evidence and stale-binary controls, and every selected consumer/deletion. Historical outcomes never become present evidence. |
 | J04 | planned | J02/J03; existing invocation/raw/fixture custody and interpretation policy | Integrate family retention, interruption and cleanup. Test report without inventory, unavailable old policy, corrupt raw capture, active reader and failed release. Preserve fixture lifetime, capture completeness and native settlement separately; delete replaced reference/cleanup translations. |
 | J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete list/check/rustdoc/test and exact rerun across assertion failure, passing expected-refusal test, zero match, setup failure, incomplete capture and interruption. Migrate every selected reader and remove replaced maps/fixtures; supply actual limits and population to H. |
 
@@ -281,6 +281,33 @@ scopes, approved unbounded activation and cache-off mode. The first CLI journey 
 a real retained twelve-test invocation, then independently read the binary artifact through
 `inspect payload --encoding binary`; generated validation and original report/inventory
 association passed. This does not close J01–J05 or qualify unexercised lifecycle populations.
+
+**Tested, representative failed-workflow journey:** the existing
+`rerun_controlled_failure_probe` failed its single selected native test only under the
+explicit qualification environment flag. Native failure reading retained its exact
+compiler/test identity, original assertion detail and runner observation. Full inventory-bound
+export and independent binary inspection succeeded. Native rerun selection recovered the
+original input, package/lib/features and exact identity, with admission still explicitly
+unavailable in the intent-only preview. Fresh native execution with the deliberate failure
+flag absent passed that one test, with capture and settlement complete. The original failed
+report, original inventory and exported artifact digests remained unchanged. This establishes
+selection/custody and a separately observed new outcome; it does not reproduce the original
+environment or turn the historical failure into success. Aborted, interrupted and broader
+retention/population qualification remain open.
+
+Generic payload inspection now preserves raw facts and a typed native interpretation or
+integrity refusal independently. An unavailable metadata policy remains attributable to its
+original acquired pool; structurally readable current-family data with a corrupt original
+report also remains inspectable. Both cases have no adopted native readback. The direct
+developer-evidence integrity API still refuses, and malformed wire/input-limit failures do
+not fall through to an unbounded decoder. The known-family file reader bounds materialization
+before decoding through `Read::take`; Buffa applies the same selected family extent during
+binary decoding. Nine focused native controls passed with zero failures and compiler warnings,
+including original-pool metadata-version unavailability, corrupt original bytes and a sparse
+file beyond the input limit. This is a read-only unavailable-interpretation route, not an old
+production writer or a compatibility adoption path. A previously exported Proto family may
+therefore require raw inspection after the compiled metadata world changes; native original
+JSON report-version support is a separate interpretation promise.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

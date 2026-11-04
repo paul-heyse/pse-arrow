@@ -189,6 +189,8 @@ pub struct Report {
     pub validation: Validation,
     /// Original-byte association checks for captured native evidence roots only.
     pub developer_evidence: Option<crate::developer_evidence::Readback>,
+    /// Native interpretation/integrity refusal; raw fields do not become current native facts.
+    pub developer_evidence_refusal: Option<crate::envelope::ErrorRecord>,
     /// Bounded interpreted fields.
     pub preview: Preview,
     /// Original successful text-parser warnings, if any.
@@ -206,7 +208,15 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
     }
     let bundle = Bundle::load(&args.descriptor)?;
     let input_path = std::fs::canonicalize(&args.input)?;
-    let input = std::fs::read(&input_path)?;
+    let captured_evidence = matches!(args.message.as_str(), "pse.developer.evidence.v1.CapturedWorkflowReport" | "pse.developer.evidence.v1.CapturedWorkflowEvidence");
+    let input = if captured_evidence {
+        let mut bytes = Vec::new();
+        std::fs::File::open(&input_path)?.take((crate::developer_evidence::MAX_INPUT_BYTES + 1) as u64).read_to_end(&mut bytes)?;
+        if bytes.len() > crate::developer_evidence::MAX_INPUT_BYTES {
+            return Err(SchemaError::DeveloperEvidence(Box::new(crate::developer_evidence::EvidenceError::InputLimit { observed_at_least: bytes.len(), maximum: crate::developer_evidence::MAX_INPUT_BYTES })));
+        }
+        bytes
+    } else { std::fs::read(&input_path)? };
     let index = bundle.pool.message_index(&args.message).ok_or_else(|| {
         SchemaError::Invalid(format!(
             "message absent from selected descriptor: {}",
@@ -225,9 +235,13 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
     } else {
         (input.clone(), String::new())
     };
-    let developer_evidence = if matches!(args.message.as_str(), "pse.developer.evidence.v1.CapturedWorkflowReport" | "pse.developer.evidence.v1.CapturedWorkflowEvidence") && !matches!(args.encoding, Encoding::Json) {
-        Some(crate::developer_evidence::inspect(&bundle.set, &args.message, &wire).map_err(|error| SchemaError::DeveloperEvidence(Box::new(error)))?)
-    } else { None };
+    let (developer_evidence, developer_evidence_refusal) = if captured_evidence && !matches!(args.encoding, Encoding::Json) {
+        match crate::developer_evidence::inspect(&bundle.set, &args.message, &wire) {
+            Ok(readback) => (Some(readback), None),
+            Err(error @ (crate::developer_evidence::EvidenceError::Decode(_) | crate::developer_evidence::EvidenceError::InputLimit { .. })) => return Err(SchemaError::DeveloperEvidence(Box::new(error))),
+            Err(error) => (None, Some(crate::envelope::ErrorRecord::from_typed(&error, &crate::envelope::RedactionPolicy::from_environment()))),
+        }
+    } else { (None, None) };
     let static_value = if bundle.compiled_world() {
         compiled(&args.message, &wire, args.encoding, args.depth, args.limit)?
     } else {
@@ -256,7 +270,7 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
         descriptor: bundle.path.clone().into(), descriptor_sha256: bundle.digest.clone(),
         input: input_path.into(), payload_sha256: Sha256::digest(&input).iter().map(|byte| format!("{byte:02x}")).collect(), payload_bytes: input.len(),
         original_base64: args.original.then(|| STANDARD.encode(&input)), message: args.message.clone(), encoding: args.encoding,
-        representation: representation.into(), validation, developer_evidence, preview, parser_diagnostics,
+        representation: representation.into(), validation, developer_evidence, developer_evidence_refusal, preview, parser_diagnostics,
         limitations: vec!["Successful decoding does not establish semantic validity. Re-encoding does not preserve original byte identity or wire ordering.".into(), "Presence follows protobuf semantics; implicit scalar default and absence may be indistinguishable. Display limits do not limit decode coverage.".into(), "Any resolves only within the selected descriptor closure; nested payload bytes remain bytes. Original path/digest does not guarantee future availability; --original includes exact input.".into()],
     })
 }
