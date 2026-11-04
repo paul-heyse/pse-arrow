@@ -128,9 +128,25 @@ IDAES gas Cp/enthalpy/entropy, unit normalization, liquid datum offsets, analyti
 derivatives, separate fitted/EOS critical coordinates and actual phase/formulation setup.
 The pressure-origin control corrects an initial construction mistake that used operating
 pressure as the entropy reference; it does not change the selected process feed pressure.
-They do not solve or compare the five ordinary process cases. Complete matched recycle,
-intended overheated-stage failure, exchanger design/rating/arithmetic closure, all required
-outputs and original canonical readback remain H02/H03 obligations.
+**Implemented and Tested:** `tests/reference/oracles/ordinary_exchanger.py` now independently
+constructs and solves the three PR exchanger variants through actual IDAES HeatExchanger,
+SmoothVLE and SSLW costing. The dimensional input specification and co-current driving-force
+choice are explicit. The library's rating-oriented initializer supplies numerical starts;
+the original design is restored and solved before any result is exposed, and the area-fixed
+rating starts from that accepted same-model design. Cost aggregation is explicitly constructed
+before initialization. The final model retains all original energy/flow/heat-transfer equations.
+
+The same isolated command with `-p test_ordinary_exchanger.py` passes one test containing
+all three variants, with zero errors/failures against zero. Each yields the complete selected
+25-scalar reference population, with all four flow/temperature/enthalpy/energy states,
+duties, coefficient, area and costing outputs; independent original-balance and driving-force
+checks pass. Earlier setup attempts failed on a solver-options API call and omitted costing
+aggregation; these were corrected, rather than treated as numerical failures or evidence.
+The initial design passed to the rating-oriented initializer also produced an overdetermined
+initialization stop; the explicit numerical-start stage removes that construction error.
+No native differential comparison is established by these independent reference-only tests.
+Complete matched recycle, intended overheated-stage failure, native/reference mapping and
+negative controls across all five cases, and original canonical readback remain H02/H03 work.
 
 ## H04 — Close configurations and scientific workflows
 
