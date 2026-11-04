@@ -2,7 +2,7 @@
 title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
-adrs: [ADR-0241, ADR-0242]
+adrs: [ADR-0241, ADR-0242, ADR-0243]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -263,7 +263,7 @@ production foundation. Ordinary dependency moves remain ordinary pinned changes.
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | P01 | in-progress | Current native implementation and its actual support/evidence limits; Plan64 completion is not required | Reconcile actual consumer populations and delivered mechanisms against the target; identify draft/missing prerequisites per operation without claiming untested scope |
-| P02 | planned | P01; 65i I01 and 65j J01 owner/design agreement; applicable A/B/C/D/E decisions | Settle R01–R04 as applicable; agree scientific operation/product semantics and developer evidence/construction directions before finalizing broad A01/A02 interfaces; publish approved shared design slices |
+| P02 | in-progress | P01 current baseline; 65i I01 and 65j J01 owner/design agreement; applicable A/B/C/D/E decisions | R01 foundation delivered under proposed ADR-0241 and independent scoped assessment; R02 typed options/checker underway; proposed ADR-0242/0243 own worker/batch direction. Remaining decisions precede their actual cutovers without a complete-Plan64 barrier |
 | P03 | planned | P02; working narrow A/B generation/adoption and G02 inspection slices | Deliver both scientific admission→partial products→qualification→publication/readback and developer execution→full failed report/inventory→readback→exact rerun slices; include original cancellation/lost-ACK settlement; remove replaced maps/interpretations. Existing diagnostic slice is included, not dropped |
 | P04 | planned | Ready per-consumer contracts, not completion of every companion | Integrate all selected storage/runtime/scientific/host migrations, reconcile every companion and source disposition; no exemplar-only completion |
 | P05 | planned | All functional scope integrated, decisions settled, replacements deleted | Complete H qualification/benefit accounting, enduring architecture/operator guidance and retirement preflight; proposed benefits remain qualified by actual measurements |
@@ -288,9 +288,10 @@ their historical tests retain their original scope. Expanded generation still ha
 descriptor participation without prohibiting inverse adoption; worker Stop/Close still clear
 all sessions. These are concrete implementation deltas, not reasons to wait for complete Plan64.
 
-One integration checkout and three isolated executor checkouts own foundation, scientific and
-developer-evidence changes. Shared generator/adoption changes have one continuing foundation
-owner; the coordinator owns shared declarations/manifests, publication and integration.
+The coordinator performs integration and verification on `main` in the ordinary checkout;
+three isolated executor checkouts own foundation, scientific and developer-evidence changes.
+Shared generator/adoption changes have one continuing foundation owner; the coordinator owns
+shared publication and integration. Completed coherent commits are integrated into main promptly.
 First work repairs shared maintained-validator lowering, makes governing scientific permission
 lookup unambiguous and consolidates observation-only retained developer report interpretation.
 The new pure crate and typed metadata still require their recorded decision routes before
@@ -299,6 +300,15 @@ affected implementation. P03's two generated slices remain dependent on working 
 Missing Plan64 scientific families constrain their specific positive acceptance, not independent
 platform work. No Plan64 scientific obligation is closed by a wire schema or this checkpoint.
 Package tables and this coordinator remain the sole progress/disposition owners.
+
+The first integrated foundation removes the old model-owned graph and all temporary forwarding
+aliases. Its snapshot passed 8 pure, 27 moved model, 25 codegen and 2 diagnostic controls plus
+workspace all-target compilation with zero errors/warnings. The expanded descriptor population
+passed full `just codegen` (11 targets); a subsequent ownership repair preserves engineering
+docs during Markdown regeneration. Native developer report controls passed 4/4, rustdoc G05
+comparison controls 4/4, scientific native controls 5/5 and real worker controls 4/4. Each owning
+companion retains its exact command, source snapshot, exclusions and conditions. These results
+do not close the complete scientific population or H qualification.
 
 ## Verification boundary
 

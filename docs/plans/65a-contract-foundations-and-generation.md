@@ -1,6 +1,6 @@
 ---
 title: "Plan65a: Contract foundations and generation"
-status: proposed
+status: in-progress
 date: 2026-11-03
 adrs: []
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
@@ -196,8 +196,8 @@ All statuses are **planned**. Dependencies describe available products, not whol
 
 | Package | Status | Consumes → delivers | Migration, deletion and targeted acceptance |
 | --- | --- | --- | --- |
-| A01 | planned | Post-Plan64 baseline, 65i I01/65j J01 design products and required ADR decision → pure structural foundation plus owner-local domain adapters | Move graph/macros/adoption interfaces, update all current product/codegen consumers and selected host declarations, remove the old product-owned generic implementation. Preserve observation-to-authority construction direction. Compile dependency boundaries and test recursive types, private fields, fixed IDs, unsupported types and fallible construction; no forwarding compatibility module. |
-| A02 | planned | A01 field/method semantics → versioned typed metadata option schema and owner emission | Generate owner/version/direction/facets/effects once; migrate machine consumers from comments/sidecars. Test missing/unknown options, source association without invented spans, collisions, option import closure and a new physical facet reaching inspection. |
+| A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
+| A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | Core proto and wire-independent policy checker delivered in 2acc4daec; typed option emission/imported-world comparisons and complete selected registry facets underway. Required metadata never falls back to comments or Debug strings. Production publication waits for all selected facet coverage. |
 | A03 | planned | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Replace direct full-byte runtime embedding and inconsistent override handling. Test nondefault feature changes against generated/reflected semantics, runtime compaction preserving typed options, full-source retention and immutable old-world readers. |
 | A04 | planned | A03 closed worlds → shared generation composition for all four initial boundary populations | Integrate Buffa, packaging, validation, Connect and selected external Prost generation. Remove repeated module/descriptor assembly and hand-kept plugin naming maps. Test warning/refusal propagation, orphan companions, duplicate filenames, excluded packages and exact import identity. |
 | A05 | planned | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Migrate host native request/fact families, engineering/worker/reference structural adapters, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps at implementation baseline; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
