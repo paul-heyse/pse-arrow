@@ -1,0 +1,1037 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Actual-process failure controls through the production generated transport.
+use super::*;
+use datafusion::execution::memory_pool::{FairSpillPool, MemoryPool};
+use pse_kernels::{DerivativeOrder, ProviderBuffer};
+use std::io::Write as _;
+
+#[derive(Debug)]
+struct ControlledFactory {
+    spec: ProviderSpec,
+    configuration: ContentHash,
+    mode: String,
+    marker: std::path::PathBuf,
+}
+impl ProviderFactory for ControlledFactory {
+    fn spec(&self) -> &ProviderSpec {
+        &self.spec
+    }
+    fn configuration_key(&self) -> ContentHash {
+        self.configuration
+    }
+    fn create(&self) -> Result<ProviderBinding, ProviderError> {
+        Ok(ProviderBinding::new(
+            self.spec.clone(),
+            Box::new(ControlledNative {
+                mode: self.mode.clone(),
+                marker: self.marker.clone(),
+            }),
+        ))
+    }
+}
+#[derive(Debug)]
+struct ControlledNative {
+    mode: String,
+    marker: std::path::PathBuf,
+}
+impl Provider for ControlledNative {
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        self.mode == "actions" || matches!(demand, ProviderDemand::CompleteJets)
+    }
+    fn fill(
+        &mut self,
+        inputs: &[f64],
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        output: ProviderOutput<'_>,
+        _: &EvaluationContext<'_>,
+    ) -> Result<(), ProviderError> {
+        let mut marker = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.marker)
+            .unwrap();
+        writeln!(marker, "dispatched").unwrap();
+        marker.sync_all().unwrap();
+        if self.mode == "crash" {
+            std::process::exit(73);
+        }
+        if self.mode == "delay" {
+            std::thread::sleep(Duration::from_secs(30));
+        }
+        if self.mode == "actions" {
+            return polynomial_products(inputs, request, runtime, output);
+        }
+        output.values.fill(1.0);
+        output.jacobian.fill(2.0);
+        output.hessians.fill(3.0);
+        Ok(())
+    }
+}
+
+fn polynomial_products(
+    inputs: &[f64],
+    request: &PreparedProviderRequest,
+    runtime: ProviderRuntime<'_>,
+    output: ProviderOutput<'_>,
+) -> Result<(), ProviderError> {
+    let [x, y] = inputs else {
+        return Err(ProviderError::Contract(
+            "controlled polynomial inputs".into(),
+        ));
+    };
+    let values = [x * x + y, x * y, y * y];
+    let first = |row, column| match (row, column) {
+        (0, 0) => 2.0 * x,
+        (0, 1) => 1.0,
+        (1, 0) => *y,
+        (1, 1) => *x,
+        (2, 0) => 0.0,
+        (2, 1) => 2.0 * y,
+        _ => unreachable!(),
+    };
+    let second = |row, a, b| match (row, a, b) {
+        (0, 0, 0) | (2, 1, 1) => 2.0,
+        (1, 0, 1) | (1, 1, 0) => 1.0,
+        _ => 0.0,
+    };
+    let m = request.outputs.len();
+    for (position, &row) in request.outputs.iter().enumerate() {
+        output.values[position] = values[row];
+    }
+    match &request.demand {
+        ProviderDemand::CompleteJets => {
+            for (position, &row) in request.outputs.iter().enumerate() {
+                if request.order >= DerivativeOrder::First {
+                    for column in 0..2 {
+                        output.jacobian[position * 2 + column] = first(row, column);
+                    }
+                }
+                if request.order == DerivativeOrder::Second {
+                    for a in 0..2 {
+                        for b in 0..2 {
+                            output.hessians[position * 4 + a * 2 + b] = second(row, a, b);
+                        }
+                    }
+                }
+            }
+        }
+        ProviderDemand::SelectedColumns { columns } => {
+            for (position, &row) in request.outputs.iter().enumerate() {
+                for (column, &source) in columns.iter().enumerate() {
+                    output.jacobian[position * columns.len() + column] = first(row, source);
+                }
+                if request.order == DerivativeOrder::Second {
+                    for (a, &source_a) in columns.iter().enumerate() {
+                        for (b, &source_b) in columns.iter().enumerate() {
+                            output.hessians[position * columns.len() * columns.len()
+                                + a * columns.len()
+                                + b] = second(row, source_a, source_b);
+                        }
+                    }
+                }
+            }
+        }
+        ProviderDemand::JacobianAction { directions } => {
+            for (position, &row) in request.outputs.iter().enumerate() {
+                for direction in 0..*directions {
+                    output.jacobian[position * directions + direction] = first(row, 0)
+                        * runtime.directions[direction * 2]
+                        + first(row, 1) * runtime.directions[direction * 2 + 1];
+                }
+            }
+        }
+        ProviderDemand::TransposeAction { cotangents } => {
+            for cotangent in 0..*cotangents {
+                for column in 0..2 {
+                    output.jacobian[cotangent * 2 + column] = request
+                        .outputs
+                        .iter()
+                        .enumerate()
+                        .map(|(position, &row)| {
+                            runtime.cotangents[cotangent * m + position] * first(row, column)
+                        })
+                        .sum();
+                }
+            }
+        }
+        ProviderDemand::WeightedSecondAction { directions } => {
+            for column in 0..2 {
+                output.jacobian[column] = request
+                    .outputs
+                    .iter()
+                    .enumerate()
+                    .map(|(position, &row)| runtime.weights[position] * first(row, column))
+                    .sum();
+                for direction in 0..*directions {
+                    output.hessians[column * directions + direction] = request
+                        .outputs
+                        .iter()
+                        .enumerate()
+                        .map(|(position, &row)| {
+                            runtime.weights[position]
+                                * (second(row, column, 0) * runtime.directions[direction * 2]
+                                    + second(row, column, 1)
+                                        * runtime.directions[direction * 2 + 1])
+                        })
+                        .sum();
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn controlled_child() {
+    let Ok(mode) = std::env::var("PSE_SCIENCE_TEST_MODE") else {
+        return;
+    };
+    let marker = std::path::PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER").unwrap());
+    let endpoint = std::path::PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_ENDPOINT").unwrap());
+    let session =
+        SemanticId::parse_hex(&std::env::var("PSE_SCIENCE_TEST_SESSION").unwrap()).unwrap();
+    let parent = std::env::var("PSE_SCIENCE_TEST_PARENT")
+        .unwrap()
+        .parse()
+        .unwrap();
+    super::super::transport::serve_with_preparation(
+        endpoint,
+        parent,
+        move |request, cancellation| {
+            if request.handle.session != session {
+                return Err(ProviderError::Contract("foreign controlled session".into()).into());
+            }
+            let spec = request.spec.restore()?;
+            let registry = pse_quantity::generated::standard_registry()
+                .map_err(|error| ProviderError::Contract(error.to_string()))?;
+            spec.validate(&registry)?;
+            let factory = ControlledFactory {
+                spec: spec.clone(),
+                configuration: request.configuration,
+                mode: mode.clone(),
+                marker: marker.clone(),
+            };
+            let demand = ProviderRequest {
+                outputs: request.outputs.iter().map(|&n| n as usize).collect(),
+                order: handler::order(request.order)?,
+                demand: request.demand.restore()?,
+            };
+            super::super::PreparedSession::prepare(
+                request.handle.into(),
+                &factory,
+                &spec,
+                request.configuration,
+                demand,
+                handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?,
+                request.result_limit as usize,
+            )
+        },
+    )
+    .unwrap();
+}
+
+#[test]
+fn scientific_scope_preserves_unbounded_and_long_original_lifetimes_without_renewal() {
+    let control = pse_diagnostics::Cancellation::default();
+    let prepared_at = Instant::now() - Duration::from_secs(601);
+    let unbounded = ExecutionScope::new(control.clone(), None);
+    let remaining = scientific_remaining_ns(&unbounded, prepared_at).unwrap();
+    assert_eq!(remaining, None);
+    let child = handler::scientific_scope(control.clone(), remaining, prepared_at).unwrap();
+    assert_eq!(child.deadline(), None);
+    child.check().unwrap();
+
+    let original_deadline = prepared_at + Duration::from_secs(1800);
+    let original = ExecutionScope::new(control.clone(), Some(original_deadline));
+    let remaining = scientific_remaining_ns(&original, prepared_at).unwrap();
+    assert_eq!(remaining, Some(1_800_000_000_000));
+    let child = handler::scientific_scope(control.clone(), remaining, prepared_at).unwrap();
+    assert_eq!(child.deadline(), Some(original_deadline));
+    child.check().unwrap();
+    // A second preparation uses the remaining original clock, not a fresh 1800s.
+    let reused_at = prepared_at + Duration::from_secs(601);
+    let remaining = scientific_remaining_ns(&original, reused_at).unwrap();
+    assert_eq!(remaining, Some(1_199_000_000_000));
+    assert_eq!(
+        handler::scientific_scope(control.clone(), remaining, reused_at)
+            .unwrap()
+            .deadline(),
+        Some(original_deadline)
+    );
+
+    let expired =
+        handler::scientific_scope(control.clone(), Some(600_000_000_000), prepared_at).unwrap();
+    assert!(matches!(expired.check(), Err(ProviderError::Deadline)));
+    assert!(!control.flag().load(std::sync::atomic::Ordering::Acquire));
+}
+
+fn service() -> (
+    Arc<crate::math::MathService>,
+    Arc<dyn MemoryPool>,
+    Arc<pse_engine::cache_service::NativeCacheService>,
+) {
+    let pool: Arc<dyn MemoryPool> = Arc::new(pse_engine::resources::ReleaseNotifyingPool::new(
+        Arc::new(FairSpillPool::new(1 << 30)),
+    ));
+    let native = pse_engine::cache_service::NativeCacheService::new(
+        pse_engine::cache_service::CacheBudget::disabled(1024),
+        &pool,
+    )
+    .unwrap();
+    let math = crate::math::MathService::new(
+        pool.clone(),
+        Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(16)),
+        16,
+        crate::math::MathPolicy {
+            workspace_bytes: 16 << 20,
+            ..Default::default()
+        },
+        &native,
+    );
+    (math, pool, native)
+}
+
+fn provider(
+    mode: &str,
+    marker: &std::path::Path,
+    scope: ExecutionScope,
+    service: &Arc<crate::math::MathService>,
+) -> (ProviderBinding, PreparedProviderRequest, u32) {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+        .unwrap()
+        .test_entry(
+            "scientific_worker::proxy::tests::controlled_child",
+            mode,
+            marker.to_path_buf(),
+        );
+    let factory =
+        LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let raw = ProviderRequest::all(factory.spec(), DerivativeOrder::Second);
+    let prepared =
+        PreparedProviderRequest::new(Arc::new(factory.spec().clone()), raw.clone()).unwrap();
+    let mut proxy = Proxy {
+        factory: factory.clone(),
+        scope,
+        attempt: pse_operations::mint_id(),
+        remote: None,
+        prepared: vec![],
+        invocation: 0,
+        failed: false,
+    };
+    proxy.prepare_demand(&prepared).unwrap();
+    let pid = proxy.remote.as_ref().unwrap().child.pid();
+    let mut binding = ProviderBinding::new(factory.spec().clone(), Box::new(proxy));
+    let request = binding.prepare(raw).unwrap();
+    (binding, request, pid)
+}
+
+#[test]
+fn crash_after_dispatch_is_unknown_reaped_and_never_replayed() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("calls");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let control = pse_diagnostics::Cancellation::default();
+    let flag = control.flag();
+    let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(60)));
+    let (mut binding, request, pid) = provider("crash", &marker, scope, &service);
+    assert!(pool.reserved() > baseline);
+    let context = EvaluationContext {
+        cancelled: &flag,
+        max_result_bytes: 4096,
+    };
+    let mut buffer = ProviderBuffer::new(&request);
+    let error = buffer
+        .fill(
+            &mut binding,
+            &[500.0, 20.0],
+            &request,
+            ProviderRuntime::default(),
+            &context,
+        )
+        .unwrap_err();
+    use pse_model::diagnostic::{DiagnosticProjection as _, Observation};
+    assert!(matches!(
+        error
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+            .observations
+            .get("scientific_worker_completion_unknown"),
+        Some(Observation::Boolean(true))
+    ));
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+    assert!(
+        buffer
+            .fill(
+                &mut binding,
+                &[500.0, 20.0],
+                &request,
+                ProviderRuntime::default(),
+                &context
+            )
+            .is_err()
+    );
+    assert_eq!(std::fs::read_to_string(marker).unwrap().lines().count(), 1);
+}
+
+#[test]
+fn failed_remote_retains_aggregate_admission_after_reap_until_io_executor_joins() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("calls");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let registry = pse_quantity::generated::standard_registry().unwrap();
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+        .unwrap()
+        .test_entry(
+            "scientific_worker::proxy::tests::controlled_child",
+            "ordinary",
+            marker,
+        );
+    let factory =
+        LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let request = PreparedProviderRequest::new(
+        Arc::new(factory.spec().clone()),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Second),
+    )
+    .unwrap();
+    let mut proxy = Proxy {
+        factory,
+        scope: ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+        attempt: pse_operations::mint_id(),
+        remote: None,
+        prepared: vec![],
+        invocation: 0,
+        failed: false,
+    };
+    proxy.prepare_demand(&request).unwrap();
+    let mut remote = proxy.remote.take().unwrap();
+    let pid = remote.child.pid();
+    let charged = pool.reserved();
+    assert!(charged > baseline);
+    let (cleanup_started, release_cleanup) = remote.io.as_mut().unwrap().delay_cleanup();
+    let cleanup = std::thread::spawn(move || {
+        remote.fail(WorkerError::UnknownCompletion("controlled failure".into()))
+    });
+    cleanup_started
+        .recv_timeout(Duration::from_secs(5))
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while std::path::Path::new(&format!("/proc/{pid}")).exists() {
+        assert!(
+            Instant::now() < deadline,
+            "owned child must be reaped while I/O cleanup remains delayed"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(
+        pool.reserved(),
+        charged,
+        "parent executor and buffers still require their aggregate reservation"
+    );
+    release_cleanup.send(()).unwrap();
+    assert!(matches!(
+        cleanup.join().unwrap(),
+        WorkerError::UnknownCompletion(_)
+    ));
+    assert_eq!(
+        pool.reserved(),
+        baseline,
+        "actual I/O join releases the final owner"
+    );
+}
+
+#[test]
+fn malformed_shape_nonfinite_and_stale_context_responses_never_publish_completion() {
+    for mode in ["wrong-shape", "wrong-context", "nonfinite", "oversized"] {
+        let directory = tempfile::tempdir().unwrap();
+        let marker = directory.path().join("calls");
+        let (service, pool, _native) = service();
+        let baseline = pool.reserved();
+        let control = pse_diagnostics::Cancellation::default();
+        let flag = control.flag();
+        let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(60)));
+        let (mut binding, request, pid) = provider(mode, &marker, scope, &service);
+        let context = EvaluationContext {
+            cancelled: &flag,
+            max_result_bytes: 4096,
+        };
+        let mut buffer = ProviderBuffer::new(&request);
+        let error = buffer
+            .fill(
+                &mut binding,
+                &[500.0, 20.0],
+                &request,
+                ProviderRuntime::default(),
+                &context,
+            )
+            .unwrap_err();
+        use pse_model::diagnostic::{DiagnosticProjection as _, Observation};
+        assert!(
+            matches!(
+                error
+                    .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
+                    .observations
+                    .get("scientific_worker_completion_unknown"),
+                Some(Observation::Boolean(true))
+            ),
+            "{mode}: {error}"
+        );
+        assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+        assert_eq!(pool.reserved(), baseline);
+        assert!(
+            buffer
+                .fill(
+                    &mut binding,
+                    &[500.0, 20.0],
+                    &request,
+                    ProviderRuntime::default(),
+                    &context
+                )
+                .is_err()
+        );
+        assert_eq!(std::fs::read_to_string(marker).unwrap().lines().count(), 1);
+    }
+}
+
+#[test]
+fn action_capable_native_owner_preserves_every_product_through_actual_transport() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("calls");
+    let (service, _pool, _native) = service();
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+        .unwrap()
+        .test_entry(
+            "scientific_worker::proxy::tests::controlled_child",
+            "actions",
+            marker.clone(),
+        );
+    let factory =
+        LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let scope = ExecutionScope::new(
+        pse_diagnostics::Cancellation::default(),
+        Some(Instant::now() + Duration::from_secs(60)),
+    );
+    let mut proxy = Proxy {
+        factory,
+        scope,
+        attempt: pse_operations::mint_id(),
+        remote: None,
+        prepared: vec![],
+        invocation: 0,
+        failed: false,
+    };
+    proxy.launch().unwrap();
+    let session = proxy.remote.as_ref().unwrap().session;
+    let quantity = pse_quantity::standard::ids::quantity("neutral");
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let id = SemanticId::from_bytes([0xd1; 16]);
+    let ports = |offset, count| {
+        (offset..offset + count)
+            .map(|ordinal: usize| pse_kernels::Port {
+                id: pse_ids::named_id(id, &ordinal.to_string()),
+                quantity,
+                unit,
+            })
+            .collect()
+    };
+    let specification = ProviderSpec {
+        id,
+        revision: ContentHash::from_bytes([0x31; 32]),
+        data: ContentHash::from_bytes([0x32; 32]),
+        shapes: Default::default(),
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+        inputs: ports(0, 2),
+        outputs: ports(2, 3),
+        derivatives: DerivativeOrder::Second,
+        smoothness: DerivativeOrder::Second,
+    };
+    specification.validate(&registry).unwrap();
+    // Independent exact controls at x=3,y=5 for (x*x+y, x*y, y*y).
+    let full = [
+        (
+            ProviderDemand::CompleteJets,
+            DerivativeOrder::Second,
+            vec![],
+            vec![],
+            vec![],
+            vec![6., 1., 5., 3., 0., 10.],
+            vec![2., 0., 0., 0., 0., 1., 1., 0., 0., 0., 0., 2.],
+        ),
+        (
+            ProviderDemand::SelectedColumns {
+                columns: vec![1, 0],
+            },
+            DerivativeOrder::Second,
+            vec![],
+            vec![],
+            vec![],
+            vec![1., 6., 3., 5., 10., 0.],
+            vec![0., 0., 0., 2., 0., 1., 1., 0., 2., 0., 0., 0.],
+        ),
+        (
+            ProviderDemand::JacobianAction { directions: 2 },
+            DerivativeOrder::First,
+            vec![1., 0., 0., 2.],
+            vec![],
+            vec![],
+            vec![6., 2., 5., 6., 0., 20.],
+            vec![],
+        ),
+        (
+            ProviderDemand::TransposeAction { cotangents: 2 },
+            DerivativeOrder::First,
+            vec![],
+            vec![1., 0., 2., 0., 1., 1.],
+            vec![],
+            vec![6., 21., 5., 13.],
+            vec![],
+        ),
+        (
+            ProviderDemand::WeightedSecondAction { directions: 2 },
+            DerivativeOrder::Second,
+            vec![1., 0., 0., 2.],
+            vec![],
+            vec![1., 2., 3.],
+            vec![16., 37.],
+            vec![2., 4., 2., 12.],
+        ),
+    ];
+    let selected = [
+        (
+            ProviderDemand::CompleteJets,
+            DerivativeOrder::Second,
+            vec![],
+            vec![],
+            vec![],
+            vec![0., 10., 6., 1.],
+            vec![0., 0., 0., 2., 2., 0., 0., 0.],
+        ),
+        (
+            ProviderDemand::SelectedColumns {
+                columns: vec![1, 0],
+            },
+            DerivativeOrder::Second,
+            vec![],
+            vec![],
+            vec![],
+            vec![10., 0., 1., 6.],
+            vec![2., 0., 0., 0., 0., 0., 0., 2.],
+        ),
+        (
+            ProviderDemand::JacobianAction { directions: 2 },
+            DerivativeOrder::First,
+            vec![1., 0., 0., 2.],
+            vec![],
+            vec![],
+            vec![0., 20., 6., 2.],
+            vec![],
+        ),
+        (
+            ProviderDemand::TransposeAction { cotangents: 2 },
+            DerivativeOrder::First,
+            vec![],
+            vec![1., 2., 0., 1.],
+            vec![],
+            vec![12., 12., 6., 1.],
+            vec![],
+        ),
+        (
+            ProviderDemand::WeightedSecondAction { directions: 2 },
+            DerivativeOrder::Second,
+            vec![1., 0., 0., 2.],
+            vec![],
+            vec![1., 2.],
+            vec![12., 12.],
+            vec![4., 0., 0., 4.],
+        ),
+    ];
+    let cases = full
+        .into_iter()
+        .map(|case| (vec![0, 1, 2], vec![14., 15., 25.], case))
+        .chain(
+            selected
+                .into_iter()
+                .map(|case| (vec![2, 0], vec![25., 14.], case)),
+        );
+    for (
+        index,
+        (outputs, expected_values, (demand, order, directions, cotangents, weights, first, second)),
+    ) in cases.enumerate()
+    {
+        let raw = ProviderRequest {
+            outputs,
+            order,
+            demand,
+        };
+        let checked =
+            PreparedProviderRequest::new(Arc::new(specification.clone()), raw.clone()).unwrap();
+        let handle = p::Handle {
+            attempt: proxy.attempt,
+            session,
+            generation: pse_operations::mint_id(),
+        };
+        let request = p::Prepare {
+            version: 1,
+            handle: handle.clone(),
+            spec: p::Spec::capture(&specification).unwrap(),
+            configuration: specification.identity(),
+            physical_registry: "pse.standard.v1".into(),
+            regime: "vapor".into(),
+            outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
+            order: order as u32,
+            demand: p::Demand::capture(&raw.demand),
+            remaining_ns: scientific_remaining_ns(&proxy.scope, Instant::now()).unwrap(),
+            result_limit: checked.extents().bytes().unwrap() as u64,
+        };
+        let response = proxy
+            .remote
+            .as_ref()
+            .unwrap()
+            .exchange(p::Request::Prepare(request), &proxy.scope, None)
+            .unwrap();
+        assert!(matches!(response, p::Response::Prepared(actual) if actual == handle));
+        proxy.prepared.push((raw, handle.clone()));
+        let invocation = index as u64 + 1;
+        let response = proxy
+            .remote
+            .as_ref()
+            .unwrap()
+            .exchange(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: handle.clone(),
+                    invocation,
+                    inputs: vec![3., 5.],
+                    directions,
+                    cotangents,
+                    weights,
+                }),
+                &proxy.scope,
+                None,
+            )
+            .unwrap();
+        let p::Response::Values(values) = response else {
+            panic!("controlled action owner must complete")
+        };
+        assert_eq!(values.handle, handle);
+        assert_eq!(values.invocation, invocation);
+        assert_eq!(values.values, expected_values);
+        assert_eq!(values.jacobian, first);
+        assert_eq!(values.hessians, second);
+        assert_eq!(values.values.len(), checked.extents().values);
+        assert_eq!(values.jacobian.len(), checked.extents().jacobian);
+        assert_eq!(values.hessians.len(), checked.extents().hessians);
+    }
+    assert_eq!(
+        std::fs::read_to_string(marker).unwrap().lines().count(),
+        10,
+        "one coherent native invocation per product and output selection"
+    );
+}
+
+#[test]
+fn changed_actual_stock_datum_is_refused_by_the_selected_reference_binding() {
+    let (service, _pool, _native) = service();
+    let registry = pse_quantity::generated::standard_registry().unwrap();
+    // Mutate an actual declaration through its owner's serialization, then
+    // re-admit the complete builder; no digest assertion stands in for data.
+    let mut declarations = serde_json::to_value(registry.to_builder()).unwrap();
+    let references = declarations["reference_states"].as_array_mut().unwrap();
+    let mut changed = 0;
+    for reference in references {
+        if reference["name"] == "stock" {
+            let original = reference["temperature"]["value"].as_f64().unwrap();
+            reference["temperature"]["value"] = serde_json::json!(original + 1.0);
+            changed += 1;
+        }
+    }
+    assert_eq!(changed, 1);
+    let changed: pse_quantity::QuantityRegistryBuilder =
+        serde_json::from_value(declarations).unwrap();
+    let changed = changed.build().unwrap();
+    let original = WaterFactory::prepare(&registry, WaterRegime::Vapor).unwrap();
+    let different = WaterFactory::prepare(&changed, WaterRegime::Vapor).unwrap();
+    assert_ne!(original.configuration_key(), different.configuration_key());
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap();
+    assert!(matches!(
+        LocalWaterFactory::prepare(image, &changed, WaterRegime::Vapor, service),
+        Err(WorkerError::Provider(ProviderError::Contract(_)))
+    ));
+}
+
+#[test]
+fn active_native_cancellation_reaps_before_releasing_admission() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("calls");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let control = pse_diagnostics::Cancellation::default();
+    let flag = control.flag();
+    let scope = ExecutionScope::new(
+        control.clone(),
+        Some(Instant::now() + Duration::from_secs(60)),
+    );
+    let (mut binding, request, pid) = provider("delay", &marker, scope, &service);
+    assert!(pool.reserved() > baseline);
+    let observed = marker.clone();
+    let cancellation = std::thread::spawn(move || {
+        let end = Instant::now() + Duration::from_secs(10);
+        while !observed.exists() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        control.cancel();
+    });
+    let context = EvaluationContext {
+        cancelled: &flag,
+        max_result_bytes: 4096,
+    };
+    let mut buffer = ProviderBuffer::new(&request);
+    assert!(matches!(
+        buffer.fill(
+            &mut binding,
+            &[500.0, 20.0],
+            &request,
+            ProviderRuntime::default(),
+            &context
+        ),
+        Err(ProviderError::Cancelled)
+    ));
+    cancellation.join().unwrap();
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn independent_attempts_share_admission_without_sharing_process_or_stop_context() {
+    let directory = tempfile::tempdir().unwrap();
+    let blocked_marker = directory.path().join("blocked");
+    let ready_marker = directory.path().join("ready");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let stop_a = pse_diagnostics::Cancellation::default();
+    let flag_a = stop_a.flag();
+    let stop_b = pse_diagnostics::Cancellation::default();
+    let flag_b = stop_b.flag();
+    let (mut a, request_a, pid_a) = provider(
+        "delay",
+        &blocked_marker,
+        ExecutionScope::new(
+            stop_a.clone(),
+            Some(Instant::now() + Duration::from_secs(60)),
+        ),
+        &service,
+    );
+    let (mut b, request_b, pid_b) = provider(
+        "ready",
+        &ready_marker,
+        ExecutionScope::new(stop_b, Some(Instant::now() + Duration::from_secs(60))),
+        &service,
+    );
+    assert_ne!(pid_a, pid_b);
+    let blocked = std::thread::spawn(move || {
+        let mut buffer = ProviderBuffer::new(&request_a);
+        matches!(
+            buffer.fill(
+                &mut a,
+                &[500., 20.],
+                &request_a,
+                ProviderRuntime::default(),
+                &EvaluationContext {
+                    cancelled: &flag_a,
+                    max_result_bytes: 4096
+                }
+            ),
+            Err(ProviderError::Cancelled)
+        )
+    });
+    let until = Instant::now() + Duration::from_secs(10);
+    while !blocked_marker.exists() {
+        assert!(Instant::now() < until);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let mut buffer_b = ProviderBuffer::new(&request_b);
+    let context_b = EvaluationContext {
+        cancelled: &flag_b,
+        max_result_bytes: 4096,
+    };
+    assert!(
+        buffer_b
+            .fill(
+                &mut b,
+                &[500., 20.],
+                &request_b,
+                ProviderRuntime::default(),
+                &context_b
+            )
+            .is_ok()
+    );
+    assert!(pool.reserved() > baseline);
+    stop_a.cancel();
+    assert!(
+        blocked.join().unwrap(),
+        "the blocked attempt must observe its original cancellation"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid_a}")).exists());
+    assert!(!flag_b.load(std::sync::atomic::Ordering::Acquire));
+    assert!(
+        buffer_b
+            .fill(
+                &mut b,
+                &[500., 20.],
+                &request_b,
+                ProviderRuntime::default(),
+                &context_b
+            )
+            .is_ok()
+    );
+    drop(b);
+    assert!(!std::path::Path::new(&format!("/proc/{pid_b}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn original_deadline_expires_during_native_work_without_late_completion() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("calls");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let control = pse_diagnostics::Cancellation::default();
+    let flag = control.flag();
+    let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(10)));
+    let (mut binding, request, pid) = provider("delay", &marker, scope, &service);
+    let context = EvaluationContext {
+        cancelled: &flag,
+        max_result_bytes: 4096,
+    };
+    let mut buffer = ProviderBuffer::new(&request);
+    assert!(matches!(
+        buffer.fill(
+            &mut binding,
+            &[500.0, 20.0],
+            &request,
+            ProviderRuntime::default(),
+            &context
+        ),
+        Err(ProviderError::Deadline)
+    ));
+    assert!(!flag.load(std::sync::atomic::Ordering::Acquire));
+    assert!(
+        marker.exists(),
+        "deadline control must reach actual native dispatch"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn parent_process() {
+    let Some(marker) = std::env::var_os("PSE_SCIENCE_PARENT_MARKER") else {
+        return;
+    };
+    let marker = std::path::PathBuf::from(marker);
+    let (service, _pool, _native) = service();
+    let control = pse_diagnostics::Cancellation::default();
+    let flag = control.flag();
+    let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(60)));
+    let (mut binding, request, pid) = provider("delay", &marker, scope, &service);
+    std::fs::write(marker.with_extension("pid"), pid.to_string()).unwrap();
+    let context = EvaluationContext {
+        cancelled: &flag,
+        max_result_bytes: 4096,
+    };
+    let mut buffer = ProviderBuffer::new(&request);
+    let _ = buffer.fill(
+        &mut binding,
+        &[500.0, 20.0],
+        &request,
+        ProviderRuntime::default(),
+        &context,
+    );
+}
+
+#[test]
+fn parent_loss_terminates_actual_active_native_process() {
+    struct Parent(std::process::Child);
+    impl Drop for Parent {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("parent-loss");
+    let mut parent = Parent(
+        std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "scientific_worker::proxy::tests::parent_process",
+                "--nocapture",
+            ])
+            .env("PSE_SCIENCE_PARENT_MARKER", &marker)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::inherit())
+            .spawn()
+            .unwrap(),
+    );
+    let end = Instant::now() + Duration::from_secs(30);
+    while !marker.exists() {
+        assert!(
+            Instant::now() < end,
+            "controlled parent did not dispatch native work"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let pid: u32 = std::fs::read_to_string(marker.with_extension("pid"))
+        .unwrap()
+        .parse()
+        .unwrap();
+    use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
+    let reader = ProcessReader::default();
+    let ProcessRead::Present(original) = reader.process(pid) else {
+        panic!("actual active child identity unavailable")
+    };
+    parent.0.kill().unwrap();
+    parent.0.wait().unwrap();
+    let stopped = Instant::now() + Duration::from_secs(3);
+    loop {
+        let same_process = match reader.stat(pid) {
+            ProcessRead::Absent => false,
+            ProcessRead::Present(stat) => stat.start_ticks == original.identity.start_ticks,
+            other => panic!("original child lifetime observation unavailable: {other:?}"),
+        };
+        let alive = if same_process {
+            match std::fs::read_dir(format!("/proc/{pid}/task")) {
+                Ok(tasks) => tasks
+                    .map(|task| {
+                        let tid = task.unwrap().file_name().to_str().unwrap().parse().unwrap();
+                        match reader.stat(tid) {
+                            ProcessRead::Present(stat) => !matches!(stat.state, 'Z' | 'X'),
+                            ProcessRead::Absent => false,
+                            other => {
+                                panic!("child thread lifetime observation unavailable: {other:?}")
+                            }
+                        }
+                    })
+                    .any(|live| live),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+                Err(error) => panic!("child thread inventory unavailable: {error}"),
+            }
+        } else {
+            false
+        };
+        if !alive {
+            break;
+        }
+        assert!(
+            Instant::now() < stopped,
+            "native child survived original parent loss"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}

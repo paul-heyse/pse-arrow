@@ -98,14 +98,29 @@ pub struct DeclarationInventory {
     #[doc = "Declarations from the selected authored revision."]
     pub declarations: Vec<pse_authoring::language::Declaration>,
 }
-/// Finite original declaration inventory selection.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ModelingDeclarationRequest {
-    /// Original source inventory offset.
-    pub offset: usize,
-    /// One to128 declarations.
-    pub limit: usize,
+const DECLARATION_PAGE_LIMIT: pse_model::boundary_projection::LocalRule =
+    pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 128 };
+
+fn declaration_page_limit_schema(schema: &mut schemars::Schema) {
+    let mut rule = DECLARATION_PAGE_LIMIT;
+    schemars::transform::Transform::transform(&mut rule, schema);
+}
+
+pse_model::projection_struct! {
+    /// Finite original declaration inventory selection.
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+    #[serde(deny_unknown_fields)]
+    pub struct ModelingDeclarationRequest {
+        projection: { name: "ModelingDeclarationRequest", version: 1,
+            direction: pse_model::boundary_projection::Direction::Input,
+            reserved_tags: [], reserved_names: [] };
+        /// Original source inventory offset.
+        pub offset: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+        /// One to128 declarations, shared by native admission and protobuf validation.
+        #[schemars(transform = declaration_page_limit_schema)]
+        pub limit: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Input,
+            rules: [DECLARATION_PAGE_LIMIT] };
+    }
 }
 /// Exact selected declaration page and source basis.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -132,11 +147,10 @@ impl super::ModelingPackage {
         request: &ModelingDeclarationRequest,
     ) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
         self.check_service_bindings(services)?;
-        if request.limit == 0 || request.limit > 128 {
-            return Err(super::super::contract(
-                "declaration page limit must be between one and128",
-            ));
-        }
+        use pse_model::boundary_projection::ValidateProjection;
+        request.validate_projection().map_err(|error| {
+            super::super::WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -662,6 +676,31 @@ impl PureConformanceControls {
 #[cfg(test)]
 mod boundary_unit {
     use super::*;
+    #[test]
+    fn declaration_page_rule_is_shared_by_native_json_schema_and_projection() {
+        use pse_model::boundary_projection::{ProjectionGraph, Shape, ValidateProjection};
+        let schema = schemars::schema_for!(ModelingDeclarationRequest).to_value();
+        assert_eq!(schema["properties"]["limit"]["minimum"], 1);
+        assert_eq!(schema["properties"]["limit"]["maximum"], 128);
+        let graph = ProjectionGraph::of::<ModelingDeclarationRequest>().unwrap();
+        let Shape::Record(fields) = &graph.definitions()["ModelingDeclarationRequest"].shape else {
+            panic!("actual request")
+        };
+        assert_eq!(fields[1].rules, [DECLARATION_PAGE_LIMIT]);
+        for limit in [1, 128] {
+            ModelingDeclarationRequest { offset: 0, limit }
+                .validate_projection()
+                .unwrap();
+        }
+        for limit in [0, 129] {
+            let error = ModelingDeclarationRequest { offset: 0, limit }
+                .validate_projection()
+                .unwrap_err();
+            assert!(
+                matches!(error, pse_model::boundary_projection::ValidationError::Rule { path, rule: "unsigned.range", .. } if path == "limit")
+            );
+        }
+    }
     #[test]
     fn oversized_native_observation_refuses_without_truncation() {
         let large = "x".repeat((64 << 10) + 1);

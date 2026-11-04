@@ -237,7 +237,7 @@ fn reject_conflicting_files(set: &FileDescriptorSet) -> Result<()> {
     Ok(())
 }
 
-fn prepared_plugins(root: &Path, binaries: &Path) -> Result<()> {
+pub(super) fn prepared_plugins(root: &Path, binaries: &Path) -> Result<()> {
     let metadata: toml::Value = toml::from_str(
         &std::fs::read_to_string(root.join(".local/plan61-tools/.crates.toml"))
             .context("prepare exact Plan61 generators explicitly in .local/plan61-tools")?,
@@ -310,7 +310,7 @@ fn collect(
 
 /// Keep upstream code intact while qualifying its explicit lint escapes and fixed-data
 /// assertions. Byte-span edits preserve generated comments and source spelling.
-fn qualify_generated_rust(source: &str) -> Result<String> {
+pub(super) fn qualify_generated_rust(source: &str) -> Result<String> {
     use syn::{spanned::Spanned as _, visit::Visit as _};
     struct Expects {
         count: usize,

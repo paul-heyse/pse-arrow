@@ -17,6 +17,7 @@
 //! - [`document`] — authoring document shapes.
 
 pub mod algorithm;
+pub mod boundary;
 pub mod canonical;
 pub mod collection;
 pub mod document;
@@ -35,6 +36,7 @@ pub mod relation;
 pub mod result_selection;
 pub mod tagged_alternative;
 
+pub use boundary::BoundaryRecord;
 pub use canonical::{CanonicalBackup, CanonicalKeyKind, CanonicalRelation, CanonicalRetention};
 pub use field::ROW_KEY_ENCODING;
 

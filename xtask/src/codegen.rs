@@ -7,6 +7,8 @@
 mod physical;
 
 mod code_intelligence;
+#[cfg(feature = "product-schemas")]
+mod engineering;
 mod grpc_wire;
 mod ownership;
 mod private_store;
@@ -32,6 +34,15 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only == Some(Target::Engineering) {
+        let tree = engineering_tree(root)?;
+        validate_tree(&tree)?;
+        return if check {
+            check_tree(root, &tree)
+        } else {
+            write_tree(root, &tree)
+        };
+    }
     if only == Some(Target::CodeIntelligence) {
         return stage_code_intelligence(root, code_intelligence::generate, |tree| {
             validate_tree(&tree)?;
@@ -56,7 +67,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Docs) => vec![Language::Markdown],
         Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return native_abi(root, check),
-        Some(Target::Schemas | Target::Physical | Target::CodeIntelligence) => Vec::new(),
+        Some(
+            Target::Schemas | Target::Physical | Target::CodeIntelligence | Target::Engineering,
+        ) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
     if check {
@@ -67,6 +80,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     let mut trees = Vec::new();
     // Preflight the complete code-intelligence corpus before any aggregate publication.
     if only.is_none() {
+        let tree = engineering_tree(root)?;
+        validate_tree(&tree)?;
+        trees.push(("engineering".into(), tree));
         stage_code_intelligence(root, code_intelligence::generate, |tree| {
             validate_tree(&tree)?;
             trees.push(("code-intelligence".into(), tree));
@@ -115,6 +131,16 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.len()
     );
     Ok(())
+}
+
+#[cfg(feature = "product-schemas")]
+fn engineering_tree(root: &Path) -> Result<GeneratedTree> {
+    engineering::generate(root)
+}
+
+#[cfg(not(feature = "product-schemas"))]
+fn engineering_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("engineering projections require product-schemas")
 }
 
 // Both selected and aggregate routes cross this effect boundary only after successful
@@ -276,6 +302,9 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
     }
     if only.is_none() {
         if failures.is_empty() {
+            if let Some(tree) = check_result(&mut failures, "engineering", engineering_tree(root)) {
+                trees.push(("engineering".into(), tree));
+            }
             if let Some(tree) = check_result(
                 &mut failures,
                 "code-intelligence",

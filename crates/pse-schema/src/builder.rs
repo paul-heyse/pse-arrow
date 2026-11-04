@@ -659,6 +659,7 @@ impl RegistryBuilder {
             }
             crate::checks::relation_declaration(decl)?;
             out.push(RelationSpec {
+                boundary: decl.boundary,
                 canonical: decl.canonical,
                 id: registry_id(&format!("relation:{name}")),
                 key: decl.key,

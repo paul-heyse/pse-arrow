@@ -2,5 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed native project operation contracts.
 
+/// Explicit local service over the shared native engineering handlers.
+#[cfg(feature = "engineering-service")]
+pub mod engineering;
+/// Always-available source declarations for engineering boundary generation.
+pub mod engineering_contract;
 /// Existing typed project operator protocol and public host projection declarations.
 pub mod project;

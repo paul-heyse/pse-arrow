@@ -2,62 +2,71 @@
 // Copyright (c) 2026 Paul Heyse
 //! Passive discovery through the existing retention and canonical publication owners.
 use super::*;
-#[path = "project_preparation_wire.rs"]
-mod wire;
 use pse_operations::canonical_selection::{ProductHeaderCursor, ProductHeaderPage};
 
+pse_model::projection_struct! {
 /// Exact specialization to inspect without preparing it.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationDiscoveryRequest {
+    projection: { name: "PreparationDiscoveryRequest", rust_path: crate::workflow::PreparationDiscoveryRequest, version: 2, direction: pse_model::boundary_projection::Direction::Input, reserved_tags: [], reserved_names: [] };
     /// Selected authored root.
-    pub root: DeclarationId,
+    pub root: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
     /// Selected occurrence identity.
-    pub instance: InstanceId,
+    pub instance: InstanceId => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
     /// Exact specialization premises, including demand and formulation.
-    #[serde(with = "wire")]
-    #[schemars(with = "wire::PreparationBindings")]
-    pub bindings: Bindings,
+    pub bindings: Bindings => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
     /// Exact specialization limits.
-    pub limits: Limits,
+    pub limits: Limits => { tag: 4, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
     /// Continue durable publication headers under the same immutable source.
-    pub durable_after: Option<ProductHeaderCursor>,
+    pub durable_after: Option<ProductHeaderCursor> => { tag: 5, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+}
 }
 /// Receiving compatibility is independent of current availability.
 pub use pse_model::generated::enums::PreparationEligibility;
 /// Which existing process-local owner retains the observed immutable product.
 pub use pse_model::generated::enums::PreparationProductKind;
+pse_model::projection_struct! {
 /// Compact observational metadata; contains no live product or native handle.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResidentPreparation {
+    projection: { name: "ResidentPreparation", rust_path: crate::workflow::ResidentPreparation, version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Original retention product class.
-    pub kind: PreparationProductKind,
+    pub kind: PreparationProductKind => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Existing exact-key and source-premise assessment.
-    pub eligibility: PreparationEligibility,
+    pub eligibility: PreparationEligibility => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Immutable insertion weight, including retained key and owner metadata.
-    pub retained_bytes: u64,
+    pub retained_bytes: u64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original compiler-sealed body identity for body/encoding entries only.
-    pub semantic_identity: Option<String>,
+    pub semantic_identity: Option<String> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Bounded observation, not a cache census or a reusable preparation receipt.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationDiscoveryReport {
+    projection: { name: "PreparationDiscoveryReport", rust_path: crate::workflow::PreparationDiscoveryReport, version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact local source parent identity inspected.
-    pub revision_id: String,
+    pub revision_id: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Selected deployment physical identity.
-    pub physical: String,
+    pub physical: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// At most 32 resident metadata rows. Body entries are service-wide and unchecked;
     /// selected admissions/frontiers/bases are scoped to the requested root.
     /// Absence has no inferred cause.
-    pub resident: Vec<ResidentPreparation>,
+    pub resident: Vec<ResidentPreparation> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Length { min: 0, max: PreparationDiscoveryReport::MAX_RESIDENT_ROWS as u64 }] };
     /// More matching process-local entries existed during this observation.
-    pub residents_truncated: bool,
+    pub residents_truncated: bool => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original rooted publication headers, when this package has canonical origin.
-    pub durable: Option<ProductHeaderPage>,
+    pub durable: Option<ProductHeaderPage> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Passive durable presence never establishes receiving qualification.
-    pub durable_eligibility: PreparationEligibility,
+    pub durable_eligibility: PreparationEligibility => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
+}
+impl PreparationDiscoveryReport {
+    /// One bound shared by producer selection and outgoing local constraints.
+    pub const MAX_RESIDENT_ROWS: usize = 32;
 }
 impl SelectedRequest {
     pub(crate) fn includes_root(&self, root: DeclarationId) -> bool {
@@ -133,6 +142,161 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preparation_completion_projection_retains_original_scope_and_shared_bound() {
+        use pse_model::boundary_projection::{ProjectionGraph, Shape, TypeRef, ValidateProjection};
+        let graph = ProjectionGraph::of::<PreparationDiscoveryReport>().unwrap();
+        let Shape::Record(fields) = &graph.definitions()["PreparationDiscoveryReport"].shape else {
+            panic!("original completion owner")
+        };
+        assert_eq!(
+            fields
+                .iter()
+                .map(|field| (field.name.as_str(), field.tag))
+                .collect::<Vec<_>>(),
+            [
+                ("revision_id", 1),
+                ("physical", 2),
+                ("resident", 3),
+                ("residents_truncated", 4),
+                ("durable", 5),
+                ("durable_eligibility", 6),
+            ]
+        );
+        assert_eq!(
+            fields[4].ty,
+            TypeRef::Optional(Box::new(TypeRef::Named("ProductHeaderPage".into())))
+        );
+        let Shape::Record(header) = &graph.definitions()["ProductHeader"].shape else {
+            panic!("original durable provenance")
+        };
+        assert_eq!(
+            header
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "key",
+                "revision",
+                "producer",
+                "producer_class",
+                "interpretation",
+                "descriptor",
+                "content",
+                "receipt",
+            ]
+        );
+        let Shape::StringEnum(eligibility) = &graph.definitions()["PreparationEligibility"].shape
+        else {
+            panic!("actual source vocabulary")
+        };
+        assert_eq!(eligibility, &["compatible", "incompatible", "unchecked"]);
+        let resident = ResidentPreparation {
+            kind: PreparationProductKind::Body,
+            eligibility: PreparationEligibility::Unchecked,
+            retained_bytes: 1,
+            semantic_identity: None,
+        };
+        let mut report = PreparationDiscoveryReport {
+            revision_id: "exact-local-parent".into(),
+            physical: "exact-physical-basis".into(),
+            resident: vec![resident.clone(); PreparationDiscoveryReport::MAX_RESIDENT_ROWS],
+            residents_truncated: true,
+            durable: None,
+            durable_eligibility: PreparationEligibility::Unchecked,
+        };
+        report.validate_projection().unwrap();
+        report.resident.push(resident);
+        assert!(
+            matches!(report.validate_projection(), Err(pse_model::boundary_projection::ValidationError::Rule { path, rule: "length", .. }) if path == "resident")
+        );
+    }
+
+    #[test]
+    fn preparation_discovery_v2_uses_actual_structural_owner_and_preserves_fact_refusal() {
+        use pse_modeling::specialize::Value;
+        let root = DeclarationId::from_bytes([0x31; 16]);
+        let quantity = pse_quantity::QuantityTypeId::from_bytes([0x32; 16]);
+        let mut bindings = Bindings::default();
+        bindings.arguments.insert(
+            "values".into(),
+            Value::Tuple(vec![
+                Value::Number {
+                    bits: 0x8000_0000_0000_0000,
+                    quantity,
+                },
+                Value::Missing,
+                Value::Set(vec![Value::Integer(7)]),
+                Value::Row {
+                    table: root,
+                    names: vec!["z".into(), "a".into()].into(),
+                    fields: vec![Value::Text("first".into()), Value::Text("second".into())].into(),
+                },
+            ]),
+        );
+        bindings.facts.insert(
+            pse_modeling::analysis::Fact::Stage("warm".into()),
+            Value::Boolean(true),
+        );
+        let request = PreparationDiscoveryRequest {
+            root,
+            instance: pse_modeling::specialize::root_instance(root),
+            bindings,
+            limits: Limits::default(),
+            durable_after: None,
+        };
+        let bytes = crate::boundary_documents::Wire::FlatV2
+            .to_vec(&request)
+            .unwrap();
+        let mut json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(json["document_version"], 2);
+        let tuple = &json["bindings"]["arguments"]["values"]["Tuple"];
+        assert_eq!(
+            tuple[0]["Number"]["bits"],
+            serde_json::json!(0x8000_0000_0000_0000_u64)
+        );
+        assert_eq!(
+            tuple[0]["Number"]["quantity"],
+            serde_json::json!("32323232323232323232323232323232")
+        );
+        assert_eq!(tuple[1], "Missing");
+        assert_eq!(tuple[2]["Set"][0]["Integer"], 7);
+        assert_eq!(tuple[3]["Row"]["names"], serde_json::json!(["z", "a"]));
+        assert_eq!(
+            json["bindings"]["facts"][0][0],
+            serde_json::json!({"Stage": "warm"})
+        );
+        let decoded: PreparationDiscoveryRequest = crate::boundary_documents::Wire::FlatV2
+            .decode_slice(&bytes)
+            .unwrap();
+        assert_eq!(decoded.bindings, request.bindings);
+        json["document_version"] = serde_json::json!(1);
+        assert!(
+            crate::boundary_documents::Wire::FlatV2
+                .decode_slice::<PreparationDiscoveryRequest>(&serde_json::to_vec(&json).unwrap())
+                .is_err()
+        );
+        json["document_version"] = serde_json::json!(2);
+        let duplicate = json["bindings"]["facts"][0].clone();
+        json["bindings"]["facts"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        let refusal = crate::boundary_documents::Wire::FlatV2
+            .decode_slice::<PreparationDiscoveryRequest>(&serde_json::to_vec(&json).unwrap())
+            .unwrap_err();
+        assert!(
+            refusal
+                .inner()
+                .to_string()
+                .contains("duplicate structural fact")
+        );
+        assert_eq!(
+            refusal.location().category,
+            pse_model::document::DecodeCategory::Data
+        );
+    }
 
     fn declarations(source: &str) -> Vec<Declaration> {
         pse_authoring::language::parse(

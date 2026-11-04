@@ -17,45 +17,54 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use surrealdb_types::Object;
 
+pse_model::projection_struct! {
 /// Continuation bound to the original issuing authority and immutable source.
 /// It conveys no payload access or receiving compatibility.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProductHeaderCursor {
-    issuing_store: String,
-    problem: String,
-    revision: String,
-    after: String,
+    projection: { name: "ProductHeaderCursor", version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    issuing_store: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    problem: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    revision: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    after: String => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Compact original publication provenance. Scientific payloads are never read.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProductHeader {
+    projection: { name: "ProductHeader", version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Original association and request lookup identity.
-    pub key: String,
+    pub key: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Exact original canonical source, not receiving compatibility.
-    pub revision: String,
+    pub revision: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original producer namespace; no runtime qualification is implied.
-    pub producer: String,
+    pub producer: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Source-owned producer capability class; receipt text confers no class.
-    pub producer_class: CanonicalProducerClass,
+    pub producer_class: CanonicalProducerClass => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Native scientific interpretation recorded at publication.
-    pub interpretation: String,
+    pub interpretation: String => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original content and dependency descriptor reference.
-    pub descriptor: String,
+    pub descriptor: String => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original sealed payload identity; no bytes are hydrated.
-    pub content: String,
+    pub content: String => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Original sealed receipt identity; no bytes are hydrated.
-    pub receipt: String,
+    pub receipt: String => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// One bounded observational page of currently rooted original publications.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProductHeaderPage {
+    projection: { name: "ProductHeaderPage", version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Present original publications. Presence never establishes receiving eligibility.
-    pub rows: Vec<ProductHeader>,
+    pub rows: Vec<ProductHeader> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Continue under this same exact authority/source selection.
-    pub next: Option<ProductHeaderCursor>,
+    pub next: Option<ProductHeaderCursor> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
 }
 
 /// Reserved writer role for compiler-issued descriptions eligible for scientific replay.

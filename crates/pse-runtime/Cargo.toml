@@ -17,7 +17,8 @@ publish.workspace = true
 workspace = true
 
 [features]
-property-coolprop = ["pse-backend-native/coolprop"]
+engineering-service = ["dep:http-body"]
+property-coolprop = ["pse-backend-native/coolprop", "pse-quantity/reference-package-projection"]
 force-validate = [
   "pse-admission/force-validate",
   "pse-columnar/force-validate",
@@ -69,6 +70,15 @@ native-solvers = [
 
 [dependencies]
 pse-host.workspace = true
+buffa.workspace = true
+buffa-descriptor.workspace = true
+buffa-types.workspace = true
+connectrpc = { workspace = true, features = ["client", "server"] }
+hyper.workspace = true
+hyper-util.workspace = true
+http-body = { workspace = true, optional = true }
+tower-service.workspace = true
+protovalidate-buffa.workspace = true
 clap = { workspace = true, optional = true }
 tempfile.workspace = true
 datafusion-pruning.workspace = true
@@ -152,6 +162,28 @@ pse-relations = { workspace = true, features = ["test-support"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
 datafusion-common.workspace = true
 tokio.workspace = true
+
+[[package.metadata.pse.test-fixtures]]
+id = "prepared-scientific-worker-measurement"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["property-coolprop"]
+ownership = "preparation-only"
+inputs = ["scientific-worker"]
+scope.tests = ["scientific_worker::measurements::complete_water_calls_measure_fresh_and_reused_bindings_with_actual_reap"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "prepared-scientific-worker-equipment"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["property-coolprop", "solver-kinsol"]
+ownership = "preparation-only"
+inputs = ["scientific-worker", "scientific-inputs"]
+scope.tests = [
+  "workflow::modeling::steam_tests::authored_liquid_pump_through_prepared_scientific_worker_keeps_original_controls",
+  "workflow::modeling::steam_tests::authored_steam_turbine_through_prepared_scientific_worker_keeps_original_controls",
+  "workflow::modeling::steam_tests::authored_hot_steam_turbine_through_prepared_scientific_worker_keeps_original_controls",
+]
 
 # Runtime fixture requirements are authored beside their consumers, not inferred by the host.
 [[package.metadata.pse.test-fixtures]]
@@ -280,6 +312,7 @@ scope.modules = [
 ]
 scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_candidate_reserves_before_protected_hydration",
+  "host_operations::engineering::session::tests::canonical_engineering_original_run_survives_lost_waiter_and_service_retirement",
   "workflow::modeling::ordinary_delivery_tests::ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_operation_reopens_complete_success_and_failure_history",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_root_response_reopens_scoped_permission",
@@ -406,6 +439,7 @@ target = "pse_runtime"
 kind = "lib"
 ownership = "preparation-only"
 inputs = ["scientific-inputs"]
+scope.modules = ["workflow::modeling::steam_tests"]
 scope.tests = [
   "workflow::modeling::forms_tests::authored_gdp_fixture_selects_the_enumerated_alternative",
   "workflow::modeling::conformance::tests::authored_milp_routes_to_highs",
@@ -504,6 +538,37 @@ required-features = ["product-operators"]
 name = "pse-project"
 path = "src/bin/pse-project.rs"
 required-features = ["product-reader"]
+
+[[bin]]
+name = "pse-scientific-worker"
+path = "src/bin/scientific_worker.rs"
+required-features = ["property-coolprop"]
+
+[[bin]]
+name = "pse-engineering"
+path = "src/bin/pse-engineering.rs"
+required-features = ["engineering-service", "product-reader"]
+
+[[bin]]
+name = "pse-engineering-fixture"
+path = "src/bin/pse-engineering-fixture.rs"
+required-features = ["native-study-tests", "product-reader"]
+
+[[test]]
+name = "scientific_worker"
+required-features = ["property-coolprop"]
+
+[[test]]
+name = "engineering_service"
+required-features = ["engineering-service", "solver-kinsol"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "prepared-engineering-client"
+target = "engineering_service"
+kind = "test"
+required-features = ["engineering-service", "solver-kinsol"]
+ownership = "preparation-only"
+inputs = ["engineering-endpoint"]
 
 [[bin]]
 name = "pse-observation-fixture"

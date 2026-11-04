@@ -67,6 +67,395 @@ impl PartialEq for ReferenceQuantityTypesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "RegistryPhysicalQuantityType",
+                "crates/pse-schema/src/catalog/s6_2_physical.rs",
+                1u32,
+                crate::boundary_projection::Direction::Output,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::QuantityTypeId,
+                            >(
+                                    graph,
+                                    "quantity_type_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.doc".into(), "quantity_type_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "quantity_type".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "name",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "name".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::QuantityKindId,
+                            >(
+                                    graph,
+                                    "quantity_kind_id",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "quantity_kind_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.fk.column".into(), "quantity_kind_id".into()),
+                                        (
+                                            "pse.domain.fk.relation".into(),
+                                            "reference.quantity_kinds".into(),
+                                        ),
+                                        ("pse.domain.identity".into(), "quantity_kind".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::BasisId>,
+                            >(
+                                    graph,
+                                    "basis_id",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "basis_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.fk.column".into(), "basis_id".into()),
+                                        ("pse.domain.fk.relation".into(), "reference.bases".into()),
+                                        ("pse.domain.identity".into(), "basis".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::ReferenceStateId>,
+                            >(
+                                    graph,
+                                    "reference_state_id",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.doc".into(), "reference_state_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        (
+                                            "pse.domain.fk.column".into(),
+                                            "reference_state_id".into(),
+                                        ),
+                                        (
+                                            "pse.domain.fk.relation".into(),
+                                            "reference.reference_states".into(),
+                                        ),
+                                        ("pse.domain.identity".into(), "reference_state".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ScaleKind,
+                            >(
+                                    graph,
+                                    "scale_kind",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.doc".into(), "scale_kind".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "ScaleKind".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "shape",
+                                    7u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.doc".into(), "shape".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::EntityKindId>,
+                            >(
+                                    graph,
+                                    "subject_kind",
+                                    8u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        ("pse.domain.doc".into(), "subject_kind".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "entity_kind".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::UnitId,
+                            >(
+                                    graph,
+                                    "canonical_unit_id",
+                                    9u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.doc".into(), "canonical_unit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.fk.column".into(), "unit_id".into()),
+                                        ("pse.domain.fk.relation".into(), "reference.units".into()),
+                                        ("pse.domain.identity".into(), "unit".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "nominal_magnitude",
+                                    10u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ("pse.domain.doc".into(), "nominal_magnitude".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "doc",
+                                    11u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "11".into()),
+                                        ("pse.domain.doc".into(), "doc".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ReferenceQuantityTypesRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "quantity_type_id"),
+        (2u32, "name"),
+        (3u32, "quantity_kind_id"),
+        (4u32, "basis_id"),
+        (5u32, "reference_state_id"),
+        (6u32, "scale_kind"),
+        (7u32, "shape"),
+        (8u32, "subject_kind"),
+        (9u32, "canonical_unit_id"),
+        (10u32, "nominal_magnitude"),
+        (11u32, "doc"),
+    ];
+    type Fields = (
+        crate::generated::identities::QuantityTypeId,
+        Option<String>,
+        crate::generated::identities::QuantityKindId,
+        Option<crate::generated::identities::BasisId>,
+        Option<crate::generated::identities::ReferenceStateId>,
+        crate::generated::enums::ScaleKind,
+        Vec<pse_ids::SemanticId>,
+        Option<crate::generated::identities::EntityKindId>,
+        crate::generated::identities::UnitId,
+        Option<f64>,
+        String,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#quantity_type_id,
+            self.r#name,
+            self.r#quantity_kind_id,
+            self.r#basis_id,
+            self.r#reference_state_id,
+            self.r#scale_kind,
+            self.r#shape,
+            self.r#subject_kind,
+            self.r#canonical_unit_id,
+            self.r#nominal_magnitude,
+            self.r#doc,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#quantity_type_id,
+            r#name,
+            r#quantity_kind_id,
+            r#basis_id,
+            r#reference_state_id,
+            r#scale_kind,
+            r#shape,
+            r#subject_kind,
+            r#canonical_unit_id,
+            r#nominal_magnitude,
+            r#doc,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#quantity_type_id,
+            r#name,
+            r#quantity_kind_id,
+            r#basis_id,
+            r#reference_state_id,
+            r#scale_kind,
+            r#shape,
+            r#subject_kind,
+            r#canonical_unit_id,
+            r#nominal_magnitude,
+            r#doc,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ReferenceQuantityTypesRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false
+        || <crate::generated::identities::QuantityTypeId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::QuantityKindId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            crate::generated::identities::BasisId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            crate::generated::identities::ReferenceStateId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ScaleKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Vec<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            crate::generated::identities::EntityKindId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::UnitId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#quantity_type_id,
+                &crate::boundary_projection::field_path(path, "quantity_type_id"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#name,
+                &crate::boundary_projection::field_path(path, "name"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#quantity_kind_id,
+                &crate::boundary_projection::field_path(path, "quantity_kind_id"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#basis_id,
+                &crate::boundary_projection::field_path(path, "basis_id"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#reference_state_id,
+                &crate::boundary_projection::field_path(path, "reference_state_id"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#scale_kind,
+                &crate::boundary_projection::field_path(path, "scale_kind"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#shape,
+                &crate::boundary_projection::field_path(path, "shape"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#subject_kind,
+                &crate::boundary_projection::field_path(path, "subject_kind"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#canonical_unit_id,
+                &crate::boundary_projection::field_path(path, "canonical_unit_id"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#nominal_magnitude,
+                &crate::boundary_projection::field_path(path, "nominal_magnitude"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#doc,
+                &crate::boundary_projection::field_path(path, "doc"),
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = ReferenceQuantityTypesRow;
 impl crate::SemanticFrame for ReferenceQuantityTypesRow {

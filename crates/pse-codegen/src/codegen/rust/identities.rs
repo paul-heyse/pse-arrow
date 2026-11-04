@@ -94,6 +94,13 @@ pub(super) fn emit(
                     fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> { Ok(()) }
                     fn projection_length(&self) -> Option<usize> { Some(<#base>::WIDTH) }
                 }
+                impl crate::boundary_projection::ProjectionRecord for #name {
+                    const VERSION: u32 = 1;
+                    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+                    type Fields = (#base,);
+                    fn into_projection_fields(self) -> Self::Fields { (self.as_id(),) }
+                    fn from_projection_fields((id,): Self::Fields) -> Result<Self, crate::boundary_projection::AdapterError> { Ok(Self::from_id(id)) }
+                }
             });
         }
         model_traits.push(quote! {

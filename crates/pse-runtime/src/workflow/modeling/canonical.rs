@@ -16,10 +16,18 @@ use std::{
     sync::Arc,
 };
 mod delta;
+mod header_projection;
 #[cfg(test)]
 mod incremental_tests;
 mod local;
 mod rebind;
+
+struct DeclarationProjectionPage<T> {
+    total: usize,
+    rows: Vec<T>,
+    leases: Vec<Arc<pse_columnar::AllocationLease>>,
+    frame: Arc<pse_columnar::AllocationLease>,
+}
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
 use local::{
     LocalInventory, LocalSourceObject, SourceMember, TypedObjectPayload, TypedSourceInputs,
@@ -1830,6 +1838,23 @@ impl ModelingPackage {
         id: DeclarationId,
         object: &LocalSourceObject,
     ) -> Result<(Declaration, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+        Self::project_declaration(
+            services,
+            id,
+            object,
+            "modeling:selected-declaration-copy",
+            |row| row.owned_bytes(),
+            Clone::clone,
+        )
+    }
+    fn project_declaration<T>(
+        services: &crate::workflow::PreparationServices,
+        id: DeclarationId,
+        object: &LocalSourceObject,
+        consumer: &str,
+        extent: impl FnOnce(&Declaration) -> usize,
+        project: impl FnOnce(&Declaration) -> T,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), WorkflowError> {
         let source = object
             .declaration
             .as_ref()
@@ -1839,11 +1864,10 @@ impl ModelingPackage {
                 "ordered declaration identity differs from admitted body",
             ));
         }
-        let lease = services.math().reserve(
-            "modeling:selected-declaration-copy",
-            source.0.owned_bytes().saturating_add(8192),
-        )?;
-        Ok((source.0.clone(), lease))
+        let lease = services
+            .math()
+            .reserve(consumer, extent(&source.0).saturating_add(8192))?;
+        Ok((project(&source.0), lease))
     }
     /// Both complete and paged inspection consume the same authenticated order.
     /// Editing products are built only by the edit path, never as a read side effect.
@@ -1855,31 +1879,69 @@ impl ModelingPackage {
         selected: Option<&BTreeSet<DeclarationId>>,
         cancel: &crate::CancelSource,
     ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
+        let page = self.ordered_declaration_projection(
+            services,
+            offset,
+            limit,
+            selected,
+            cancel,
+            "modeling:selected-declaration-copy",
+            |row| row.owned_bytes(),
+            Clone::clone,
+        )?;
+        let mut leases = page.leases;
+        leases.push(page.frame);
+        Ok((
+            page.total,
+            super::OwnedDeclarations {
+                rows: page.rows,
+                _leases: leases,
+            },
+        ))
+    }
+    fn ordered_declaration_projection<T>(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        offset: usize,
+        limit: usize,
+        selected: Option<&BTreeSet<DeclarationId>>,
+        cancel: &crate::CancelSource,
+        consumer: &str,
+        extent: impl Fn(&Declaration) -> usize,
+        project: impl Fn(&Declaration) -> T,
+    ) -> Result<DeclarationProjectionPage<T>, WorkflowError> {
         self.check_service_bindings(services)?;
         checkpoint(cancel)?;
         let (frame, frame_lease) = self
             .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
         let total = frame.order.len();
         let capacity = limit.min(total.saturating_sub(offset));
-        let mut rows = Vec::with_capacity(selected.map_or(capacity, |ids| capacity.min(ids.len())));
-        let mut leases = vec![frame_lease];
+        let capacity = selected.map_or(capacity, |ids| capacity.min(ids.len()));
+        let index = services.math().reserve(
+            "modeling:declaration-page-index",
+            capacity
+                .checked_mul(size_of::<T>())
+                .ok_or_else(|| contract("declaration page index extent overflow"))?,
+        )?;
+        let mut rows = Vec::with_capacity(capacity);
+        let mut leases = vec![index];
         for id in frame.order.iter().skip(offset).take(limit) {
             checkpoint(cancel)?;
             if selected.is_some_and(|ids| !ids.contains(id)) {
                 continue;
             }
             let object = self.local_object(&logical(*id))?;
-            let (row, lease) = Self::copy_declaration(services, *id, &object)?;
+            let (row, lease) =
+                Self::project_declaration(services, *id, &object, consumer, &extent, &project)?;
             leases.push(lease);
             rows.push(row);
         }
-        Ok((
+        Ok(DeclarationProjectionPage {
             total,
-            super::OwnedDeclarations {
-                rows,
-                _leases: leases,
-            },
-        ))
+            rows,
+            leases,
+            frame: frame_lease,
+        })
     }
     /// Explicit fitting inventory from the owned immutable source and its allocations.
     pub async fn fit_declarations(
@@ -3435,7 +3497,7 @@ mod tests {
         ));
         checkpoint(&crate::CancelSource::new()).unwrap();
     }
-    fn parse(source: &str) -> Vec<Declaration> {
+    pub(super) fn parse(source: &str) -> Vec<Declaration> {
         pse_authoring::language::parse(
             source,
             SemanticId::NIL,

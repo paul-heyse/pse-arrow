@@ -5,6 +5,7 @@
 
 mod alternative;
 mod arguments;
+mod boundary;
 pub(crate) mod canonical;
 mod columnar;
 mod contracts;

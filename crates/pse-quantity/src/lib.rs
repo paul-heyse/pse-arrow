@@ -48,12 +48,13 @@
 
 pub mod admission;
 pub mod basis;
+pub mod boundary;
 pub mod conversion;
 pub mod dimension;
 pub mod enums;
 pub mod error;
 /// Arrow-free projection of explicitly selected reference package documents.
-#[cfg(feature = "fixtures")]
+#[cfg(feature = "reference-package-projection")]
 #[rustfmt::skip]
 pub mod generated;
 pub mod entity_kind;

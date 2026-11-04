@@ -3,6 +3,43 @@
 
 use super::*;
 
+#[test]
+fn optional_unsigned_rules_constrain_present_values_without_requiring_a_deadline() {
+    projection_struct! {
+        struct OptionalDeadline {
+            projection: { name: "OptionalDeadline", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+            remaining_ns: Option<u64> => { tag: 10, direction: Direction::Input,
+                rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+        }
+    }
+    let graph = ProjectionGraph::of::<OptionalDeadline>().unwrap();
+    let Shape::Record(fields) = &graph.definitions()["OptionalDeadline"].shape else {
+        panic!("actual optional scalar owner")
+    };
+    assert_eq!(
+        fields[0].ty,
+        TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::U64)))
+    );
+    for remaining_ns in [None, Some(1), Some(u64::MAX)] {
+        OptionalDeadline { remaining_ns }
+            .validate_projection()
+            .unwrap();
+    }
+    assert!(
+        OptionalDeadline {
+            remaining_ns: Some(0)
+        }
+        .validate_projection()
+        .is_err()
+    );
+    let range = LocalRule::UnsignedRange { min: 1, max: 10 };
+    assert!(validate_field(&None::<u32>, "required", &[range, LocalRule::Required]).is_err());
+    assert!(validate_field(&Some(11_u32), "required", &[LocalRule::Required, range]).is_err());
+    validate_field(&Some(10_u32), "required", &[LocalRule::Required, range]).unwrap();
+    validate_field(&Some(Box::new(10_u64)), "boxed", &[range]).unwrap();
+    assert!(validate_field(&Some(Box::new(11_u64)), "boxed", &[range]).is_err());
+}
+
 projection_enum! {
     #[derive(Debug)]
     enum Recursive {
@@ -96,6 +133,7 @@ fn duplicate_reserved_and_invalid_tags_refuse() {
                             ty: TypeRef::Scalar(Scalar::U32),
                             direction: Direction::Both,
                             rules: vec![],
+                            named_facets: Default::default(),
                         })
                         .collect(),
                 ))
@@ -121,6 +159,7 @@ fn public_name_collisions_and_wrong_type_rules_refuse() {
                 ty: TypeRef::Scalar(Scalar::F64Bits),
                 direction: Direction::Both,
                 rules: vec![LocalRule::UnsignedRange { min: 0, max: 1 }],
+                named_facets: Default::default(),
             }]))
         });
     assert!(bad_rule.is_err());
@@ -184,4 +223,225 @@ fn one_owner_rule_validates_native_values_with_exact_field_paths() {
     )
     .unwrap();
     assert!(validate_field(&None::<u32>, "optional", &[LocalRule::Required]).is_err());
+}
+
+#[test]
+fn typed_access_preserves_private_fields_and_explicit_alternative_tags() {
+    let request = Request {
+        limit: 17,
+        nested: Some(vec![Some(Recursive::Number(-0.0))]),
+    };
+    assert_eq!(
+        <Request as ProjectionRecord>::FIELD_LAYOUT,
+        &[(7, "limit"), (2, "nested")]
+    );
+    let (limit, nested) = request.into_projection_fields();
+    let request = Request::from_projection_fields((limit, nested)).unwrap();
+    assert_eq!(request.limit, 17);
+    let alternative = request.nested.unwrap().remove(0).unwrap();
+    let (number,) =
+        <Recursive as ProjectionAlternative<2>>::into_projection_alternative(alternative).unwrap();
+    assert_eq!(number.to_bits(), 0x8000_0000_0000_0000);
+    let missing = <Recursive as ProjectionAlternative<1>>::from_projection_alternative(());
+    assert!(<Recursive as ProjectionAlternative<2>>::into_projection_alternative(missing).is_err());
+}
+
+#[test]
+fn quantity_callbacks_follow_actual_fields_and_checked_canonical_components() {
+    let graph = ProjectionGraph::of::<pse_quantity::QuantityType>().unwrap();
+    assert_eq!(
+        <pse_quantity::QuantityType as ProjectionRecord>::FIELD_LAYOUT,
+        &[
+            (1, "id"),
+            (2, "name"),
+            (3, "key"),
+            (4, "canonical_unit"),
+            (5, "nominal_magnitude")
+        ]
+    );
+    assert!(graph.definitions().contains_key("QuantityTypeKey"));
+    let ratio = <pse_quantity::Ratio as ProjectionRecord>::from_projection_fields((1, 2)).unwrap();
+    assert_eq!(ratio, pse_quantity::Ratio::new(1, 2).unwrap());
+    for components in [(2, 4), (1, 0), (1, -2), (0, 2)] {
+        assert!(
+            <pse_quantity::Ratio as ProjectionRecord>::from_projection_fields(components).is_err(),
+            "unreduced/negative/zero denominator must not normalize at the boundary"
+        );
+    }
+    let graph = ProjectionGraph::of::<pse_quantity::DimensionVector>().unwrap();
+    let Shape::Record(fields) = &graph.definitions()["Array8PhysicalRatio"].shape else {
+        panic!("fixed array wrapper")
+    };
+    assert_eq!(fields[0].rules, [LocalRule::Length { min: 8, max: 8 }]);
+    assert!(
+        <[pse_quantity::Ratio; 8] as ProjectionRecord>::from_projection_fields((vec![ratio; 7],))
+            .is_err()
+    );
+    assert_eq!(
+        <[pse_quantity::Ratio; 8] as ProjectionRecord>::from_projection_fields((vec![ratio; 8],))
+            .unwrap(),
+        [ratio; 8]
+    );
+    let graph = ProjectionGraph::of::<pse_quantity::Unit>().unwrap();
+    assert!(graph.definitions().contains_key("PhysicalDimensionVector"));
+    assert!(graph.definitions().contains_key("PhysicalRatio"));
+    assert!(graph.definitions().contains_key("ReferenceStateId"));
+}
+
+#[test]
+fn scalar_containers_skip_recursive_walk_but_keep_field_extent_and_owner_predicates() {
+    use std::cell::Cell;
+    struct Leaf<'a>(&'a Cell<usize>);
+    impl ValidateProjection for Leaf<'_> {
+        const NEEDS_RECURSIVE_VALIDATION: bool = false;
+        fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+            self.0.set(self.0.get() + 1);
+            Ok(())
+        }
+    }
+    struct Owner<'a>(&'a Cell<usize>);
+    impl ValidateProjection for Owner<'_> {
+        fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+            self.0.set(self.0.get() + 1);
+            Ok(())
+        }
+    }
+    let count = Cell::new(0);
+    let leaves = vec![Leaf(&count), Leaf(&count)];
+    validate_field(&leaves, "bytes", &[LocalRule::Length { min: 2, max: 2 }]).unwrap();
+    assert_eq!(
+        count.get(),
+        0,
+        "leaf promises avoid per-element traversal/path allocation"
+    );
+    assert!(validate_field(&leaves, "bytes", &[LocalRule::Length { min: 0, max: 1 }]).is_err());
+    vec![Owner(&count), Owner(&count)]
+        .validate_projection()
+        .unwrap();
+    assert_eq!(
+        count.get(),
+        2,
+        "custom native owner remains conservative by default"
+    );
+    assert!(
+        validate_field(
+            &"é".to_owned(),
+            "name",
+            &[LocalRule::Utf8Bytes { min: 0, max: 1 }]
+        )
+        .is_err()
+    );
+    validate_field(
+        &"é".to_owned(),
+        "name",
+        &[LocalRule::Length { min: 1, max: 1 }],
+    )
+    .unwrap();
+}
+
+#[test]
+fn explicitly_local_payload_custody_is_excluded_from_the_wire_layout() {
+    projection_enum! {
+        #[derive(Debug)]
+        enum Retained {
+            projection: { name: "Retained", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+            Page {
+                bytes: Vec<u8> => { tag: 3, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 32 }] };
+                @local { custody: Option<std::sync::Arc<()>> = None; }
+            } => 1;
+        }
+    }
+    let owner = std::sync::Arc::new(());
+    let native = Retained::Page {
+        bytes: vec![1, 2],
+        custody: Some(owner.clone()),
+    };
+    let Retained::Page { custody, .. } = &native;
+    assert!(custody.is_some());
+    assert_eq!(std::sync::Arc::strong_count(&owner), 2);
+    let fields =
+        <Retained as ProjectionAlternative<1>>::into_projection_alternative(native).unwrap();
+    assert_eq!(fields, (vec![1, 2],));
+    assert_eq!(std::sync::Arc::strong_count(&owner), 1);
+    let restored = <Retained as ProjectionAlternative<1>>::from_projection_alternative(fields);
+    let Retained::Page { custody, .. } = restored;
+    assert!(
+        custody.is_none(),
+        "native allocation authority cannot be reconstructed from wire data"
+    );
+    let graph = ProjectionGraph::of::<Retained>().unwrap();
+    let Shape::Alternatives(alternatives) = &graph.definitions()["Retained"].shape else {
+        panic!("owner enum")
+    };
+    assert_eq!(alternatives[0].fields.len(), 1);
+    assert_eq!(alternatives[0].fields[0].tag, 3);
+}
+
+#[test]
+fn method_effects_are_explicit_original_facts_and_cannot_be_annotated_twice() {
+    use crate::operation_effects::EffectFacts;
+    assert!(
+        Service::new("Selected")
+            .effects(EffectFacts::OBSERVATION)
+            .is_err()
+    );
+    let mut graph = ProjectionGraph::default();
+    let service = Service::new("Selected")
+        .unary::<Request, Recursive>(&mut graph, "Inspect")
+        .unwrap();
+    assert_eq!(service.methods[0].effects, None);
+    let service = service.effects(EffectFacts::OBSERVATION).unwrap();
+    assert_eq!(service.methods[0].effects, Some(EffectFacts::OBSERVATION));
+    assert!(
+        service
+            .clone()
+            .effects(EffectFacts::CANONICAL_COMMAND)
+            .is_err()
+    );
+    graph.service(service).unwrap();
+    assert!(
+        graph.services()["Selected"].methods[0]
+            .effects
+            .unwrap()
+            .read_only
+    );
+}
+
+#[test]
+fn overlapping_rule_families_and_unrepresentable_collection_presence_refuse() {
+    for (ty, rules) in [
+        (
+            TypeRef::Scalar(Scalar::U64),
+            vec![
+                LocalRule::UnsignedRange { min: 1, max: 5 },
+                LocalRule::UnsignedRange { min: 2, max: 7 },
+            ],
+        ),
+        (
+            TypeRef::Repeated(Box::new(TypeRef::Scalar(Scalar::U64))),
+            vec![LocalRule::Required],
+        ),
+    ] {
+        let mut graph = ProjectionGraph::default();
+        assert!(
+            graph
+                .declare::<Request>(
+                    "UnsupportedRules",
+                    file!(),
+                    1,
+                    Direction::Both,
+                    &[],
+                    &[],
+                    |_| Ok(Shape::Record(vec![Field {
+                        name: "value".into(),
+                        tag: 1,
+                        ty,
+                        direction: Direction::Both,
+                        rules,
+                        named_facets: Default::default()
+                    },]))
+                )
+                .is_err()
+        );
+    }
 }

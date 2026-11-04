@@ -1,6 +1,6 @@
 ---
 title: "Plan64j: Engineering services and clients"
-status: planned
+status: in-progress
 date: 2026-11-03
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -121,6 +121,14 @@ repeatability contract; changed request under the same identity refuses. Nonrepe
 or export cannot be declared safely replayable by an RPC annotation. Ambiguous acknowledgement
 resolves status/receipt at the original owner; it never silently creates another computation.
 
+Run submission binds the actual native preparation identity as well as its service-local
+operation name. That identity participates in the retained whole-request fingerprint and
+must match a live preparation before dispatch. An exact original envelope can resolve its
+canonical registration after service retirement without reconstructing preparation; a new
+preparation with the same local name cannot silently substitute different science. The
+initial unreleased v1 adds this explicit field before first publication; the earlier draft
+without it is not an accepted compatibility contract.
+
 Status, cancellation and retained products address the original identity. Cancellation requests
 cooperative stop through the existing owner; accepted cancellation is distinct from native
 settlement. Diagnostic-only structural outcomes, failed siblings, unavailable products and
@@ -173,11 +181,11 @@ J progress. Local acceptance names intended tests, not tests already written or 
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| J01 | planned | Co-design 64i's first project action, preparation/inspection and scoped completion contracts; agree operation identities/effects and error categories before bindings harden. | Shared typed library handlers replace binary dispatch; the CLI uses them. Owner-local handler/CLI tests challenge read without scientific construction, source/context refusal and identical typed outcomes. Delete migrated binary dispatch/conversion choreography and its mechanism-only tests. |
-| J02 | planned | J01 plus 64i's generated service projection, constraints and typed edit slice. | Explicit authenticated local hosting and an independent generated Rust client work. Local transport tests reject stale/replaced/unauthorized peers on initial and reconnected connections, and verify no read implicitly prepares. Delete replaced service-specific wire mappings; retain distinct native JSON presentation only where consumed. |
-| J03 | planned | J02 plus working native edit/preparation/study handlers. | Inspect/edit/prepare/submit/status/cancel/read products work end to end. Typed owner/client tests include add/replace/delete/retain, stale parent, missing/default distinctions, intended science failure, duplicate original request and changed-request conflict. Remove replaced B/C adapters/callers/fixtures together. |
-| J04 | planned | J03's original operation ownership and retained reads. | Observational progress, reconnect, bounded observer release and shutdown work. Drop observation while work continues, reconnect to the original run, lose a submit ACK, request cancellation and prove actual settlement separately. No automatic submit replay; remove duplicated polling/status translations where replaced. |
-| J05 | planned | 64i's producer-selection slice plus J03/J04 real responses. | Runtime/client I06 producer/encode/consume paths use selected responses. Selected/full/empty and malformed nested read tests cover continuation, retained buffer release, extent refusal, cancellation and partial output. Delete duplicated projection/extent passes only with equivalent protection. No latency/memory benefit claim without whole-lifetime measurement. |
+| J01 | in-progress | Co-design 64i's first project action, preparation/inspection and scoped completion contracts; agree operation identities/effects and error categories before bindings harden. | Shared typed library handlers replace binary dispatch; the CLI uses them. Owner-local handler/CLI tests challenge read without scientific construction, source/context refusal and identical typed outcomes. Delete migrated binary dispatch/conversion choreography and its mechanism-only tests. |
+| J02 | in-progress | J01 plus 64i's generated service projection, constraints and typed edit slice. | Explicit authenticated local hosting and an independent generated Rust client work. Local transport tests reject stale/replaced/unauthorized peers on initial and reconnected connections, and verify no read implicitly prepares. Delete replaced service-specific wire mappings; retain distinct native JSON presentation only where consumed. |
+| J03 | in-progress | J02 plus working native edit/preparation/study handlers. | Inspect/edit/prepare/submit/status/cancel/read products work end to end. Typed owner/client tests include add/replace/delete/retain, stale parent, missing/default distinctions, intended science failure, duplicate original request and changed-request conflict. Remove replaced B/C adapters/callers/fixtures together. |
+| J04 | in-progress | J03's original operation ownership and retained reads. | Observational progress, reconnect, bounded observer release and shutdown work. Drop observation while work continues, reconnect to the original run, lose a submit ACK, request cancellation and prove actual settlement separately. No automatic submit replay; remove duplicated polling/status translations where replaced. |
+| J05 | in-progress | 64i's producer-selection slice plus J03/J04 real responses. | Runtime/client I06 producer/encode/consume paths use selected responses. Selected/full/empty and malformed nested read tests cover continuation, retained buffer release, extent refusal, cancellation and partial output. Delete duplicated projection/extent passes only with equivalent protection. No latency/memory benefit claim without whole-lifetime measurement. |
 | J06 | planned | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Independent client delivery is qualified and handed off. Assembled inspect/edit/prepare/study/readback journey includes original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown. Delete any remaining replaced route; reconcile support and permissions with 64h H05/H07. |
 
 J01 and 64i's first contract slice proceed together; neither waits for a universal catalogue.
@@ -188,6 +196,28 @@ J05 selection changes coordinate shared producer files with 64i and their 64h co
 provider availability field should project its existing owner without a new dispatch engine.
 An E/F distributed/cyclic case challenges actual axes/events/capability inspection and retained
 products; advertising an event never implies unsupported integrator sensitivities.
+
+## Current implementation checkpoint — 2026-11-03
+
+Shared library handlers now serve the project CLI and generated engineering transport.
+Source admission, exact-parent file edits, selected declaration headers, original source-file
+reads, full physical inspection, preparation discovery and declared-case preparation/run
+have working native owners. The descriptor world and source-owned effect declarations
+reach the independent client. Connections authenticate the original managed service payload;
+retained native tasks own work independently of a dropped transport waiter. Status,
+cancellation, progress and selected Arrow IPC reads address original run identities.
+
+Focused local controls cover source retention, unknown ingress, outgoing validation,
+multibyte byte bounds, pending cancellation, progress and shutdown. Canonical lost-ACK
+retirement and the separately managed service/client journey are still being verified.
+Independent review identified self-referencing dependency/shutdown, preparation-name reuse,
+same-PID executable replacement, ephemeral result-attempt matching and aggregate ingress
+accounting gaps. Corrections and focused controls remain in this implementation slice;
+the earlier passing controls do not establish those corrected behaviors.
+The initial run frontend covers declared algebraic cases; actual StudyRequest preparation,
+issued canonical study creation, all serializable operation families, bounded study/cohort
+products and native modeling/provider inspection remain required J scope. An algebraic
+journey does not close these obligations or qualify the broader D–G scientific families.
 
 ## Verification and completion
 
@@ -206,6 +236,9 @@ through settlement and G08-backed protected study readback. Publish enduring con
 the coordinator's architecture/ADR route and retire completed planning material by the existing
 lifecycle policy. At close, record built behavior, a mistake corrected and deliberate deviations.
 
-**Outcome:** Proposed delivery plan only. No production files, generators, builds, tests,
-reference runs or measurements were changed or executed during this authoring work. Quantitative
-performance benefits remain unmeasured; J01–J06 and their qualification obligations remain open.
+**Current checkpoint:** Full execution is authorized. The CLI delegates to the shared native
+project handler. Source-owned engineering service contracts and the original-operation
+session core are implemented; generated transport, full editing/readback migration and
+acceptance controls remain in progress. Disk exhaustion interrupted initial generation;
+the maintainer cleared build output, requiring cold preparation and affected reruns.
+J01–J06 completion and quantitative performance benefits remain unestablished.

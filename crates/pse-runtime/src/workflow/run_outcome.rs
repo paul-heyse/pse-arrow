@@ -8,12 +8,9 @@ use crate::workflow::{
 use std::sync::Arc;
 
 type Report<T> = Result<T, Arc<WorkflowError>>;
-type LazyRequestIdentity<'a> = Box<
-    dyn FnOnce() -> Result<(pse_ids::ContentHash, Option<pse_ids::ContentHash>), WorkflowError>
-        + Send
-        + Sync
-        + 'a,
->;
+pub(super) type RequestIdentity = (pse_ids::ContentHash, Option<pse_ids::ContentHash>);
+type LazyRequestIdentity<'a> =
+    Box<dyn FnOnce() -> Result<RequestIdentity, WorkflowError> + Send + Sync + 'a>;
 
 /// Borrowed execution-input projection; it never stores an independent request.
 #[derive(Clone, Copy, Debug)]

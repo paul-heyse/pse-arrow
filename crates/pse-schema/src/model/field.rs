@@ -54,6 +54,18 @@ impl std::hash::Hash for FieldContract {
 }
 
 impl FieldContract {
+    /// Declare a stable protobuf field number at the actual field owner.
+    /// Selected boundary assembly rejects zero, reserved or duplicate numbers.
+    #[must_use]
+    pub fn with_boundary_tag(self, number: u32) -> Self {
+        self.facet(super::field_facets::BOUNDARY_TAG, number.to_string())
+    }
+    /// Explicit wire number, never inferred from a column ordinal.
+    pub fn boundary_tag(&self) -> Option<u32> {
+        self.get(super::field_facets::BOUNDARY_TAG)
+            .and_then(|number| number.parse().ok())
+    }
+
     /// Declare a nominal opaque-text lookup domain, separate from semantic identity.
     #[must_use]
     pub fn with_canonical_key(self, kind: super::CanonicalKeyKind) -> Self {
@@ -554,13 +566,16 @@ impl FieldContract {
     /// Nested fields remain exact; no second declaration is stored.
     #[must_use]
     pub fn value_type(&self) -> Self {
-        // A native graph endpoint is a physical reference projection, not a value
-        // domain. Strip it here as well as in the generated lower-layer policy so
-        // newly declared projection facets can bootstrap their own generation.
+        // Graph endpoints and external field numbers are presentation projections,
+        // not value domains. Strip them here as well as in the generated lower-layer
+        // policy so source declarations can bootstrap that policy's generation.
         let mut field = self.0.clone();
         field
             .metadata_mut()
             .remove(super::field_facets::GRAPH_ENDPOINT);
+        field
+            .metadata_mut()
+            .remove(super::field_facets::BOUNDARY_TAG);
         Self(pse_columnar::native_field::logical_storage_type(&field))
     }
     /// Stable native type identity, with semantic extension parameters.

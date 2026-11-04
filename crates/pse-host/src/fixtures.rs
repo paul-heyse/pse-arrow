@@ -56,6 +56,10 @@ pub enum Input {
     ServiceHelper,
     /// Source-built pse-worker, retained by its artifact owner.
     Worker,
+    /// Source-built explicitly prepared scientific-provider process.
+    ScientificWorker,
+    /// Explicit original managed engineering-service readiness artifact.
+    EngineeringEndpoint,
     /// Explicit source-built/captured product reader, selected by its existing transport owner.
     ProductReader,
     /// Source-built runtime publication fixture; it constructs no database or mathematical service.
@@ -419,6 +423,7 @@ pub fn readiness(
             }
             Input::ServiceHelper
             | Input::Worker
+            | Input::ScientificWorker
             | Input::ObservationHelper
             | Input::CanonicalTools
             | Input::NativeLane

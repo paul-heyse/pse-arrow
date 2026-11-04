@@ -6,28 +6,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Supported public direction, independently of an owner's native Serde representation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Direction {
-    /// Accepted from clients.
-    Input,
-    /// Produced for clients.
-    Output,
-    /// Shared input and output meaning.
-    Both,
-}
+mod access;
+mod quantity;
+pub use access::{AdapterError, AdapterFailure, ProjectionAlternative, ProjectionRecord};
 
-impl Direction {
-    /// Whether this declaration participates in the selected projection.
-    pub const fn includes(self, selected: Self) -> bool {
-        matches!(self, Self::Both)
-            || matches!(selected, Self::Both)
-            || matches!(
-                (self, selected),
-                (Self::Input, Self::Input) | (Self::Output, Self::Output)
-            )
-    }
-}
+/// The shared public direction, independently of native Serde representation.
+pub use pse_vocabulary::BoundaryDirection as Direction;
 
 /// Primitive wire meaning. Floating point values deliberately project their exact bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +26,8 @@ pub enum Scalar {
     U8,
     /// Unsigned 64-bit value.
     U64,
+    /// Signed 16-bit native value, carried in a range-checked signed 32-bit wire scalar.
+    I16,
     /// Signed 32-bit value.
     I32,
     /// Signed 64-bit value.
@@ -94,6 +80,13 @@ pub enum LocalRule {
         /// Inclusive upper bound.
         max: u64,
     },
+    /// Inclusive UTF-8 byte bounds, distinct from Unicode scalar-value text length.
+    Utf8Bytes {
+        /// Inclusive lower bound.
+        min: u64,
+        /// Inclusive upper bound.
+        max: u64,
+    },
 }
 
 impl schemars::transform::Transform for LocalRule {
@@ -128,6 +121,9 @@ pub struct Field {
     pub direction: Direction,
     /// Owner-declared local constraints.
     pub rules: Vec<LocalRule>,
+    /// Exact resolved named registry facets for source links and documentation.
+    /// They confer no contextual scientific admission or execution permission.
+    pub named_facets: BTreeMap<String, String>,
 }
 
 impl Field {
@@ -145,7 +141,15 @@ impl Field {
             ty: T::projection(graph)?,
             direction,
             rules,
+            named_facets: BTreeMap::new(),
         })
+    }
+
+    /// Retain the actual native field annotations without interpreting a published schema.
+    #[must_use]
+    pub fn with_named_facets(mut self, facets: BTreeMap<String, String>) -> Self {
+        self.named_facets = facets;
+        self
     }
 
     /// Select a bit representation only when it agrees with the actual integer width.
@@ -194,6 +198,8 @@ pub struct Definition {
     pub name: String,
     /// Actual Rust owner identity, used to reject name collisions.
     pub rust_type: &'static str,
+    /// Nameable public Rust alias for generated adapters, when explicitly supplied.
+    pub public_rust_path: Option<String>,
     /// Source file emitted by the declaration macro.
     pub source: &'static str,
     /// Owner's interpretation version, separate from package and document versions.
@@ -219,6 +225,8 @@ pub struct Method {
     pub output: TypeRef,
     /// Whether the response is a finite or observed server stream.
     pub server_streaming: bool,
+    /// Actual operation owner's declared effects, when explicitly attached.
+    pub effects: Option<crate::operation_effects::EffectFacts>,
 }
 
 /// Source-selected service and its actual request/response roots.
@@ -264,6 +272,7 @@ impl Service {
             input,
             output,
             server_streaming: false,
+            effects: None,
         });
         Ok(self)
     }
@@ -279,6 +288,26 @@ impl Service {
             method.server_streaming = true;
         }
         Ok(service)
+    }
+
+    /// Attach original owner facts to the preceding method, without inventing defaults.
+    pub fn effects(
+        mut self,
+        effects: crate::operation_effects::EffectFacts,
+    ) -> Result<Self, ProjectionError> {
+        let method = self.methods.last_mut().ok_or_else(|| {
+            ProjectionError::invalid(
+                &self.name,
+                "effect facts require an actual preceding method",
+            )
+        })?;
+        if method.effects.replace(effects).is_some() {
+            return Err(ProjectionError::invalid(
+                &self.name,
+                "method effect facts were declared more than once",
+            ));
+        }
+        Ok(self)
     }
 }
 
@@ -341,6 +370,9 @@ impl crate::diagnostic::DiagnosticProjection for ValidationError {}
 
 /// Native validation derived by the same owner declaration as protobuf rules.
 pub trait ValidateProjection {
+    /// Whether recursive traversal can discover any additional native predicate.
+    /// The conservative default preserves validation for custom owner implementations.
+    const NEEDS_RECURSIVE_VALIDATION: bool = true;
     /// Validate all local fields, preserving the original native value.
     fn validate_projection(&self) -> Result<(), ValidationError> {
         self.validate_at("")
@@ -359,6 +391,10 @@ pub trait ValidateProjection {
     fn projection_length(&self) -> Option<usize> {
         None
     }
+    /// Actual UTF-8 byte extent, where applicable.
+    fn projection_utf8_bytes(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// Apply a declaration's local rules to the actual field and its recursive children.
@@ -368,6 +404,11 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
     rules: &[LocalRule],
 ) -> Result<(), ValidationError> {
     for rule in rules {
+        // Non-presence predicates constrain a supplied optional value. Absence is
+        // governed only by Required, matching protobuf optional-field validation.
+        if !value.projection_present() && !matches!(rule, LocalRule::Required) {
+            continue;
+        }
         let failure = match rule {
             LocalRule::Required if !value.projection_present() => {
                 Some(("required", "a present value is required".into()))
@@ -390,6 +431,17 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
             {
                 Some(("length", format!("expected inclusive length {min}..={max}")))
             }
+            LocalRule::Utf8Bytes { min, max }
+                if !value
+                    .projection_utf8_bytes()
+                    .and_then(|length| u64::try_from(length).ok())
+                    .is_some_and(|length| length >= *min && length <= *max) =>
+            {
+                Some((
+                    "utf8_bytes",
+                    format!("UTF-8 byte extent must be in {min}..={max}"),
+                ))
+            }
             _ => None,
         };
         if let Some((rule, reason)) = failure {
@@ -407,6 +459,8 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
 pub fn field_path(parent: &str, child: &str) -> String {
     if parent.is_empty() {
         child.into()
+    } else if child.is_empty() {
+        parent.into()
     } else {
         format!("{parent}.{child}")
     }
@@ -520,6 +574,7 @@ impl ProjectionGraph {
         let definition = Definition {
             name: name.into(),
             rust_type,
+            public_rust_path: None,
             source,
             version,
             direction,
@@ -530,6 +585,58 @@ impl ProjectionGraph {
         validate_definition(&definition)?;
         self.definitions.insert(name.into(), definition);
         Ok(TypeRef::Named(name.into()))
+    }
+
+    /// Record a checked owner macro's public Rust alias; this changes no field meaning.
+    pub fn public_path<T: ?Sized>(
+        &mut self,
+        root: &TypeRef,
+        path: &str,
+    ) -> Result<(), ProjectionError> {
+        let TypeRef::Named(name) = root else {
+            return Err(ProjectionError::invalid(
+                path,
+                "only a named owner has a public Rust alias",
+            ));
+        };
+        if self
+            .building
+            .get(name)
+            .is_some_and(|owner| *owner == std::any::type_name::<T>())
+        {
+            // A recursive visit returns before the outer declaration is installed. The
+            // outer call records this same source-owned alias after completing its shape.
+            return Ok(());
+        }
+        let definition = self
+            .definitions
+            .get_mut(name)
+            .ok_or_else(|| ProjectionError::invalid(path, "public alias owner is unresolved"))?;
+        if definition.rust_type != std::any::type_name::<T>() {
+            return Err(ProjectionError::invalid(
+                path,
+                "public alias identifies another actual Rust owner",
+            ));
+        }
+        let compact = path.replace(' ', "");
+        let expanded = if let Some(relative) = compact.strip_prefix("crate::") {
+            let owner_crate = definition.rust_type.split("::").next().unwrap_or_default();
+            format!("{owner_crate}::{relative}")
+        } else {
+            compact
+        };
+        if definition
+            .public_rust_path
+            .as_ref()
+            .is_some_and(|previous| previous != &expanded)
+        {
+            return Err(ProjectionError::invalid(
+                path,
+                "owner public alias was declared more than once",
+            ));
+        }
+        definition.public_rust_path = Some(expanded);
+        Ok(())
     }
 }
 
@@ -547,15 +654,17 @@ macro_rules! scalar_types { ($($ty:ty => $scalar:ident),* $(,)?) => { $(
         }
     }
 )* }; }
-scalar_types!(bool => Bool, String => String, u8 => U8, u32 => U32, u64 => U64, usize => U64, i32 => I32,
+scalar_types!(bool => Bool, String => String, u8 => U8, u32 => U32, u64 => U64, usize => U64, i16 => I16, i32 => I32,
     i64 => I64, f32 => F32Bits, f64 => F64Bits, pse_ids::SemanticId => SemanticId,
     pse_ids::ContentHash => ContentHash, crate::Bytes => Bytes);
 
 macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
 })* }; }
-inline_validation!(bool, i32, i64, f32, f64);
+inline_validation!(bool, i16, i32, i64, f32, f64);
 impl ValidateProjection for pse_ids::SemanticId {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
         Ok(())
     }
@@ -564,6 +673,7 @@ impl ValidateProjection for pse_ids::SemanticId {
     }
 }
 impl ValidateProjection for pse_ids::ContentHash {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
         Ok(())
     }
@@ -572,11 +682,13 @@ impl ValidateProjection for pse_ids::ContentHash {
     }
 }
 macro_rules! unsigned_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
     fn projection_unsigned(&self) -> Option<u64> { Some(u64::from(*self)) }
 })* }; }
 unsigned_validation!(u8, u32, u64);
 impl ValidateProjection for usize {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
         Ok(())
     }
@@ -585,14 +697,19 @@ impl ValidateProjection for usize {
     }
 }
 impl ValidateProjection for String {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(self.chars().count())
     }
+    fn projection_utf8_bytes(&self) -> Option<usize> {
+        Some(self.len())
+    }
 }
 impl ValidateProjection for crate::Bytes {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
         Ok(())
     }
@@ -601,6 +718,7 @@ impl ValidateProjection for crate::Bytes {
     }
 }
 impl<T: ValidateProjection> ValidateProjection for Option<T> {
+    const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         match self {
             Some(value) => value.validate_at(path),
@@ -610,9 +728,17 @@ impl<T: ValidateProjection> ValidateProjection for Option<T> {
     fn projection_present(&self) -> bool {
         self.is_some()
     }
+    fn projection_unsigned(&self) -> Option<u64> {
+        self.as_ref()
+            .and_then(ValidateProjection::projection_unsigned)
+    }
 }
 impl<T: ValidateProjection> ValidateProjection for Vec<T> {
+    const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        if !Self::NEEDS_RECURSIVE_VALIDATION {
+            return Ok(());
+        }
         for (index, value) in self.iter().enumerate() {
             value.validate_at(&format!("{path}[{index}]"))?;
         }
@@ -623,12 +749,30 @@ impl<T: ValidateProjection> ValidateProjection for Vec<T> {
     }
 }
 impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
+    const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         self.as_ref().validate_at(path)
     }
+    fn projection_present(&self) -> bool {
+        self.as_ref().projection_present()
+    }
+    fn projection_unsigned(&self) -> Option<u64> {
+        self.as_ref().projection_unsigned()
+    }
+    fn projection_length(&self) -> Option<usize> {
+        self.as_ref().projection_length()
+    }
+    fn projection_utf8_bytes(&self) -> Option<usize> {
+        self.as_ref().projection_utf8_bytes()
+    }
 }
 impl<K: ValidateProjection + Ord, V: ValidateProjection> ValidateProjection for BTreeMap<K, V> {
+    const NEEDS_RECURSIVE_VALIDATION: bool =
+        K::NEEDS_RECURSIVE_VALIDATION || V::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        if !Self::NEEDS_RECURSIVE_VALIDATION {
+            return Ok(());
+        }
         for (index, (key, value)) in self.iter().enumerate() {
             key.validate_at(&format!("{path}[{index}].key"))?;
             value.validate_at(&format!("{path}[{index}].value"))?;
@@ -666,7 +810,11 @@ impl<T: ProjectionType> ProjectionType for std::sync::Arc<[T]> {
     }
 }
 impl<T: ValidateProjection> ValidateProjection for std::sync::Arc<[T]> {
+    const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        if !Self::NEEDS_RECURSIVE_VALIDATION {
+            return Ok(());
+        }
         for (index, value) in self.iter().enumerate() {
             value.validate_at(&format!("{path}[{index}]"))?;
         }
@@ -686,13 +834,25 @@ macro_rules! physical_identity_projection { ($($ty:ty => $name:literal),* $(,)?)
         }
     }
     impl ValidateProjection for $ty {
+        const NEEDS_RECURSIVE_VALIDATION: bool = false;
         fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
         fn projection_length(&self) -> Option<usize> { Some(16) }
+    }
+    impl ProjectionRecord for $ty {
+        const VERSION: u32 = 1;
+        const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+        type Fields = (pse_ids::SemanticId,);
+        fn into_projection_fields(self) -> Self::Fields { (self.as_id(),) }
+        fn from_projection_fields((id,): Self::Fields) -> Result<Self, AdapterError> { Ok(Self::from_id(id)) }
     }
 )* }; }
 // The trait owner supplies legal implementations across the quantity -> model dependency
 // boundary. These actual nominal types remain distinct named identity projections.
 physical_identity_projection!(
+    pse_quantity::EntityKindId => "EntityKindId",
+    pse_quantity::UnitId => "UnitId",
+    pse_quantity::QuantityKindId => "QuantityKindId",
+    pse_quantity::BasisId => "BasisId",
     pse_quantity::QuantityTypeId => "QuantityTypeId",
     pse_quantity::ReferenceStateId => "ReferenceStateId",
 );
@@ -711,6 +871,7 @@ mod registry_vocabularies {
             }
         }
         impl ValidateProjection for $ty {
+            const NEEDS_RECURSIVE_VALIDATION: bool = false;
             fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
         }
     )* }; }
@@ -720,7 +881,8 @@ mod registry_vocabularies {
         NativeSolveIntent,
         PreparationProductKind,
         PreparationEligibility,
-        CanonicalProducerClass
+        CanonicalProducerClass,
+        EvidenceUnavailableReason
     );
 }
 impl<K: ProjectionType + Ord, V: ProjectionType> ProjectionType for BTreeMap<K, V> {
@@ -742,7 +904,11 @@ impl<T: ProjectionType + Ord> ProjectionType for BTreeSet<T> {
     }
 }
 impl<T: ValidateProjection + Ord> ValidateProjection for BTreeSet<T> {
+    const NEEDS_RECURSIVE_VALIDATION: bool = T::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
+        if !Self::NEEDS_RECURSIVE_VALIDATION {
+            return Ok(());
+        }
         for (index, value) in self.iter().enumerate() {
             value.validate_at(&format!("{path}[{index}]"))?;
         }
@@ -863,11 +1029,33 @@ fn validate_tags(
 
 fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError> {
     for field in fields {
+        let mut families = BTreeSet::new();
         for rule in &field.rules {
+            let family = match rule {
+                LocalRule::Required => 0,
+                LocalRule::UnsignedRange { .. } => 1,
+                LocalRule::Length { .. } | LocalRule::Utf8Bytes { .. } => 2,
+            };
+            if !families.insert(family) {
+                return Err(ProjectionError::invalid(
+                    format!("{owner}.{}", field.name),
+                    "a local rule family is declared more than once; native and wire validation must share one envelope",
+                ));
+            }
             let valid = match rule {
-                LocalRule::Required => true,
+                LocalRule::Utf8Bytes { min, max } => {
+                    min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::String))
+                }
+                LocalRule::Required => !matches!(
+                    field.ty,
+                    TypeRef::Repeated(_) | TypeRef::Set(_) | TypeRef::Map(_, _)
+                ),
                 LocalRule::UnsignedRange { min, max } => {
-                    min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::U32 | Scalar::U64))
+                    let scalar = match &field.ty {
+                        TypeRef::Optional(inner) => inner.as_ref(),
+                        scalar => scalar,
+                    };
+                    min <= max && matches!(scalar, TypeRef::Scalar(Scalar::U32 | Scalar::U64))
                 }
                 LocalRule::Length { min, max } => {
                     min <= max
@@ -900,20 +1088,24 @@ fn validate_fields(owner: &str, fields: &[Field]) -> Result<(), ProjectionError>
 #[macro_export]
 macro_rules! projection_struct {
     ($(#[$meta:meta])* $vis:vis struct $name:ident {
-        projection: { name: $wire:expr, version: $version:expr, direction: $direction:expr,
+        projection: { name: $wire:expr, $(rust_path: $public:path,)? version: $version:expr, direction: $direction:expr,
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty => {
             tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
     }) => {
         $(#[$meta])* $vis struct $name { $($(#[$field_meta])* $field_vis $field: $ty,)* }
+        $(#[allow(unused_qualifications, reason = "the explicit public alias is retained verbatim for generated cross-crate paths")]
+        const _: fn($name) -> $public = |value| value;)?
         impl $crate::boundary_projection::ProjectionType for $name {
             fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> ::core::result::Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
-                graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
+                let root = graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
                     let _ = &graph;
                     Ok($crate::boundary_projection::Shape::Record(vec![$(
                         $crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,
                     )*]))
-                })
+                })?;
+                $( graph.public_path::<Self>(&root, stringify!($public))?; )?
+                Ok(root)
             }
         }
         impl $crate::boundary_projection::ValidateProjection for $name {
@@ -924,6 +1116,16 @@ macro_rules! projection_struct {
                 Ok(())
             }
         }
+        impl $crate::boundary_projection::ProjectionRecord for $name {
+            const VERSION: u32 = $version;
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
+            type Fields = ($($ty,)*);
+            fn into_projection_fields(self) -> Self::Fields { ($(self.$field,)*) }
+            fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
+                let ($($field,)*) = fields;
+                Ok(Self { $($field,)* })
+            }
+        }
     };
 }
 
@@ -931,17 +1133,20 @@ macro_rules! projection_struct {
 #[macro_export]
 macro_rules! projection_enum {
     ($(#[$meta:meta])* $vis:vis enum $name:ident {
-        projection: { name: $wire:expr, version: $version:expr, direction: $direction:expr,
+        projection: { name: $wire:expr, $(rust_path: $public:path,)? version: $version:expr, direction: $direction:expr,
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$variant_meta:meta])* $variant:ident $(($payload:ty))? $({
             $($(#[$field_meta:meta])* $field:ident : $ty:ty => {
                 tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
+            $(@local { $($(#[$local_meta:meta])* $local:ident: $local_ty:ty = $local_default:expr;)* })?
         })? => $variant_tag:expr;)*
     }) => {
-        $(#[$meta])* $vis enum $name { $($(#[$variant_meta])* $variant $(($payload))? $({ $($(#[$field_meta])* $field: $ty,)* })?,)* }
+        $(#[$meta])* $vis enum $name { $($(#[$variant_meta])* $variant $(($payload))? $({ $($(#[$field_meta])* $field: $ty,)* $($($(#[$local_meta])* $local: $local_ty,)*)? })?,)* }
+        $(#[allow(unused_qualifications, reason = "the explicit public alias is retained verbatim for generated cross-crate paths")]
+        const _: fn($name) -> $public = |value| value;)?
         impl $crate::boundary_projection::ProjectionType for $name {
             fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> ::core::result::Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
-                graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
+                let root = graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
                     let _ = &graph;
                     Ok($crate::boundary_projection::Shape::Alternatives(vec![$(
                         $crate::boundary_projection::Alternative { name: stringify!($variant).into(), tag: $variant_tag, fields: vec![
@@ -949,25 +1154,66 @@ macro_rules! projection_enum {
                             $($($crate::boundary_projection::Field::of::<$ty>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,)*)?
                         ] },
                     )*]))
-                })
+                })?;
+                $( graph.public_path::<Self>(&root, stringify!($public))?; )?
+                Ok(root)
             }
         }
         impl $crate::boundary_projection::ValidateProjection for $name {
             fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
                 let _ = path;
                 $(
-                    $( if let Self::$variant(value) = self {
+                    $( #[allow(irrefutable_let_patterns, reason = "the source owner may declare one alternative; validation still uses its actual payload")]
+                    if let Self::$variant(value) = self {
                         let value: &$payload = value;
                         $crate::boundary_projection::ValidateProjection::validate_at(value,
                             &$crate::boundary_projection::field_path(path, stringify!($variant)))?;
                     } )?
-                    $( if let Self::$variant { $($field),* } = self { $(
+                    $( #[allow(irrefutable_let_patterns, reason = "the source owner may declare one alternative; validation still uses its actual fields")]
+                    if let Self::$variant { $($field,)* .. } = self { $(
                         $crate::boundary_projection::validate_field($field,
                             &$crate::boundary_projection::field_path(&$crate::boundary_projection::field_path(path, stringify!($variant)), stringify!($field)), &[$($rule),*])?;
                     )* } )?
                 )*
                 Ok(())
             }
+        }
+        $( $crate::projection_enum!(@access $name, $version, $variant, $variant_tag; $( $payload)? $({ $( $field: $ty => $tag, )* } @local { $($($local = $local_default;)*)? })?); )*
+    };
+    (@access $name:ident, $version:expr, $variant:ident, $tag:expr;) => {
+        impl $crate::boundary_projection::ProjectionAlternative<$tag> for $name {
+            const VERSION: u32 = $version;
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[];
+            type Fields = ();
+            #[allow(unreachable_patterns, reason = "an owner can intentionally have only one alternative")]
+            fn into_projection_alternative(self) -> ::core::result::Result<Self::Fields, Self> {
+                match self { Self::$variant => Ok(()), other => Err(other) }
+            }
+            fn from_projection_alternative((): Self::Fields) -> Self { Self::$variant }
+        }
+    };
+    (@access $name:ident, $version:expr, $variant:ident, $tag:expr; $payload:ty) => {
+        impl $crate::boundary_projection::ProjectionAlternative<$tag> for $name {
+            const VERSION: u32 = $version;
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+            type Fields = ($payload,);
+            #[allow(unreachable_patterns, reason = "an owner can intentionally have only one alternative")]
+            fn into_projection_alternative(self) -> ::core::result::Result<Self::Fields, Self> {
+                match self { Self::$variant(value) => Ok((value,)), other => Err(other) }
+            }
+            fn from_projection_alternative((value,): Self::Fields) -> Self { Self::$variant(value) }
+        }
+    };
+    (@access $name:ident, $version:expr, $variant:ident, $tag:expr; { $( $field:ident: $ty:ty => $field_tag:expr, )* } @local { $($local:ident = $local_default:expr;)* }) => {
+        impl $crate::boundary_projection::ProjectionAlternative<$tag> for $name {
+            const VERSION: u32 = $version;
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($field_tag, stringify!($field))),*];
+            type Fields = ($($ty,)*);
+            #[allow(unreachable_patterns, reason = "an owner can intentionally have only one alternative")]
+            fn into_projection_alternative(self) -> ::core::result::Result<Self::Fields, Self> {
+                match self { Self::$variant { $($field,)* .. } => Ok(($($field,)*)), other => Err(other) }
+            }
+            fn from_projection_alternative(($($field,)*): Self::Fields) -> Self { Self::$variant { $($field,)* $($local: $local_default,)* } }
         }
     };
 }

@@ -44,7 +44,11 @@ Issuance requires actual support, current context re-establishment and expected-
 
 The proxy waits from owned numerical/native execution, not an arbitrary async executor task.
 Cancellation/deadline preserves admission and custody until work settles or the owned child is
-terminated and reaped. Reconnect/replacement invalidates preparation and derivative contexts.
+terminated and reaped, and parent-side I/O has joined. An unbounded original scope remains
+unbounded; a finite scope carries its original remaining allowance and does not renew it
+on evaluation. Initial unreleased protocol v1 uses absent `remaining_ns` for unbounded
+scope; the discarded draft's fixed 600-second allowance is not a compatibility contract.
+Reconnect/replacement invalidates preparation and derivative contexts.
 64k owns the bounded preparation/evaluation/close protocol and complete process qualification;
 64d/f retain the physical configurations and 64h the independent science/reference claims.
 The existing in-process route remains the lower-crossing placement, not a compatibility shim.

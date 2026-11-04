@@ -259,6 +259,13 @@ other companion or broader scientific population.
 
 ## D through G implementation checkpoint
 
+**2026-11-03 — execution resumed and extended.** The maintainer authorized completion
+of all Proto-related I/J/K and cross-plan scope, followed by completion of the entire
+remaining Plan64 scope. The earlier stopped wave below remains historical evidence;
+its failures and unrun obligations remain open until corrected and verified. Current
+Proto implementation checkpoints live in 64i/64j/64k. Complete that integrated scope
+first, then continue the existing A–H package owners and the finite scientific population.
+
 **2026-11-03 — stopped at the maintainer's request.** This implementation wave is
 partial. No further fixes, tests or diagnostics are running. The independent agent's
 proto/extensibility plan additions retain their own scope; they were not implemented

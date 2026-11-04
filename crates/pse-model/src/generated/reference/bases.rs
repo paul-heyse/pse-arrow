@@ -42,6 +42,215 @@ impl PartialEq for ReferenceBasesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "RegistryPhysicalBasis",
+                "crates/pse-schema/src/catalog/s6_2_physical.rs",
+                1u32,
+                crate::boundary_projection::Direction::Output,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::BasisId,
+                            >(
+                                    graph,
+                                    "basis_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.doc".into(), "basis_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "basis".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::BasisKind,
+                            >(
+                                    graph,
+                                    "kind",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "kind".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "BasisKind".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::enums::CompositionBasis>,
+                            >(
+                                    graph,
+                                    "composition_basis",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "composition_basis".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "CompositionBasis".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::enums::RateBasis>,
+                            >(
+                                    graph,
+                                    "rate_basis",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "rate_basis".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "RateBasis".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::ReferenceStateId>,
+                            >(
+                                    graph,
+                                    "reference_conditions_id",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.doc".into(), "reference_conditions_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        (
+                                            "pse.domain.fk.column".into(),
+                                            "reference_state_id".into(),
+                                        ),
+                                        (
+                                            "pse.domain.fk.relation".into(),
+                                            "reference.reference_states".into(),
+                                        ),
+                                        ("pse.domain.identity".into(), "reference_state".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ReferenceBasesRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "basis_id"),
+        (2u32, "kind"),
+        (3u32, "composition_basis"),
+        (4u32, "rate_basis"),
+        (5u32, "reference_conditions_id"),
+    ];
+    type Fields = (
+        crate::generated::identities::BasisId,
+        crate::generated::enums::BasisKind,
+        Option<crate::generated::enums::CompositionBasis>,
+        Option<crate::generated::enums::RateBasis>,
+        Option<crate::generated::identities::ReferenceStateId>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#basis_id,
+            self.r#kind,
+            self.r#composition_basis,
+            self.r#rate_basis,
+            self.r#reference_conditions_id,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#basis_id,
+            r#kind,
+            r#composition_basis,
+            r#rate_basis,
+            r#reference_conditions_id,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#basis_id,
+            r#kind,
+            r#composition_basis,
+            r#rate_basis,
+            r#reference_conditions_id,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ReferenceBasesRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false
+        || <crate::generated::identities::BasisId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::BasisKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            crate::generated::enums::CompositionBasis,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            crate::generated::enums::RateBasis,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            crate::generated::identities::ReferenceStateId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#basis_id,
+                &crate::boundary_projection::field_path(path, "basis_id"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#kind,
+                &crate::boundary_projection::field_path(path, "kind"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#composition_basis,
+                &crate::boundary_projection::field_path(path, "composition_basis"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#rate_basis,
+                &crate::boundary_projection::field_path(path, "rate_basis"),
+            )?;
+            crate::boundary_projection::ValidateProjection::validate_at(
+                &self.r#reference_conditions_id,
+                &crate::boundary_projection::field_path(path, "reference_conditions_id"),
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = ReferenceBasesRow;
 impl crate::SemanticFrame for ReferenceBasesRow {

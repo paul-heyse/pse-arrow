@@ -1,0 +1,6 @@
+{
+  "scope": "observation",
+  "read_only": true,
+  "idempotent": true,
+  "destructive": false
+}

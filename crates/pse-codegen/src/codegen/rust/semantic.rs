@@ -110,6 +110,9 @@ fn semantic_item(item: &syn::Item, names: &BTreeSet<String>, relative: &std::pat
                                 | "HeapUsage"
                                 | "SemanticFrame"
                                 | "JsonSchema"
+                                | "ProjectionType"
+                                | "ProjectionRecord"
+                                | "ValidateProjection"
                         )
                     })
                 })

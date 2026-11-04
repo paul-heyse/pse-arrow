@@ -1,6 +1,6 @@
 ---
 title: "Plan64k: Prepared local scientific workers"
-status: planned
+status: in-progress
 date: 2026-11-03
 doc_role: plan
 doc_owner: docs/plans/64-process-simulator-target.md
@@ -132,6 +132,13 @@ globally or add a second uncoordinated CPU pool. Override `create_scoped` to ret
 Queueing, launch/admission, transport, native evaluation and cleanup share that original scope;
 derive RPC timeouts from remaining time without restarting the clock.
 
+The initial unreleased v1 protocol represents an unbounded original scope by absence of
+`Prepare.remaining_ns`; a present positive value is the original remaining allowance.
+The child establishes a finite deadline once and never restarts it on evaluation. This
+corrects the draft's implicit 600-second lifetime before first publication; no accepted or
+deployed client requires compatibility. Earlier fixed-budget qualification snapshots retain
+their original limits and do not establish this corrected deadline behavior.
+
 Lifecycle is prepare → ready → evaluating → ready, or stopping → drained → closed/failed.
 Cancellation/deadline stops admission and signals the actual evaluation; a transport future
 being dropped is not native settlement. Retain the caller's custody and admission until work
@@ -179,11 +186,11 @@ capability to this controlled delivery.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| K01 | planned | Execution authorization; proposed ADR-0240 decision route; actual kernel/water owners and 64i contract agreement | Settle exact field, support/refusal, scope/context and process preparation contracts. Add owner-local tests for malformed demand, incompatible physical/data/datum identity and undeclared linearization; coordinate any shared provider correction with 64i/64d. |
-| K02 | planned | K01; implemented 64i narrow generation/validation slice | Source-owned protocol, generated clients/services and checked mappings cover preparation/evaluation/stop/close with typed failures. Targeted codec/conformance tests attack exact bits, absent/unknown alternatives, shape/order/extent overflow and preserved diagnostic classes; regenerate through `just codegen`. |
-| K03 | planned | K01 process/profile decision; K02 working transport | Deliver explicit preparation, authenticated owned process, persistent session, sync proxy and independent I/O/native lanes. Targeted actual-process controls establish wrong-peer refusal, original deadline, cancellation/late response, crash/disconnect/unknown completion, no replay, context invalidation and actual reap with leases held. |
-| K04 | planned | K02/K03; current 64d D02 factory available | Deliver the actual water helper calling `WaterFactory`, admit the same configuration and integrate explicit registration/placement selection through existing runtime ingress. Targeted direct/proxy tests cover repeated coherent CompleteJets calls, all three orders and regimes, every other demand's honest refusal, changed data/datum/branch and outside-envelope cases. |
-| K05 | planned | K04; selected authored pump/turbine closures and independent controls available from 64d | Run targeted selected-case controls during integration; then qualify complete in-process/worker equipment journeys, original equations/balances/domains, independent water/derivative evidence and interruption. Measure the complete matched solve and repeated-case route, cold and warm, including preparation/transfer/drain and retained memory; no benefit claim from a codec benchmark. |
+| K01 | in-progress | Execution authorization; proposed ADR-0240 decision route; actual kernel/water owners and 64i contract agreement | Settle exact field, support/refusal, scope/context and process preparation contracts. Add owner-local tests for malformed demand, incompatible physical/data/datum identity and undeclared linearization; coordinate any shared provider correction with 64i/64d. |
+| K02 | in-progress | K01; implemented 64i narrow generation/validation slice | Source-owned protocol, generated clients/services and checked mappings cover preparation/evaluation/stop/close with typed failures. Targeted codec/conformance tests attack exact bits, absent/unknown alternatives, shape/order/extent overflow and preserved diagnostic classes; regenerate through `just codegen`. |
+| K03 | in-progress | K01 process/profile decision; K02 working transport | Deliver explicit preparation, authenticated owned process, persistent session, sync proxy and independent I/O/native lanes. Targeted actual-process controls establish wrong-peer refusal, original deadline, cancellation/late response, crash/disconnect/unknown completion, no replay, context invalidation and actual reap with leases held. |
+| K04 | in-progress | K02/K03; current 64d D02 factory available | Deliver the actual water helper calling `WaterFactory`, admit the same configuration and integrate explicit registration/placement selection through existing runtime ingress. Targeted direct/proxy tests cover repeated coherent CompleteJets calls, all three orders and regimes, every other demand's honest refusal, changed data/datum/branch and outside-envelope cases. |
+| K05 | in-progress | K04; selected authored pump/turbine closures and independent controls available from 64d | Run targeted selected-case controls during integration; then qualify complete in-process/worker equipment journeys, original equations/balances/domains, independent water/derivative evidence and interruption. Measure the complete matched solve and repeated-case route, cold and warm, including preparation/transfer/drain and retained memory; no benefit claim from a codec benchmark. |
 | K06 | planned | K01–K05 functional scope implemented; root scope-end timing | Root/integrator runs selected assembled integration/component/native journeys, hygiene and manual checks once at scope end, coordinates 64h evidence, publishes enduring contract/operator/extension guidance and removes replaced choreography. Close only with working prepared launch, actual worker equipment evidence and truthful performance/qualification limits. |
 
 Packages are integration units, not automatic agent assignments. K03 need not wait for unrelated 64i projections or 64j service delivery; K04 can use ready K03 process slices.
@@ -192,6 +199,27 @@ and `scripts/pse test`, with selected native features and explicit force-validat
 Arrow is consumed. Root owns `just turn-end`; do not insert hygiene or broad campaigns per
 package. K06 selects actual commands after the changed closure is known and reports command,
 mode, scope, zero failure baseline and result; no plan-authoring product qualification is due.
+
+## Current implementation checkpoint — 2026-11-03
+
+The source-owned worker protocol, generated transport, authenticated process custody,
+independently driven I/O and synchronous native-lane proxy are integrated. The actual
+WaterFactory supplies CompleteJets in liquid, vapor and supercritical regimes, retaining
+its physical/data/configuration identity and honest refusal of unsupported demands.
+An asymmetric action-provider control exercises all five native action products without
+dense substitution or a manufactured linearization token.
+
+The earlier 21-test snapshot passed and recorded complete-call timing/accounting. Independent
+review then identified the draft's implicit 600-second binding lifetime and early release
+of the combined reservation during failure cleanup. Source corrections retain the original
+optional deadline and hold admission through both child reap and I/O join; deterministic
+long-lived-deadline and delayed-I/O controls are added. The expanded 25-test campaign now
+passes, including optional wire/range validation, original-scope RPC timeouts and reordered
+action products. Complete-call timing/accounting was recorded again with actual child reap
+and zero retained reservation afterward. Independent process integration and matched
+equipment journeys remain open. Both measurement campaigns are single-campaign observations,
+not a speedup claim or independent validation of CoolProp; original host/library-load and
+accounted-versus-RSS limitations remain explicit in their retained source recordings.
 
 ## Verification, migration and completion
 
@@ -226,5 +254,10 @@ At closure record **Implemented**, named **Tested** and **Measured** conditions 
 the mistake corrected and deliberate deviations; retire this companion through the coordinator
 only after its enduring meaning and inbound references have owners.
 
-**Current checkpoint / outcome:** Proposed only. First executable work is K01 after explicit implementation authorization and the binding route; no worker, new scientific capability,
-test result or performance benefit is claimed by this plan.
+**Current checkpoint:** Full execution is authorized. Source-owned protocol declarations,
+prepared native session custody, executable/process ownership and the local water proxy
+are implemented in source. Generated transport integration and actual-process/equipment
+controls remain in progress. Disk exhaustion interrupted initial generation and targeted
+test recording; the maintainer cleared build output. Cold native preparation and affected
+reruns are required. K01–K06 completion, scientific acceptance and measured benefit remain
+unestablished.

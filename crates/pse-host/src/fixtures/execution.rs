@@ -106,7 +106,7 @@ pub fn selected_module(
 pub struct PreparedExecution {
     module: Option<study_module::StudyModuleReceipt>,
     tools: BTreeMap<Input, Executable>,
-    workers: BTreeMap<usize, Executable>,
+    workers: BTreeMap<(Input, usize), Executable>,
     runner: Option<Executable>,
     reader: Option<crate::product_reader::ProductReaderSelection>,
 }
@@ -135,6 +135,7 @@ impl PreparedExecution {
         }
         if demand.contains(&Input::ServiceHelper)
             || demand.contains(&Input::Worker)
+            || demand.contains(&Input::ScientificWorker)
             || demand.contains(&Input::ObservationHelper)
         {
             fs::DirBuilder::new()
@@ -186,31 +187,42 @@ impl PreparedExecution {
                 }
             }
         }
-        if demand.contains(&Input::Worker) {
+        for (input, binary, base_feature, directory) in [
+            (Input::Worker, "pse-worker", "product-operators", "worker"),
+            (
+                Input::ScientificWorker,
+                "pse-scientific-worker",
+                "property-coolprop",
+                "scientific-worker",
+            ),
+        ] {
+            if !demand.contains(&input) {
+                continue;
+            }
             let mut groups = BTreeMap::<usize, BTreeSet<String>>::new();
             for requirement in requirements
                 .iter()
-                .filter(|requirement| requirement.inputs().contains(&Input::Worker))
+                .filter(|requirement| requirement.inputs().contains(&input))
             {
                 let features = groups
                     .entry(requirement.group())
-                    .or_insert_with(|| BTreeSet::from(["product-operators".to_owned()]));
+                    .or_insert_with(|| BTreeSet::from([base_feature.to_owned()]));
                 features.extend(requirement.unit().features.iter().cloned());
             }
             for (group, features) in groups {
                 let artifacts = build(
                     root,
                     environment,
-                    &destination.join(format!("worker-{group}")),
+                    &destination.join(format!("{directory}-{group}")),
                     "pse-runtime",
                     &features.into_iter().collect::<Vec<_>>(),
-                    &["pse-worker"],
+                    &[binary],
                 )?;
                 if let Some(executable) = artifacts
                     .into_iter()
-                    .find_map(|(name, executable)| (name == "pse-worker").then_some(executable))
+                    .find_map(|(name, executable)| (name == binary).then_some(executable))
                 {
-                    selected.workers.insert(group, executable);
+                    selected.workers.insert((input, group), executable);
                 }
             }
         }
@@ -278,14 +290,15 @@ impl PreparedExecution {
         for (input, variable) in [
             (Input::ServiceHelper, "PSE_NATIVE_FIXTURE_SERVICE_HELPER"),
             (Input::Worker, "PSE_WORKER_BINARY"),
+            (Input::ScientificWorker, "PSE_SCIENTIFIC_WORKER_BINARY"),
             (
                 Input::ObservationHelper,
                 "PSE_NATIVE_FIXTURE_OBSERVATION_HELPER",
             ),
         ] {
             if demand.contains(&input) {
-                let executable = if input == Input::Worker {
-                    self.workers.get(&command.group)
+                let executable = if matches!(input, Input::Worker | Input::ScientificWorker) {
+                    self.workers.get(&(input, command.group))
                 } else {
                     self.tools.get(&input)
                 }
@@ -395,9 +408,11 @@ fn original_input_variable(input: Input) -> Option<&'static str> {
         | Input::StudyModule
         | Input::ServiceHelper
         | Input::Worker
+        | Input::ScientificWorker
         | Input::ProductReader
         | Input::ObservationHelper => None,
         Input::ScientificInputs => Some("PSE_SCIENTIFIC_INPUTS"),
+        Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),
         Input::PredecessorModuleState => Some("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE"),

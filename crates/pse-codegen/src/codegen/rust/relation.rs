@@ -43,6 +43,7 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
         })
         .collect::<Result<Vec<_>, SchemaError>>()?;
     declarations.push(structure(&format!("{stem}Row"), &fields));
+    declarations.push(super::boundary::record(spec, &row, &fields)?);
     for column in &spec.columns {
         if let Some(kind) = column.canonical_key() {
             let field = ident(column.name());

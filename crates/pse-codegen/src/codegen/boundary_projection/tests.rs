@@ -43,6 +43,50 @@ fn imports() -> Vec<FileDescriptorProto> {
 }
 
 #[test]
+fn optional_unsigned_range_retains_presence_and_only_constrains_supplied_values() {
+    projection_struct! {
+        struct OptionalDeadline {
+            projection: { name: "OptionalDeadline", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+            remaining_ns: Option<u64> => { tag: 10, direction: Direction::Input,
+                rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+        }
+    }
+    let graph = ProjectionGraph::of::<OptionalDeadline>().unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.deadline.v1", "deadline.proto", &imports()).unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("deadline.proto"))
+        .unwrap();
+    let field = &file.message_type[0].field[0];
+    assert_eq!(field.number, Some(10));
+    assert_eq!(field.proto3_optional, Some(true));
+    assert!(
+        field.oneof_index.is_some(),
+        "None must remain distinct from supplied zero"
+    );
+    let rules = field
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    assert_ne!(rules.required, Some(true));
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint64(rules)) = rules.r#type else {
+        panic!("unsigned scalar rule")
+    };
+    assert!(matches!(
+        rules.greater_than,
+        Some(u_int64rules::GreaterThan::Gte(1))
+    ));
+    assert!(
+        rules.less_than.is_none(),
+        "the exact uint64 domain needs no tautological upper test"
+    );
+}
+
+#[test]
 fn explicit_tags_bits_identity_rules_and_direction_reach_descriptors() {
     let graph = ProjectionGraph::of::<Request>().unwrap();
     let set = descriptors_for_direction(
@@ -269,4 +313,193 @@ fn missing_imports_unknown_types_and_unversioned_packages_refuse() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn native_adapters_follow_source_fields_explicit_tags_and_recursive_presence() {
+    let graph = ProjectionGraph::of::<Request>().unwrap();
+    let source =
+        native_adapters(&graph, &["Request", "Value"], "crate::wire", "pse_codegen").unwrap();
+    syn::parse_file(&source).unwrap();
+    let compact = source
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>()
+        .replace(",>", ">");
+    assert!(compact.contains("ProjectionAlternative<7>"));
+    assert!(compact.contains("ProjectionRecord>::FIELD_LAYOUT"));
+    assert!(source.contains("decode_request"));
+    assert!(source.contains("encode_value"));
+    assert!(source.contains("unknown_fields"));
+    assert!(source.contains("unique_pairs"));
+    assert!(source.contains("Field7Value"));
+    assert!(native_adapters(&graph, &["Absent"], "crate::wire", "pse_codegen").is_err());
+}
+
+#[test]
+fn retaining_original_wire_is_an_explicit_policy_and_keeps_alternative_refusal() {
+    let graph = ProjectionGraph::of::<Value>().unwrap();
+    let strict = native_adapters(&graph, &["Value"], "crate::wire", "pse_codegen").unwrap();
+    let retained =
+        native_adapters_retaining_wire(&graph, &["Value"], "crate::wire", "pse_codegen").unwrap();
+    assert!(strict.contains("unknown_fields("));
+    assert!(!retained.contains("unknown_fields("));
+    assert!(retained.contains("UnknownAlternative"));
+    syn::parse_file(&retained).unwrap();
+}
+
+#[test]
+fn domain_tautologies_are_lowered_exactly_without_unsigned_zero_comparisons() {
+    use pse_model::boundary_projection::ValidateProjection;
+    projection_struct! {
+        struct DomainBounds {
+            projection: { name: "DomainBounds", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            count: u64 => { tag: 1, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 0, max: 128 }] };
+            entries: Vec<u64> => { tag: 2, direction: Direction::Both, rules: [LocalRule::Length { min: 0, max: 32 }] };
+            invocation: u64 => { tag: 3, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+        }
+    }
+    let graph = ProjectionGraph::of::<DomainBounds>().unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.boundary.v1", "domain.proto", &imports()).unwrap();
+    let message = &descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("domain.proto"))
+        .unwrap()
+        .message_type[0];
+    let count = message.field[0]
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint64(count)) = count.r#type else {
+        panic!("uint64 rule")
+    };
+    assert!(count.greater_than.is_none());
+    assert!(matches!(
+        count.less_than,
+        Some(u_int64rules::LessThan::Lte(128))
+    ));
+    let entries = message.field[1]
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Repeated(entries)) = entries.r#type
+    else {
+        panic!("collection rule")
+    };
+    assert_eq!(entries.min_items, None);
+    assert_eq!(entries.max_items, Some(32));
+    let invocation = message.field[2]
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint64(invocation)) = invocation.r#type
+    else {
+        panic!("uint64 rule")
+    };
+    assert!(matches!(
+        invocation.greater_than,
+        Some(u_int64rules::GreaterThan::Gte(1))
+    ));
+    assert!(invocation.less_than.is_none());
+    DomainBounds {
+        count: 0,
+        entries: vec![],
+        invocation: u64::MAX,
+    }
+    .validate_projection()
+    .unwrap();
+    assert!(
+        DomainBounds {
+            count: 129,
+            entries: vec![],
+            invocation: 1
+        }
+        .validate_projection()
+        .is_err()
+    );
+    assert!(
+        DomainBounds {
+            count: 0,
+            entries: vec![1; 33],
+            invocation: 1
+        }
+        .validate_projection()
+        .is_err()
+    );
+}
+
+#[test]
+fn quantity_owner_callbacks_emit_checked_array_adapters_and_utf8_byte_rules() {
+    projection_struct! {
+        struct PhysicalSelection {
+            projection: { name: "PhysicalSelection", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            unit: pse_quantity::Unit => { tag: 1, direction: Direction::Both, rules: [LocalRule::Required] };
+            name: String => { tag: 2, direction: Direction::Both, rules: [LocalRule::Utf8Bytes { min: 0, max: 1024 }] };
+        }
+    }
+    let graph = ProjectionGraph::of::<PhysicalSelection>().unwrap();
+    let descriptors =
+        descriptors_with_imports(&graph, "pse.physical.v1", "physical.proto", &imports()).unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("physical.proto"))
+        .unwrap();
+    let selection = file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("PhysicalSelection"))
+        .unwrap();
+    let rules = selection.field[1]
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::String(rules)) = rules.r#type else {
+        panic!("text bytes rule")
+    };
+    assert_eq!(rules.max_bytes, Some(1024));
+    assert_eq!(
+        rules.max_len, None,
+        "byte limits must not become code-point limits"
+    );
+    let ratio = file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("PhysicalRatio"))
+        .unwrap();
+    for field in &ratio.field {
+        let rules = field
+            .options
+            .as_option()
+            .unwrap()
+            .extension(&validate::FIELD)
+            .unwrap();
+        let Some(validate::__buffa::oneof::field_rules::Type::Sint32(rules)) = rules.r#type else {
+            panic!("actual signed16 width")
+        };
+        assert!(matches!(
+            rules.greater_than,
+            Some(s_int32rules::GreaterThan::Gte(-32768))
+        ));
+        assert!(matches!(
+            rules.less_than,
+            Some(s_int32rules::LessThan::Lte(32767))
+        ));
+    }
+    let adapters =
+        native_adapters(&graph, &["PhysicalSelection"], "crate::wire", "pse_codegen").unwrap();
+    assert!(adapters.contains(".map_err(|error| error.at(path))"));
+    assert!(adapters.contains("pse_quantity::dimension::Ratio; 8"));
+    assert!(!adapters.contains("use super::*"));
+    syn::parse_file(&adapters).unwrap();
 }

@@ -10,9 +10,10 @@
       "type": "integer"
     },
     "limit": {
-      "description": "One to128 declarations.",
+      "description": "One to128 declarations, shared by native admission and protobuf validation.",
       "format": "uint",
-      "minimum": 0,
+      "maximum": 128,
+      "minimum": 1,
       "type": "integer"
     },
     "offset": {

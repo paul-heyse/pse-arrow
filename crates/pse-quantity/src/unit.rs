@@ -18,6 +18,10 @@ use crate::ids::{QuantityTypeId, UnitId};
 use crate::{DimensionVector as Dimension, QuantityError as Error};
 use std::hash::{Hash, Hasher};
 
+crate::quantity_boundary_record! {
+callback: unit_factor_boundary; name: "UnitFactor"; version: 1;
+direction: Both; reserved_tags: []; reserved_names: [];
+construct: [];
 /// One canonical factor of a unit product: an atomic unit and its nonzero rational
 /// exponent (ADR-0124).
 #[derive(
@@ -36,9 +40,10 @@ use std::hash::{Hash, Hasher};
 #[schemars(deny_unknown_fields)]
 pub struct UnitFactor {
     /// The atomic unit, or, in an authored composition, any declared unit.
-    pub unit: UnitId,
+    pub unit: UnitId => 1;
     /// The nonzero rational exponent.
-    pub exponent: Ratio,
+    pub exponent: Ratio => 2;
+}
 }
 
 /// A defined unit as authored: its composition only. Its dimension and scale are
@@ -165,27 +170,32 @@ pub struct UnitConvertSpec {
     pub offset: f64,
 }
 
+crate::quantity_boundary_record! {
+callback: unit_boundary; name: "PhysicalUnit"; version: 1;
+direction: Both; reserved_tags: []; reserved_names: [];
+construct: [];
 /// A unit anchored to the canonical SI dimension basis (blueprint §6.2).
 #[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug)]
 #[schemars(deny_unknown_fields)]
 pub struct Unit {
     /// Registry identity.
-    pub id: UnitId,
+    pub id: UnitId => 1;
     /// Unique package-resolved symbol.
-    pub symbol: String,
+    pub symbol: String => 2;
     /// SI exponents.
-    pub dimension: crate::DimensionVector,
+    pub dimension: crate::DimensionVector => 3;
     /// Positive finite multiplier to SI.
-    pub scale_to_canonical: f64,
+    pub scale_to_canonical: f64 => 4;
     /// Finite offset to SI; zero for a non-affine unit.
-    pub offset_to_canonical: f64,
+    pub offset_to_canonical: f64 => 5;
     /// Whether point conversion may apply an offset.
-    pub is_affine: bool,
+    pub is_affine: bool => 6;
     /// Optional datum restriction of the spelling; representation conversion preserves it.
-    pub reference_state: Option<crate::ReferenceStateId>,
+    pub reference_state: Option<crate::ReferenceStateId> => 7;
     /// `None` for an atomic unit; the canonical atomic factors of a defined or composed
     /// unit, whose dimension and scale were derived from them.
-    pub definition: Option<Vec<UnitFactor>>,
+    pub definition: Option<Vec<UnitFactor>> => 8;
+}
 }
 impl Unit {
     /// Admit the numeric unit definition without guessing its physical kind.

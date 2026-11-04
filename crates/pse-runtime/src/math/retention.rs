@@ -406,83 +406,85 @@ impl ModelingCache {
         crate::workflow::WorkflowError,
     > {
         use crate::workflow::modeling::{
-            PreparationEligibility as Eligibility, PreparationProductKind as Kind,
-            ResidentPreparation,
+            PreparationDiscoveryReport, PreparationEligibility as Eligibility,
+            PreparationProductKind as Kind, ResidentPreparation,
         };
-        let (rows, truncated) = self.entries.inspect(32, |key, value, retained_bytes| {
-            let description = match (key, value) {
-                (Key::Selected(original), Product::Selected(candidates))
-                    if original.includes_root(selection.root) =>
-                {
-                    let mut compatible = false;
-                    // A different complete request already establishes incompatibility;
-                    // validating every historical source premise cannot change that fact.
-                    if original.as_ref() == request {
-                        for candidate in candidates.iter().rev() {
-                            match candidate.dependencies.matches_scoped(source, cancel) {
-                                Ok(matches) => {
-                                    compatible = matches;
-                                    if compatible {
-                                        break;
+        let (rows, truncated) = self.entries.inspect(
+            PreparationDiscoveryReport::MAX_RESIDENT_ROWS,
+            |key, value, retained_bytes| {
+                let description = match (key, value) {
+                    (Key::Selected(original), Product::Selected(candidates))
+                        if original.includes_root(selection.root) =>
+                    {
+                        let mut compatible = false;
+                        // A different complete request already establishes incompatibility;
+                        // validating every historical source premise cannot change that fact.
+                        if original.as_ref() == request {
+                            for candidate in candidates.iter().rev() {
+                                match candidate.dependencies.matches_scoped(source, cancel) {
+                                    Ok(matches) => {
+                                        compatible = matches;
+                                        if compatible {
+                                            break;
+                                        }
                                     }
+                                    Err(error) => return Some(Err(error)),
                                 }
-                                Err(error) => return Some(Err(error)),
                             }
                         }
+                        Some((Kind::SelectedAdmission, compatible))
                     }
-                    Some((Kind::SelectedAdmission, compatible))
-                }
-                (Key::Basis(key), Product::Basis(_))
-                | (Key::Frontier(key), Product::Frontier(_)) => {
-                    match key.inspection_matches(request, selection, source, cancel) {
-                        Ok(Some(compatible)) => Some((
-                            if matches!(value, Product::Basis(_)) {
-                                Kind::Basis
-                            } else {
-                                Kind::Frontier
-                            },
-                            compatible,
-                        )),
-                        Ok(None) => None,
-                        Err(error) => return Some(Err(error)),
+                    (Key::Basis(key), Product::Basis(_))
+                    | (Key::Frontier(key), Product::Frontier(_)) => {
+                        match key.inspection_matches(request, selection, source, cancel) {
+                            Ok(Some(compatible)) => Some((
+                                if matches!(value, Product::Basis(_)) {
+                                    Kind::Basis
+                                } else {
+                                    Kind::Frontier
+                                },
+                                compatible,
+                            )),
+                            Ok(None) => None,
+                            Err(error) => return Some(Err(error)),
+                        }
                     }
+                    _ => None,
+                };
+                description.map(|(kind, compatible)| {
+                    Ok(ResidentPreparation {
+                        kind,
+                        eligibility: if compatible {
+                            Eligibility::Compatible
+                        } else {
+                            Eligibility::Incompatible
+                        },
+                        retained_bytes,
+                        semantic_identity: None,
+                    })
+                })
+            },
+        );
+        let mut rows = rows.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let (bodies, bodies_truncated) = self.entries.inspect(
+            PreparationDiscoveryReport::MAX_RESIDENT_ROWS - rows.len(),
+            |key, value, retained_bytes| match (key, value) {
+                (Key::Body(identity), Product::Body(_))
+                | (Key::EncodedBody(identity), Product::EncodedBody(_)) => {
+                    Some(ResidentPreparation {
+                        kind: if matches!(value, Product::Body(_)) {
+                            Kind::Body
+                        } else {
+                            Kind::EncodedBody
+                        },
+                        eligibility: Eligibility::Unchecked,
+                        retained_bytes,
+                        semantic_identity: Some(identity.as_id().to_hex()),
+                    })
                 }
                 _ => None,
-            };
-            description.map(|(kind, compatible)| {
-                Ok(ResidentPreparation {
-                    kind,
-                    eligibility: if compatible {
-                        Eligibility::Compatible
-                    } else {
-                        Eligibility::Incompatible
-                    },
-                    retained_bytes,
-                    semantic_identity: None,
-                })
-            })
-        });
-        let mut rows = rows.into_iter().collect::<Result<Vec<_>, _>>()?;
-        let (bodies, bodies_truncated) =
-            self.entries
-                .inspect(32 - rows.len(), |key, value, retained_bytes| {
-                    match (key, value) {
-                        (Key::Body(identity), Product::Body(_))
-                        | (Key::EncodedBody(identity), Product::EncodedBody(_)) => {
-                            Some(ResidentPreparation {
-                                kind: if matches!(value, Product::Body(_)) {
-                                    Kind::Body
-                                } else {
-                                    Kind::EncodedBody
-                                },
-                                eligibility: Eligibility::Unchecked,
-                                retained_bytes,
-                                semantic_identity: Some(identity.as_id().to_hex()),
-                            })
-                        }
-                        _ => None,
-                    }
-                });
+            },
+        );
         rows.extend(bodies);
         Ok((rows, truncated || bodies_truncated))
     }

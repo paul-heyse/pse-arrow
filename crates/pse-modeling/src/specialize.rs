@@ -60,31 +60,34 @@ mod objectives;
 pub use objectives::{ObjectiveBound, ObjectiveLevel, ObjectiveMember, Objectives};
 use value::{Evaluator, value_type};
 
+pse_model::projection_struct! {
 /// Explicit limits checked before expansion/allocation.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Limits {
+    projection: { name: "ModelingLimits", version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Maximum nested definitions.
     #[schemars(range(min = 1))]
-    pub depth: usize,
+    pub depth: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Maximum instances, indexed members and generated equations.
     #[schemars(range(min = 1))]
-    pub items: usize,
+    pub items: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Maximum members of one derived finite set/product.
     #[schemars(range(min = 1))]
-    pub members: usize,
+    pub members: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Optional operation/occurrence allowance for each lowered mathematical body.
     /// None uses the mathematical backend's default, independently of mesh extent.
     #[schemars(range(min = 1))]
-    pub body_occurrences: Option<usize>,
+    pub body_occurrences: Option<usize> => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Optional formal-slot allowance (inputs plus stage results) for each lowered
     /// mathematical body; the process-global formal pool extends up to it, and a body
     /// needing more is refused with its required and available slots. None uses the
     /// mathematical backend's default, the initially registered pool chunk.
     #[schemars(range(min = 1))]
-    pub body_slots: Option<usize>,
+    pub body_slots: Option<usize> => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Limits {
     /// Admit the caller's expansion and mathematical-body allowances.
@@ -274,36 +277,42 @@ impl Realization {
         !matches!(self, Self::Inline)
     }
 }
+pse_model::projection_struct! {
 /// Root structural bindings and demands. Numeric runtime values have a separate owner.
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Bindings {
+    projection: { name: "ModelingBindings", version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Immutable equation omission and elastic policy, applied after source specialization.
-    pub formulation: Formulation,
+    pub formulation: Formulation => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [pse_model::boundary_projection::LocalRule::Required] };
     /// Explicit root arguments override presets and definition defaults.
-    pub arguments: Environment,
+    pub arguments: Environment => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Explicitly published ancestor scope values.
-    pub scope: Environment,
+    pub scope: Environment => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Reserved compile-time facts: the analysis route, the objective level and the
     /// selected stages (ADR-0123 Outcome 1).
     #[serde(with = "facts_wire")]
     #[schemars(with = "Vec<(crate::analysis::Fact, Value)>")]
-    pub facts: BTreeMap<crate::analysis::Fact, Value>,
+    pub facts: BTreeMap<crate::analysis::Fact, Value> => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Additional member paths requested by the caller.
-    pub demand: Vec<String>,
+    pub demand: Vec<String> => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_model::projection_struct! {
 /// Generic analysis overlay over selected semantic equations. Science remains in source.
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct Formulation {
+    projection: { name: "ModelingFormulation", version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Remove these outer equations from this attempt only.
-    pub omitted: BTreeSet<SemanticId>,
+    pub omitted: BTreeSet<SemanticId> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Positive canonical physical nominal for each independently relaxed outer row.
-    pub elastic: BTreeMap<SemanticId, Value>,
+    pub elastic: BTreeMap<SemanticId, Value> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// Instantiated member ownership and the path used for inspection.
 #[derive(Clone, Debug, PartialEq, Eq)]

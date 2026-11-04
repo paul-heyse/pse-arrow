@@ -18,8 +18,123 @@ use futures_util::FutureExt;
 use pse_backend_native::solve::{Event, Progress};
 use pse_diagnostics::Cancellation;
 use pse_ids::SemanticId;
-use pse_model::generated::identities::RunId;
+use pse_model::generated::identities::{AttemptId, RunId};
 use std::{collections::BTreeMap, sync::Arc};
+
+/// Caller-issued original execution coordinates, fixed before submission or acknowledgement.
+/// These are requested identities, never authority to execute or reclaim another owner's run.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IssuedRunIdentity {
+    /// Exact original native run identity.
+    pub run: RunId,
+    /// Exact original scientific attempt identity.
+    pub attempt: AttemptId,
+    /// Original caller operation, independently checked by canonical registration/claim.
+    pub operation: String,
+    /// Exact original caller submission envelope, fixed before registration or acknowledgement.
+    pub submission: pse_ids::ContentHash,
+}
+impl IssuedRunIdentity {
+    pub(super) fn canonical_request(
+        &self,
+        science: super::run_outcome::RequestIdentity,
+    ) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(&(pse_model::document::Version::<2>, science, self))
+    }
+
+    /// Read the exact current original request, including its native scientific
+    /// and optional executable-provider identity tuple. Historical shapes refuse.
+    /// # Errors
+    /// Incorrect versions, incomplete identities and unknown fields refuse.
+    pub fn from_canonical_request(bytes: &[u8]) -> Result<Self, serde_json::Error> {
+        let (_, _, issued): (
+            pse_model::document::Version<2>,
+            super::run_outcome::RequestIdentity,
+            Self,
+        ) = serde_json::from_slice(bytes)?;
+        Ok(issued)
+    }
+
+    pub(super) fn claim_operation(&self) -> String {
+        format!("issued:{}", self.operation)
+    }
+    /// Exact canonical keys, known before the first request and usable after a lost ACK.
+    pub fn canonical_keys(&self) -> (String, String) {
+        Self::canonical_keys_for(self.run, &self.operation)
+    }
+    /// Original lookup coordinates require no reconstructed preparation or submission payload.
+    pub fn canonical_keys_for(run: RunId, operation: &str) -> (String, String) {
+        let run = format!("run:{run}");
+        let attempt = pse_operations::canonical_execution::execution_attempt_key(
+            &run,
+            &format!("issued:{operation}"),
+        );
+        (run, attempt)
+    }
+}
+
+#[cfg(test)]
+mod issued_request_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "exact native issued-request codec controls"
+    )]
+    use super::*;
+
+    #[test]
+    fn issued_original_request_retains_complete_scientific_and_provider_identity() {
+        let issued = IssuedRunIdentity {
+            run: RunId::from_bytes([1; 16]),
+            attempt: AttemptId::from_bytes([2; 16]),
+            operation: "issued-original".into(),
+            submission: pse_ids::ContentHash::from_bytes([3; 32]),
+        };
+        let science = pse_ids::ContentHash::from_bytes([4; 32]);
+        for provider in [None, Some(pse_ids::ContentHash::from_bytes([5; 32]))] {
+            let bytes = issued.canonical_request((science, provider)).unwrap();
+            assert_eq!(
+                IssuedRunIdentity::from_canonical_request(&bytes).unwrap(),
+                issued
+            );
+            let (_, retained, _): (
+                pse_model::document::Version<2>,
+                super::super::run_outcome::RequestIdentity,
+                IssuedRunIdentity,
+            ) = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(retained, (science, provider));
+        }
+        assert!(
+            IssuedRunIdentity::from_canonical_request(
+                &serde_json::to_vec(&(2, science, &issued)).unwrap()
+            )
+            .is_err()
+        );
+        assert!(
+            IssuedRunIdentity::from_canonical_request(
+                &serde_json::to_vec(&(1, (science, None::<pse_ids::ContentHash>), &issued))
+                    .unwrap()
+            )
+            .is_err()
+        );
+    }
+}
+
+/// An original submission starts once, or resolves to already retained canonical coordinates.
+#[derive(Clone, Debug)]
+pub enum IssuedRunStart {
+    /// This caller owns the original native cancellation lease and joined result.
+    Started(RunHandle),
+    /// Original registration already exists; no new numerical execution was dispatched.
+    Retained {
+        /// Exact original issued identities.
+        identity: IssuedRunIdentity,
+        /// Original canonical run key.
+        run: String,
+        /// Original canonical attempt key, whose absence remains unproved work coverage.
+        attempt: String,
+    },
+}
 
 /// Existing native-submit ownership can be held at actual family worker entry by
 /// isolated unit controls. No release-build observer or execution policy is added.
@@ -78,7 +193,7 @@ pub struct RunHandle {
     receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
     progress: Arc<Progress>,
     run_id: RunId,
-    attempt_id: Option<pse_model::generated::identities::AttemptId>,
+    attempt_id: Option<AttemptId>,
     canonical_keys: Option<(String, String)>,
 }
 impl RunHandle {
@@ -91,6 +206,12 @@ impl RunHandle {
     /// Passive current/cumulative/recent operation reader; dropping it never cancels this run.
     pub fn observations(&self) -> Option<pse_diagnostics::observation::OperationReader> {
         self.observation.clone()
+    }
+
+    /// Passive native checkpoint source; this lease carries no cancellation authority.
+    #[cfg(feature = "engineering-service")]
+    pub(crate) fn native_progress_source(&self) -> Arc<Progress> {
+        self.progress.clone()
     }
 
     /// Request stop; result ownership remains live until native teardown and join.
@@ -152,7 +273,7 @@ impl RunHandle {
         self.run_id
     }
     /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
-    pub const fn attempt_id(&self) -> Option<pse_model::generated::identities::AttemptId> {
+    pub const fn attempt_id(&self) -> Option<AttemptId> {
         self.attempt_id
     }
     /// Exact canonical lookup identity; independent of scientific lineage identities.
@@ -1641,7 +1762,7 @@ impl super::ModelingSolvePreparation {
     }
     /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self, services: &ExecutionServices) -> Result<RunHandle, WorkflowError> {
-        services.launch(vec![self.clone()], false, None, None)
+        services.launch(vec![self.clone()], false, None, None, None)
     }
 }
 
@@ -1674,7 +1795,102 @@ impl ExecutionServices {
                 if cancel.token().is_cancelled() {
                     return Err(MathRuntimeError::Cancelled.into());
                 }
-                self.launch(steps, continue_independent, None, Some(cancel.clone()))
+                self.launch(
+                    steps,
+                    continue_independent,
+                    None,
+                    Some(cancel.clone()),
+                    None,
+                )
+            })
+            .await
+    }
+    /// Start one caller-issued original sequence, or observe its existing canonical registration.
+    /// Repetition revalidates the actual full native request and source/context before returning
+    /// retained coordinates. It never dispatches another computation for an existing run.
+    /// # Errors
+    /// Identity conflict, source mismatch, uncertain registration and native admission propagate.
+    pub async fn start_modeling_issued(
+        &self,
+        steps: Vec<super::ModelingSolvePreparation>,
+        identity: IssuedRunIdentity,
+        cancel: &crate::CancelSource,
+    ) -> Result<IssuedRunStart, WorkflowError> {
+        pse_model::boundary_projection::validate_field(
+            &identity.operation,
+            "operation",
+            &[pse_model::engineering::OPERATION_ID_RULE],
+        )
+        .map_err(|error| {
+            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+        })?;
+        let activity = self.preparation().admit_activity()?;
+        activity
+            .scope(async {
+                self.check_sequence(&steps)?;
+                if cancel.token().is_cancelled() {
+                    return Err(MathRuntimeError::Cancelled.into());
+                }
+                let attempt = match self.durability() {
+                    Durability::Ephemeral => None,
+                    Durability::Durable(operations) => {
+                        let (run, attempt_key) = identity.canonical_keys();
+                        let extent =
+                            pse_columnar::MemoryConsumer::new("issued-run:original-header")
+                                .register(&self.preparation().pool());
+                        extent
+                            .try_grow(
+                                pse_operations::canonical::MetadataResponse::Header
+                                    .allocation_bytes(),
+                            )
+                            .map_err(pse_engine::EngineError::from)?;
+                        let previous = pse_operations::canonical::response_ownership_scope(
+                            Arc::new(extent),
+                            operations.store().canonical_run(&run),
+                        )
+                        .await?;
+                        let attempt = DurableAttempt::issued(operations, identity.clone())?;
+                        if previous.is_some() {
+                            attempt
+                                .observe_original(
+                                    &self.source_services(),
+                                    identity.run,
+                                    &steps.request(),
+                                )
+                                .await?;
+                            return Ok(IssuedRunStart::Retained {
+                                identity,
+                                run,
+                                attempt: attempt_key,
+                            });
+                        }
+                        if let Err(error) = attempt
+                            .register(&self.source_services(), identity.run, &steps.request())
+                            .await
+                        {
+                            let error = Arc::new(error);
+                            let record = attempt.abandon(&error).await;
+                            if let Err(cleanup) = record.attempt
+                                && !Arc::ptr_eq(&error, &cleanup)
+                            {
+                                return Err(WorkflowError::Settlement {
+                                    operation: Box::new(WorkflowError::Shared(error)),
+                                    cleanup: Box::new(WorkflowError::Shared(cleanup)),
+                                });
+                            }
+                            return Err(WorkflowError::Shared(error));
+                        }
+                        Some(attempt)
+                    }
+                };
+                self.launch(
+                    steps,
+                    false,
+                    attempt,
+                    Some(cancel.clone()),
+                    Some(identity.run),
+                )
+                .map(IssuedRunStart::Started)
             })
             .await
     }
@@ -1701,7 +1917,7 @@ impl ExecutionServices {
                     let _ = attempt.abandon(&error).await;
                     return Err(WorkflowError::Shared(error));
                 }
-                self.launch(steps, false, Some(attempt), Some(cancel.clone()))
+                self.launch(steps, false, Some(attempt), Some(cancel.clone()), None)
             })
             .await
     }
@@ -1826,6 +2042,7 @@ impl ExecutionServices {
         continue_independent: bool,
         attempt: Option<DurableAttempt>,
         parent: Option<crate::CancelSource>,
+        issued_run: Option<RunId>,
     ) -> Result<RunHandle, WorkflowError> {
         self.check_sequence(&steps)?;
         let activity = self.preparation().admit_activity()?;
@@ -1835,7 +2052,8 @@ impl ExecutionServices {
             .map(|s| s.profile.controls.history)
             .max()
             .unwrap_or(0);
-        let supervisor = RunSupervisor::new(self.clone(), attempt, parent.as_ref(), None, history)?;
+        let mut supervisor = RunSupervisor::new(self.clone(), attempt, parent.as_ref(), None, history)?;
+        if let Some(run) = issued_run { supervisor.run_id = run; }
         let opened = match supervisor.durable {
             None => Some(super::staged::Staged::open(self, Some(supervisor.progress.clone()))?),
             Some(_) => None,

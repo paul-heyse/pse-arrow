@@ -309,6 +309,18 @@ fn exact_document_sources(
     parent: &delta::Parent,
     cancel: &crate::CancelSource,
 ) -> Result<Vec<BTreeMap<String, Vec<u8>>>, WorkflowError> {
+    Ok(exact_document_inventory(services, package, parent, cancel)?
+        .into_iter()
+        .map(|(_, files)| files)
+        .collect())
+}
+
+fn exact_document_inventory(
+    services: &crate::workflow::PreparationServices,
+    package: &ModelingPackage,
+    parent: &delta::Parent,
+    cancel: &crate::CancelSource,
+) -> Result<Vec<(SemanticId, BTreeMap<String, Vec<u8>>)>, WorkflowError> {
     let mut grouped = BTreeMap::<SemanticId, BTreeMap<String, Vec<u8>>>::new();
     let mut data_leases = Vec::new();
     for document in parent.documents.values() {
@@ -351,7 +363,7 @@ fn exact_document_sources(
         }
         for package in &origins.packages {
             if let Some(source) = grouped.remove(&package.package) {
-                sources.push(source);
+                sources.push((package.package, source));
             }
         }
     } else {
@@ -363,13 +375,17 @@ fn exact_document_sources(
                 .get(&row.document_id)
                 .ok_or_else(|| contract("cold declaration document absent"))?;
             if let Some(source) = grouped.remove(&document.package_id.as_id()) {
-                sources.push(source);
+                sources.push((document.package_id.as_id(), source));
             }
         }
     }
-    sources.extend(grouped.into_values());
+    sources.extend(grouped);
     Ok(sources)
 }
+
+mod file_edit;
+mod read;
+pub use read::{OriginalSourceFile, OriginalSourceFileOutput, OriginalSourceFileRequest};
 
 impl ModelingPackage {
     /// Exact loader-owned source/data closure. The caller retains canonical protection through publication.
@@ -657,16 +673,24 @@ impl ModelingPackage {
                 let deadline = services.preparation().math().preparation_deadline(cancel)?;
                 let scoped = cancel.with_deadline(Some(deadline));
                 checkpoint(&scoped)?;
-                let (package, parsed) = self.reload_protected(services, sources, &scoped).await?;
-                let _ = retain(
-                    services.preparation(),
-                    &package,
-                    ParsedOwner::Reload(parsed.clone()),
-                    parsed.retained_bytes(),
-                );
-                Ok(package)
+                self.reload_retained(services, sources, &scoped).await
             })
             .await
+    }
+    async fn reload_retained(
+        &self,
+        services: &crate::workflow::SourceServices,
+        sources: &[BTreeMap<String, Vec<u8>>],
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        let (package, parsed) = self.reload_protected(services, sources, cancel).await?;
+        let _ = retain(
+            services.preparation(),
+            &package,
+            ParsedOwner::Reload(parsed.clone()),
+            parsed.retained_bytes(),
+        );
+        Ok(package)
     }
     async fn reload_protected(
         &self,

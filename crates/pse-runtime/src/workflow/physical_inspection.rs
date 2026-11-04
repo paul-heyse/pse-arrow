@@ -2,122 +2,145 @@
 // Copyright (c) 2026 Paul Heyse
 //! Finite readable projections of the admitted physical owner.
 use super::{PhysicalContext, WorkflowError, contract};
+use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 use pse_quantity::{QuantityTypeId, ReferenceStateId, UnitId};
 use serde::{Deserialize, Serialize};
 
+const PHYSICAL_NAME_BYTES: usize = 1024;
+const PHYSICAL_PAGE_LIMIT: LocalRule = LocalRule::UnsignedRange { min: 1, max: 16 };
+
+fn physical_page_limit_schema(schema: &mut schemars::Schema) {
+    use schemars::transform::Transform as _;
+    let mut rule = PHYSICAL_PAGE_LIMIT;
+    rule.transform(schema);
+}
+
+pse_model::projection_struct! {
 /// A bounded query against one immutable physical context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalInspectionRequest {
+    projection: { name: "PhysicalInspectionRequest", rust_path: crate::workflow::PhysicalInspectionRequest,
+        version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
     /// Exact declared identity/name selection.
-    pub query: PhysicalInspectionQuery,
+    pub query: PhysicalInspectionQuery => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
     /// Original declaration offset in semantic identity order.
-    pub offset: usize,
+    pub offset: usize => { tag: 2, direction: Direction::Input, rules: [] };
     /// One through sixteen declarations; encoded output is at most 64 KiB.
-    #[schemars(range(min = 1, max = 16))]
-    pub limit: usize,
+    #[schemars(transform = physical_page_limit_schema)]
+    pub limit: usize => { tag: 3, direction: Direction::Input, rules: [PHYSICAL_PAGE_LIMIT] };
+}
 }
 impl PhysicalInspectionRequest {
     /// Shared finite query admission, before lookup, cloning or allocation.
     pub(super) fn valid_bounds(&self) -> bool {
-        (1..=16).contains(&self.limit)
-            && match &self.query {
-                PhysicalInspectionQuery::QuantityNamed { name }
-                | PhysicalInspectionQuery::ReferenceStateNamed { name } => name.len() <= 1024,
-                _ => true,
-            }
+        self.validate_projection().is_ok()
     }
 }
+pse_model::projection_enum! {
 /// Physical names are package-declared names, never global aliases.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PhysicalInspectionQuery {
+    projection: { name: "PhysicalInspectionQuery", rust_path: crate::workflow::PhysicalInspectionQuery,
+        version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
     /// All quantities in the selected context, paged without cloning its inventory.
-    Quantities,
+    Quantities => 1;
     /// One exact quantity and optionally its admitted representation conversion.
     Quantity {
         /// Complete physical quantity identity.
-        id: QuantityTypeId,
+        id: QuantityTypeId => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Representation unit; absent selects the canonical unit.
-        unit: Option<UnitId>,
-    },
+        unit: Option<UnitId> => { tag: 2, direction: Direction::Input, rules: [] };
+    } => 2;
     /// One exact declared quantity name.
     QuantityNamed {
         /// Declared physical-document name, case sensitive.
-        #[schemars(length(max = 1024))]
-        name: String,
-    },
+        #[schemars(length(max = PHYSICAL_NAME_BYTES))]
+        name: String => { tag: 1, direction: Direction::Input, rules: [LocalRule::Utf8Bytes { min: 0, max: PHYSICAL_NAME_BYTES as u64 }] };
+    } => 3;
     /// One exact declared reference-state name.
     ReferenceStateNamed {
         /// Declared physical-document name, case sensitive.
-        #[schemars(length(max = 1024))]
-        name: String,
-    },
+        #[schemars(length(max = PHYSICAL_NAME_BYTES))]
+        name: String => { tag: 1, direction: Direction::Input, rules: [LocalRule::Utf8Bytes { min: 0, max: PHYSICAL_NAME_BYTES as u64 }] };
+    } => 4;
 }
+}
+pse_model::projection_struct! {
 /// Original selected quantity and its complete physical interpretation.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalQuantityDescription {
+    projection: { name: "PhysicalQuantityDescription", rust_path: crate::workflow::PhysicalQuantityDescription,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact original type including basis, datum, scale, shape and subject.
-    pub quantity: pse_quantity::QuantityType,
+    pub quantity: pse_quantity::QuantityType => { tag: 1, direction: Direction::Output, rules: [LocalRule::Required] };
     /// What is measured, including exact rational dimension and arithmetic convention.
-    pub quantity_kind: pse_quantity::QuantityKind,
+    pub quantity_kind: pse_quantity::QuantityKind => { tag: 2, direction: Direction::Output, rules: [LocalRule::Required] };
     /// Original canonical representation.
-    pub canonical_unit: pse_quantity::Unit,
+    pub canonical_unit: pse_quantity::Unit => { tag: 3, direction: Direction::Output, rules: [LocalRule::Required] };
     /// Selected representation; raw result values are never changed by inspection.
-    pub representation_unit: pse_quantity::Unit,
+    pub representation_unit: pse_quantity::Unit => { tag: 4, direction: Direction::Output, rules: [LocalRule::Required] };
     /// Admitted conversion multiplier to canonical magnitude.
-    pub scale_to_canonical: f64,
+    pub scale_to_canonical: f64 => { tag: 5, direction: Direction::Output, rules: [] };
     /// Admitted conversion offset; difference quantities retain zero here.
-    pub offset_to_canonical: f64,
+    pub offset_to_canonical: f64 => { tag: 6, direction: Direction::Output, rules: [] };
     /// Exact original basis and its composition/rate/reference conventions.
-    pub basis: Option<pse_quantity::Basis>,
+    pub basis: Option<pse_quantity::Basis> => { tag: 7, direction: Direction::Output, rules: [] };
     /// Actual reference conditions required by a standard-volume or similar basis.
-    pub basis_reference_state: Option<pse_quantity::ReferenceState>,
+    pub basis_reference_state: Option<pse_quantity::ReferenceState> => { tag: 8, direction: Direction::Output, rules: [] };
     /// Exact original datum, including typed reference conditions.
-    pub reference_state: Option<pse_quantity::ReferenceState>,
+    pub reference_state: Option<pse_quantity::ReferenceState> => { tag: 9, direction: Direction::Output, rules: [] };
     /// Declared ordered axis kinds.
-    pub shape: Vec<pse_quantity::EntityKind>,
+    pub shape: Vec<pse_quantity::EntityKind> => { tag: 10, direction: Direction::Output, rules: [] };
     /// Declared subject kind.
-    pub subject: Option<pse_quantity::EntityKind>,
+    pub subject: Option<pse_quantity::EntityKind> => { tag: 11, direction: Direction::Output, rules: [] };
 }
+}
+pse_model::projection_enum! {
 /// One immutable context page. An extent refusal never returns truncated meaning.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PhysicalInspectionDocument {
+    projection: { name: "PhysicalInspectionDocument", rust_path: crate::workflow::PhysicalInspectionDocument,
+        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Complete selected declarations with their actual immutable context identity.
     Page {
         /// Exact physical context that interpreted every record.
-        context: pse_ids::ContentHash,
+        context: pse_ids::ContentHash => { tag: 1, direction: Direction::Output, rules: [LocalRule::Required] };
         /// Complete selected population, independent of the current page.
-        count: usize,
+        count: usize => { tag: 2, direction: Direction::Output, rules: [] };
         /// Original offset.
-        offset: usize,
+        offset: usize => { tag: 3, direction: Direction::Output, rules: [] };
         /// Selected quantity records, in stable identity order.
-        quantities: Vec<PhysicalQuantityDescription>,
+        quantities: Vec<PhysicalQuantityDescription> => { tag: 4, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 16 }] };
         /// Selected named reference-state records.
-        reference_states: Vec<pse_quantity::ReferenceState>,
+        reference_states: Vec<pse_quantity::ReferenceState> => { tag: 5, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 1 }] };
         /// Next original offset; each call reacquires any canonical protection.
-        next: Option<usize>,
-        /// Native allocation retained through serialization of this bounded page.
-        #[serde(skip)]
-        #[schemars(skip)]
-        owner: Option<std::sync::Arc<pse_columnar::MemoryReservation>>,
-    },
+        next: Option<usize> => { tag: 6, direction: Direction::Output, rules: [] };
+        @local {
+            /// Native allocation retained through serialization of this bounded page.
+            #[serde(skip)]
+            #[schemars(skip)]
+            owner: Option<std::sync::Arc<pse_columnar::MemoryReservation>> = None;
+        }
+    } => 1;
     /// Required complete records do not fit the fixed document allowance.
     Unavailable {
         /// Exact context, retained even when no record can be copied.
-        context: pse_ids::ContentHash,
+        context: pse_ids::ContentHash => { tag: 1, direction: Direction::Output, rules: [LocalRule::Required] };
         /// Explicit reason; narrowing the selection may make it readable.
-        reason: String,
-    },
+        reason: String => { tag: 2, direction: Direction::Output, rules: [] };
+    } => 2;
+}
 }
 impl PhysicalContext {
     /// Resolve only a selected registry's declared quantity name.
     /// # Errors
     /// Unknown or ambiguous names refuse instead of selecting an arbitrary identity.
     pub fn resolve_quantity(&self, name: &str) -> Result<QuantityTypeId, WorkflowError> {
-        if name.len() > 1024 {
+        if name.len() > PHYSICAL_NAME_BYTES {
             return Err(contract("physical name exceeds 1024-byte query allowance"));
         }
         match self.quantities().physical_name(name) {
@@ -131,7 +154,7 @@ impl PhysicalContext {
     /// # Errors
     /// Unknown or ambiguous symbols refuse; no global aliases are consulted.
     pub fn resolve_unit(&self, symbol: &str) -> Result<UnitId, WorkflowError> {
-        if symbol.len() > 1024 {
+        if symbol.len() > PHYSICAL_NAME_BYTES {
             return Err(contract(
                 "physical symbol exceeds 1024-byte query allowance",
             ));
@@ -153,7 +176,7 @@ impl PhysicalContext {
     /// # Errors
     /// Unknown or ambiguous names refuse.
     pub fn resolve_reference_state(&self, name: &str) -> Result<ReferenceStateId, WorkflowError> {
-        if name.len() > 1024 {
+        if name.len() > PHYSICAL_NAME_BYTES {
             return Err(contract("physical name exceeds 1024-byte query allowance"));
         }
         match self.quantities().physical_name(name) {
@@ -635,5 +658,85 @@ mod physical_inspection_unit {
         }
         assert!(context.resolve_quantity(&"x".repeat(1025)).is_err());
         assert!(context.resolve_reference_state(&"x".repeat(1025)).is_err());
+        let query = request(PhysicalInspectionQuery::QuantityNamed {
+            name: "é".repeat(513),
+        });
+        assert!(
+            !query.valid_bounds(),
+            "native UTF-8 byte allowance must not become a Unicode character allowance"
+        );
+    }
+
+    #[cfg(feature = "engineering-service")]
+    #[test]
+    fn physical_projection_generated_binary_retains_actual_science_and_page_custody() {
+        use crate::host_operations::engineering::generated::pb::pse::engineering::v1 as wire;
+        use crate::preparation_projection::{
+            decode_physical_inspection_document, encode_owned_physical_inspection_document,
+        };
+        use buffa::Message as _;
+        let context = super::super::tests::physical();
+        let baseline = context.pool.reserved();
+        let id = context.resolve_quantity("Temperature").unwrap();
+        let selection = request(PhysicalInspectionQuery::Quantity {
+            id,
+            unit: Some(context.resolve_unit("degC").unwrap()),
+        });
+        let native = context.describe(&selection).unwrap();
+        let PhysicalInspectionDocument::Page {
+            context: expected_context,
+            quantities,
+            ..
+        } = &native
+        else {
+            panic!("complete original physical record")
+        };
+        let expected_context = *expected_context;
+        let expected = quantities[0].clone();
+        let projected = encode_owned_physical_inspection_document(native).unwrap();
+        assert!(projected.owner.is_some());
+        let bytes = projected.document.encode_to_vec();
+        let decoded = decode_physical_inspection_document(
+            wire::PhysicalInspectionDocument::decode_from_slice(&bytes).unwrap(),
+        )
+        .unwrap();
+        let PhysicalInspectionDocument::Page {
+            context: actual_context,
+            mut quantities,
+            owner,
+            ..
+        } = decoded
+        else {
+            panic!("original selected alternative")
+        };
+        assert_eq!(actual_context, expected_context);
+        assert!(
+            owner.is_none(),
+            "decoding data does not manufacture a native allocation owner"
+        );
+        let actual = quantities.remove(0);
+        assert_eq!(actual.quantity, expected.quantity);
+        assert_eq!(actual.quantity_kind, expected.quantity_kind);
+        assert_eq!(actual.canonical_unit, expected.canonical_unit);
+        assert_eq!(actual.representation_unit, expected.representation_unit);
+        assert_eq!(
+            actual.scale_to_canonical.to_bits(),
+            expected.scale_to_canonical.to_bits()
+        );
+        assert_eq!(
+            actual.offset_to_canonical.to_bits(),
+            expected.offset_to_canonical.to_bits()
+        );
+        assert_eq!(actual.basis, expected.basis);
+        assert_eq!(actual.basis_reference_state, expected.basis_reference_state);
+        assert_eq!(actual.reference_state, expected.reference_state);
+        assert_eq!(actual.shape, expected.shape);
+        assert_eq!(actual.subject, expected.subject);
+        assert!(
+            context.pool.reserved() > baseline,
+            "original owner outlives native-to-wire conversion"
+        );
+        drop(projected);
+        assert_eq!(context.pool.reserved(), baseline);
     }
 }

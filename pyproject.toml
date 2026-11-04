@@ -31,6 +31,7 @@ test = [
 # IDAES 2.13.0 is the parity authority; Pyomo/Pint retain its qualified environment.
 parity = [
   "msgspec==0.21.1",
+  "protobuf==7.36.2",
   { include-group = "test" },
   "idaes-pse==2.13.0; python_full_version < '3.15'",
   "pyomo==6.10.1; python_full_version < '3.15'",

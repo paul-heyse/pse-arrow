@@ -24,6 +24,65 @@ pub(crate) fn invalid(context: impl Into<String>, reason: impl Into<String>) -> 
 
 pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaError> {
     let context = decl.key.to_string();
+    if let Some(record) = decl.boundary {
+        if record.version == 0
+            || record.name.is_empty()
+            || !record.name.bytes().enumerate().all(|(index, byte)| {
+                byte.is_ascii_alphabetic() || byte == b'_' || (index > 0 && byte.is_ascii_digit())
+            })
+        {
+            return Err(invalid(
+                &context,
+                "boundary record needs a stable protobuf name and nonzero interpretation version",
+            ));
+        }
+        let valid_tag =
+            |tag: u32| tag > 0 && tag <= 536_870_911 && !(19_000..=19_999).contains(&tag);
+        let reserved = record
+            .reserved_tags
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        let names = record
+            .reserved_names
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if reserved.len() != record.reserved_tags.len()
+            || names.len() != record.reserved_names.len()
+            || reserved.iter().any(|tag| !valid_tag(*tag))
+        {
+            return Err(invalid(
+                &context,
+                "boundary record has invalid or duplicate reservations",
+            ));
+        }
+        let mut tags = BTreeSet::new();
+        for field in &decl.columns {
+            let tag = field.boundary_tag().ok_or_else(|| {
+                invalid(
+                    &context,
+                    format!(
+                        "boundary field {} has no explicit stable number",
+                        field.name()
+                    ),
+                )
+            })?;
+            if !valid_tag(tag)
+                || !tags.insert(tag)
+                || reserved.contains(&tag)
+                || names.contains(field.name())
+            {
+                return Err(invalid(
+                    &context,
+                    format!(
+                        "boundary field {} reuses an invalid, duplicate or retired number/name",
+                        field.name()
+                    ),
+                ));
+            }
+        }
+    }
     if decl
         .checks
         .iter()

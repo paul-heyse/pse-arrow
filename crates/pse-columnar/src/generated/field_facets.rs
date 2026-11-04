@@ -29,6 +29,8 @@ pub struct Facet {
     /// Directional target admission.
     pub admission: Admission,
 }
+#[doc = concat!("Declared field facet `", "pse.domain.boundary.tag", "`.")]
+pub const BOUNDARY_TAG: &str = "pse.domain.boundary.tag";
 #[doc = concat!("Declared field facet `", "pse.domain.extension", "`.")]
 pub const EXTENSION: &str = "pse.domain.extension";
 #[doc = concat!("Declared field facet `", "pse.domain.parameter", "`.")]
@@ -135,6 +137,14 @@ pub const KEY_TAGGED_ALTERNATIVE: &str = "pse.semantic.tagged_alternative";
 pub const KEY_REFERENCE: &str = "pse.semantic.reference";
 /// Schema-owned policies. Unlisted keys remain significant.
 pub const FACETS: &[Facet] = &[
+    Facet {
+        key: BOUNDARY_TAG,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
     Facet {
         key: EXTENSION,
         execution: true,

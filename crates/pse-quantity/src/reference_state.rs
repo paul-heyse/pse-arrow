@@ -4,6 +4,10 @@
 //! Reference state declarations (blueprint §6.2, §8.4).
 use crate::{QuantityTypeId, ReferenceStateId, ReferenceStateKind, UnitId};
 use pse_ids::SemanticId;
+crate::quantity_boundary_record! {
+callback: reference_condition_boundary; name: "ReferenceCondition"; version: 1;
+direction: Both; reserved_tags: []; reserved_names: [];
+construct: [];
 /// A typed reference condition (ADR-0123 Outcome 6): a value in a declared unit of a
 /// declared quantity type. Admission checks the type's dimension against the condition it
 /// states and the unit against the type.
@@ -11,11 +15,12 @@ use pse_ids::SemanticId;
 #[schemars(deny_unknown_fields)]
 pub struct ReferenceCondition {
     /// The value in `unit`.
-    pub value: f64,
+    pub value: f64 => 1;
     /// The declared quantity type of the condition.
-    pub quantity_type: QuantityTypeId,
+    pub quantity_type: QuantityTypeId => 2;
     /// The unit `value` is written in.
-    pub unit: UnitId,
+    pub unit: UnitId => 3;
+}
 }
 // Semantic equality preserves every declared IEEE bit, including signed zero.
 impl PartialEq for ReferenceCondition {
@@ -26,6 +31,10 @@ impl PartialEq for ReferenceCondition {
     }
 }
 impl Eq for ReferenceCondition {}
+crate::quantity_boundary_record! {
+callback: reference_state_boundary; name: "ReferenceState"; version: 1;
+direction: Both; reserved_tags: []; reserved_names: [];
+construct: [];
 /// The datum carried by origin-sensitive quantities.
 #[derive(
     schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
@@ -33,18 +42,19 @@ impl Eq for ReferenceCondition {}
 #[schemars(deny_unknown_fields)]
 pub struct ReferenceState {
     /// Registry identity.
-    pub id: ReferenceStateId,
+    pub id: ReferenceStateId => 1;
     /// The name packages address it by, declared once in the physical document
     /// (ADR-0123 Outcome 6).
-    pub name: String,
+    pub name: String => 2;
     /// The reference convention.
-    pub kind: ReferenceStateKind,
+    pub kind: ReferenceStateKind => 3;
     /// Typed reference temperature, when specified.
-    pub temperature: Option<ReferenceCondition>,
+    pub temperature: Option<ReferenceCondition> => 4;
     /// Typed reference pressure, when specified.
-    pub pressure: Option<ReferenceCondition>,
+    pub pressure: Option<ReferenceCondition> => 5;
     /// Whether formation enthalpy is included.
-    pub include_enthalpy_of_formation: bool,
+    pub include_enthalpy_of_formation: bool => 6;
     /// Optional datum subject; physical source admission requires an authored entity.
-    pub subject: Option<SemanticId>,
+    pub subject: Option<SemanticId> => 7;
+}
 }

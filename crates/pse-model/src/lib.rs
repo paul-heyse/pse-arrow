@@ -19,14 +19,22 @@ pub mod diagnostic;
 pub mod document;
 /// Declared variable-domain semantics over the generated registry enum (ADR-0103).
 pub mod domain;
+/// Source-owned records for explicitly prepared local engineering services.
+pub mod engineering;
 /// Admitted engineering goals and actual output evidence, separate from conditioning.
 pub mod engineering_accuracy;
+/// Explicit original-source file editing intents.
+pub mod engineering_edit;
 /// Constraint forms left to native constraint handlers (ADR-0104).
 pub mod forms;
 /// The model and case a run's lineage and its numerical requirements name.
 pub mod lineage;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
+/// Shared source-owned operation effects and exact-request repeatability facts.
+pub mod operation_effects;
+/// Versioned scientific exchange structure and semantic correspondence checks.
+pub mod reference_exchange;
 /// Validated single-value setting domains (ADR-0116 Outcome 8).
 pub mod scalars;
 /// Declared bounded numerical composition and consumed product contracts.

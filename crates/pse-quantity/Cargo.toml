@@ -19,6 +19,7 @@ workspace = true
 [dependencies]
 pse-diagnostics.workspace = true
 pse-ids.workspace = true
+pse-vocabulary.workspace = true
 serde.workspace = true
 strum.workspace = true
 # The member spellings as a JSON Schema inside boundary documents (ADR-0116 Outcome 7).
@@ -28,7 +29,9 @@ thiserror.workspace = true
 [features]
 # Generated projection of the selected reference YAML packages (blueprint §8.2,
 # ADR-0064); never a default or a second declaration authority.
-fixtures = []
+reference-package-projection = []
+# Test identities and invariant checker in addition to the selected source projection.
+fixtures = ["reference-package-projection"]
 
 [dev-dependencies]
 proptest.workspace = true

@@ -55,6 +55,16 @@ pub mod observation;
 pub mod observation_detail;
 pub use inspection_documents::{ResourceConsumer, TableName};
 pub mod peak;
+/// Typed generated preparation crossings over the actual native semantic owners.
+#[cfg(feature = "engineering-service")]
+pub mod preparation_projection;
+/// Shared mechanics and typed failures for generated native boundary projections.
+pub mod projection_support;
+/// Source-derived interchange for independently constructed scientific references.
+pub mod reference_exchange;
+/// Explicit local process placement for coherent scientific providers.
+#[cfg(unix)]
+pub mod scientific_worker;
 pub mod session_factory;
 pub mod settings;
 /// Internal tooling boundary; product workflow contracts remain in their owners.

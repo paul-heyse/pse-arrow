@@ -296,14 +296,15 @@ pub use modeling::{
     ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OwnedDeclarations,
+    ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OriginalSourceFile,
+    OriginalSourceFileOutput, OriginalSourceFileRequest, OwnedDeclarations,
     PreparationDiscoveryReport, PreparationDiscoveryRequest, PreparationEligibility,
     PreparationProductKind, ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection,
     ProjectDocumentComposition, ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict,
     ProjectMergeConflictKind, ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview,
     ProjectMergeProposal, ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail,
-    ProjectSourceObject, ResidentPreparation, SimulationSampleAttempt, SimulationSampleObserver,
-    StartSource, conform_pure_documents, with_simulation_sample_wait,
+    ProjectSourceObject, ReferenceReportSelection, ResidentPreparation, SimulationSampleAttempt,
+    SimulationSampleObserver, StartSource, conform_pure_documents, with_simulation_sample_wait,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
@@ -334,7 +335,7 @@ use pse_engine::{
     EngineError,
     session::{BoundModel, EngineFactory},
 };
-pub use run::{RunHandle, RunResult, StoredStart};
+pub use run::{IssuedRunIdentity, IssuedRunStart, RunHandle, RunResult, StoredStart};
 mod run_outcome;
 pub use run_outcome::{HorizonRunOutcome, RunOutcome, RunReport, RunRequest};
 mod live_simulation;

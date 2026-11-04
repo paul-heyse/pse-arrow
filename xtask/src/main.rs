@@ -356,6 +356,8 @@ struct ProducerIdentityArgs {
 /// Committed generators and the contract bootstrap phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Target {
+    /// Compiled engineering and prepared scientific-worker contract projections.
+    Engineering,
     /// Code-intelligence contracts, validation and representation fixtures.
     CodeIntelligence,
     /// `pse-schema` output: typed relation views.

@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Existing typed native project operator actions and effect declarations.
 //! This is an interface to existing typed owners, not a workflow interpreter.
+
+/// Shared implementations used by native project adapters.
+pub mod handler;
+
 use crate::workflow::{
     PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,
     ProjectExportRequest, ProjectImportIntent, ProjectMergeIntent, ProjectMergeResolution,
@@ -17,80 +21,9 @@ use pse_operations::{
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Finite observable effect scope, never inferred from presentation or helper lifetime.
-#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum EffectScope {
-    /// Read original supplied or protected facts without a requested mutation.
-    Observation,
-    /// Admit original source and its actual providers into a local native owner.
-    SourceAdmission,
-    /// Original caller-issued canonical command or publication.
-    CanonicalCommand,
-    /// Explicit release of retained canonical custody.
-    RetentionRelease,
-    /// Create a new bounded requested output file.
-    FileExport,
-    /// Explicit finite runtime sampling/capture.
-    Capture,
-}
-/// Machine-readable facts used by project operation schema metadata.
-#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
-#[schemars(deny_unknown_fields)]
-pub struct EffectFacts {
-    /// Actual operation scope.
-    pub scope: EffectScope,
-    /// The operation requests observation rather than mutation/admission/capture.
-    pub read_only: bool,
-    /// Repeating the original request has the owner's stated repeatability contract.
-    pub idempotent: bool,
-    /// The operation explicitly releases retained data/custody.
-    pub destructive: bool,
-}
-impl EffectFacts {
-    /// Ordinary supplied/protected observation, without granting source completeness.
-    pub const OBSERVATION: Self = Self {
-        scope: EffectScope::Observation,
-        read_only: true,
-        idempotent: true,
-        destructive: false,
-    };
-    /// Native original-source admission; no scientific solve is implied.
-    pub const SOURCE_ADMISSION: Self = Self {
-        scope: EffectScope::SourceAdmission,
-        read_only: false,
-        idempotent: true,
-        destructive: false,
-    };
-    /// Canonical command under its original exact-operation/intent owner.
-    pub const CANONICAL_COMMAND: Self = Self {
-        scope: EffectScope::CanonicalCommand,
-        read_only: false,
-        idempotent: true,
-        destructive: false,
-    };
-    /// Explicit retained-custody release, independently admitted by its original owner.
-    pub const RETENTION_RELEASE: Self = Self {
-        scope: EffectScope::RetentionRelease,
-        read_only: false,
-        idempotent: false,
-        destructive: true,
-    };
-    /// Fresh explicit output; existing destinations refuse, with no overwrite fallback.
-    pub const FILE_EXPORT: Self = Self {
-        scope: EffectScope::FileExport,
-        read_only: false,
-        idempotent: false,
-        destructive: false,
-    };
-    /// A new finite capture cannot replay an earlier time interval.
-    pub const CAPTURE: Self = Self {
-        scope: EffectScope::Capture,
-        read_only: false,
-        idempotent: false,
-        destructive: false,
-    };
-}
+/// Shared original effect declarations; adapters do not restate their meaning.
+pub use pse_model::operation_effects::{EffectFacts, EffectScope};
+
 /// Shared default branch for an explicitly issued receiving project intent.
 pub const DEFAULT_BRANCH: &str = "main";
 /// Shared default bounded project document/member extent.
@@ -134,15 +67,30 @@ fn project_branch_name() -> String {
 #[serde(deny_unknown_fields)]
 /// Original bounded operator request and its finite typed action.
 pub struct ProjectOperationRequest {
-    /// Existing operator wire interpretation.
-    pub version: pse_model::document::Version<1>,
+    /// Native owner preparation interpretation; obsolete custom JSON is not accepted.
+    pub version: pse_model::document::Version<2>,
     /// Required only for scientific source loading/admission; ordinary authored documents.
     pub physical: Option<ProjectDraftDocuments>,
     /// One original typed operation.
     pub action: ProjectAction,
 }
+
+/// A deliberately selected actual action root and its original declared effects.
+/// This does not describe unselected alternatives of the native project operator.
+#[derive(Debug)]
+pub struct SelectedActionProjection {
+    /// Complete selected request type world.
+    pub graph: pse_model::boundary_projection::ProjectionGraph,
+    /// The selected actual action payload root.
+    pub root: pse_model::boundary_projection::TypeRef,
+    /// Original macro-declared effect facts, without a second interpretation table.
+    pub effects: EffectFacts,
+}
+
 macro_rules! project_actions {
-    ($( $(#[$attribute:meta])* $effect:ident => $name:ident { $( $(#[$field_attribute:meta])* $field:ident : $field_type:ty, )* }, )*) => {
+    ($( $(#[$attribute:meta])* $effect:ident => $name:ident
+        $( [projection: $wire:literal, version: $version:literal, register: $register:ident] )?
+        { $( $(#[$field_attribute:meta])* $field:ident : $field_type:ty $( => $tag:expr )?, )* }, )*) => {
         #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
         #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
         /// The original finite project operator action contract.
@@ -163,8 +111,41 @@ macro_rules! project_actions {
             pub const fn effect_facts(&self) -> EffectFacts {
                 match self { $(Self::$name { .. } => EffectFacts::$effect,)* }
             }
+            /// Inspect this explicitly selected action, refusing unselected boundaries.
+            /// # Errors
+            /// Unselected actions and invalid/unsupported selected field types refuse.
+            pub fn selected_projection(&self) -> Result<SelectedActionProjection, pse_model::boundary_projection::ProjectionError> {
+                let mut graph = pse_model::boundary_projection::ProjectionGraph::default();
+                let (root, effects) = match self {
+                    $( Self::$name { .. } => project_actions!(@selected graph; $name $(, $register)?), )*
+                }?;
+                Ok(SelectedActionProjection { graph, root, effects })
+            }
+            $( project_actions!(@method $effect, $name $(, $wire, $version, $register)?; $( $field: $field_type $( => $tag )?, )*); )*
         }
     };
+    (@selected $graph:ident; $name:ident, $register:ident) => { Self::$register(&mut $graph) };
+    (@selected $graph:ident; $name:ident) => {
+        Err(pse_model::boundary_projection::ProjectionError::invalid(
+            concat!("ProjectAction::", stringify!($name)), "this action is outside the selected boundary projection"))
+    };
+    (@method $effect:ident, $name:ident, $wire:literal, $version:literal, $register:ident; $( $field:ident: $field_type:ty => $tag:expr, )*) => {
+        /// Resolve this selected actual action's fields and original effect facts.
+        /// # Errors
+        /// Invalid or unsupported actual field projections refuse.
+        pub fn $register(graph: &mut pse_model::boundary_projection::ProjectionGraph)
+            -> Result<(pse_model::boundary_projection::TypeRef, EffectFacts), pse_model::boundary_projection::ProjectionError> {
+            let root = graph.declare::<Self>($wire, file!(), $version,
+                pse_model::boundary_projection::Direction::Input, &[], &[], |graph| {
+                    Ok(pse_model::boundary_projection::Shape::Record(vec![$(
+                        pse_model::boundary_projection::Field::of::<$field_type>(graph,
+                            stringify!($field), $tag, pse_model::boundary_projection::Direction::Input, vec![])?,
+                    )*]))
+                })?;
+            Ok((root, EffectFacts::$effect))
+        }
+    };
+    (@method $effect:ident, $name:ident; $( $field:ident: $field_type:ty $( => $tag:expr )?, )*) => {};
 }
 project_actions! {
     OBSERVATION => ProjectClosure {
@@ -382,15 +363,68 @@ project_actions! {
     SOURCE_ADMISSION => ContextReopen {
         selection: ContextSelection,
     },
-    OBSERVATION => PreparationDiscovery {
-        revision: String,
-        request: PreparationDiscoveryRequest,
+    OBSERVATION => PreparationDiscovery [projection: "PreparationDiscoveryAction", version: 2, register: preparation_discovery_projection] {
+        revision: String => 1,
+        request: PreparationDiscoveryRequest => 2,
     },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selected_preparation_action_projects_actual_types_and_original_effect_facts() {
+        let root = pse_modeling::DeclarationId::from_bytes([1; 16]);
+        let action = ProjectAction::PreparationDiscovery {
+            revision: "exact-local-parent".into(),
+            request: PreparationDiscoveryRequest {
+                root,
+                instance: pse_modeling::specialize::root_instance(root),
+                bindings: pse_modeling::Bindings::default(),
+                limits: pse_modeling::Limits::default(),
+                durable_after: None,
+            },
+        };
+        let selected = action.selected_projection().unwrap();
+        assert!(matches!(selected.effects.scope, EffectScope::Observation));
+        assert!(selected.effects.read_only && selected.effects.idempotent);
+        assert!(!selected.effects.destructive);
+        assert_eq!(
+            selected.root,
+            pse_model::boundary_projection::TypeRef::Named("PreparationDiscoveryAction".into())
+        );
+        let owner = &selected.graph.definitions()["PreparationDiscoveryAction"];
+        assert_eq!(owner.version, 2);
+        let pse_model::boundary_projection::Shape::Record(fields) = &owner.shape else {
+            panic!("actual selected action record")
+        };
+        assert_eq!(
+            fields
+                .iter()
+                .map(|field| (field.name.as_str(), field.tag))
+                .collect::<Vec<_>>(),
+            [("revision", 1), ("request", 2)]
+        );
+        assert_eq!(
+            fields[1].ty,
+            pse_model::boundary_projection::TypeRef::Named("PreparationDiscoveryRequest".into())
+        );
+        assert!(selected.graph.definitions().contains_key("StructuralValue"));
+        assert!(
+            selected
+                .graph
+                .definitions()
+                .contains_key("ProductHeaderCursor")
+        );
+        assert!(
+            ProjectAction::DraftRead {
+                key: "unselected".into()
+            }
+            .selected_projection()
+            .is_err()
+        );
+    }
     #[test]
     fn project_operator_wire_defaults_effects_and_native_schema_remain_owned() {
         let action: ProjectAction = serde_json::from_value(serde_json::json!({

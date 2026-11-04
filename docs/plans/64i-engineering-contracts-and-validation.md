@@ -1,6 +1,6 @@
 ---
 title: "Plan64i: Engineering contracts and validation"
-status: planned
+status: in-progress
 date: 2026-11-03
 adrs: [ADR-0239]
 review_sources: [docs/plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md]
@@ -138,9 +138,9 @@ compilation/evaluation errors, contextual refusals and infrastructure failures s
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| I01 | planned | ADR-0239 route; actual registry/Rust owners. Produces owner annotation metadata, resolved descriptors and generated engineering projections | Foundation decision and vertical preparation/action/completion slice below; remove replaced mappings with migrated consumers |
-| I02 | planned | Working I01 owner/projection slice. Produces shared local constraints, structured validation and typed exact-parent client editing | Add/replace/remove/inherit plus invalid ingress/outgoing/context cases; remove duplicate envelope checks/string translations |
-| I06 | planned | Actual selected producers from C/E/G, consumed I01/I02 projections and service read contracts | Selection before hydration/encoding, bounded lifetime and refusal tests; remove superseded projection/pass only after protections move |
+| I01 | in-progress | ADR-0239 route; actual registry/Rust owners. Produces owner annotation metadata, resolved descriptors and generated engineering projections | Foundation decision and vertical preparation/action/completion slice below; remove replaced mappings with migrated consumers |
+| I02 | in-progress | Working I01 owner/projection slice. Produces shared local constraints, structured validation and typed exact-parent client editing | Add/replace/remove/inherit plus invalid ingress/outgoing/context cases; remove duplicate envelope checks/string translations |
+| I06 | in-progress | Actual selected producers from C/E/G, consumed I01/I02 projections and service read contracts | Selection before hydration/encoding, bounded lifetime and refusal tests; remove superseded projection/pass only after protections move |
 
 ### I01 — Settle metadata emission, then integrate the complete projection slice
 
@@ -196,6 +196,31 @@ to the authoritative output owner and preserve refusal before any publication/pa
 output, overflow handling and native callers' protections. Do not simply delete the early
 check because a later encoder also visits the response. Canonical pre-allocation wire
 checks, complete observation/capture coverage and G08's atomic transaction remain intact.
+
+## Current implementation checkpoint — 2026-11-03
+
+Execution is authorized for the complete selected Proto scope. Source-owner macros and a
+resolved projection graph now declare stable tags, recursive types, interpretation versions,
+directions and local rules. The Buffa lowering/generation and native shared-rule validation
+are implemented; consumer migration and integrated generation remain underway. The graph
+stays in `pse-model`, independent of Arrow, Buffa and runtime dependencies.
+
+After the maintainer's `cargo clean`, damaged edits were restored and the native host and
+providers were explicitly prepared again. Foundation tests and complete generation now
+run successfully. Actual preparation/value owners replace the former hand-maintained
+wire projection. The exact-parent file-edit frontend delegates parsing, ownership and CAS
+to the original source owner; compact declaration headers are selected before body copies.
+The registry's selected quantity-type and basis rows now emit their projection metadata
+from the resolved declarations, with explicit source tags and informative field facets.
+Actual physical inspection projects the native quantity/unit/dimension/basis/datum closure;
+checked ratio construction and fixed dimension cardinality survive native adoption.
+The full runtime feature check and focused registry, header, edit and original-report
+controls pass. Independent review found a worker deadline interpretation error and an
+I/O reservation lifetime error; 64k owns their correction and affected verification.
+Complete consumer migration, study/model inspection, assembled acceptance and performance
+benefits remain open. The independent reference environment now includes pinned Protobuf tooling
+for direct consumption of the generated descriptor world; structural controls do not
+establish matched ordinary-process reference qualification.
 
 ## Verification and handoff
 

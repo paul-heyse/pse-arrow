@@ -181,7 +181,7 @@ macro_rules! for_each_boundary_document {
             (ProjectMergePreview, pse_runtime::workflow::ProjectMergePreview, "project-merge-preview", Both, FlatV1),
             (ProjectMergeIntent, pse_runtime::workflow::ProjectMergeIntent, "project-merge-intent", Both, Native),
             (ProjectDraftDelta, pse_runtime::workflow::ProjectDraftDelta, "project-draft-delta", Both, Native),
-            (PreparationDiscoveryRequest, pse_runtime::workflow::PreparationDiscoveryRequest, "preparation-discovery-request", Both, FlatV1),
+            (PreparationDiscoveryRequest, pse_runtime::workflow::PreparationDiscoveryRequest, "preparation-discovery-request", Both, FlatV2),
             (PreparationDiscoveryReport, pse_runtime::workflow::PreparationDiscoveryReport, "preparation-discovery-report", Both, FlatV1),
             (ProjectSelectRequest, pse_runtime::workflow::ProjectSelectRequest, "project-select-request", Both, Native),
             (ProjectSelection, pse_runtime::workflow::ProjectSelection, "project-selection", Both, FlatV1),

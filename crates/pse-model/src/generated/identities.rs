@@ -116,6 +116,19 @@ impl crate::boundary_projection::ValidateProjection for AccuracyGoalId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for AccuracyGoalId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for AccuracyGoalId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -177,6 +190,19 @@ impl crate::boundary_projection::ValidateProjection for AttemptId {
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for AttemptId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
     }
 }
 impl crate::SemanticEq for AttemptId {
@@ -257,6 +283,19 @@ impl crate::boundary_projection::ValidateProjection for DeclarationId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for DeclarationId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for DeclarationId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -320,6 +359,19 @@ impl crate::boundary_projection::ValidateProjection for EngineeringRuleId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for EngineeringRuleId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for EngineeringRuleId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -381,6 +433,19 @@ impl crate::boundary_projection::ValidateProjection for EngineeringScaleId {
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for EngineeringScaleId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
     }
 }
 impl crate::SemanticEq for EngineeringScaleId {
@@ -461,6 +526,19 @@ impl crate::boundary_projection::ValidateProjection for FitId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for FitId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for FitId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -524,6 +602,19 @@ impl crate::boundary_projection::ValidateProjection for InstanceId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for InstanceId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for InstanceId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -585,6 +676,19 @@ impl crate::boundary_projection::ValidateProjection for PackageId {
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for PackageId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
     }
 }
 impl crate::SemanticEq for PackageId {
@@ -695,6 +799,19 @@ impl crate::boundary_projection::ValidateProjection for RunId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for RunId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for RunId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -758,6 +875,19 @@ impl crate::boundary_projection::ValidateProjection for SolutionId {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
+impl crate::boundary_projection::ProjectionRecord for SolutionId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
+    }
+}
 impl crate::SemanticEq for SolutionId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -819,6 +949,19 @@ impl crate::boundary_projection::ValidateProjection for StudyId {
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for StudyId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
+    type Fields = (pse_ids::SemanticId,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.as_id(),)
+    }
+    fn from_projection_fields(
+        (id,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self::from_id(id))
     }
 }
 impl crate::SemanticEq for StudyId {

@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod structure;
 
+pse_model::projection_enum! {
 /// A fully explicit structural value.
 #[derive(
     Clone,
@@ -28,79 +29,85 @@ mod structure;
 )]
 #[serde(deny_unknown_fields)]
 pub enum Value {
+    projection: { name: "StructuralValue", rust_path: crate::specialize::Value, version: 1,
+        direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Predicate.
-    Boolean(bool),
+    Boolean(bool) => 1;
     /// Exact integer.
-    Integer(i64),
+    Integer(i64) => 2;
     /// Finite scalar with its complete physical type.
     Number {
         /// Bit pattern of the canonical `f64` value.
-        bits: u64,
+        bits: u64 => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
+            rules: [], representation: pse_model::boundary_projection::Scalar::F64Bits };
         /// Physical quantity type.
-        quantity: QuantityTypeId,
-    },
+        quantity: QuantityTypeId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
     /// Generated continuous coordinate; identity is independent of its floating value.
     Coordinate {
         /// Coordinate identity.
-        id: SemanticId,
+        id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Bit pattern of the canonical `f64` position.
-        bits: u64,
+        bits: u64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
+            rules: [], representation: pse_model::boundary_projection::Scalar::F64Bits };
         /// Physical quantity type of the axis.
-        quantity: QuantityTypeId,
-    },
+        quantity: QuantityTypeId => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 4;
     /// Textual label.
-    Text(String),
+    Text(String) => 5;
     /// Entity identity and its concrete kind; the kind is content, not identity
     /// (ADR-0123 Outcome 2).
     Entity {
         /// The entity declaration, or a keyed row's derived identity.
-        id: DeclarationId,
+        id: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// The most-derived kind of the entity.
-        kind: DeclarationId,
-    },
+        kind: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 6;
     /// Value of an authored closed enumeration.
     Enum {
         /// Enumeration declaration.
-        enumeration: DeclarationId,
+        enumeration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Member identity: renaming a member keeps it (ADR-0123 Outcome 2).
-        member: SemanticId,
-    },
+        member: SemanticId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 7;
     /// An opaque value of a declared identifier scheme, compared byte-exactly and never
     /// parsed (ADR-0123 Outcome 2).
     Identifier {
         /// Identifier scheme declaration.
-        scheme: DeclarationId,
+        scheme: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// The value as written.
-        value: String,
-    },
+        value: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 8;
     /// Definition identity with named partial bindings.
     Definition {
         /// Definition declaration.
-        id: DeclarationId,
+        id: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Bound arguments by name.
-        bindings: BTreeMap<String, Value>,
-    },
+        bindings: BTreeMap<String, Value> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 9;
     /// A pure function declaration selected as structural data.
-    Function(DeclarationId),
+    Function(DeclarationId) => 10;
     /// Typed heterogeneous table row: positional cells and the column names they bind.
     Row {
         /// Table declaration.
-        table: DeclarationId,
+        table: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Column names in column order, shared with the admitted table.
-        names: std::sync::Arc<[String]>,
+        names: std::sync::Arc<[String]> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         /// Values in column order, shared with the admitted row.
-        fields: std::sync::Arc<[Value]>,
-    },
+        fields: std::sync::Arc<[Value]> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 11;
     /// Ordered finite set with no duplicates.
-    Set(Vec<Value>),
+    Set(Vec<Value>) => 12;
     /// Ragged coordinate or table key.
-    Tuple(Vec<Value>),
+    Tuple(Vec<Value>) => 13;
     /// A named quantity type of the physical document (ADR-0123 Outcome 6).
-    QuantityType(QuantityTypeId),
+    QuantityType(QuantityTypeId) => 14;
     /// A named reference state of the physical document (ADR-0123 Outcome 6).
-    ReferenceState(pse_quantity::ReferenceStateId),
+    ReferenceState(pse_quantity::ReferenceStateId) => 15;
     /// Explicit absence, never numeric zero.
-    Missing,
+    Missing => 16;
+}
 }
 impl Value {
     /// Stable framing excludes map allocation and backend-local IDs.
@@ -1943,6 +1950,111 @@ pub(crate) fn conforms(value: &Value, ty: &Type, p: &CheckedPackage) -> bool {
         // A member of a refined kind is a member of every kind it refines.
         (Value::Entity { kind, .. }, Type::Entity(expected)) => p.refines(*kind, *expected),
         _ => value_type(value).as_ref() == Some(ty),
+    }
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::*;
+    use pse_model::boundary_projection::{
+        ProjectionGraph, Scalar, Shape, TypeRef, ValidateProjection,
+    };
+
+    #[test]
+    fn actual_structural_owner_preserves_stable_alternatives_bits_and_nominal_ids() {
+        let graph = ProjectionGraph::of::<Value>().unwrap();
+        let Shape::Alternatives(alternatives) = &graph.definitions()["StructuralValue"].shape
+        else {
+            panic!("actual alternatives")
+        };
+        assert_eq!(
+            alternatives
+                .iter()
+                .map(|alternative| (alternative.name.as_str(), alternative.tag))
+                .collect::<Vec<_>>(),
+            [
+                ("Boolean", 1),
+                ("Integer", 2),
+                ("Number", 3),
+                ("Coordinate", 4),
+                ("Text", 5),
+                ("Entity", 6),
+                ("Enum", 7),
+                ("Identifier", 8),
+                ("Definition", 9),
+                ("Function", 10),
+                ("Row", 11),
+                ("Set", 12),
+                ("Tuple", 13),
+                ("QuantityType", 14),
+                ("ReferenceState", 15),
+                ("Missing", 16),
+            ]
+        );
+        assert_eq!(
+            alternatives[2].fields[0].ty,
+            TypeRef::Scalar(Scalar::F64Bits)
+        );
+        assert_eq!(
+            alternatives[2].fields[1].ty,
+            TypeRef::Named("QuantityTypeId".into())
+        );
+        assert_eq!(
+            alternatives[3].fields[0].ty,
+            TypeRef::Scalar(Scalar::SemanticId)
+        );
+        assert_eq!(
+            alternatives[3].fields[1].ty,
+            TypeRef::Scalar(Scalar::F64Bits)
+        );
+        assert_eq!(
+            alternatives[10].fields[2].ty,
+            TypeRef::Repeated(Box::new(TypeRef::Named("StructuralValue".into())))
+        );
+        let value = Value::Number {
+            bits: 0x8000_0000_0000_0000,
+            quantity: QuantityTypeId::from_bytes([7; 16]),
+        };
+        value.validate_projection().unwrap();
+        let json = serde_json::to_value(&value).unwrap();
+        assert_eq!(
+            json["Number"]["bits"],
+            serde_json::json!(0x8000_0000_0000_0000_u64)
+        );
+        assert_eq!(serde_json::to_value(Value::Missing).unwrap(), "Missing");
+    }
+
+    #[test]
+    fn actual_structural_json_preserves_number_and_coordinate_bits_without_float_encoding() {
+        let quantity = QuantityTypeId::from_bytes([7; 16]);
+        let id = SemanticId::from_bytes([8; 16]);
+        for bits in [
+            0,
+            0x8000_0000_0000_0000,
+            0x7ff0_0000_0000_0000,
+            0xfff0_0000_0000_0000,
+            0x7ff8_0000_0000_0042,
+            0x7ff0_0000_0000_0001,
+            u64::MAX,
+        ] {
+            for value in [
+                Value::Number { bits, quantity },
+                Value::Coordinate { id, bits, quantity },
+            ] {
+                let bytes = serde_json::to_vec(&value).unwrap();
+                let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                let payload = json
+                    .get("Number")
+                    .or_else(|| json.get("Coordinate"))
+                    .unwrap();
+                assert_eq!(
+                    payload["bits"].as_u64(),
+                    Some(bits),
+                    "the source owner serializes an exact integer, never a JSON float/null"
+                );
+                assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap(), value);
+            }
+        }
     }
 }
 

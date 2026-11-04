@@ -53,6 +53,7 @@ macro_rules! facets {
 }
 
 facets! {
+    (BOUNDARY_TAG, "pse.domain.boundary.tag", true, false, false, false, false, Ignore),
     (EXTENSION, "pse.domain.extension", true, true, true, true, true, Preserve),
     (PARAMETER, "pse.domain.parameter", true, true, true, true, true, Preserve),
     (ROLE, "pse.domain.role", true, true, false, false, true, Ignore),

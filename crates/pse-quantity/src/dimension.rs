@@ -145,6 +145,10 @@ struct RatioRepr {
     den: i16,
 }
 
+crate::quantity_boundary_record! {
+callback: ratio_boundary; name: "PhysicalRatio"; version: 1;
+direction: Both; reserved_tags: []; reserved_names: [];
+construct: [Self::from_parts];
 /// A rational exponent in canonical reduced form (blueprint §4.4 `pse.dimension_vector`).
 ///
 /// The invariant is total: `den > 0`, `gcd(|num|, den) == 1`, and zero is exactly `0/1`.
@@ -180,8 +184,9 @@ struct RatioRepr {
 )]
 #[serde(into = "RatioRepr", try_from = "RatioRepr")]
 pub struct Ratio {
-    num: i16,
-    den: i16,
+    num: i16 => 1;
+    den: i16 => 2;
+}
 }
 
 impl Ratio {
@@ -338,6 +343,9 @@ fn reduce(num: i64, den: i64) -> Result<Ratio, DimensionError> {
     })
 }
 
+crate::quantity_boundary_record! {
+callback: dimension_vector_boundary; name: "PhysicalDimensionVector"; version: 1;
+direction: Both; reserved_tags: []; reserved_names: [];
 /// Rational exponents over the eight base dimensions (blueprint §4.4, §8.1).
 ///
 /// The slots are indexed by [`BaseDimension`] and stored in its ordinal order, which is
@@ -371,7 +379,8 @@ fn reduce(num: i64, den: i64) -> Result<Ratio, DimensionError> {
     Serialize,
     Deserialize,
 )]
-pub struct DimensionVector([Ratio; BaseDimension::COUNT]);
+pub struct DimensionVector([Ratio; BaseDimension::COUNT]) => exponents: 1;
+}
 
 impl DimensionVector {
     /// The dimension of a pure number: every exponent zero.

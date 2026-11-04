@@ -122,6 +122,9 @@ use super::{
 };
 use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
+pub use canonical::reload::{
+    OriginalSourceFile, OriginalSourceFileOutput, OriginalSourceFileRequest,
+};
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 pub use project_comparison::{
     ModelingComparisonObservation, ModelingComparisonRequest, ProjectChangeImpact,
@@ -139,7 +142,7 @@ use pse_compiler::workspace::{CompilerContext, WorkspaceLimits};
 use pse_ids::SemanticId;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits, PhysicalScope};
 use pse_relations::columnar::RelationRow;
-pub use results::{ModelingCheck, ModelingReport, ModelingResult};
+pub use results::{ModelingCheck, ModelingReport, ModelingResult, ReferenceReportSelection};
 #[cfg(test)]
 use std::sync::Mutex;
 use std::{collections::BTreeMap, sync::Arc};

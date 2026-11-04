@@ -142,6 +142,26 @@ pub enum PreparedOperation {
     },
 }
 impl PreparedOperation {
+    /// Submit one explicit original native algebraic identity, resolving persisted repetitions.
+    /// # Errors
+    /// Other prepared families require their own issued persisted constructor; no fallback runs.
+    pub async fn start_issued(
+        &self,
+        services: &ExecutionServices,
+        identity: super::IssuedRunIdentity,
+        cancel: &CancelSource,
+    ) -> Result<super::IssuedRunStart, WorkflowError> {
+        match self {
+            Self::Study(PreparedStudyOperation::DeclaredCase(case)) => {
+                services
+                    .start_modeling_issued(vec![case.as_ref().clone()], identity, cancel)
+                    .await
+            }
+            _ => Err(projection_refusal(
+                "issued execution requires the prepared algebraic operation owner",
+            )),
+        }
+    }
     /// Original scientific input identity, established by its actual owner.
     /// # Errors
     /// Horizon identity requires the contextual horizon admission.

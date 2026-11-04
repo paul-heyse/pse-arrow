@@ -9,6 +9,8 @@ use pse_math::binding::CaseValues;
 use pse_model::generated::identities::RunId;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
+mod reference_exchange;
+pub use reference_exchange::ReferenceReportSelection;
 
 use pse_model::generated::enums::{ModelingCheckBasis as Basis, ModelingCheckKind as CheckKind};
 /// Registry-owned check and report rows are also the public Rust values.

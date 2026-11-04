@@ -157,12 +157,21 @@ fn relation(pool: &NativeJsonPool, value: &RelationSpec) -> Result<TokenStream, 
     });
     let doc = value.doc;
     let fingerprint = hash(value.fingerprint);
+    let boundary = value.boundary.map(|record| -> Result<TokenStream, SchemaError> {
+        let name = record.name;
+        let source = record.source;
+        let version = record.version;
+        let direction = unit("pse_vocabulary::BoundaryDirection", record.direction)?;
+        let tags = record.reserved_tags;
+        let names = record.reserved_names;
+        Ok(quote!(.with_boundary_record(BoundaryRecord {source:#source,name:#name,version:#version,direction:#direction,
+            reserved_tags:&[#(#tags),*],reserved_names:&[#(#names),*]})))
+    }).transpose()?;
     Ok(outlined(
         pool,
         quote!(RelationSpec),
-        quote!(RelationSpec {canonical:#canonical,id:#id,key:#key,authority:#authority,snapshot_class:#snapshot_class,
-        derivation_granularity:#granularity,stability:#stability,primary_key:#primary_key,columns:#columns,
-        checks:#checks,unique_keys:vec![#(#unique),*],foreign_keys:vec![#(#foreign),*],doc:#doc,fingerprint:#fingerprint}),
+        quote!(RelationSpec::from_resolved(#canonical,#id,#key,#authority,#snapshot_class,
+        #granularity,#stability,#primary_key,#columns,#checks,vec![#(#unique),*],vec![#(#foreign),*],#doc,#fingerprint)#boundary),
     ))
 }
 fn enumeration(pool: &NativeJsonPool, v: &EnumSpec) -> TokenStream {

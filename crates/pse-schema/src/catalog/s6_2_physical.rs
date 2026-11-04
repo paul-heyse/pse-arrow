@@ -199,22 +199,39 @@ fn declare_reference_quantity_kinds(builder: &mut RegistryBuilder) {
 }
 
 fn declare_reference_bases(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Reference,
-        "bases",
-        S::Model,
-        &["basis_id"],
-        vec![
-            column("basis_id", T::id()).with_identity("basis"),
-            column("kind", T::enumeration("BasisKind")),
-            column("composition_basis", T::enumeration("CompositionBasis")).optional(),
-            column("rate_basis", T::enumeration("RateBasis")).optional(),
-            column("reference_conditions_id", T::id())
-                .optional()
-                .with_fk("reference.reference_states", "reference_state_id"),
-        ],
-        "blueprint §6.2 physical type: bases.",
+    builder.declare_relation(
+        super::declarations::declaration(
+            N::Reference,
+            "bases",
+            1,
+            S::Model,
+            &["basis_id"],
+            vec![
+                column("basis_id", T::id())
+                    .with_identity("basis")
+                    .with_boundary_tag(1),
+                column("kind", T::enumeration("BasisKind")).with_boundary_tag(2),
+                column("composition_basis", T::enumeration("CompositionBasis"))
+                    .optional()
+                    .with_boundary_tag(3),
+                column("rate_basis", T::enumeration("RateBasis"))
+                    .optional()
+                    .with_boundary_tag(4),
+                column("reference_conditions_id", T::id())
+                    .optional()
+                    .with_fk("reference.reference_states", "reference_state_id")
+                    .with_boundary_tag(5),
+            ],
+            "blueprint §6.2 physical type: bases.",
+        )
+        .with_boundary_record(crate::model::BoundaryRecord {
+            source: file!(),
+            name: "RegistryPhysicalBasis",
+            version: 1,
+            direction: pse_vocabulary::BoundaryDirection::Output,
+            reserved_tags: &[],
+            reserved_names: &[],
+        }),
     );
 }
 
@@ -254,42 +271,45 @@ fn declare_reference_reference_states(builder: &mut RegistryBuilder) {
 }
 
 fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
-    relation_version(
-        builder,
+    builder.declare_relation(super::declarations::declaration(
         N::Reference,
         "quantity_types",
         2,
         S::Model,
         &["quantity_type_id"],
         vec![
-            column("quantity_type_id", T::id()).with_identity("quantity_type"),
-            column("name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("quantity_type_id", T::id()).with_identity("quantity_type").with_boundary_tag(1),
+            column("name", T::native(arrow_schema::DataType::Utf8)).optional().with_boundary_tag(2),
             column("quantity_kind_id", T::id())
                 .with_identity("quantity_kind")
-                .with_fk("reference.quantity_kinds", "quantity_kind_id"),
+                .with_fk("reference.quantity_kinds", "quantity_kind_id").with_boundary_tag(3),
             column("basis_id", T::id())
                 .with_identity("basis")
                 .optional()
-                .with_fk("reference.bases", "basis_id"),
+                .with_fk("reference.bases", "basis_id").with_boundary_tag(4),
             column("reference_state_id", T::id())
                 .with_identity("reference_state")
                 .optional()
-                .with_fk("reference.reference_states", "reference_state_id"),
-            column("scale_kind", T::enumeration("ScaleKind")),
-            column("shape", T::list(T::id())),
+                .with_fk("reference.reference_states", "reference_state_id").with_boundary_tag(5),
+            column("scale_kind", T::enumeration("ScaleKind")).with_boundary_tag(6),
+            column("shape", T::list(T::id())).with_boundary_tag(7),
             column("subject_kind", T::id())
                 .with_identity("entity_kind")
-                .optional(),
-            column("canonical_unit_id", T::id()).with_fk("reference.units", "unit_id"),
+                .optional().with_boundary_tag(8),
+            column("canonical_unit_id", T::id()).with_fk("reference.units", "unit_id").with_boundary_tag(9),
             column(
                 "nominal_magnitude",
                 T::native(arrow_schema::DataType::Float64),
             )
-            .optional(),
-            column("doc", T::native(arrow_schema::DataType::Utf8)),
+            .optional().with_boundary_tag(10),
+            column("doc", T::native(arrow_schema::DataType::Utf8)).with_boundary_tag(11),
         ],
         "blueprint §6.2 physical type: quantity_types. Version two adds the optional name a quantity type is addressed by, declared once in the physical document and unique within it (ADR-0123 Outcome 6); a package sees it unqualified and as `<package>.<name>` when its manifest depends on the declaring package.",
-    );
+    ).with_boundary_record(crate::model::BoundaryRecord {
+        source: file!(), name: "RegistryPhysicalQuantityType", version: 1,
+        direction: pse_vocabulary::BoundaryDirection::Output,
+        reserved_tags: &[], reserved_names: &[],
+    }));
 }
 
 fn declare_reference_conversion_rules(builder: &mut RegistryBuilder) {

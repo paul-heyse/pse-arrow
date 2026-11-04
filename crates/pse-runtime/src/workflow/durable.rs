@@ -1109,6 +1109,7 @@ pub(crate) struct DurableAttempt {
     operations: Operations,
     attempt: AttemptId,
     run_id: Option<RunId>,
+    issued: Option<super::run::IssuedRunIdentity>,
     claim_operation: String,
     fence: Arc<OnceLock<AttemptFence>>,
     run: OnceLock<CanonicalRun>,
@@ -1134,6 +1135,34 @@ impl DurableAttempt {
         }
     }
     pub(super) fn new(operations: &Operations) -> Result<Self, WorkflowError> {
+        let attempt: AttemptId = pse_operations::mint_id();
+        Self::with_identity(operations, attempt, None, format!("claim:{attempt}"), None)
+    }
+    pub(super) fn issued(
+        operations: &Operations,
+        identity: super::run::IssuedRunIdentity,
+    ) -> Result<Self, WorkflowError> {
+        let mut original = Self::with_identity(
+            operations,
+            identity.attempt,
+            Some(identity.run),
+            identity.claim_operation(),
+            Some(identity),
+        )?;
+        // A replayed claim receipt is authority only for the original admission.
+        // Concurrent same-process admissions must not dispatch twice under its fence.
+        // This nonce remains fixed inside this owner across original ACK reconciliation.
+        let custody: AttemptId = pse_operations::mint_id();
+        original.operations.worker = Arc::from(format!("{}:issued:{custody}", operations.worker()));
+        Ok(original)
+    }
+    fn with_identity(
+        operations: &Operations,
+        attempt: AttemptId,
+        run_id: Option<RunId>,
+        claim_operation: String,
+        issued: Option<super::run::IssuedRunIdentity>,
+    ) -> Result<Self, WorkflowError> {
         let operations = operations.admitted()?;
         let metadata_owner = durable_metadata_owner(
             &operations.pool,
@@ -1143,7 +1172,6 @@ impl DurableAttempt {
             pse_schema::catalog::substrate::METADATA_ID_BYTES,
             0,
         )?;
-        let attempt: AttemptId = pse_operations::mint_id();
         let fence = Arc::new(OnceLock::new());
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Ok(Self {
@@ -1161,8 +1189,9 @@ impl DurableAttempt {
             output: super::StudyOutputDemand::Full {},
             operations: operations.clone(),
             attempt,
-            run_id: None,
-            claim_operation: format!("claim:{attempt}"),
+            run_id,
+            issued,
+            claim_operation,
             stream: Streamer::new(&operations, fence.clone(), acknowledgments.clone()),
             acknowledgments,
             solutions: Vec::new(),
@@ -1215,6 +1244,7 @@ impl DurableAttempt {
             operations: operations.clone(),
             attempt,
             run_id: Some(run_id),
+            issued: None,
             claim_operation: format!("claimed:{attempt}"),
             stream,
             acknowledgments,
@@ -1298,6 +1328,32 @@ impl DurableAttempt {
         run_id: RunId,
         request: &RunRequest<'_>,
     ) -> Result<(), WorkflowError> {
+        self.register_mode(services, run_id, request, true).await
+    }
+    pub(super) async fn observe_original(
+        mut self,
+        services: &super::SourceServices,
+        run_id: RunId,
+        request: &RunRequest<'_>,
+    ) -> Result<(), WorkflowError> {
+        let action = self.register_mode(services, run_id, request, false).await;
+        self.stream.finish().await;
+        let drain = match self.stream.outcome {
+            super::ProgressWriterOutcome::Complete
+            | super::ProgressWriterOutcome::MemoryRefused => Ok(()),
+            failure => Err(WorkflowError::Infrastructure(format!(
+                "original observation writer failed to settle: {failure:?}"
+            ))),
+        };
+        WorkflowError::settle(action, drain)
+    }
+    async fn register_mode(
+        &self,
+        services: &super::SourceServices,
+        run_id: RunId,
+        request: &RunRequest<'_>,
+        claim: bool,
+    ) -> Result<(), WorkflowError> {
         let facts = request.facts();
         self.check_registration_sources(services, facts.sources.iter().copied())?;
         if let Some(fence) = self.fence.get() {
@@ -1342,13 +1398,13 @@ impl DurableAttempt {
             sources,
         ))
         .map_err(|e| contract(e.to_string()))?;
+        let request = match &self.issued {
+            Some(issued) => issued.canonical_request(identity),
+            None => serde_json::to_vec(&(1_u8, run_id, identity)),
+        }
+        .map_err(|error| contract(error.to_string()))?;
         self.register_selection(
-            run_id,
-            services,
-            physical,
-            &inputs,
-            serde_json::to_vec(&(1_u8, run_id, identity)).map_err(|e| contract(e.to_string()))?,
-            selected,
+            run_id, services, physical, &inputs, request, selected, claim,
         )
         .await
     }
@@ -1417,6 +1473,7 @@ impl DurableAttempt {
                 selected_sources,
             ))
             .map_err(|e| contract(e.to_string()))?,
+            true,
         )
         .await
     }
@@ -1428,6 +1485,7 @@ impl DurableAttempt {
         inputs: &[Revision],
         request: Vec<u8>,
         selected: Vec<u8>,
+        claim: bool,
     ) -> Result<(), WorkflowError> {
         let primary = inputs
             .first()
@@ -1458,6 +1516,9 @@ impl DurableAttempt {
             .await?;
         drop(physical_rows);
         self.retain_run(row)?;
+        if !claim {
+            return Ok(());
+        }
         let fence = self
             .operations
             .store

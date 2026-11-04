@@ -141,6 +141,8 @@ pub struct ForeignKeyDecl {
 /// A declared relation (blueprint §4.1 `reference.schema_relations`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelationSpec {
+    /// Optional source-owned external record projection; storage/science remain unchanged.
+    pub boundary: Option<super::BoundaryRecord>,
     /// Native canonical policy, absent for relations without that role.
     pub canonical: Option<super::CanonicalRelation>,
     /// `named_id(REGISTRY_PACKAGE_ID, "relation:<ns>.<name>@<v>")` (ADR-0050).
@@ -179,6 +181,56 @@ pub struct RelationSpec {
 }
 
 impl RelationSpec {
+    /// Hydrate a complete resolved relation from its compiled registry declaration.
+    /// Identity and fingerprint must come from registry assembly, never row inference.
+    #[doc(hidden)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "generated hydration supplies the complete resolved declaration without a second transport record"
+    )]
+    pub fn from_resolved(
+        canonical: Option<super::CanonicalRelation>,
+        id: SemanticId,
+        key: RelationKey,
+        authority: Authority,
+        snapshot_class: SnapshotClass,
+        derivation_granularity: Option<DerivationGranularity>,
+        stability: Stability,
+        primary_key: Vec<&'static str>,
+        columns: Vec<FieldContract>,
+        checks: std::collections::BTreeMap<String, String>,
+        unique_keys: Vec<UniqueKey>,
+        foreign_keys: Vec<ForeignKeyDecl>,
+        doc: &'static str,
+        fingerprint: ContentHash,
+    ) -> Self {
+        Self {
+            boundary: None,
+            canonical,
+            id,
+            key,
+            authority,
+            snapshot_class,
+            derivation_granularity,
+            stability,
+            primary_key,
+            columns,
+            checks,
+            unique_keys,
+            foreign_keys,
+            doc,
+            fingerprint,
+        }
+    }
+
+    /// Attach the explicit source-owned boundary declaration during generated hydration.
+    #[doc(hidden)]
+    #[must_use]
+    pub const fn with_boundary_record(mut self, record: super::BoundaryRecord) -> Self {
+        self.boundary = Some(record);
+        self
+    }
+
     /// The qualified name without the version.
     pub fn qualified_name(&self) -> String {
         self.key.qualified_name()
@@ -201,6 +253,8 @@ impl RelationSpec {
 /// A [`RelationSpec`] before assembly, when it has neither identity nor fingerprint.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelationDecl {
+    /// See [`RelationSpec::boundary`].
+    pub boundary: Option<super::BoundaryRecord>,
     /// See [`RelationSpec::canonical`].
     pub canonical: Option<super::CanonicalRelation>,
     /// See [`RelationSpec::key`].
@@ -240,6 +294,7 @@ impl RelationDecl {
         doc: &'static str,
     ) -> Self {
         Self {
+            boundary: None,
             canonical: None,
             key: RelationKey::new(namespace, name, version),
             authority,
@@ -259,6 +314,13 @@ impl RelationDecl {
     #[must_use]
     pub const fn with_canonical(mut self, policy: super::CanonicalRelation) -> Self {
         self.canonical = Some(policy);
+        self
+    }
+
+    /// Publish an explicitly versioned boundary with field numbers owned by its columns.
+    #[must_use]
+    pub const fn with_boundary_record(mut self, record: super::BoundaryRecord) -> Self {
+        self.boundary = Some(record);
         self
     }
 

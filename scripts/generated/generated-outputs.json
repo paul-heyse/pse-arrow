@@ -71,6 +71,194 @@
       "contributors": null
     },
     {
+      "producer": "engineering",
+      "outputs": [
+        {
+          "path": "crates/pse-runtime/src/generated/scientific-worker",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/engineering/pse.scientific_worker.v1",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-scientific-worker-v1",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-runtime/src/generated/engineering",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/engineering/pse.engineering.v1",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-engineering-v1",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-runtime/src/generated/reference-exchange",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/engineering/pse.reference.v1",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/pse-reference-v1",
+          "kind": "tree"
+        }
+      ],
+      "regenerate": [
+        "just",
+        "codegen"
+      ],
+      "inputs": [
+        {
+          "path": "crates/pse-codegen/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/boundary_projection/quantity.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/engineering.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/engineering_edit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/identities.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/operation_effects.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/reference_exchange.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/analysis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/specialize.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/specialize/value.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_selection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/basis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/dimension.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/entity_kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/ids.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/quantity_type.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/reference_state.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/project.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/canonical/reload/read.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/project_preparation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/s6_2_physical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "scripts/generated-outputs.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen",
+          "kind": "tree"
+        },
+        {
+          "path": "xtask/src/codegen.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/engineering.rs",
+          "kind": "file"
+        }
+      ],
+      "contributors": null
+    },
+    {
       "producer": "generated-output-map",
       "outputs": [
         {
@@ -94,6 +282,10 @@
         {
           "path": "crates/pse-codegen/src",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+          "kind": "file"
         },
         {
           "path": "crates/pse-codegen/src/codegen/documents.rs",
@@ -164,8 +356,88 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-model/src/boundary_projection/quantity.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/engineering.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/engineering_edit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/identities.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/operation_effects.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/reference_exchange.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/analysis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/specialize.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-modeling/src/specialize/value.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-operations/src",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-operations/src/canonical_selection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/basis.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/dimension.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/entity_kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/ids.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/kind.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/quantity_type.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/reference_state.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
         },
         {
           "path": "crates/pse-runtime/src",
@@ -173,6 +445,18 @@
         },
         {
           "path": "crates/pse-runtime/src/boundary_documents.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/project.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
           "kind": "file"
         },
         {
@@ -184,8 +468,28 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/modeling/canonical/reload/read.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/project_preparation.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-schema/src",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/s6_2_physical.rs",
+          "kind": "file"
         },
         {
           "path": "docker/solvers/Dockerfile",
@@ -225,6 +529,10 @@
         },
         {
           "path": "xtask/src/codegen/code_intelligence.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/engineering.rs",
           "kind": "file"
         },
         {

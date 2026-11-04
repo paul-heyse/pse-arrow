@@ -17,14 +17,17 @@ use buffa_codegen::{
 };
 use protovalidate_buffa_protos::buf::validate::{
     self as validate,
-    __buffa::oneof::{u_int32rules, u_int64rules},
-    BytesRules, FieldRules, MapRules, OneofRules, RepeatedRules, StringRules, UInt32Rules,
-    UInt64Rules,
+    __buffa::oneof::{s_int32rules, u_int32rules, u_int64rules},
+    BytesRules, FieldRules, MapRules, OneofRules, RepeatedRules, SInt32Rules, StringRules,
+    UInt32Rules, UInt64Rules,
 };
 use pse_model::boundary_projection::{
     Direction, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 use pse_schema::error::SchemaError;
+
+mod adapters;
+pub use adapters::{native_adapters, native_adapters_retaining_wire};
 
 /// One complete generation closure. The caller owns publication and generated roots.
 #[derive(Debug)]
@@ -204,6 +207,24 @@ pub fn descriptors_for_direction(
         }
         qualify_nested(&mut message, package);
         validate_message_names(&message)?;
+        if let Shape::Record(fields) = &definition.shape {
+            for (index, wire) in message.field.iter().enumerate() {
+                if let Some(owner) = fields
+                    .iter()
+                    .find(|field| wire.number == Some(field.tag as i32))
+                {
+                    source_locations.push(descriptor::source_code_info::Location {
+                        path: vec![4, messages.len() as i32, 2, index as i32],
+                        span: vec![0, 0, 0],
+                        leading_comments: Some(format!(
+                            " Rust field: {}.{}\n Original named field facets: {:?}\n",
+                            definition.rust_type, owner.name, owner.named_facets
+                        )),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
         source_locations.push(descriptor::source_code_info::Location {
             path: vec![4, messages.len() as i32],
             span: vec![0, 0, 0],
@@ -366,13 +387,20 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
         );
         let _ = writeln!(
             out,
-            "| Field or alternative | Stable tag | Actual type | Direction | Local rules |\n| --- | --- | --- | --- | --- |"
+            "| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |\n| --- | --- | --- | --- | --- | --- |"
         );
         let mut row = |prefix: &str, field: &Field| {
             let _ = writeln!(
                 out,
-                "| `{prefix}{}` | {} | `{:?}` | `{:?}` | `{:?}` |",
-                field.name, field.tag, field.ty, field.direction, field.rules
+                "| `{prefix}{}` | {} | `{:?}` | `{:?}` | `{:?}` | `{}` |",
+                field.name,
+                field.tag,
+                field.ty,
+                field.direction,
+                field.rules,
+                format!("{:?}", field.named_facets)
+                    .replace('|', "\\|")
+                    .replace('`', "&#96;")
             );
         };
         match &owner.shape {
@@ -396,6 +424,7 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
                                 ty: TypeRef::Named("unit alternative".into()),
                                 direction: owner.direction,
                                 rules: vec![LocalRule::Required],
+                                named_facets: Default::default(),
                             },
                         );
                     } else {
@@ -414,6 +443,7 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
                         ty: TypeRef::Scalar(Scalar::String),
                         direction: owner.direction,
                         rules: vec![],
+                        named_facets: Default::default(),
                     },
                 );
                 let _ = writeln!(out, "\nAllowed canonical members: `{members:?}`.");
@@ -435,6 +465,13 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
                     ""
                 }
             );
+            if let Some(effects) = method.effects {
+                let _ = writeln!(
+                    out,
+                    "  Owner effects: `{:?}`; read only: {}; idempotent: {}; destructive: {}.",
+                    effects.scope, effects.read_only, effects.idempotent, effects.destructive
+                );
+            }
         }
     }
     out
@@ -503,7 +540,7 @@ impl Lower<'_> {
                     Scalar::String => Type::TYPE_STRING,
                     Scalar::U8 | Scalar::U32 => Type::TYPE_UINT32,
                     Scalar::U64 => Type::TYPE_UINT64,
-                    Scalar::I32 => Type::TYPE_SINT32,
+                    Scalar::I16 | Scalar::I32 => Type::TYPE_SINT32,
                     Scalar::I64 => Type::TYPE_SINT64,
                     Scalar::F32Bits => Type::TYPE_FIXED32,
                     Scalar::F64Bits => Type::TYPE_FIXED64,
@@ -511,7 +548,7 @@ impl Lower<'_> {
                 });
                 if matches!(
                     scalar,
-                    Scalar::SemanticId | Scalar::ContentHash | Scalar::U8
+                    Scalar::SemanticId | Scalar::ContentHash | Scalar::U8 | Scalar::I16
                 ) {
                     self.options(&mut field, self.base_rules(ty))?;
                 }
@@ -625,6 +662,16 @@ impl Lower<'_> {
     fn base_rules(&self, ty: &TypeRef) -> FieldRules {
         let mut rules = FieldRules::default();
         match ty {
+            TypeRef::Scalar(Scalar::I16) => {
+                rules.r#type = Some(
+                    SInt32Rules {
+                        greater_than: Some(s_int32rules::GreaterThan::Gte(i32::from(i16::MIN))),
+                        less_than: Some(s_int32rules::LessThan::Lte(i32::from(i16::MAX))),
+                        ..Default::default()
+                    }
+                    .into(),
+                );
+            }
             TypeRef::Scalar(Scalar::SemanticId | Scalar::ContentHash) => {
                 let len = if matches!(ty, TypeRef::Scalar(Scalar::SemanticId)) {
                     16
@@ -699,20 +746,37 @@ impl Lower<'_> {
 }
 
 fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<(), SchemaError> {
+    let ty = match (rule, ty) {
+        (LocalRule::UnsignedRange { .. }, TypeRef::Optional(inner)) => inner.as_ref(),
+        _ => ty,
+    };
     match rule {
         LocalRule::Required => rules.required = Some(true),
+        LocalRule::Utf8Bytes { min, max } => {
+            if !matches!(ty, TypeRef::Scalar(Scalar::String)) {
+                return Err(error("UTF-8 byte rule requires actual string type"));
+            }
+            rules.r#type = Some(
+                StringRules {
+                    min_bytes: (*min != 0).then_some(*min),
+                    max_bytes: Some(*max),
+                    ..Default::default()
+                }
+                .into(),
+            );
+        }
         LocalRule::UnsignedRange { min, max } => match ty {
             TypeRef::Scalar(Scalar::U32) => {
+                let lower =
+                    u32::try_from(*min).map_err(|_| error("uint32 rule lower bound overflow"))?;
+                let upper =
+                    u32::try_from(*max).map_err(|_| error("uint32 rule upper bound overflow"))?;
                 rules.r#type = Some(
                     UInt32Rules {
-                        greater_than: Some(u_int32rules::GreaterThan::Gte(
-                            u32::try_from(*min)
-                                .map_err(|_| error("uint32 rule lower bound overflow"))?,
-                        )),
-                        less_than: Some(u_int32rules::LessThan::Lte(
-                            u32::try_from(*max)
-                                .map_err(|_| error("uint32 rule upper bound overflow"))?,
-                        )),
+                        // The unsigned domain already establishes this exact lower bound.
+                        greater_than: (lower != 0).then_some(u_int32rules::GreaterThan::Gte(lower)),
+                        less_than: (upper != u32::MAX)
+                            .then_some(u_int32rules::LessThan::Lte(upper)),
                         ..Default::default()
                     }
                     .into(),
@@ -721,8 +785,8 @@ fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<
             TypeRef::Scalar(Scalar::U64) => {
                 rules.r#type = Some(
                     UInt64Rules {
-                        greater_than: Some(u_int64rules::GreaterThan::Gte(*min)),
-                        less_than: Some(u_int64rules::LessThan::Lte(*max)),
+                        greater_than: (*min != 0).then_some(u_int64rules::GreaterThan::Gte(*min)),
+                        less_than: (*max != u64::MAX).then_some(u_int64rules::LessThan::Lte(*max)),
                         ..Default::default()
                     }
                     .into(),
@@ -733,14 +797,14 @@ fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<
         LocalRule::Length { min, max } => {
             rules.r#type = Some(match ty {
                 TypeRef::Scalar(Scalar::String) => StringRules {
-                    min_len: Some(*min),
+                    min_len: (*min != 0).then_some(*min),
                     max_len: Some(*max),
                     ..Default::default()
                 }
                 .into(),
                 TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => {
                     BytesRules {
-                        min_len: Some(*min),
+                        min_len: (*min != 0).then_some(*min),
                         max_len: Some(*max),
                         len: match ty {
                             TypeRef::Scalar(Scalar::SemanticId) => Some(16),
@@ -759,7 +823,7 @@ fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<
                         _ => RepeatedRules::default(),
                     };
                     RepeatedRules {
-                        min_items: Some(*min),
+                        min_items: (*min != 0).then_some(*min),
                         max_items: Some(*max),
                         ..previous
                     }
@@ -773,14 +837,14 @@ fn apply_rule(rules: &mut FieldRules, ty: &TypeRef, rule: &LocalRule) -> Result<
                         _ => MapRules::default(),
                     };
                     MapRules {
-                        min_pairs: Some(*min),
+                        min_pairs: (*min != 0).then_some(*min),
                         max_pairs: Some(*max),
                         ..previous
                     }
                     .into()
                 }
                 TypeRef::Map(_, _) => RepeatedRules {
-                    min_items: Some(*min),
+                    min_items: (*min != 0).then_some(*min),
                     max_items: Some(*max),
                     ..Default::default()
                 }
@@ -809,6 +873,7 @@ fn protobuf_map_key(ty: &TypeRef) -> bool {
                 | Scalar::U8
                 | Scalar::U32
                 | Scalar::U64
+                | Scalar::I16
                 | Scalar::I32
                 | Scalar::I64
         )
