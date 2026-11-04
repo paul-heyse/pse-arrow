@@ -255,15 +255,25 @@ mod tests {
             "native drain cannot replace missing required capture"
         );
         let mut legacy = serde_json::to_value(&summary).unwrap();
-        legacy.as_object_mut().unwrap().remove("native_lifetime_pending");
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("native_lifetime_pending");
         let decoded: ManagedSummary = serde_json::from_value(legacy.clone()).unwrap();
-        assert_eq!(decoded.native_lifetime_pending, None, "missing original observation is not false");
+        assert_eq!(
+            decoded.native_lifetime_pending, None,
+            "missing original observation is not false"
+        );
         let original = response.payload.result.as_mut().unwrap();
         original.observation.completeness = envelope::Completeness::Complete;
         original.payload = serde_json::value::to_raw_value(&legacy).unwrap();
         project_terminal_owner(&mut response, false);
         assert_eq!(response.settlement, envelope::Settlement::Unknown);
-        assert_eq!(response.exit_code(), 1, "unobserved legacy lifetime cannot promote original settlement");
+        assert_eq!(
+            response.exit_code(),
+            1,
+            "unobserved legacy lifetime cannot promote original settlement"
+        );
     }
     #[test]
     fn finished_wait_preserves_managed_failure_while_cancel_requires_reconciliation() {

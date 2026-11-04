@@ -100,12 +100,19 @@ impl FieldContract {
     /// Parse complete inert canonical source policy and check this actual field association.
     /// # Errors
     /// Malformed syntax, unknown policy/refusal or incoherent field associations refuse.
-    pub fn canonical_policy(&self) -> Result<Option<super::CanonicalFieldPolicy>, crate::SchemaError> {
+    pub fn canonical_policy(
+        &self,
+    ) -> Result<Option<super::CanonicalFieldPolicy>, crate::SchemaError> {
         self.canonical_policy_at(self.name())
     }
-    fn canonical_policy_at(&self, context: &str) -> Result<Option<super::CanonicalFieldPolicy>, crate::SchemaError> {
+    fn canonical_policy_at(
+        &self,
+        context: &str,
+    ) -> Result<Option<super::CanonicalFieldPolicy>, crate::SchemaError> {
         let policy = super::CanonicalFieldPolicy::parse_metadata(self.field().metadata(), context)?;
-        if let Some(policy) = &policy { policy.validate_field(self, context)?; }
+        if let Some(policy) = &policy {
+            policy.validate_field(self, context)?;
+        }
         Ok(policy)
     }
     /// Checked path/traversal association for a source-expression occurrence.
@@ -836,7 +843,9 @@ impl FieldContract {
             super::TaggedAlternative::from_field(field.field())?;
             super::BoundaryShape::from_field(field.field())?;
             if field.extension().is_none() {
-                for child in field.children() { local(&child, &format!("{context}.{}", child.name()))?; }
+                for child in field.children() {
+                    local(&child, &format!("{context}.{}", child.name()))?;
+                }
             }
             Ok(())
         }

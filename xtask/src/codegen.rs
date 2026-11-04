@@ -9,17 +9,17 @@ mod physical;
 mod code_intelligence;
 #[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 mod contract_metadata;
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
-mod proto_projection;
 #[cfg(feature = "host-contracts")]
 mod developer_evidence;
 #[cfg(feature = "product-schemas")]
 mod engineering;
+mod grpc_wire;
 #[cfg(feature = "product-schemas")]
 mod native_root;
-mod grpc_wire;
 mod ownership;
 mod private_store;
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+mod proto_projection;
 
 #[cfg(feature = "native-abi")]
 mod ipopt;
@@ -45,12 +45,20 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     if only == Some(Target::NativeRoot) {
         let tree = native_root_tree(root)?;
         validate_tree(&tree)?;
-        return if check { check_tree(root, &tree) } else { write_tree(root, &tree) };
+        return if check {
+            check_tree(root, &tree)
+        } else {
+            write_tree(root, &tree)
+        };
     }
     if only == Some(Target::DeveloperEvidence) {
         let tree = developer_evidence_tree(root)?;
         validate_tree(&tree)?;
-        return if check { check_tree(root, &tree) } else { write_tree(root, &tree) };
+        return if check {
+            check_tree(root, &tree)
+        } else {
+            write_tree(root, &tree)
+        };
     }
     if only == Some(Target::Engineering) {
         let tree = engineering_tree(root)?;
@@ -87,7 +95,12 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return native_abi(root, check),
         Some(
-            Target::Schemas | Target::Physical | Target::CodeIntelligence | Target::Engineering | Target::DeveloperEvidence | Target::NativeRoot,
+            Target::Schemas
+            | Target::Physical
+            | Target::CodeIntelligence
+            | Target::Engineering
+            | Target::DeveloperEvidence
+            | Target::NativeRoot,
         ) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
@@ -169,14 +182,22 @@ fn engineering_tree(_: &Path) -> Result<GeneratedTree> {
 }
 
 #[cfg(feature = "host-contracts")]
-fn developer_evidence_tree(root: &Path) -> Result<GeneratedTree> { developer_evidence::generate(root) }
+fn developer_evidence_tree(root: &Path) -> Result<GeneratedTree> {
+    developer_evidence::generate(root)
+}
 #[cfg(not(feature = "host-contracts"))]
-fn developer_evidence_tree(_: &Path) -> Result<GeneratedTree> { bail!("developer evidence projections require host-contracts") }
+fn developer_evidence_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("developer evidence projections require host-contracts")
+}
 
 #[cfg(feature = "product-schemas")]
-fn native_root_tree(root: &Path) -> Result<GeneratedTree> { native_root::generate(root) }
+fn native_root_tree(root: &Path) -> Result<GeneratedTree> {
+    native_root::generate(root)
+}
 #[cfg(not(feature = "product-schemas"))]
-fn native_root_tree(_: &Path) -> Result<GeneratedTree> { bail!("native child projections require product-schemas") }
+fn native_root_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("native child projections require product-schemas")
+}
 
 // Both selected and aggregate routes cross this effect boundary only after successful
 // code-intelligence preparation. Aggregate consumption only stages, before any writers.
@@ -343,7 +364,11 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
             if let Some(tree) = check_result(&mut failures, "native-root", native_root_tree(root)) {
                 trees.push(("native-root".into(), tree));
             }
-            if let Some(tree) = check_result(&mut failures, "developer-evidence", developer_evidence_tree(root)) {
+            if let Some(tree) = check_result(
+                &mut failures,
+                "developer-evidence",
+                developer_evidence_tree(root),
+            ) {
                 trees.push(("developer-evidence".into(), tree));
             }
             if let Some(tree) = check_result(
@@ -1026,13 +1051,13 @@ mod tests {
     #[test]
     fn markdown_preserves_independently_published_engineering_contracts() {
         let checkout = tempfile::tempdir().unwrap();
-        let nested = PathBuf::from(ENGINEERING_DOCUMENT_ROOT)
-            .join("pse.engineering.v1/index.md");
+        let nested = PathBuf::from(ENGINEERING_DOCUMENT_ROOT).join("pse.engineering.v1/index.md");
         let path = checkout.path().join(&nested);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, b"independent contract world").unwrap();
         let mut docs = GeneratedTree::empty(Language::Markdown.roots());
-        docs.files.insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
+        docs.files
+            .insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
         write_tree(checkout.path(), &docs).unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"independent contract world");
         assert!(!inventory(checkout.path(), &docs).unwrap().contains(&nested));

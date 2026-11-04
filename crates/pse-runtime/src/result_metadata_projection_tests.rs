@@ -152,7 +152,8 @@ fn readable_result_bits_and_future_wire_fields_do_not_grant_native_storage_adopt
 }
 
 #[test]
-fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_issuing_authority() {
+fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_issuing_authority()
+{
     let original = canonical_attempts::Row {
         key: "original:attempt".into(),
         run: "original:run".into(),
@@ -177,10 +178,16 @@ fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_
     let independent = inspect("pse.engineering.v1.CanonicalAttemptMetadata", &bytes);
     assert_eq!(independent.field_by_number(3), Some(&Value::U64(u64::MAX)));
     assert_eq!(independent.field_by_number(7), Some(&Value::I64(-1)));
-    assert_eq!(independent.field_by_number(12), Some(&Value::Bytes(Vec::new())));
+    assert_eq!(
+        independent.field_by_number(12),
+        Some(&Value::Bytes(Vec::new()))
+    );
     let restored: canonical_attempts::Row =
         pse_contract_proto::support::decode_root(wire, "attempt").unwrap();
     assert_eq!(restored, original);
     let native = storage::encode_canonical_attempts(&restored).unwrap();
-    assert_eq!(storage::decode_canonical_attempts(native).unwrap(), original);
+    assert_eq!(
+        storage::decode_canonical_attempts(native).unwrap(),
+        original
+    );
 }

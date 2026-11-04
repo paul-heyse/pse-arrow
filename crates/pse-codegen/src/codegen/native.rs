@@ -10,7 +10,13 @@ pub(crate) enum Mode {
     Domain,
     Storage,
 }
-pub(crate) fn child_mode(field: &FieldContract, mode: Mode) -> Mode { if field.extension().is_some() { Mode::Storage } else { mode } }
+pub(crate) fn child_mode(field: &FieldContract, mode: Mode) -> Mode {
+    if field.extension().is_some() {
+        Mode::Storage
+    } else {
+        mode
+    }
+}
 pub(super) trait Policy {
     type Value;
     fn child_stem(&self, field: &FieldContract, stem: &str, child: &Field) -> String {
@@ -40,8 +46,11 @@ pub(super) trait Policy {
 }
 pub(super) fn child_stem(field: &FieldContract, stem: &str, child: &Field) -> String {
     let suffix = match field.field().data_type() {
-        DataType::List(_) | DataType::LargeList(_) | DataType::ListView(_)
-        | DataType::LargeListView(_) | DataType::FixedSizeList(..) => "Item".into(),
+        DataType::List(_)
+        | DataType::LargeList(_)
+        | DataType::ListView(_)
+        | DataType::LargeListView(_)
+        | DataType::FixedSizeList(..) => "Item".into(),
         _ => super::rust::types::pascal(child.name()),
     };
     format!("{stem}{suffix}")

@@ -1159,11 +1159,15 @@ fn split_frame(bytes: &[u8]) -> Result<(&[u8], &[u8]), PortableError> {
 fn unpack(bytes: &[u8]) -> Result<(Envelope, &[u8]), PortableError> {
     let (metadata, payload) = split_frame(bytes)?;
     #[derive(Deserialize)]
-    struct Header { interpretation: String }
+    struct Header {
+        interpretation: String,
+    }
     let header: Header = serde_json::from_slice(metadata)
         .map_err(|error| PortableError::Qualification(error.to_string()))?;
     if header.interpretation != INTERPRETATION {
-        return Err(PortableError::Qualification("unsupported portable envelope interpretation".into()));
+        return Err(PortableError::Qualification(
+            "unsupported portable envelope interpretation".into(),
+        ));
     }
     let envelope = serde_json::from_slice(metadata)
         .map_err(|error| PortableError::Qualification(error.to_string()))?;
@@ -2589,11 +2593,16 @@ mod portable_frame_tests {
     #[test]
     fn portable_body_relative_envelope_refuses_historical_frames() {
         assert_eq!(INTERPRETATION, "pse.runtime.admitted-body-product.v5");
-        for prefix in [b"pse-admitted-body-product-v3\0", b"pse-admitted-body-product-v4\0"] {
+        for prefix in [
+            b"pse-admitted-body-product-v3\0",
+            b"pse-admitted-body-product-v4\0",
+        ] {
             let mut historical = prefix.to_vec();
             historical.extend_from_slice(&0u32.to_be_bytes());
-            assert!(matches!(split_frame(&historical), Err(PortableError::Qualification(reason))
-                if reason == "unsupported portable envelope framing"));
+            assert!(
+                matches!(split_frame(&historical), Err(PortableError::Qualification(reason))
+                if reason == "unsupported portable envelope framing")
+            );
         }
     }
     #[test]
@@ -2602,8 +2611,10 @@ mod portable_frame_tests {
         let mut bytes = ENVELOPE_MAGIC.to_vec();
         bytes.extend_from_slice(&(metadata.len() as u32).to_be_bytes());
         bytes.extend_from_slice(metadata);
-        assert!(matches!(unpack(&bytes), Err(PortableError::Qualification(reason))
-            if reason == "unsupported portable envelope interpretation"));
+        assert!(
+            matches!(unpack(&bytes), Err(PortableError::Qualification(reason))
+            if reason == "unsupported portable envelope interpretation")
+        );
     }
     #[test]
     fn portable_envelope_over_wire_block_preserves_hash_and_refuses_forged_extent() {

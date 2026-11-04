@@ -707,8 +707,10 @@ impl Listed {
         })?;
         let path = self.run_configuration_path(group);
         match crate::invocation::publish_bytes(&path, derived.as_bytes(), None, 0o400) {
-            Ok(()) => {},
-            Err(crate::HostError::Io(error)) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            Ok(()) => {}
+            Err(crate::HostError::Io(error))
+                if error.kind() == std::io::ErrorKind::AlreadyExists =>
+            {
                 // Command construction may reuse one immutable derived artifact; it
                 // cannot overwrite a changed policy or repair an unprotected file.
                 let file = crate::test_inventory::open_private(&path)?;
@@ -725,7 +727,8 @@ impl Listed {
                     0,
                     std::num::NonZeroU64::new(expected.byte_length),
                     Some(&expected.sha256),
-                ).map_err(crate::HostError::from)?;
+                )
+                .map_err(crate::HostError::from)?;
                 let entry = fs::symlink_metadata(&path)?;
                 if !entry.is_file()
                     || entry.nlink() != 1
@@ -743,7 +746,8 @@ impl Listed {
     }
     /// Source-owned path shared by the writer and original dependency recorder.
     pub(crate) fn run_configuration_path(&self, group: usize) -> PathBuf {
-        self.capture_root.join(format!("group-{group}/nextest-run.toml"))
+        self.capture_root
+            .join(format!("group-{group}/nextest-run.toml"))
     }
     /// Bind the native completed report; raw output has no lifecycle interpreter.
     pub fn observer(&self, group: usize) -> Result<CompletedObserver, WorkflowError> {

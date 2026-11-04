@@ -524,12 +524,16 @@ mod tests {
             "no_mangle", {"target_feature":{"enable":["original_feature"]}},
             {"other":"#[use(T)] remains opaque; it is not a precise capture"}
         ]);
-        let native: Vec<rustdoc_types::Attribute> = serde_json::from_value(attributes.clone()).unwrap();
+        let native: Vec<rustdoc_types::Attribute> =
+            serde_json::from_value(attributes.clone()).unwrap();
         let selected: Vec<Attribute> = project(&native).unwrap();
         assert_eq!(serde_json::to_value(selected).unwrap(), attributes);
         assert!(project::<_, Type>(&json!({"future_type":{}})).is_err());
         assert!(project::<_, Attribute>(&json!({"future_attribute":{}})).is_err());
-        assert!(project::<_, Type>(&json!({"borrowed_ref":{"lifetime":null,"is_mutable":true}})).is_err());
+        assert!(
+            project::<_, Type>(&json!({"borrowed_ref":{"lifetime":null,"is_mutable":true}}))
+                .is_err()
+        );
     }
 
     #[test]

@@ -3,10 +3,10 @@
 
 use super::*;
 use crate::engineering_projection::*;
-use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use crate::host_operations::engineering::generated::pb::pse::engineering::v1 as wire;
 use buffa::Message;
 use pse_contract::boundary_projection::ProjectionRecord;
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use pse_modeling::specialize::Value;
 
 fn request() -> crate::workflow::PreparationDiscoveryRequest {

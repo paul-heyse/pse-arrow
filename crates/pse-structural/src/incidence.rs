@@ -114,7 +114,10 @@ impl pse_contract::boundary_projection::ProjectionRecord for BlockId {
 }
 impl pse_contract::boundary_projection::ValidateProjection for BlockId {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

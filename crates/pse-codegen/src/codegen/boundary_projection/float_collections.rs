@@ -2,13 +2,16 @@
 // Copyright (c) 2026 Paul Heyse
 //! Exact maintained CEL follows declared wire containers, not arbitrary record fields.
 
+use super::ProjectionCodegenError;
 use super::{error, protobuf_map_key};
 use pse_contract::boundary_projection::{
     Float64Domain, NativeContainer, ProjectionGraph, Scalar, TypeRef,
 };
-use super::ProjectionCodegenError;
 
-pub(super) fn scalar_expression(domain: Float64Domain, value: &str) -> Result<String, ProjectionCodegenError> {
+pub(super) fn scalar_expression(
+    domain: Float64Domain,
+    value: &str,
+) -> Result<String, ProjectionCodegenError> {
     let interval = domain.interval();
     if !interval.is_valid() {
         return Err(error("floating domain has no finite represented values"));

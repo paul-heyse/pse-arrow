@@ -4,11 +4,11 @@
 //! These implementations expose documents; native physical receipt restoration stays
 //! exclusively with the original quantity owner.
 
-use pse_contract::boundary_projection::*;
 use crate::boundary::{
     BoundaryAlternative, BoundaryAlternativeField, BoundaryAlternatives, BoundaryDocument,
     BoundaryField, BoundaryFieldEncoding, BoundaryRecord, PassiveFieldEncoding,
 };
+use pse_contract::boundary_projection::*;
 
 macro_rules! passive_quantity_record {
     ($owner:path; $($field:ident => $tag:literal;)*) => {

@@ -73,23 +73,66 @@ fn rerun_controlled_failure_probe() {
 fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_grant() {
     let root = tempfile::tempdir().unwrap();
     let mut report = Report::new(&input(Action::Test));
-    let phase = Phase { native_stage: Some("build".into()), elapsed_seconds: Some(0.25), kind: PhaseKind::Discovery, group:Some(2), stdout:"group-2/build.stdout".into(), stderr:"group-2/build.stderr".into(), child_exit:Some(17), capture_complete:true,
-        stdout_capture: Some(crate::managed::result::StreamSummary { bytes_read:12, bytes_retained:12, eof:true, complete:true, io_unresolved:false }),
-        stderr_capture: Some(crate::managed::result::StreamSummary { bytes_read:19, bytes_retained:19, eof:true, complete:true, io_unresolved:false }) };
-    let error = crate::discovery::DiscoveryError::Attempt { evidence:root.path().join("inventory"), phases:vec![phase], error:Box::new(crate::discovery::DiscoveryError::Command { stage:"build", exit:17, evidence:root.path().join("inventory/group-2") }) };
+    let phase = Phase {
+        native_stage: Some("build".into()),
+        elapsed_seconds: Some(0.25),
+        kind: PhaseKind::Discovery,
+        group: Some(2),
+        stdout: "group-2/build.stdout".into(),
+        stderr: "group-2/build.stderr".into(),
+        child_exit: Some(17),
+        capture_complete: true,
+        stdout_capture: Some(crate::managed::result::StreamSummary {
+            bytes_read: 12,
+            bytes_retained: 12,
+            eof: true,
+            complete: true,
+            io_unresolved: false,
+        }),
+        stderr_capture: Some(crate::managed::result::StreamSummary {
+            bytes_read: 19,
+            bytes_retained: 19,
+            eof: true,
+            complete: true,
+            io_unresolved: false,
+        }),
+    };
+    let error = crate::discovery::DiscoveryError::Attempt {
+        evidence: root.path().join("inventory"),
+        phases: vec![phase],
+        error: Box::new(crate::discovery::DiscoveryError::Command {
+            stage: "build",
+            exit: 17,
+            evidence: root.path().join("inventory/group-2"),
+        }),
+    };
     failed(&mut report, error.into(), root.path());
     assert_eq!(report.phases.len(), 1);
     assert_eq!(report.phases[0].stdout, "inventory/group-2/build.stdout");
     assert_eq!(report.phases[0].child_exit, Some(17));
-    assert_eq!(report.phases[0].stdout_capture.as_ref().unwrap().bytes_retained, 12);
+    assert_eq!(
+        report.phases[0]
+            .stdout_capture
+            .as_ref()
+            .unwrap()
+            .bytes_retained,
+        12
+    );
     assert!(report.required_capture_complete);
     assert_eq!(report.outcome, Outcome::Failed);
     assert!(report.inventory.is_none());
     assert!(report.inventory_content.is_none());
     assert!(report.selected_tests.is_none());
     assert_eq!(report.causes.len(), 1);
-    let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt { phases, .. }) = &report.causes[0] else { panic!("original native cause") };
-    assert_eq!(phases[0].stdout, "group-2/build.stdout", "original account remains relative to its own source root");
+    let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt { phases, .. }) =
+        &report.causes[0]
+    else {
+        panic!("original native cause")
+    };
+    assert_eq!(
+        phases[0].stdout, "group-2/build.stdout",
+        "original account remains relative to its own source root"
+    );
 }
 
 #[tokio::test]
@@ -425,12 +468,20 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     let report_original = fs::read(destination.join("report.json")).unwrap();
     let inventory_original = fs::read(destination.join("inventory/inventory.json")).unwrap();
     let captured = crate::test_inventory::CapturedEvidence {
-        id: input.invocation.clone(), report: report_original,
-        observation: super::super::ReportObservation::of(&report), terminal,
-        inventory_sha256: crate::source_read::source_digest(std::str::from_utf8(&inventory_original).unwrap()),
-        inventory_bytes: inventory_original, inventory, manager_settlement: None, native_lifetime_pending: None,
+        id: input.invocation.clone(),
+        report: report_original,
+        observation: super::super::ReportObservation::of(&report),
+        terminal,
+        inventory_sha256: crate::source_read::source_digest(
+            std::str::from_utf8(&inventory_original).unwrap(),
+        ),
+        inventory_bytes: inventory_original,
+        inventory,
+        manager_settlement: None,
+        native_lifetime_pending: None,
     };
-    let wire = crate::developer_evidence_contracts::encode_captured_workflow_evidence(&captured).unwrap();
+    let wire =
+        crate::developer_evidence_contracts::encode_captured_workflow_evidence(&captured).unwrap();
     let descriptors = <buffa_descriptor::generated::descriptor::FileDescriptorSet as buffa::Message>::decode_from_slice(crate::developer_evidence_contracts::DESCRIPTORS).unwrap();
     let read = |wire: &crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence| {
         crate::developer_evidence::inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowEvidence", &buffa::Message::encode_to_vec(wire))
@@ -440,7 +491,10 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     assert_eq!(readback.selected_population_complete, Some(true));
     assert_eq!(readback.report_version, 3);
     assert_eq!(readback.scope, super::super::EvidenceScope::Selection);
-    assert!(readback.recorded_manager_settlement.is_none(), "this direct native test has no recorded manager owner");
+    assert!(
+        readback.recorded_manager_settlement.is_none(),
+        "this direct native test has no recorded manager owner"
+    );
     let mut changed = wire.clone();
     changed.selected_tests.clear();
     assert!(read(&changed).is_err());
@@ -449,11 +503,28 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     assert!(read(&changed).is_err());
     let mut changed = wire.clone();
     let marker = b"\"nextest_version\":\"";
-    let offset = changed.inventory_original.windows(marker.len()).position(|part| part == marker).unwrap() + marker.len();
-    changed.inventory_original[offset] = if changed.inventory_original[offset] == b'x' { b'y' } else { b'x' };
-    assert_eq!(changed.inventory_original.len(), wire.inventory_original.len());
-    changed.inventory_sha256 = crate::source_read::source_digest(std::str::from_utf8(&changed.inventory_original).unwrap());
-    assert!(read(&changed).is_err(), "a new observed digest cannot replace the original report commitment");
+    let offset = changed
+        .inventory_original
+        .windows(marker.len())
+        .position(|part| part == marker)
+        .unwrap()
+        + marker.len();
+    changed.inventory_original[offset] = if changed.inventory_original[offset] == b'x' {
+        b'y'
+    } else {
+        b'x'
+    };
+    assert_eq!(
+        changed.inventory_original.len(),
+        wire.inventory_original.len()
+    );
+    changed.inventory_sha256 = crate::source_read::source_digest(
+        std::str::from_utf8(&changed.inventory_original).unwrap(),
+    );
+    assert!(
+        read(&changed).is_err(),
+        "a new observed digest cannot replace the original report commitment"
+    );
     let mut changed = wire;
     changed.inventory_original.clear();
     assert!(read(&changed).is_err());

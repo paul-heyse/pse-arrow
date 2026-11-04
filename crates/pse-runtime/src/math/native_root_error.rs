@@ -22,12 +22,16 @@ impl NativeRootWireError {
     /// Actual retained inline/owned extent; never normalize an unknown allowance to zero.
     pub fn retained_bytes(&self) -> Result<usize, RetainedExtentError> {
         let heap = match self {
-            Self::Projection(error) => error.retained_bytes()?.checked_sub(size_of::<ProjectionDiagnosticError>())
+            Self::Projection(error) => error
+                .retained_bytes()?
+                .checked_sub(size_of::<ProjectionDiagnosticError>())
                 .ok_or(RetainedExtentError)?,
             // The pinned Buffa 0.9.2 variants retain scalar values and static explanations only.
             Self::Encode(_) | Self::Decode(_) => 0,
         };
-        size_of::<Self>().checked_add(heap).ok_or(RetainedExtentError)
+        size_of::<Self>()
+            .checked_add(heap)
+            .ok_or(RetainedExtentError)
     }
     /// Retain this original typed failure under the existing runtime error and custody contract.
     pub fn into_runtime(self) -> MathRuntimeError {
@@ -37,7 +41,11 @@ impl NativeRootWireError {
             // retaining the original typed error; an overflow never issues a false zero allowance.
             Err(_) => usize::MAX,
         };
-        pse_math::MathError::Typed { retained, cause: pse_model::diagnostic::DiagnosticCause::new(self) }.into()
+        pse_math::MathError::Typed {
+            retained,
+            cause: pse_model::diagnostic::DiagnosticCause::new(self),
+        }
+        .into()
     }
 }
 pse_diagnostics::impl_diagnostic! {
@@ -74,17 +82,38 @@ mod tests {
     use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection as _};
     #[test]
     fn private_protocol_retains_original_codec_and_rule_causes_with_owning_classes() {
-        let error = NativeRootWireError::Encode(buffa::EncodeError::ExceedsBudget { len: 20, max_bytes: 8 }).into_runtime();
-        assert_eq!(error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native).class, BoundaryClass::ResourceLimit);
+        let error = NativeRootWireError::Encode(buffa::EncodeError::ExceedsBudget {
+            len: 20,
+            max_bytes: 8,
+        })
+        .into_runtime();
+        assert_eq!(
+            error
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+                .class,
+            BoundaryClass::ResourceLimit
+        );
         let original = pse_contract_proto::support::BoundaryProjectionError::WireValidation(
-            protovalidate_buffa::ValidationError { compile_error: Some("original compiler failure".into()), ..Default::default() });
+            protovalidate_buffa::ValidationError {
+                compile_error: Some("original compiler failure".into()),
+                ..Default::default()
+            },
+        );
         let error = NativeRootWireError::Projection(original.into()).into_runtime();
-        assert_eq!(error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native).class, BoundaryClass::Internal);
+        assert_eq!(
+            error
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+                .class,
+            BoundaryClass::Internal
+        );
         let mut cause: Option<&dyn std::error::Error> = Some(&error);
         let mut found = false;
         while let Some(current) = cause {
-            found |= current.downcast_ref::<protovalidate_buffa::ValidationError>()
-                .is_some_and(|error| error.compile_error.as_deref() == Some("original compiler failure"));
+            found |= current
+                .downcast_ref::<protovalidate_buffa::ValidationError>()
+                .is_some_and(|error| {
+                    error.compile_error.as_deref() == Some("original compiler failure")
+                });
             cause = current.source();
         }
         assert!(found);

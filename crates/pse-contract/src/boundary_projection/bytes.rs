@@ -17,11 +17,21 @@ pub trait ProjectionBytes: Sized {
     }
 }
 impl ProjectionBytes for Vec<u8> {
-    fn into_projection_bytes(self) -> Vec<u8> { self }
-    fn from_projection_bytes(bytes: Vec<u8>, _: &str) -> Result<Self, AdapterError> { Ok(bytes) }
+    fn into_projection_bytes(self) -> Vec<u8> {
+        self
+    }
+    fn from_projection_bytes(bytes: Vec<u8>, _: &str) -> Result<Self, AdapterError> {
+        Ok(bytes)
+    }
 }
 impl<T: ProjectionBytes> ProjectionBytes for Box<T> {
-    fn into_projection_bytes(self) -> Vec<u8> { (*self).into_projection_bytes() }
-    fn from_projection_bytes(bytes: Vec<u8>, path: &str) -> Result<Self, AdapterError> { T::from_projection_bytes(bytes, path).map(Box::new) }
-    fn from_projection_slice(bytes: &[u8], path: &str) -> Result<Self, AdapterError> { T::from_projection_slice(bytes, path).map(Box::new) }
+    fn into_projection_bytes(self) -> Vec<u8> {
+        (*self).into_projection_bytes()
+    }
+    fn from_projection_bytes(bytes: Vec<u8>, path: &str) -> Result<Self, AdapterError> {
+        T::from_projection_bytes(bytes, path).map(Box::new)
+    }
+    fn from_projection_slice(bytes: &[u8], path: &str) -> Result<Self, AdapterError> {
+        T::from_projection_slice(bytes, path).map(Box::new)
+    }
 }

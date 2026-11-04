@@ -434,18 +434,36 @@ mod tests {
     use super::*;
     #[test]
     fn derived_relationship_projection_preserves_exact_semantic_framing_and_data_scope() {
-        use pse_contract::boundary_projection::{ConstructionRole, ProjectionAlternative, ProjectionGraph, Shape};
+        use pse_contract::boundary_projection::{
+            ConstructionRole, ProjectionAlternative, ProjectionGraph, Shape,
+        };
         let owner = DeclarationId::from(SemanticId::from_bytes([41; 16]));
         let meaning = ContentHash::from_bytes([42; 32]);
-        let value = Relationship::FunctionBodyInputView { owner, ordinal: 11, meaning };
+        let value = Relationship::FunctionBodyInputView {
+            owner,
+            ordinal: 11,
+            meaning,
+        };
         let mut original = FramedHasher::new(pse_ids::Frame::ModelingDerivedRelationshipV1);
-        original.str("function_body_input_view").str("owner").id(&owner.as_id())
-            .str("ordinal").u64(11).str("meaning").hash(&meaning);
+        original
+            .str("function_body_input_view")
+            .str("owner")
+            .id(&owner.as_id())
+            .str("ordinal")
+            .u64(11)
+            .str("meaning")
+            .hash(&meaning);
         assert_eq!(value.identity(), original.finish_id());
-        let expected = format!("{{\"FunctionBodyInputView\":{{\"owner\":\"{}\",\"ordinal\":11,\"meaning\":\"{}\"}}}}", owner.as_id(), meaning.to_prefixed());
+        let expected = format!(
+            "{{\"FunctionBodyInputView\":{{\"owner\":\"{}\",\"ordinal\":11,\"meaning\":\"{}\"}}}}",
+            owner.as_id(),
+            meaning.to_prefixed()
+        );
         assert_eq!(serde_json::to_vec(&value).unwrap(), expected.as_bytes());
-        let fields = <Relationship as ProjectionAlternative<3>>::into_projection_alternative(value).unwrap();
-        let restored = <Relationship as ProjectionAlternative<3>>::from_projection_alternative(fields);
+        let fields =
+            <Relationship as ProjectionAlternative<3>>::into_projection_alternative(value).unwrap();
+        let restored =
+            <Relationship as ProjectionAlternative<3>>::from_projection_alternative(fields);
         assert_eq!(restored, value);
         assert_eq!(serde_json::to_vec(&restored).unwrap(), expected.as_bytes());
         assert!(Facts::default().require(restored).is_err());
@@ -453,16 +471,41 @@ mod tests {
         let graph = ProjectionGraph::of::<Relationship>().unwrap();
         let catalogue = &graph.definitions()["ModelingDerivedRelationship"];
         assert_eq!(catalogue.construction, ConstructionRole::Data);
-        let Shape::Alternatives(variants) = &catalogue.shape else { panic!("original complete relationship catalogue") };
+        let Shape::Alternatives(variants) = &catalogue.shape else {
+            panic!("original complete relationship catalogue")
+        };
         assert_eq!(variants.len(), 33);
-        assert_eq!((variants[0].name.as_str(), variants[0].tag), ("SubstitutedMember", 1));
-        assert_eq!((variants[32].name.as_str(), variants[32].tag), ("CheckedValiditySource", 33));
-        assert_eq!(variants[2].fields.iter().map(|field| (field.name.as_str(), field.tag)).collect::<Vec<_>>(), vec![("owner", 1), ("ordinal", 2), ("meaning", 3)]);
-        for name in ["ModelingTestComponent", "ModelingAnnotationComponent", "ModelingLocalRole"] {
-            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+        assert_eq!(
+            (variants[0].name.as_str(), variants[0].tag),
+            ("SubstitutedMember", 1)
+        );
+        assert_eq!(
+            (variants[32].name.as_str(), variants[32].tag),
+            ("CheckedValiditySource", 33)
+        );
+        assert_eq!(
+            variants[2]
+                .fields
+                .iter()
+                .map(|field| (field.name.as_str(), field.tag))
+                .collect::<Vec<_>>(),
+            vec![("owner", 1), ("ordinal", 2), ("meaning", 3)]
+        );
+        for name in [
+            "ModelingTestComponent",
+            "ModelingAnnotationComponent",
+            "ModelingLocalRole",
+        ] {
+            assert_eq!(
+                graph.definitions()[name].construction,
+                ConstructionRole::Data
+            );
         }
         let annotation = AnnotationComponent::ObjectiveLower { strict: true };
-        assert_eq!(serde_json::to_vec(&annotation).unwrap(), br#"{"ObjectiveLower":{"strict":true}}"#);
+        assert_eq!(
+            serde_json::to_vec(&annotation).unwrap(),
+            br#"{"ObjectiveLower":{"strict":true}}"#
+        );
     }
     #[test]
     fn numerical_requirement_recipes_preserve_established_named_bytes() {

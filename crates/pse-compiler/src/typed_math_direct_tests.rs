@@ -479,22 +479,46 @@ fn executable_provider_admission_preserves_physics_phase_and_recoverable_errors(
     assert_eq!(encoded_record["version"], 2);
     assert!(encoded_record["spec"]["shapes"].is_object());
     assert_eq!(encoded_record["spec"]["derivatives"], "value");
-    let decoded: pse_kernels::portable::ProviderRecord = serde_json::from_value(encoded_record.clone()).unwrap();
+    let decoded: pse_kernels::portable::ProviderRecord =
+        serde_json::from_value(encoded_record.clone()).unwrap();
     assert_eq!(decoded, record);
-    assert!(decoded.restore().is_err(), "decoded data cannot mint physical receipt authority");
+    assert!(
+        decoded.restore().is_err(),
+        "decoded data cannot mint physical receipt authority"
+    );
     let mut unknown = encoded_record;
     unknown["spec"]["invented_scientific_permission"] = true.into();
     assert!(serde_json::from_value::<pse_kernels::portable::ProviderRecord>(unknown).is_err());
     let payload = admitted.portable_payload().unwrap();
     let digest = super::portable_payload_hash(&payload);
-    let restored = super::portable::reconstruct_fixture(&payload, digest, admitted.spec(),
-        &owner.context.quantities, &cancel).unwrap();
-    assert_eq!(restored.spec(), admitted.spec(), "representation changes never re-key native scientific meaning");
+    let restored = super::portable::reconstruct_fixture(
+        &payload,
+        digest,
+        admitted.spec(),
+        &owner.context.quantities,
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(
+        restored.spec(),
+        admitted.spec(),
+        "representation changes never re-key native scientific meaning"
+    );
     let mut altered: serde_json::Value = serde_json::from_slice(&payload).unwrap();
-    altered["providers"]["descriptors"][0][1]["spec"]["data"] = serde_json::to_value(ContentHash::from_bytes([9; 32])).unwrap();
+    altered["providers"]["descriptors"][0][1]["spec"]["data"] =
+        serde_json::to_value(ContentHash::from_bytes([9; 32])).unwrap();
     let altered = serde_json::to_vec(&altered).unwrap();
-    assert!(super::portable::reconstruct_fixture(&altered, super::portable_payload_hash(&altered),
-        admitted.spec(), &owner.context.quantities, &cancel).is_err(), "qualified byte membership does not excuse a changed native provider key");
+    assert!(
+        super::portable::reconstruct_fixture(
+            &altered,
+            super::portable_payload_hash(&altered),
+            admitted.spec(),
+            &owner.context.quantities,
+            &cancel
+        )
+        .is_err(),
+        "qualified byte membership does not excuse a changed native provider key"
+    );
     assert!(
         owner
             .compile(&admitted, DerivativeOrder::First, Optimization::default())

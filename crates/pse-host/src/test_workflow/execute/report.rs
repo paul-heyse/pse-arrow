@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One strict terminal transport; decoding it cannot construct native verdict capabilities.
+use super::evidence::{self, EvidenceFile, EvidenceRole, EvidenceRoot, SourceFile};
 use crate::{
     envelope::{CliInvocationId, ErrorRecord, RedactionPolicy},
     managed::payload::PayloadPolicy,
@@ -8,7 +9,6 @@ use crate::{
     test_workflow::{CompilerObservation, Observation, WorkflowError},
 };
 use schemars::JsonSchema;
-use super::evidence::{self, EvidenceFile, EvidenceRole, EvidenceRoot, SourceFile};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use std::path::Path;
@@ -88,11 +88,23 @@ pub struct Input {
 }
 impl Input {
     /// Shared passive input-family validation. This does not admit or execute the request.
-    pub(crate) fn validate_original(&self, id: &CliInvocationId, command: &str) -> Result<(), WorkflowError> {
-        if self.version != 1 || self.invocation != *id || self.action.command() != command
-            || self.bounds.record_bytes == 0 || self.bounds.grouping_capacity == 0
-            || self.policy.write.is_zero() || self.policy.drain.is_zero() {
-            return Err(WorkflowError::Invalid("workflow input version, correlation, action or observation policy is invalid".into()));
+    pub(crate) fn validate_original(
+        &self,
+        id: &CliInvocationId,
+        command: &str,
+    ) -> Result<(), WorkflowError> {
+        if self.version != 1
+            || self.invocation != *id
+            || self.action.command() != command
+            || self.bounds.record_bytes == 0
+            || self.bounds.grouping_capacity == 0
+            || self.policy.write.is_zero()
+            || self.policy.drain.is_zero()
+        {
+            return Err(WorkflowError::Invalid(
+                "workflow input version, correlation, action or observation policy is invalid"
+                    .into(),
+            ));
         }
         Ok(())
     }
@@ -308,32 +320,62 @@ impl Report {
     /// Publish the complete report before emitting a terminal reference. Source failure leaves
     /// original evidence in place; this neither emits stdout nor claims physical settlement.
     pub fn publish(&mut self, destination: &Path) -> Result<TerminalRecord, WorkflowError> {
-        if self.version != 3 { return Err(WorkflowError::Invalid("current performer requires report interpretation 3".into())); }
+        if self.version != 3 {
+            return Err(WorkflowError::Invalid(
+                "current performer requires report interpretation 3".into(),
+            ));
+        }
         crate::test_inventory::checked_parent(destination)?;
         if self.inventory.is_some() {
             let bytes = crate::test_inventory::read_original_inventory(destination)?;
-            self.inventory_content.as_ref().ok_or_else(|| WorkflowError::Invalid("original report has no inventory commitment".into()))?.validate_content(&bytes, "original inventory")?;
+            self.inventory_content
+                .as_ref()
+                .ok_or_else(|| {
+                    WorkflowError::Invalid("original report has no inventory commitment".into())
+                })?
+                .validate_content(&bytes, "original inventory")?;
         }
         if self.evidence.is_none() {
             let (mut files, mut causes) = evidence::seal(destination, self.original_sources());
             for file in &mut files {
                 let retained = self.phases.iter().find_map(|phase| {
-                    if phase.stdout == file.path && file.role == EvidenceRole::Stdout { phase.stdout_capture.as_ref() }
-                    else if phase.stderr == file.path && file.role == EvidenceRole::Stderr { phase.stderr_capture.as_ref() }
-                    else { None }
+                    if phase.stdout == file.path && file.role == EvidenceRole::Stdout {
+                        phase.stdout_capture.as_ref()
+                    } else if phase.stderr == file.path && file.role == EvidenceRole::Stderr {
+                        phase.stderr_capture.as_ref()
+                    } else {
+                        None
+                    }
                 });
-                if file.content.as_ref().zip(retained).is_some_and(|(content, capture)| content.byte_length != capture.bytes_retained) {
-                    let error = crate::HostError::Ownership(format!("original workflow stream {} differs from the actual retained capture extent", file.path));
+                if file
+                    .content
+                    .as_ref()
+                    .zip(retained)
+                    .is_some_and(|(content, capture)| content.byte_length != capture.bytes_retained)
+                {
+                    let error = crate::HostError::Ownership(format!(
+                        "original workflow stream {} differs from the actual retained capture extent",
+                        file.path
+                    ));
                     file.content = None;
                     file.omission = Some(super::EvidenceOmission::Refused);
-                    file.failure = Some(ErrorRecord::from_typed(&error, &RedactionPolicy::from_environment()));
+                    file.failure = Some(ErrorRecord::from_typed(
+                        &error,
+                        &RedactionPolicy::from_environment(),
+                    ));
                     causes.push(error.into());
                 }
             }
-            if let Some(input) = files.iter_mut().find(|file| file.role == EvidenceRole::Input) {
+            if let Some(input) = files
+                .iter_mut()
+                .find(|file| file.role == EvidenceRole::Input)
+            {
                 if let Some(Err(error)) = &self.input_cutoff {
                     input.omission = Some(super::EvidenceOmission::Refused);
-                    input.failure = Some(ErrorRecord::from_typed(error, &RedactionPolicy::from_environment()));
+                    input.failure = Some(ErrorRecord::from_typed(
+                        error,
+                        &RedactionPolicy::from_environment(),
+                    ));
                 } else if let Some(Ok(accepted)) = &self.input_cutoff {
                     // Bind the same snapshot which passed startup's original binding,
                     // not a second path read which could select replacement input.
@@ -353,11 +395,22 @@ impl Report {
         }
         let bytes = serde_json::to_vec(self).map_err(crate::discovery::DiscoveryError::from)?;
         let content = ContentIdentity::of(&bytes);
-        if self.sealed_content.as_ref().is_some_and(|original| original != &content) {
-            return Err(WorkflowError::Invalid("original report facts changed after dependency sealing".into()));
+        if self
+            .sealed_content
+            .as_ref()
+            .is_some_and(|original| original != &content)
+        {
+            return Err(WorkflowError::Invalid(
+                "original report facts changed after dependency sealing".into(),
+            ));
         }
         self.sealed_content = Some(content.clone());
-        evidence::revalidate(destination, self.evidence.as_deref().ok_or_else(|| WorkflowError::Invalid("original evidence sealing is absent".into()))?)?;
+        evidence::revalidate(
+            destination,
+            self.evidence.as_deref().ok_or_else(|| {
+                WorkflowError::Invalid("original evidence sealing is absent".into())
+            })?,
+        )?;
         crate::invocation::publish_bytes(&destination.join(REPORT), &bytes, None, 0o400)?;
         Ok(TerminalRecord {
             protocol: PROTOCOL.into(),
@@ -374,45 +427,134 @@ impl Report {
         })
     }
     /// Register actual source promises, including work which may fail before an observation.
-    pub(super) fn expect_file(&mut self, path: String, role: EvidenceRole, group: Option<usize>, settled: bool) {
-        self.evidence_sources.push(SourceFile { root:EvidenceRoot::Workflow, path, role, group, settled });
+    pub(super) fn expect_file(
+        &mut self,
+        path: String,
+        role: EvidenceRole,
+        group: Option<usize>,
+        settled: bool,
+    ) {
+        self.evidence_sources.push(SourceFile {
+            root: EvidenceRoot::Workflow,
+            path,
+            role,
+            group,
+            settled,
+        });
     }
-    pub(super) fn expect_path(&mut self, destination: &Path, path: &Path, role: EvidenceRole, group: Option<usize>, settled: bool) -> Result<(), WorkflowError> {
-        let relative = path.strip_prefix(destination).ok().and_then(Path::to_str).filter(|path| evidence::relative_file(path))
-            .ok_or_else(|| WorkflowError::Invalid("original dependency is outside its native workflow root".into()))?;
+    pub(super) fn expect_path(
+        &mut self,
+        destination: &Path,
+        path: &Path,
+        role: EvidenceRole,
+        group: Option<usize>,
+        settled: bool,
+    ) -> Result<(), WorkflowError> {
+        let relative = path
+            .strip_prefix(destination)
+            .ok()
+            .and_then(Path::to_str)
+            .filter(|path| evidence::relative_file(path))
+            .ok_or_else(|| {
+                WorkflowError::Invalid(
+                    "original dependency is outside its native workflow root".into(),
+                )
+            })?;
         self.expect_file(relative.into(), role, group, settled);
         Ok(())
     }
     fn original_sources(&self) -> Vec<SourceFile> {
         use std::collections::BTreeMap;
         let mut sources = BTreeMap::new();
-        let mut add = |source: SourceFile| { sources.insert((source.root, source.path.clone()), source); };
+        let mut add = |source: SourceFile| {
+            sources.insert((source.root, source.path.clone()), source);
+        };
         // The original input is sealed from its authenticated snapshot separately.
-        add(SourceFile { root:EvidenceRoot::Invocation, path:"workflow-input.json".into(), role:EvidenceRole::Input, group:None, settled:false });
+        add(SourceFile {
+            root: EvidenceRoot::Invocation,
+            path: "workflow-input.json".into(),
+            role: EvidenceRole::Input,
+            group: None,
+            settled: false,
+        });
         for source in &self.evidence_sources {
-            let settled = if matches!(source.role, EvidenceRole::RunnerReport | EvidenceRole::CompilerContext | EvidenceRole::FixtureOutcome) {
+            let settled = if matches!(
+                source.role,
+                EvidenceRole::RunnerReport
+                    | EvidenceRole::CompilerContext
+                    | EvidenceRole::FixtureOutcome
+            ) {
                 self.phases.iter().any(|phase| phase.group == source.group && matches!(phase.kind, PhaseKind::Test | PhaseKind::Check) && phase.child_exit.is_some() && phase.capture_complete)
                     && (source.role != EvidenceRole::RunnerReport || self.observations.iter().any(|observation| matches!(observation, GroupObservation::Test {group,observation,..} if Some(*group)==source.group && observation.summary.native_child_exit().is_some())))
-            } else { source.settled };
-            add(SourceFile { root:source.root, path:source.path.clone(), role:source.role, group:source.group, settled });
+            } else {
+                source.settled
+            };
+            add(SourceFile {
+                root: source.root,
+                path: source.path.clone(),
+                role: source.role,
+                group: source.group,
+                settled,
+            });
         }
-        if self.inventory.is_some() { add(SourceFile { root:EvidenceRoot::Workflow, path:INVENTORY.into(), role:EvidenceRole::Inventory, group:None, settled:true }); }
+        if self.inventory.is_some() {
+            add(SourceFile {
+                root: EvidenceRoot::Workflow,
+                path: INVENTORY.into(),
+                role: EvidenceRole::Inventory,
+                group: None,
+                settled: true,
+            });
+        }
         for phase in &self.phases {
-            for (path, role) in [(&phase.stdout,EvidenceRole::Stdout),(&phase.stderr,EvidenceRole::Stderr)] {
-                add(SourceFile { root:EvidenceRoot::Workflow, path:path.clone(), role, group:phase.group, settled:phase.capture_complete });
+            for (path, role) in [
+                (&phase.stdout, EvidenceRole::Stdout),
+                (&phase.stderr, EvidenceRole::Stderr),
+            ] {
+                add(SourceFile {
+                    root: EvidenceRoot::Workflow,
+                    path: path.clone(),
+                    role,
+                    group: phase.group,
+                    settled: phase.capture_complete,
+                });
             }
             if matches!(phase.kind, PhaseKind::Discovery) {
                 if let Some(group) = phase.group {
                     if phase.native_stage.as_deref() == Some("build") {
-                        add(SourceFile { root:EvidenceRoot::Workflow, path:format!("inventory/group-{group}/build/build.json"), role:EvidenceRole::CompilerContext, group:Some(group), settled:phase.child_exit.is_some() && phase.capture_complete });
+                        add(SourceFile {
+                            root: EvidenceRoot::Workflow,
+                            path: format!("inventory/group-{group}/build/build.json"),
+                            role: EvidenceRole::CompilerContext,
+                            group: Some(group),
+                            settled: phase.child_exit.is_some() && phase.capture_complete,
+                        });
                         if phase.child_exit == Some(0) {
-                            add(SourceFile { root:EvidenceRoot::Workflow, path:format!("inventory/group-{group}/cargo-metadata.json"), role:EvidenceRole::DiscoveryContext, group:Some(group), settled:phase.capture_complete });
+                            add(SourceFile {
+                                root: EvidenceRoot::Workflow,
+                                path: format!("inventory/group-{group}/cargo-metadata.json"),
+                                role: EvidenceRole::DiscoveryContext,
+                                group: Some(group),
+                                settled: phase.capture_complete,
+                            });
                         }
                     }
                     if phase.native_stage.as_deref() == Some("list") {
-                        add(SourceFile { root:EvidenceRoot::Workflow, path:format!("inventory/group-{group}/binaries.json"), role:EvidenceRole::DiscoveryContext, group:Some(group), settled:true });
+                        add(SourceFile {
+                            root: EvidenceRoot::Workflow,
+                            path: format!("inventory/group-{group}/binaries.json"),
+                            role: EvidenceRole::DiscoveryContext,
+                            group: Some(group),
+                            settled: true,
+                        });
                     }
-                    add(SourceFile { root:EvidenceRoot::Workflow, path:"inventory/nextest.toml".into(), role:EvidenceRole::RunnerConfiguration, group:None, settled:true });
+                    add(SourceFile {
+                        root: EvidenceRoot::Workflow,
+                        path: "inventory/nextest.toml".into(),
+                        role: EvidenceRole::RunnerConfiguration,
+                        group: None,
+                        settled: true,
+                    });
                 }
             }
         }
@@ -420,11 +562,30 @@ impl Report {
     }
 }
 impl pse_contract::boundary_projection::ProjectionType for Report {
-    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
         use pse_contract::boundary_projection::{Direction, Field, Shape};
-        let root = graph.declare::<Self>("NativeWorkflowReport", file!(), 1, Direction::Output, &[], &[], |graph| {
-            Ok(Shape::Record(vec![Field::of::<ReportObservation>(graph, "observation", 1, Direction::Output, vec![])?]))
-        })?;
+        let root = graph.declare::<Self>(
+            "NativeWorkflowReport",
+            file!(),
+            1,
+            Direction::Output,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![Field::of::<ReportObservation>(
+                    graph,
+                    "observation",
+                    1,
+                    Direction::Output,
+                    vec![],
+                )?]))
+            },
+        )?;
         graph.public_path::<Self>(&root, "crate::test_workflow::execute::Report")?;
         graph.observation_record::<Self>(&root)?;
         Ok(root)
@@ -434,13 +595,32 @@ impl pse_contract::boundary_projection::ProjectionObservationRecord for Report {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "observation")];
     type Fields = (ReportObservation,);
-    fn observation_fields(&self) -> Result<Self::Fields, pse_contract::boundary_projection::AdapterError> { Ok((ReportObservation::of(self),)) }
+    fn observation_fields(
+        &self,
+    ) -> Result<Self::Fields, pse_contract::boundary_projection::AdapterError> {
+        Ok((ReportObservation::of(self),))
+    }
 }
 impl pse_contract::boundary_projection::ValidateProjection for Report {
-    fn validate_at(&self, path: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
-        self.failures.validate_at(&pse_contract::boundary_projection::field_path(path, "observation.failures"))?;
-        self.inventory_content.validate_at(&pse_contract::boundary_projection::field_path(path, "observation.inventory_content"))?;
-        self.evidence.validate_at(&pse_contract::boundary_projection::field_path(path, "observation.evidence"))
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        self.failures
+            .validate_at(&pse_contract::boundary_projection::field_path(
+                path,
+                "observation.failures",
+            ))?;
+        self.inventory_content
+            .validate_at(&pse_contract::boundary_projection::field_path(
+                path,
+                "observation.inventory_content",
+            ))?;
+        self.evidence
+            .validate_at(&pse_contract::boundary_projection::field_path(
+                path,
+                "observation.evidence",
+            ))
     }
 }
 pse_contract::projection_struct! {
@@ -460,9 +640,15 @@ pub struct ReportReference {
 }
 impl ReportReference {
     /// Shared content commitment check for streamed live reads and complete retained bytes.
-    pub(crate) fn validate_content(&self, byte_length: u64, sha256: &str) -> Result<(), WorkflowError> {
+    pub(crate) fn validate_content(
+        &self,
+        byte_length: u64,
+        sha256: &str,
+    ) -> Result<(), WorkflowError> {
         if byte_length != self.byte_length || sha256 != self.sha256 {
-            return Err(WorkflowError::Invalid("original report content differs from its terminal extent or digest".into()));
+            return Err(WorkflowError::Invalid(
+                "original report content differs from its terminal extent or digest".into(),
+            ));
         }
         Ok(())
     }
@@ -482,10 +668,24 @@ pub struct ContentIdentity {
 }
 impl ContentIdentity {
     pub(crate) fn of(bytes: &[u8]) -> Self {
-        Self { sha256: Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect(), byte_length: bytes.len() as u64 }
+        Self {
+            sha256: Sha256::digest(bytes)
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect(),
+            byte_length: bytes.len() as u64,
+        }
     }
-    pub(crate) fn validate_content(&self, bytes: &[u8], subject: &str) -> Result<(), WorkflowError> {
-        if &Self::of(bytes) != self { return Err(WorkflowError::Invalid(format!("{subject} bytes differ from the original report commitment"))); }
+    pub(crate) fn validate_content(
+        &self,
+        bytes: &[u8],
+        subject: &str,
+    ) -> Result<(), WorkflowError> {
+        if &Self::of(bytes) != self {
+            return Err(WorkflowError::Invalid(format!(
+                "{subject} bytes differ from the original report commitment"
+            )));
+        }
         Ok(())
     }
 }
@@ -526,10 +726,18 @@ pub struct ReportObservation {
 impl ReportObservation {
     /// Borrow the performing owner's public recorded facts; custody stays in `Report`.
     pub fn of(report: &Report) -> Self {
-        Self { version: report.version, invocation: report.invocation.clone(), action: report.action,
-            outcome: report.outcome, inventory: report.inventory.clone(), selected_tests: report.selected_tests,
-            required_capture_complete: report.required_capture_complete, failures: report.failures.clone(),
-            inventory_content: report.inventory_content.clone(), evidence:report.evidence.clone() }
+        Self {
+            version: report.version,
+            invocation: report.invocation.clone(),
+            action: report.action,
+            outcome: report.outcome,
+            inventory: report.inventory.clone(),
+            selected_tests: report.selected_tests,
+            required_capture_complete: report.required_capture_complete,
+            failures: report.failures.clone(),
+            inventory_content: report.inventory_content.clone(),
+            evidence: report.evidence.clone(),
+        }
     }
     /// Check recorded facts against the original terminal without granting authority.
     ///
@@ -552,23 +760,55 @@ impl ReportObservation {
     fn validate_interpretation(&self) -> Result<(), WorkflowError> {
         let valid = match self.version {
             1 => self.inventory_content.is_none() && self.evidence.is_none(),
-            2 => self.inventory.is_some() == self.inventory_content.is_some() && self.evidence.is_none(),
-            3 => self.inventory.is_some() == self.inventory_content.is_some() && self.evidence.is_some(),
+            2 => {
+                self.inventory.is_some() == self.inventory_content.is_some()
+                    && self.evidence.is_none()
+            }
+            3 => {
+                self.inventory.is_some() == self.inventory_content.is_some()
+                    && self.evidence.is_some()
+            }
             _ => false,
         };
-        if !valid || self.inventory.as_deref().is_some_and(|path| path != INVENTORY) {
-            return Err(WorkflowError::Invalid("unsupported report interpretation or missing original inventory commitment".into()));
+        if !valid
+            || self
+                .inventory
+                .as_deref()
+                .is_some_and(|path| path != INVENTORY)
+        {
+            return Err(WorkflowError::Invalid(
+                "unsupported report interpretation or missing original inventory commitment".into(),
+            ));
         }
         if let Some(files) = &self.evidence {
             evidence::validate(files)?;
-            if files.iter().filter(|file| file.role == EvidenceRole::Input).count() != 1 {
+            if files
+                .iter()
+                .filter(|file| file.role == EvidenceRole::Input)
+                .count()
+                != 1
+            {
                 return Err(WorkflowError::Invalid("original evidence account requires exactly one authenticated-input commitment or original omission".into()));
             }
-            if files.iter().filter(|file| file.role == EvidenceRole::Inventory).count() != usize::from(self.inventory.is_some()) {
-                return Err(WorkflowError::Invalid("original evidence account and inventory association disagree".into()));
+            if files
+                .iter()
+                .filter(|file| file.role == EvidenceRole::Inventory)
+                .count()
+                != usize::from(self.inventory.is_some())
+            {
+                return Err(WorkflowError::Invalid(
+                    "original evidence account and inventory association disagree".into(),
+                ));
             }
-            if files.iter().find(|file| file.role == EvidenceRole::Inventory).and_then(|file| file.content.as_ref()).is_some_and(|content| Some(content) != self.inventory_content.as_ref()) {
-                return Err(WorkflowError::Invalid("original dependency and inventory commitments disagree".into()));
+            if files
+                .iter()
+                .find(|file| file.role == EvidenceRole::Inventory)
+                .and_then(|file| file.content.as_ref())
+                .is_some_and(|content| Some(content) != self.inventory_content.as_ref())
+            {
+                return Err(WorkflowError::Invalid(
+                    "original dependency and inventory commitments disagree".into(),
+                ));
             }
         }
         Ok(())
@@ -576,7 +816,11 @@ impl ReportObservation {
     /// Current producers cannot publish legacy or partially bound original evidence.
     pub fn require_current(&self) -> Result<(), WorkflowError> {
         self.validate_interpretation()?;
-        if self.version != 3 { return Err(WorkflowError::Invalid("current performer requires report interpretation 3".into())); }
+        if self.version != 3 {
+            return Err(WorkflowError::Invalid(
+                "current performer requires report interpretation 3".into(),
+            ));
+        }
         Ok(())
     }
     /// Reconcile original inventory bytes; legacy path-only reports cannot supply a commitment.
@@ -585,25 +829,49 @@ impl ReportObservation {
         if self.version == 1 {
             return Err(WorkflowError::Invalid("legacy report interpretation 1 has no original inventory commitment; inventory adoption and exact rerun are unavailable".into()));
         }
-        let expected = self.inventory_content.as_ref().ok_or_else(|| WorkflowError::Invalid("original report has no inventory commitment".into()))?;
+        let expected = self.inventory_content.as_ref().ok_or_else(|| {
+            WorkflowError::Invalid("original report has no inventory commitment".into())
+        })?;
         expected.validate_content(bytes, "original inventory")
     }
     /// Reconcile the exact input snapshot with its original performing report. Legacy
     /// interpretations still require the native metadata binding at their owning caller.
     pub(crate) fn validate_input_bytes(&self, bytes: &[u8]) -> Result<Input, WorkflowError> {
         self.validate_interpretation()?;
-        let input: Input = serde_json::from_slice(bytes).map_err(crate::discovery::DiscoveryError::from)?;
+        let input: Input =
+            serde_json::from_slice(bytes).map_err(crate::discovery::DiscoveryError::from)?;
         input.validate_original(&self.invocation, self.action.command())?;
         if self.version == 3 {
-            let file = self.evidence.as_ref().and_then(|files| files.iter().find(|file| file.role == EvidenceRole::Input)).ok_or_else(|| WorkflowError::Invalid("original input dependency is absent".into()))?;
-            file.content.as_ref().ok_or_else(|| WorkflowError::Invalid("original input dependency was unavailable at the performing cutoff".into()))?.validate_content(bytes, "original workflow input")?;
+            let file = self
+                .evidence
+                .as_ref()
+                .and_then(|files| files.iter().find(|file| file.role == EvidenceRole::Input))
+                .ok_or_else(|| {
+                    WorkflowError::Invalid("original input dependency is absent".into())
+                })?;
+            file.content
+                .as_ref()
+                .ok_or_else(|| {
+                    WorkflowError::Invalid(
+                        "original input dependency was unavailable at the performing cutoff".into(),
+                    )
+                })?
+                .validate_content(bytes, "original workflow input")?;
         }
         Ok(input)
     }
     /// Reconcile an observed count with the actual native listing population, when known.
-    pub(crate) fn validate_selected_population(&self, inventory: &crate::discovery::Inventory) -> Result<(), WorkflowError> {
-        if self.selected_tests.is_some_and(|count| count != inventory.selected_tests_iter().count()) {
-            return Err(WorkflowError::Invalid("original report selected count differs from native inventory".into()));
+    pub(crate) fn validate_selected_population(
+        &self,
+        inventory: &crate::discovery::Inventory,
+    ) -> Result<(), WorkflowError> {
+        if self
+            .selected_tests
+            .is_some_and(|count| count != inventory.selected_tests_iter().count())
+        {
+            return Err(WorkflowError::Invalid(
+                "original report selected count differs from native inventory".into(),
+            ));
         }
         Ok(())
     }
@@ -691,18 +959,43 @@ mod observation_tests {
     use super::*;
 
     fn current_report() -> Report {
-        Report { version: 3, invocation: CliInvocationId::new(), action: Action::Test,
-            outcome: Outcome::Failed, selection: None, admission: vec![], inventory: None, inventory_content: None, evidence:None,
-            selected_tests: Some(2), fixture_requirements: vec![], pending: vec![], phases: vec![], observations: vec![],
-            required_capture_complete: false, failures: vec![], causes: vec![], evidence_sources:vec![], input_cutoff:None, sealed_content:None }
+        Report {
+            version: 3,
+            invocation: CliInvocationId::new(),
+            action: Action::Test,
+            outcome: Outcome::Failed,
+            selection: None,
+            admission: vec![],
+            inventory: None,
+            inventory_content: None,
+            evidence: None,
+            selected_tests: Some(2),
+            fixture_requirements: vec![],
+            pending: vec![],
+            phases: vec![],
+            observations: vec![],
+            required_capture_complete: false,
+            failures: vec![],
+            causes: vec![],
+            evidence_sources: vec![],
+            input_cutoff: None,
+            sealed_content: None,
+        }
     }
 
     #[test]
     fn native_report_projection_borrows_complete_diagnostics_without_verdict_construction() {
-        use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionObservationRecord, Shape};
+        use pse_contract::boundary_projection::{
+            ConstructionRole, ProjectionGraph, ProjectionObservationRecord, Shape,
+        };
         let graph = ProjectionGraph::of::<Report>().unwrap();
-        assert_eq!(graph.definitions()["NativeWorkflowReport"].construction, ConstructionRole::ObservationOnly);
-        let Shape::Record(fields) = &graph.definitions()["ErrorRecord"].shape else { panic!("record expected") };
+        assert_eq!(
+            graph.definitions()["NativeWorkflowReport"].construction,
+            ConstructionRole::ObservationOnly
+        );
+        let Shape::Record(fields) = &graph.definitions()["ErrorRecord"].shape else {
+            panic!("record expected")
+        };
         assert_eq!(fields.len(), 15);
         assert!(fields.iter().any(|field| field.name == "diagnostic_source"));
         assert!(fields.iter().any(|field| field.name == "recovery"));
@@ -715,9 +1008,16 @@ mod observation_tests {
         report.failures[0].related.push(child);
         let expected = serde_json::to_value(&report.failures).unwrap();
         let (observation,) = report.observation_fields().unwrap();
-        assert_eq!(serde_json::to_value(&observation.failures).unwrap(), expected);
+        assert_eq!(
+            serde_json::to_value(&observation.failures).unwrap(),
+            expected
+        );
         assert!(!observation.required_capture_complete);
-        assert_eq!(report.causes.len(), 1, "the performing owner retains original native causes");
+        assert_eq!(
+            report.causes.len(),
+            1,
+            "the performing owner retains original native causes"
+        );
         assert_eq!(report.observations.len(), 0);
     }
 
@@ -727,7 +1027,10 @@ mod observation_tests {
         use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
         let scratch = tempfile::tempdir().unwrap();
         fs::set_permissions(scratch.path(), fs::Permissions::from_mode(0o700)).unwrap();
-        fs::DirBuilder::new().mode(0o700).create(scratch.path().join("inventory")).unwrap();
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(scratch.path().join("inventory"))
+            .unwrap();
         let path = scratch.path().join(INVENTORY);
         let original = br#"{"test":"first"}"#;
         let changed = br#"{"test":"other"}"#;
@@ -737,8 +1040,12 @@ mod observation_tests {
         let mut report = current_report();
         report.record_inventory(scratch.path()).unwrap();
         let terminal = report.publish(scratch.path()).unwrap();
-        assert_eq!(terminal.version, 1, "terminal transport interpretation is independent");
-        let observation: ReportObservation = serde_json::from_slice(&fs::read(scratch.path().join(REPORT)).unwrap()).unwrap();
+        assert_eq!(
+            terminal.version, 1,
+            "terminal transport interpretation is independent"
+        );
+        let observation: ReportObservation =
+            serde_json::from_slice(&fs::read(scratch.path().join(REPORT)).unwrap()).unwrap();
         assert_eq!(observation.version, 3);
         observation.validate_against(&terminal).unwrap();
         observation.validate_inventory(original).unwrap();
@@ -746,7 +1053,13 @@ mod observation_tests {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, changed).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(report.publish(scratch.path()).unwrap_err().to_string().contains("inventory bytes"));
+        assert!(
+            report
+                .publish(scratch.path())
+                .unwrap_err()
+                .to_string()
+                .contains("inventory bytes")
+        );
         fs::remove_file(&path).unwrap();
         assert!(report.publish(scratch.path()).is_err());
     }
@@ -760,40 +1073,75 @@ mod observation_tests {
         fs::write(&path, b"original").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
         let mut report = current_report();
-        report.phases.push(Phase { native_stage:None, elapsed_seconds:None, kind:PhaseKind::Test, group:Some(0), stdout:"run-0.stdout".into(), stderr:"run-0.stderr".into(), child_exit:Some(100), capture_complete:true, stdout_capture:None, stderr_capture:None });
+        report.phases.push(Phase {
+            native_stage: None,
+            elapsed_seconds: None,
+            kind: PhaseKind::Test,
+            group: Some(0),
+            stdout: "run-0.stdout".into(),
+            stderr: "run-0.stderr".into(),
+            child_exit: Some(100),
+            capture_complete: true,
+            stdout_capture: None,
+            stderr_capture: None,
+        });
         fs::write(root.path().join(REPORT), b"existing destination").unwrap();
         assert!(report.publish(root.path()).is_err());
         let sealed = serde_json::to_vec(&report.evidence).unwrap();
         fs::remove_file(root.path().join(REPORT)).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, b"replaced").unwrap();
-        assert!(report.publish(root.path()).unwrap_err().to_string().contains("original commitment"));
+        assert!(
+            report
+                .publish(root.path())
+                .unwrap_err()
+                .to_string()
+                .contains("original commitment")
+        );
         assert_eq!(serde_json::to_vec(&report.evidence).unwrap(), sealed);
         assert!(!root.path().join(REPORT).exists());
     }
     #[test]
     fn input_dependency_uses_authenticated_snapshot_instead_of_rehashing_replacement_path() {
-        use std::{fs, os::unix::fs::{DirBuilderExt as _, PermissionsExt as _}};
+        use std::{
+            fs,
+            os::unix::fs::{DirBuilderExt as _, PermissionsExt as _},
+        };
         let invocation = tempfile::tempdir().unwrap();
         fs::set_permissions(invocation.path(), fs::Permissions::from_mode(0o700)).unwrap();
         let workflow = invocation.path().join("workflow");
         fs::DirBuilder::new().mode(0o700).create(&workflow).unwrap();
         let original = b"{\"accepted\":\"original-input\"}\n";
         let replacement = b"{\"accepted\":\"original-input\"}\n \n\t";
-        assert_eq!(serde_json::from_slice::<serde_json::Value>(original).unwrap(), serde_json::from_slice::<serde_json::Value>(replacement).unwrap());
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(original).unwrap(),
+            serde_json::from_slice::<serde_json::Value>(replacement).unwrap()
+        );
         let path = invocation.path().join("workflow-input.json");
         fs::write(&path, replacement).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
         let mut report = current_report();
         report.input_cutoff = Some(Ok(ContentIdentity::of(original)));
         assert!(report.publish(&workflow).is_err());
-        let input = report.evidence.as_ref().unwrap().iter().find(|file| file.role == EvidenceRole::Input).unwrap();
-        assert_eq!(input.content.as_ref().unwrap(), &ContentIdentity::of(original));
+        let input = report
+            .evidence
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|file| file.role == EvidenceRole::Input)
+            .unwrap();
+        assert_eq!(
+            input.content.as_ref().unwrap(),
+            &ContentIdentity::of(original)
+        );
         assert!(!workflow.join(REPORT).exists());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, original).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(report.publish(&workflow).is_ok(), "restoring exact original bytes preserves the original sealed promise");
+        assert!(
+            report.publish(&workflow).is_ok(),
+            "restoring exact original bytes preserves the original sealed promise"
+        );
     }
     #[test]
     fn original_report_facts_cannot_change_after_a_failed_publication_attempt() {
@@ -805,7 +1153,13 @@ mod observation_tests {
         assert!(report.publish(root.path()).is_err());
         fs::remove_file(root.path().join(REPORT)).unwrap();
         report.outcome = Outcome::Incomplete;
-        assert!(report.publish(root.path()).unwrap_err().to_string().contains("facts changed after dependency sealing"));
+        assert!(
+            report
+                .publish(root.path())
+                .unwrap_err()
+                .to_string()
+                .contains("facts changed after dependency sealing")
+        );
         assert!(!root.path().join(REPORT).exists());
     }
 
@@ -814,10 +1168,19 @@ mod observation_tests {
         let (legacy, terminal) = original();
         legacy.validate_against(&terminal).unwrap();
         assert!(legacy.require_current().is_err());
-        assert!(legacy.validate_inventory(b"original").unwrap_err().to_string().contains("legacy"));
+        assert!(
+            legacy
+                .validate_inventory(b"original")
+                .unwrap_err()
+                .to_string()
+                .contains("legacy")
+        );
         let mut current = legacy;
         current.version = 2;
-        assert!(current.validate_against(&terminal).is_err(), "current inventory requires its original content commitment");
+        assert!(
+            current.validate_against(&terminal).is_err(),
+            "current inventory requires its original content commitment"
+        );
     }
 
     fn original() -> (ReportObservation, TerminalRecord) {
@@ -827,11 +1190,19 @@ mod observation_tests {
             "outcome": "failed", "inventory": "inventory/inventory.json",
             "selected_tests": 2, "required_capture_complete": true, "failures": [],
             "observations": [{"kind": "test", "private_native_verdict": "not reconstructed"}]
-        })).unwrap();
+        }))
+        .unwrap();
         let terminal = TerminalRecord {
-            protocol: PROTOCOL.into(), version: 1, invocation, action: Action::Test,
+            protocol: PROTOCOL.into(),
+            version: 1,
+            invocation,
+            action: Action::Test,
             outcome: Outcome::Failed,
-            report: ReportReference { path: REPORT.into(), sha256: "a".repeat(64), byte_length: 1 },
+            report: ReportReference {
+                path: REPORT.into(),
+                sha256: "a".repeat(64),
+                byte_length: 1,
+            },
             required_capture_complete: true,
         };
         (observation, terminal)
@@ -842,11 +1213,19 @@ mod observation_tests {
         let (observation, terminal) = original();
         observation.validate_against(&terminal).unwrap();
         assert_eq!(observation.selected_tests, Some(2));
-        assert_eq!(observation.inventory.as_deref(), Some("inventory/inventory.json"));
+        assert_eq!(
+            observation.inventory.as_deref(),
+            Some("inventory/inventory.json")
+        );
         assert_eq!(observation.outcome, Outcome::Failed);
         assert!(!observation.outcome.successful(observation.action));
         // Serialization exposes facts only, never the ignored native verdict population.
-        assert!(serde_json::to_value(observation).unwrap().get("observations").is_none());
+        assert!(
+            serde_json::to_value(observation)
+                .unwrap()
+                .get("observations")
+                .is_none()
+        );
     }
 
     #[test]

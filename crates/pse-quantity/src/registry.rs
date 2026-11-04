@@ -1658,27 +1658,43 @@ mod generic_kind_tests {
 #[cfg(all(test, feature = "fixtures"))]
 mod projection_tests {
     use super::*;
-    use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+    use pse_contract::boundary_projection::{
+        ProjectionGraph, ProjectionRecord, ValidateProjection,
+    };
 
     #[test]
     fn complete_registry_source_projection_keeps_physical_identity_and_native_admission() {
         // The existing admitted package exercises complete operation policies, defined units,
         // derived kinds, references, bases and optional unit-set positions together.
         let original = crate::standard::standard_registry().unwrap();
-        let preconditions = crate::PhysicalPreconditions::new(crate::generated::standard_preconditions()).unwrap();
-        let restored_preconditions = preconditions.declarations().iter().cloned().map(|value|
-            crate::PhysicalPrecondition::from_projection_fields(value.into_projection_fields()).unwrap()).collect();
-        let restored_preconditions = crate::PhysicalPreconditions::new(restored_preconditions).unwrap();
+        let preconditions =
+            crate::PhysicalPreconditions::new(crate::generated::standard_preconditions()).unwrap();
+        let restored_preconditions = preconditions
+            .declarations()
+            .iter()
+            .cloned()
+            .map(|value| {
+                crate::PhysicalPrecondition::from_projection_fields(value.into_projection_fields())
+                    .unwrap()
+            })
+            .collect();
+        let restored_preconditions =
+            crate::PhysicalPreconditions::new(restored_preconditions).unwrap();
         assert_eq!(restored_preconditions, preconditions);
         ProjectionGraph::of::<crate::PhysicalPrecondition>().unwrap();
         let original_identity = crate::physical_identity::identity(&original, &preconditions);
         let declarations = original.to_builder();
         let original_bytes = serde_json::to_vec(&declarations).unwrap();
-        let restored = QuantityRegistryBuilder::from_projection_fields(declarations.into_projection_fields()).unwrap();
+        let restored =
+            QuantityRegistryBuilder::from_projection_fields(declarations.into_projection_fields())
+                .unwrap();
         restored.validate_projection().unwrap();
         assert_eq!(serde_json::to_vec(&restored).unwrap(), original_bytes);
         let reconstructed = restored.clone().build().unwrap();
-        assert_eq!(crate::physical_identity::identity(&reconstructed, &preconditions), original_identity);
+        assert_eq!(
+            crate::physical_identity::identity(&reconstructed, &preconditions),
+            original_identity
+        );
         ProjectionGraph::of::<QuantityRegistryBuilder>().unwrap();
 
         // Decoding declaration data must preserve duplicate observations for the original
@@ -1687,15 +1703,22 @@ mod projection_tests {
         let unit = duplicate.units[0].clone();
         let expected = unit.id.as_id();
         duplicate.units.push(unit);
-        let duplicate = QuantityRegistryBuilder::from_projection_fields(duplicate.into_projection_fields()).unwrap();
+        let duplicate =
+            QuantityRegistryBuilder::from_projection_fields(duplicate.into_projection_fields())
+                .unwrap();
         duplicate.validate_projection().unwrap();
-        assert!(matches!(duplicate.build(), Err(QuantityError::Registry { rule: "registry.unique_id", subject, .. }) if subject == expected));
+        assert!(
+            matches!(duplicate.build(), Err(QuantityError::Registry { rule: "registry.unique_id", subject, .. }) if subject == expected)
+        );
 
         // A valid change of physical scale is still a different native physical context,
         // even when every declaration identity and projected message shape is unchanged.
         let mut changed = restored;
         changed.units[0].scale_to_canonical *= 2.0;
         let changed = changed.build().unwrap();
-        assert_ne!(crate::physical_identity::identity(&changed, &preconditions), original_identity);
+        assert_ne!(
+            crate::physical_identity::identity(&changed, &preconditions),
+            original_identity
+        );
     }
 }

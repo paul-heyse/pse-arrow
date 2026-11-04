@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Standard typed mechanics for source-generated adapters; no product/native owner dependency.
-use std::{collections::{BTreeMap, BTreeSet}, sync::Arc};
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
+mod borrowed;
 mod retained;
 mod signed_integer;
-mod borrowed;
 pub use borrowed::{decode_view_root, unknown_fields_view};
 pub use retained::RetainedExtentError;
 
@@ -32,8 +35,14 @@ impl miette::Diagnostic for BoundaryProjectionError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         let code = match self {
             Self::Adoption(error) => return miette::Diagnostic::code(error),
-            Self::OutgoingNative(_) | Self::OutgoingAdoption(_) | Self::OutgoingWire(_) => "workflow.internal",
-            Self::WireValidation(error) if error.compile_error.is_some() || error.runtime_error.is_some() => "workflow.internal",
+            Self::OutgoingNative(_) | Self::OutgoingAdoption(_) | Self::OutgoingWire(_) => {
+                "workflow.internal"
+            }
+            Self::WireValidation(error)
+                if error.compile_error.is_some() || error.runtime_error.is_some() =>
+            {
+                "workflow.internal"
+            }
             Self::WireValidation(_) => "workflow.input",
         };
         Some(Box::new(code))
@@ -49,7 +58,10 @@ impl miette::Diagnostic for BoundaryProjectionError {
 impl BoundaryProjectionError {
     /// Original maintained-validator details, never flattened into a rendered message.
     pub fn wire_validation(&self) -> Option<&protovalidate_buffa::ValidationError> {
-        match self { Self::WireValidation(error) | Self::OutgoingWire(error) => Some(error), _ => None }
+        match self {
+            Self::WireValidation(error) | Self::OutgoingWire(error) => Some(error),
+            _ => None,
+        }
     }
 }
 
@@ -81,10 +93,7 @@ pub fn refused(path: &str, kind: AdapterFailure, reason: &str) -> AdapterError {
     AdapterError::refused(path, kind, reason)
 }
 /// Refuse adopting binary meaning absent from the actual native owner.
-pub fn unknown_fields(
-    fields: &buffa::UnknownFields,
-    path: &str,
-) -> Result<(), AdapterError> {
+pub fn unknown_fields(fields: &buffa::UnknownFields, path: &str) -> Result<(), AdapterError> {
     if fields.is_empty() {
         Ok(())
     } else {
@@ -125,10 +134,7 @@ pub fn required<T>(value: Option<T>, path: &str) -> Result<T, AdapterError> {
 }
 
 /// Validate the native producer, mechanically convert, then validate outgoing wire.
-pub fn encode_root<
-    N: NativeInto<W> + ValidateProjection,
-    W: protovalidate_buffa::Validate,
->(
+pub fn encode_root<N: NativeInto<W> + ValidateProjection, W: protovalidate_buffa::Validate>(
     native: N,
     path: &str,
 ) -> Result<W, BoundaryProjectionError> {
@@ -142,10 +148,7 @@ pub fn encode_root<
 }
 
 /// Validate uncontrolled wire, construct actual data, then validate native rules.
-pub fn decode_root<
-    N: NativeFrom<W> + ValidateProjection,
-    W: protovalidate_buffa::Validate,
->(
+pub fn decode_root<N: NativeFrom<W> + ValidateProjection, W: protovalidate_buffa::Validate>(
     wire: W,
     path: &str,
 ) -> Result<N, BoundaryProjectionError> {
@@ -376,14 +379,25 @@ mod tests {
 
     #[test]
     fn original_rule_infrastructure_and_outgoing_failures_remain_distinct() {
-        let ordinary = BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError::default());
+        let ordinary = BoundaryProjectionError::WireValidation(
+            protovalidate_buffa::ValidationError::default(),
+        );
         assert_eq!(ordinary.code().unwrap().to_string(), "workflow.input");
         let original = ordinary.wire_validation().unwrap();
-        let cause = std::error::Error::source(&ordinary).unwrap().downcast_ref::<protovalidate_buffa::ValidationError>().unwrap();
+        let cause = std::error::Error::source(&ordinary)
+            .unwrap()
+            .downcast_ref::<protovalidate_buffa::ValidationError>()
+            .unwrap();
         assert!(std::ptr::eq(original, cause));
         for error in [
-            BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError { compile_error: Some("original rule compile refusal".into()), ..Default::default() }),
-            BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError { runtime_error: Some("original rule precondition refusal".into()), ..Default::default() }),
+            BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError {
+                compile_error: Some("original rule compile refusal".into()),
+                ..Default::default()
+            }),
+            BoundaryProjectionError::WireValidation(protovalidate_buffa::ValidationError {
+                runtime_error: Some("original rule precondition refusal".into()),
+                ..Default::default()
+            }),
             BoundaryProjectionError::OutgoingWire(protovalidate_buffa::ValidationError::default()),
         ] {
             assert_eq!(error.code().unwrap().to_string(), "workflow.internal");
@@ -398,7 +412,19 @@ mod tests {
             assert_eq!(native_into::<f64, u64>(native, "value").unwrap(), bits);
         }
         assert!(native_from::<u8, u32>(256, "value.octet").is_err());
-        assert!(matches!(from_items::<_, BTreeSet<u64>>(vec![1, 1], "values"), Err(AdapterError::Refused { kind: AdapterFailure::DuplicateKey, .. })));
-        assert!(matches!(unique_pairs(vec![(1, "first"), (1, "second")], "pairs"), Err(AdapterError::Refused { kind: AdapterFailure::DuplicateKey, .. })));
+        assert!(matches!(
+            from_items::<_, BTreeSet<u64>>(vec![1, 1], "values"),
+            Err(AdapterError::Refused {
+                kind: AdapterFailure::DuplicateKey,
+                ..
+            })
+        ));
+        assert!(matches!(
+            unique_pairs(vec![(1, "first"), (1, "second")], "pairs"),
+            Err(AdapterError::Refused {
+                kind: AdapterFailure::DuplicateKey,
+                ..
+            })
+        ));
     }
 }

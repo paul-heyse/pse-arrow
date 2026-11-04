@@ -272,11 +272,29 @@ pub(super) fn inspect(
                 ))
                 .map_err(Into::into)
         }
-        Action::DeveloperEvidence { from_result, session, output: destination, scope } => {
+        Action::DeveloperEvidence {
+            from_result,
+            session,
+            output: destination,
+            scope,
+        } => {
             let store = super::super::invocation_store(selected)?;
-            let session = crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            let payload = crate::developer_evidence::export(&store, &from_result, session.as_deref(), &root.join(destination), scope)?;
-            output.emit(Envelope::response("inspect developer-evidence", "exported original native observations", payload)).map_err(Into::into)
+            let session =
+                crate::invocation::select_session(session, &std::env::vars_os().collect())?;
+            let payload = crate::developer_evidence::export(
+                &store,
+                &from_result,
+                session.as_deref(),
+                &root.join(destination),
+                scope,
+            )?;
+            output
+                .emit(Envelope::response(
+                    "inspect developer-evidence",
+                    "exported original native observations",
+                    payload,
+                ))
+                .map_err(Into::into)
         }
         Action::Outline(options) => source::outline(options, selected, output),
         Action::Declaration(options) => source::declaration(options, selected, output),
@@ -925,16 +943,34 @@ mod tests {
     #[test]
     fn developer_export_scope_is_explicit_with_full_default_and_no_report_only_shortcut() {
         use crate::test_workflow::execute::EvidenceScope;
-        let base = ["inspect","developer-evidence","--from-result","original","--output","portable.pb"];
-        let Action::DeveloperEvidence { scope, .. } = Parsed::try_parse_from(base).unwrap().action else { panic!("export action") };
+        let base = [
+            "inspect",
+            "developer-evidence",
+            "--from-result",
+            "original",
+            "--output",
+            "portable.pb",
+        ];
+        let Action::DeveloperEvidence { scope, .. } = Parsed::try_parse_from(base).unwrap().action
+        else {
+            panic!("export action")
+        };
         assert_eq!(scope, EvidenceScope::Full);
-        for (name, expected) in [("report",EvidenceScope::Report),("selection",EvidenceScope::Selection),("full",EvidenceScope::Full)] {
-            let args:Vec<_> = base.into_iter().chain(["--scope",name]).collect();
-            let Action::DeveloperEvidence { scope, .. } = Parsed::try_parse_from(args).unwrap().action else { panic!("export action") };
+        for (name, expected) in [
+            ("report", EvidenceScope::Report),
+            ("selection", EvidenceScope::Selection),
+            ("full", EvidenceScope::Full),
+        ] {
+            let args: Vec<_> = base.into_iter().chain(["--scope", name]).collect();
+            let Action::DeveloperEvidence { scope, .. } =
+                Parsed::try_parse_from(args).unwrap().action
+            else {
+                panic!("export action")
+            };
             assert_eq!(scope, expected);
         }
         assert!(Parsed::try_parse_from(base.into_iter().chain(["--report-only"])).is_err());
-        assert!(Parsed::try_parse_from(base.into_iter().chain(["--scope","complete"])).is_err());
+        assert!(Parsed::try_parse_from(base.into_iter().chain(["--scope", "complete"])).is_err());
     }
     #[test]
     fn test_intent_preserves_native_selection_and_exact_filter_authority() {

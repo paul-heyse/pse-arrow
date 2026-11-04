@@ -6,8 +6,12 @@
 //! its borrowed facts; neither a successful check nor semantic compatibility admits
 //! scientific meaning, creates native capabilities or establishes wire compatibility.
 
+use crate::{
+    BoundaryDirection,
+    boundary_projection::{ConstructionRole, LocalRule, TypeRef},
+    operation_effects::{EffectFacts, EffectScope},
+};
 use std::collections::BTreeSet;
-use crate::{BoundaryDirection, boundary_projection::{ConstructionRole, LocalRule, TypeRef}, operation_effects::{EffectFacts, EffectScope}};
 
 /// Current interoperability metadata version; distinct from owner interpretation.
 pub const VERSION: u32 = 2;
@@ -78,7 +82,12 @@ pub struct Effects {
 }
 impl From<EffectFacts> for Effects {
     fn from(value: EffectFacts) -> Self {
-        Self { scope: Some(EnumValue::Known(value.scope)), read_only: Some(value.read_only), idempotent: Some(value.idempotent), destructive: Some(value.destructive) }
+        Self {
+            scope: Some(EnumValue::Known(value.scope)),
+            read_only: Some(value.read_only),
+            idempotent: Some(value.idempotent),
+            destructive: Some(value.destructive),
+        }
     }
 }
 
@@ -124,7 +133,11 @@ pub enum FieldDeclaration<T> {
 impl<T> FieldDeclaration<T> {
     /// Borrow an existing declaration without changing its acquisition outcome.
     pub fn as_ref(&self) -> FieldDeclaration<&T> {
-        match self { Self::Present(value) => FieldDeclaration::Present(value), Self::KnownAbsent => FieldDeclaration::KnownAbsent, Self::Unavailable => FieldDeclaration::Unavailable }
+        match self {
+            Self::Present(value) => FieldDeclaration::Present(value),
+            Self::KnownAbsent => FieldDeclaration::KnownAbsent,
+            Self::Unavailable => FieldDeclaration::Unavailable,
+        }
     }
 }
 
@@ -225,17 +238,29 @@ pub trait InterpretationPolicy {
     /// Stable name attributed on every result.
     fn name(&self) -> &str;
     /// Known interoperability metadata versions.
-    fn supports_metadata_version(&self, version: u32) -> bool { version == VERSION }
+    fn supports_metadata_version(&self, version: u32) -> bool {
+        version == VERSION
+    }
     /// Available immutable owner interpretation, selected explicitly by the caller.
-    fn supports_interpretation(&self, _subject: &str, _version: u32) -> bool { false }
+    fn supports_interpretation(&self, _subject: &str, _version: u32) -> bool {
+        false
+    }
     /// Explicit old/new owner interpretation relation; changing a version is unknown by default.
-    fn interpretation_change(&self, _subject: &str, _old: u32, _new: u32) -> Disposition { Disposition::Unknown }
+    fn interpretation_change(&self, _subject: &str, _old: u32, _new: u32) -> Disposition {
+        Disposition::Unknown
+    }
     /// Owner-specific meaning is unknown without its policy.
-    fn check_facet(&self, _facet: &Facet<'_>) -> Disposition { Disposition::Unknown }
+    fn check_facet(&self, _facet: &Facet<'_>) -> Disposition {
+        Disposition::Unknown
+    }
     /// A wire-compatible facet change has no automatic semantic compatibility.
-    fn compare_facet(&self, _old: &Facet<'_>, _new: &Facet<'_>) -> Disposition { Disposition::Unknown }
+    fn compare_facet(&self, _old: &Facet<'_>, _new: &Facet<'_>) -> Disposition {
+        Disposition::Unknown
+    }
     /// Introducing meaning on an already selected subject needs an owner decision.
-    fn introduced_facet(&self, _new: &Facet<'_>) -> Disposition { Disposition::Unknown }
+    fn introduced_facet(&self, _new: &Facet<'_>) -> Disposition {
+        Disposition::Unknown
+    }
 }
 
 /// Strict core-only interpretation, refusing selected domain policy it does not own.
@@ -245,8 +270,12 @@ pub struct CorePolicy<'a> {
     pub interpretations: &'a [(&'a str, u32)],
 }
 impl InterpretationPolicy for CorePolicy<'_> {
-    fn name(&self) -> &str { "pse.contract.v2/native-crossing" }
-    fn supports_interpretation(&self, subject: &str, version: u32) -> bool { self.interpretations.contains(&(subject, version)) }
+    fn name(&self) -> &str {
+        "pse.contract.v2/native-crossing"
+    }
+    fn supports_interpretation(&self, subject: &str, version: u32) -> bool {
+        self.interpretations.contains(&(subject, version))
+    }
 }
 
 /// Attributed explanation, without fabricated physical source coordinates.
@@ -273,28 +302,88 @@ pub struct Assessment {
     pub findings: Vec<Finding>,
 }
 impl Assessment {
-    fn new(policy: &impl InterpretationPolicy) -> Self { Self { policy: policy.name().into(), disposition: Disposition::Compatible, findings: vec![] } }
-    /// Include an attributed acquisition/interpretation finding with the same
-    /// aggregation rules as the normalized metadata checks.
-    pub fn record(&mut self, file: &str, subject: &str, disposition: Disposition, reason: impl Into<String>) {
-        if disposition == Disposition::Compatible { return; }
-        if disposition == Disposition::Incompatible || self.disposition == Disposition::Compatible { self.disposition = disposition; }
-        self.findings.push(Finding { file: file.into(), subject: subject.into(), disposition, reason: reason.into() });
-    }
-    fn required<T>(&mut self, file: &str, subject: &str, value: Option<T>, name: &str) -> Option<T> {
-        if value.is_none() { self.record(file, subject, Disposition::Incompatible, format!("missing required {name}")); }
-        value
-    }
-    fn version(&mut self, policy: &impl InterpretationPolicy, file: &str, subject: &str, value: Option<u32>) {
-        if let Some(version) = self.required(file, subject, value, "metadata version")
-            && !policy.supports_metadata_version(version) {
-            self.record(file, subject, Disposition::Unknown, format!("unavailable metadata version {version}"));
+    fn new(policy: &impl InterpretationPolicy) -> Self {
+        Self {
+            policy: policy.name().into(),
+            disposition: Disposition::Compatible,
+            findings: vec![],
         }
     }
-    fn enumeration<T>(&mut self, file: &str, subject: &str, value: Option<EnumValue<T>>, name: &str) -> Option<T> {
+    /// Include an attributed acquisition/interpretation finding with the same
+    /// aggregation rules as the normalized metadata checks.
+    pub fn record(
+        &mut self,
+        file: &str,
+        subject: &str,
+        disposition: Disposition,
+        reason: impl Into<String>,
+    ) {
+        if disposition == Disposition::Compatible {
+            return;
+        }
+        if disposition == Disposition::Incompatible || self.disposition == Disposition::Compatible {
+            self.disposition = disposition;
+        }
+        self.findings.push(Finding {
+            file: file.into(),
+            subject: subject.into(),
+            disposition,
+            reason: reason.into(),
+        });
+    }
+    fn required<T>(
+        &mut self,
+        file: &str,
+        subject: &str,
+        value: Option<T>,
+        name: &str,
+    ) -> Option<T> {
+        if value.is_none() {
+            self.record(
+                file,
+                subject,
+                Disposition::Incompatible,
+                format!("missing required {name}"),
+            );
+        }
+        value
+    }
+    fn version(
+        &mut self,
+        policy: &impl InterpretationPolicy,
+        file: &str,
+        subject: &str,
+        value: Option<u32>,
+    ) {
+        if let Some(version) = self.required(file, subject, value, "metadata version")
+            && !policy.supports_metadata_version(version)
+        {
+            self.record(
+                file,
+                subject,
+                Disposition::Unknown,
+                format!("unavailable metadata version {version}"),
+            );
+        }
+    }
+    fn enumeration<T>(
+        &mut self,
+        file: &str,
+        subject: &str,
+        value: Option<EnumValue<T>>,
+        name: &str,
+    ) -> Option<T> {
         match self.required(file, subject, value, name)? {
             EnumValue::Known(value) => Some(value),
-            EnumValue::Unknown(number) => { self.record(file, subject, Disposition::Unknown, format!("unavailable {name} value {number}")); None }
+            EnumValue::Unknown(number) => {
+                self.record(
+                    file,
+                    subject,
+                    Disposition::Unknown,
+                    format!("unavailable {name} value {number}"),
+                );
+                None
+            }
         }
     }
     fn effects(&mut self, file: &str, subject: &str, effects: Effects) {
@@ -303,100 +392,326 @@ impl Assessment {
         self.required(file, subject, effects.idempotent, "idempotent");
         let destructive = self.required(file, subject, effects.destructive, "destructive");
         if let (Some(scope), Some(read_only), Some(destructive)) = (scope, read_only, destructive)
-            && !effects_coherent(scope, read_only, destructive) {
-            self.record(file, subject, Disposition::Incompatible, "effect scope conflicts with observation or custody release facts");
+            && !effects_coherent(scope, read_only, destructive)
+        {
+            self.record(
+                file,
+                subject,
+                Disposition::Incompatible,
+                "effect scope conflicts with observation or custody release facts",
+            );
         }
     }
 }
 
 pub(crate) fn effects_coherent(scope: EffectScope, read_only: bool, destructive: bool) -> bool {
-    read_only == matches!(scope, EffectScope::Observation) && destructive == matches!(scope, EffectScope::RetentionRelease)
+    read_only == matches!(scope, EffectScope::Observation)
+        && destructive == matches!(scope, EffectScope::RetentionRelease)
 }
 
 /// Check required options, versions, closure, references, allocations and effect coherence.
 pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessment {
     let mut result = Assessment::new(policy);
-    if policy.name().is_empty() { result.record("", "interpretation policy", Disposition::Incompatible, "interpretation policy must have an explicit name"); }
+    if policy.name().is_empty() {
+        result.record(
+            "",
+            "interpretation policy",
+            Disposition::Incompatible,
+            "interpretation policy must have an explicit name",
+        );
+    }
     let mut files = BTreeSet::new();
     for file in world.files {
-        if !files.insert(file.name) { result.record(file.name, file.name, Disposition::Incompatible, "duplicate acquisition filename"); }
+        if !files.insert(file.name) {
+            result.record(
+                file.name,
+                file.name,
+                Disposition::Incompatible,
+                "duplicate acquisition filename",
+            );
+        }
     }
-    for file in world.files { for import in file.imports { if !files.contains(import) { result.record(file.name, import, Disposition::Incompatible, "missing transitive import"); } } }
+    for file in world.files {
+        for import in file.imports {
+            if !files.contains(import) {
+                result.record(
+                    file.name,
+                    import,
+                    Disposition::Incompatible,
+                    "missing transitive import",
+                );
+            }
+        }
+    }
     let mut symbols = BTreeSet::new();
-    for symbol in world.symbols { if !symbols.insert(*symbol) { result.record("", symbol, Disposition::Incompatible, "duplicate world symbol"); } }
+    for symbol in world.symbols {
+        if !symbols.insert(*symbol) {
+            result.record(
+                "",
+                symbol,
+                Disposition::Incompatible,
+                "duplicate world symbol",
+            );
+        }
+    }
     let mut names = BTreeSet::new();
     let mut allocations = BTreeSet::new();
     for extension in world.extensions {
-        if !names.insert(extension.name) || !allocations.insert((extension.extendee, extension.number)) {
-            result.record(extension.file, extension.name, Disposition::Incompatible, "extension name or extendee/number collision");
+        if !names.insert(extension.name)
+            || !allocations.insert((extension.extendee, extension.number))
+        {
+            result.record(
+                extension.file,
+                extension.name,
+                Disposition::Incompatible,
+                "extension name or extendee/number collision",
+            );
         }
-        if !symbols.contains(extension.extendee) { result.record(extension.file, extension.name, Disposition::Incompatible, "unresolved extension extendee"); }
+        if !symbols.contains(extension.extendee) {
+            result.record(
+                extension.file,
+                extension.name,
+                Disposition::Incompatible,
+                "unresolved extension extendee",
+            );
+        }
     }
     let mut selected = BTreeSet::new();
     for message in world.messages {
-        if !selected.insert(message.name) { result.record(message.file, message.name, Disposition::Incompatible, "duplicate selected message"); }
-        if !files.contains(message.file) || !symbols.contains(message.name) { result.record(message.file, message.name, Disposition::Incompatible, "selected message is outside acquired world"); }
-        if let Some(metadata) = result.required(message.file, message.name, message.metadata, "message metadata") {
-            result.version(policy, message.file, message.name, metadata.metadata_version);
-            if let Some(owner) = result.required(message.file, message.name, metadata.owner, "native owner")
-                && (owner.rust_type.is_empty() || owner.declaration_file.is_empty()) { result.record(message.file, message.name, Disposition::Incompatible, "empty native owner provenance"); }
-            if let Some(version) = result.required(message.file, message.name, metadata.interpretation_version, "interpretation version") {
-                if version == 0 { result.record(message.file, message.name, Disposition::Incompatible, "zero interpretation version"); }
-                else if !policy.supports_interpretation(message.name, version) { result.record(message.file, message.name, Disposition::Unknown, format!("unavailable owner interpretation {version}")); }
+        if !selected.insert(message.name) {
+            result.record(
+                message.file,
+                message.name,
+                Disposition::Incompatible,
+                "duplicate selected message",
+            );
+        }
+        if !files.contains(message.file) || !symbols.contains(message.name) {
+            result.record(
+                message.file,
+                message.name,
+                Disposition::Incompatible,
+                "selected message is outside acquired world",
+            );
+        }
+        if let Some(metadata) = result.required(
+            message.file,
+            message.name,
+            message.metadata,
+            "message metadata",
+        ) {
+            result.version(
+                policy,
+                message.file,
+                message.name,
+                metadata.metadata_version,
+            );
+            if let Some(owner) =
+                result.required(message.file, message.name, metadata.owner, "native owner")
+                && (owner.rust_type.is_empty() || owner.declaration_file.is_empty())
+            {
+                result.record(
+                    message.file,
+                    message.name,
+                    Disposition::Incompatible,
+                    "empty native owner provenance",
+                );
+            }
+            if let Some(version) = result.required(
+                message.file,
+                message.name,
+                metadata.interpretation_version,
+                "interpretation version",
+            ) {
+                if version == 0 {
+                    result.record(
+                        message.file,
+                        message.name,
+                        Disposition::Incompatible,
+                        "zero interpretation version",
+                    );
+                } else if !policy.supports_interpretation(message.name, version) {
+                    result.record(
+                        message.file,
+                        message.name,
+                        Disposition::Unknown,
+                        format!("unavailable owner interpretation {version}"),
+                    );
+                }
             }
             result.enumeration(message.file, message.name, metadata.direction, "direction");
-            result.enumeration(message.file, message.name, metadata.construction, "construction role");
-            if metadata.metadata_version == Some(VERSION) { result.required(message.file, message.name, metadata.native_shape, "native owner shape"); }
-            if let Some(effects) = metadata.effects { result.effects(message.file, message.name, effects); }
+            result.enumeration(
+                message.file,
+                message.name,
+                metadata.construction,
+                "construction role",
+            );
+            if metadata.metadata_version == Some(VERSION) {
+                result.required(
+                    message.file,
+                    message.name,
+                    metadata.native_shape,
+                    "native owner shape",
+                );
+            }
+            if let Some(effects) = metadata.effects {
+                result.effects(message.file, message.name, effects);
+            }
         }
     }
     selected.clear();
     for field in world.fields {
-        if !selected.insert(field.name) { result.record(field.file, field.name, Disposition::Incompatible, "duplicate selected field"); }
-        if !files.contains(field.file) { result.record(field.file, field.name, Disposition::Incompatible, "field is outside acquired world"); }
-        if let Some(reference) = field.reference && !symbols.contains(reference) { result.record(field.file, field.name, Disposition::Incompatible, format!("unresolved reference {reference}")); }
-        if let Some(metadata) = result.required(field.file, field.name, field.metadata, "field metadata") {
+        if !selected.insert(field.name) {
+            result.record(
+                field.file,
+                field.name,
+                Disposition::Incompatible,
+                "duplicate selected field",
+            );
+        }
+        if !files.contains(field.file) {
+            result.record(
+                field.file,
+                field.name,
+                Disposition::Incompatible,
+                "field is outside acquired world",
+            );
+        }
+        if let Some(reference) = field.reference
+            && !symbols.contains(reference)
+        {
+            result.record(
+                field.file,
+                field.name,
+                Disposition::Incompatible,
+                format!("unresolved reference {reference}"),
+            );
+        }
+        if let Some(metadata) =
+            result.required(field.file, field.name, field.metadata, "field metadata")
+        {
             result.version(policy, field.file, field.name, metadata.metadata_version);
-            if result.required(field.file, field.name, metadata.native_field, "native field").is_some_and(str::is_empty) { result.record(field.file, field.name, Disposition::Incompatible, "empty native field"); }
+            if result
+                .required(
+                    field.file,
+                    field.name,
+                    metadata.native_field,
+                    "native field",
+                )
+                .is_some_and(str::is_empty)
+            {
+                result.record(
+                    field.file,
+                    field.name,
+                    Disposition::Incompatible,
+                    "empty native field",
+                );
+            }
             result.enumeration(field.file, field.name, metadata.direction, "direction");
             if metadata.metadata_version == Some(VERSION) {
                 match field.declaration {
-                FieldDeclaration::Present(declared) => {
-                    if metadata.native_field.is_some_and(|name| name != declared.name)
-                        || matches!(metadata.direction, Some(EnumValue::Known(direction)) if direction != declared.direction)
-                        || metadata.native_type.is_some_and(|ty| ty != &declared.ty)
-                        || metadata.local_rules.is_some_and(|rules| rules != declared.rules) {
-                        result.record(field.file, field.name, Disposition::Incompatible, "field metadata contradicts its existing native owner declaration");
+                    FieldDeclaration::Present(declared) => {
+                        if metadata
+                            .native_field
+                            .is_some_and(|name| name != declared.name)
+                            || matches!(metadata.direction, Some(EnumValue::Known(direction)) if direction != declared.direction)
+                            || metadata.native_type.is_some_and(|ty| ty != &declared.ty)
+                            || metadata
+                                .local_rules
+                                .is_some_and(|rules| rules != declared.rules)
+                        {
+                            result.record(
+                                field.file,
+                                field.name,
+                                Disposition::Incompatible,
+                                "field metadata contradicts its existing native owner declaration",
+                            );
+                        }
                     }
-                },
-                FieldDeclaration::KnownAbsent => result.record(field.file, field.name, Disposition::Incompatible, "selected native field is absent from its known owner declaration"),
-                FieldDeclaration::Unavailable => result.record(field.file, field.name, Disposition::Unknown, "native owner field correspondence is unavailable"),
+                    FieldDeclaration::KnownAbsent => result.record(
+                        field.file,
+                        field.name,
+                        Disposition::Incompatible,
+                        "selected native field is absent from its known owner declaration",
+                    ),
+                    FieldDeclaration::Unavailable => result.record(
+                        field.file,
+                        field.name,
+                        Disposition::Unknown,
+                        "native owner field correspondence is unavailable",
+                    ),
                 }
             }
             if metadata.metadata_version == Some(VERSION) {
-                if let Some(ty) = result.required(field.file, field.name, metadata.native_type, "native type") {
+                if let Some(ty) =
+                    result.required(field.file, field.name, metadata.native_type, "native type")
+                {
                     check_native_references(ty, &symbols, field.file, field.name, &mut result);
                 }
-                result.required(field.file, field.name, metadata.local_rules, "native local rules");
+                result.required(
+                    field.file,
+                    field.name,
+                    metadata.local_rules,
+                    "native local rules",
+                );
             }
         }
     }
     selected.clear();
     for method in world.methods {
-        if !selected.insert(method.name) { result.record(method.file, method.name, Disposition::Incompatible, "duplicate selected method"); }
-        if !files.contains(method.file) { result.record(method.file, method.name, Disposition::Incompatible, "method is outside acquired world"); }
-        for reference in [method.input, method.output] { if !symbols.contains(reference) { result.record(method.file, method.name, Disposition::Incompatible, format!("unresolved method root {reference}")); } }
-        if let Some(metadata) = result.required(method.file, method.name, method.metadata, "method metadata") {
+        if !selected.insert(method.name) {
+            result.record(
+                method.file,
+                method.name,
+                Disposition::Incompatible,
+                "duplicate selected method",
+            );
+        }
+        if !files.contains(method.file) {
+            result.record(
+                method.file,
+                method.name,
+                Disposition::Incompatible,
+                "method is outside acquired world",
+            );
+        }
+        for reference in [method.input, method.output] {
+            if !symbols.contains(reference) {
+                result.record(
+                    method.file,
+                    method.name,
+                    Disposition::Incompatible,
+                    format!("unresolved method root {reference}"),
+                );
+            }
+        }
+        if let Some(metadata) =
+            result.required(method.file, method.name, method.metadata, "method metadata")
+        {
             result.version(policy, method.file, method.name, metadata.metadata_version);
-            if let Some(effects) = result.required(method.file, method.name, metadata.effects, "owner effects") {
+            if let Some(effects) =
+                result.required(method.file, method.name, metadata.effects, "owner effects")
+            {
                 result.effects(method.file, method.name, effects);
             }
         }
     }
     for facet in world.facets {
-        let disposition = if facet.interpretation_available { policy.check_facet(facet) } else { Disposition::Unknown };
-        let reason = facet.interpretation_reason.map(|reason| format!(": {reason}")).unwrap_or_default();
-        result.record(facet.file, facet.subject, disposition, format!("selected domain interpretation {}{reason}", facet.policy));
+        let disposition = if facet.interpretation_available {
+            policy.check_facet(facet)
+        } else {
+            Disposition::Unknown
+        };
+        let reason = facet
+            .interpretation_reason
+            .map(|reason| format!(": {reason}"))
+            .unwrap_or_default();
+        result.record(
+            facet.file,
+            facet.subject,
+            disposition,
+            format!("selected domain interpretation {}{reason}", facet.policy),
+        );
     }
     result
 }
@@ -407,30 +722,126 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
 pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPolicy) -> Assessment {
     let mut result = check(old, policy);
     let current = check(new, policy);
-    for finding in current.findings { result.record(&finding.file, &finding.subject, finding.disposition, finding.reason); }
+    for finding in current.findings {
+        result.record(
+            &finding.file,
+            &finding.subject,
+            finding.disposition,
+            finding.reason,
+        );
+    }
     for before in old.messages {
         match new.messages.iter().find(|after| after.name == before.name) {
-            None => result.record(before.file, before.name, Disposition::Incompatible, "selected message removed"),
-            Some(after) => if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
-                if known_changed(a.direction, b.direction) || known_changed(a.construction, b.construction) { result.record(after.file, after.name, Disposition::Incompatible, "direction or construction role changed"); }
-                if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "metadata version changed"); }
-                if effects_changed(a.effects, b.effects) { result.record(after.file, after.name, Disposition::Incompatible, "source action effects changed"); }
-                if a.metadata_version == Some(VERSION) && b.metadata_version == Some(VERSION) && a.native_shape != b.native_shape { result.record(after.file, after.name, Disposition::Incompatible, "native owner layout or string vocabulary changed"); }
-                if let (Some(a), Some(b)) = (a.interpretation_version, b.interpretation_version) && a != b { result.record(after.file, after.name, policy.interpretation_change(after.name, a, b), "owner interpretation version changed"); }
+            None => result.record(
+                before.file,
+                before.name,
+                Disposition::Incompatible,
+                "selected message removed",
+            ),
+            Some(after) => {
+                if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
+                    if known_changed(a.direction, b.direction)
+                        || known_changed(a.construction, b.construction)
+                    {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Incompatible,
+                            "direction or construction role changed",
+                        );
+                    }
+                    if a.metadata_version != b.metadata_version {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Unknown,
+                            "metadata version changed",
+                        );
+                    }
+                    if effects_changed(a.effects, b.effects) {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Incompatible,
+                            "source action effects changed",
+                        );
+                    }
+                    if a.metadata_version == Some(VERSION)
+                        && b.metadata_version == Some(VERSION)
+                        && a.native_shape != b.native_shape
+                    {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Incompatible,
+                            "native owner layout or string vocabulary changed",
+                        );
+                    }
+                    if let (Some(a), Some(b)) = (a.interpretation_version, b.interpretation_version)
+                        && a != b
+                    {
+                        result.record(
+                            after.file,
+                            after.name,
+                            policy.interpretation_change(after.name, a, b),
+                            "owner interpretation version changed",
+                        );
+                    }
+                }
             }
         }
     }
     for before in old.fields {
         match new.fields.iter().find(|after| after.name == before.name) {
-            None => result.record(before.file, before.name, Disposition::Incompatible, "selected field removed"),
+            None => result.record(
+                before.file,
+                before.name,
+                Disposition::Incompatible,
+                "selected field removed",
+            ),
             Some(after) => {
-                if before.reference != after.reference { result.record(after.file, after.name, Disposition::Incompatible, "field reference changed"); }
+                if before.reference != after.reference {
+                    result.record(
+                        after.file,
+                        after.name,
+                        Disposition::Incompatible,
+                        "field reference changed",
+                    );
+                }
                 if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
-                    if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "field metadata version changed"); }
-                    if a.native_field != b.native_field || known_changed(a.direction, b.direction) { result.record(after.file, after.name, Disposition::Incompatible, "field correspondence or direction changed"); }
+                    if a.metadata_version != b.metadata_version {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Unknown,
+                            "field metadata version changed",
+                        );
+                    }
+                    if a.native_field != b.native_field || known_changed(a.direction, b.direction) {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Incompatible,
+                            "field correspondence or direction changed",
+                        );
+                    }
                     if a.metadata_version == Some(VERSION) && b.metadata_version == Some(VERSION) {
-                        if a.native_type != b.native_type { result.record(after.file, after.name, Disposition::Incompatible, "native field type meaning changed"); }
-                        if a.local_rules != b.local_rules { result.record(after.file, after.name, Disposition::Incompatible, "native local rules changed"); }
+                        if a.native_type != b.native_type {
+                            result.record(
+                                after.file,
+                                after.name,
+                                Disposition::Incompatible,
+                                "native field type meaning changed",
+                            );
+                        }
+                        if a.local_rules != b.local_rules {
+                            result.record(
+                                after.file,
+                                after.name,
+                                Disposition::Incompatible,
+                                "native local rules changed",
+                            );
+                        }
                     }
                 }
             }
@@ -438,41 +849,121 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
     }
     for before in old.methods {
         match new.methods.iter().find(|after| after.name == before.name) {
-            None => result.record(before.file, before.name, Disposition::Incompatible, "selected method removed"),
+            None => result.record(
+                before.file,
+                before.name,
+                Disposition::Incompatible,
+                "selected method removed",
+            ),
             Some(after) => {
-                if before.input != after.input || before.output != after.output { result.record(after.file, after.name, Disposition::Incompatible, "method roots changed"); }
+                if before.input != after.input || before.output != after.output {
+                    result.record(
+                        after.file,
+                        after.name,
+                        Disposition::Incompatible,
+                        "method roots changed",
+                    );
+                }
                 if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
-                    if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "method metadata version changed"); }
-                    if effects_changed(a.effects, b.effects) { result.record(after.file, after.name, Disposition::Incompatible, "method effects changed"); }
+                    if a.metadata_version != b.metadata_version {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Unknown,
+                            "method metadata version changed",
+                        );
+                    }
+                    if effects_changed(a.effects, b.effects) {
+                        result.record(
+                            after.file,
+                            after.name,
+                            Disposition::Incompatible,
+                            "method effects changed",
+                        );
+                    }
                 }
             }
         }
     }
     for before in old.facets {
-        match new.facets.iter().find(|after| after.subject == before.subject && after.policy == before.policy) {
-            None => result.record(before.file, before.subject, Disposition::Unknown, format!("selected domain interpretation {} removed", before.policy)),
+        match new
+            .facets
+            .iter()
+            .find(|after| after.subject == before.subject && after.policy == before.policy)
+        {
+            None => result.record(
+                before.file,
+                before.subject,
+                Disposition::Unknown,
+                format!("selected domain interpretation {} removed", before.policy),
+            ),
             Some(after) => {
-                let disposition = if before.interpretation_available && after.interpretation_available { policy.compare_facet(before, after) } else { Disposition::Unknown };
-                result.record(after.file, after.subject, disposition, format!("domain interpretation {} comparison", after.policy));
+                let disposition =
+                    if before.interpretation_available && after.interpretation_available {
+                        policy.compare_facet(before, after)
+                    } else {
+                        Disposition::Unknown
+                    };
+                result.record(
+                    after.file,
+                    after.subject,
+                    disposition,
+                    format!("domain interpretation {} comparison", after.policy),
+                );
             }
         }
     }
     for after in new.facets {
-        let existing_subject = old.messages.iter().any(|item| item.name == after.subject) || old.fields.iter().any(|item| item.name == after.subject) || old.methods.iter().any(|item| item.name == after.subject);
-        if existing_subject && !old.facets.iter().any(|before| before.subject == after.subject && before.policy == after.policy) {
-            let disposition = if after.interpretation_available { policy.introduced_facet(after) } else { Disposition::Unknown };
-            result.record(after.file, after.subject, disposition, format!("domain interpretation {} introduced on existing subject", after.policy));
+        let existing_subject = old.messages.iter().any(|item| item.name == after.subject)
+            || old.fields.iter().any(|item| item.name == after.subject)
+            || old.methods.iter().any(|item| item.name == after.subject);
+        if existing_subject
+            && !old
+                .facets
+                .iter()
+                .any(|before| before.subject == after.subject && before.policy == after.policy)
+        {
+            let disposition = if after.interpretation_available {
+                policy.introduced_facet(after)
+            } else {
+                Disposition::Unknown
+            };
+            result.record(
+                after.file,
+                after.subject,
+                disposition,
+                format!(
+                    "domain interpretation {} introduced on existing subject",
+                    after.policy
+                ),
+            );
         }
     }
     result
 }
 
-fn check_native_references(ty: &TypeRef, symbols: &BTreeSet<&str>, file: &str, subject: &str, result: &mut Assessment) {
+fn check_native_references(
+    ty: &TypeRef,
+    symbols: &BTreeSet<&str>,
+    file: &str,
+    subject: &str,
+    result: &mut Assessment,
+) {
     match ty {
-        TypeRef::Named(name) if !symbols.contains(name.as_str()) => result.record(file, subject, Disposition::Incompatible, format!("unresolved native type reference {name}")),
-        TypeRef::Named(_) | TypeRef::Scalar(_) => {},
-        TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => check_native_references(inner, symbols, file, subject, result),
-        TypeRef::Map(key, value) => { check_native_references(key, symbols, file, subject, result); check_native_references(value, symbols, file, subject, result); }
+        TypeRef::Named(name) if !symbols.contains(name.as_str()) => result.record(
+            file,
+            subject,
+            Disposition::Incompatible,
+            format!("unresolved native type reference {name}"),
+        ),
+        TypeRef::Named(_) | TypeRef::Scalar(_) => {}
+        TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
+            check_native_references(inner, symbols, file, subject, result)
+        }
+        TypeRef::Map(key, value) => {
+            check_native_references(key, symbols, file, subject, result);
+            check_native_references(value, symbols, file, subject, result);
+        }
     }
 }
 
@@ -482,7 +973,12 @@ fn known_changed<T: PartialEq>(old: Option<EnumValue<T>>, new: Option<EnumValue<
 
 fn effects_changed(old: Option<Effects>, new: Option<Effects>) -> bool {
     match (old, new) {
-        (Some(old), Some(new)) => known_changed(old.scope, new.scope) || old.read_only != new.read_only || old.idempotent != new.idempotent || old.destructive != new.destructive,
+        (Some(old), Some(new)) => {
+            known_changed(old.scope, new.scope)
+                || old.read_only != new.read_only
+                || old.idempotent != new.idempotent
+                || old.destructive != new.destructive
+        }
         (None, None) => false,
         _ => true,
     }

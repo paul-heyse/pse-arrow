@@ -102,17 +102,27 @@ impl ReferenceContract {
     /// Malformed, noncanonical or duplicate mappings refuse with the source path.
     pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
         let invalid = |reason| crate::checks::invalid(path, reason);
-        let contract: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
-        if contract.canonical()? != text || contract.relation.is_empty() || contract.columns.is_empty() {
-            return Err(invalid("reference requires canonical metadata, a target and a nonempty mapping".into()));
+        let contract: Self =
+            serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+        if contract.canonical()? != text
+            || contract.relation.is_empty()
+            || contract.columns.is_empty()
+        {
+            return Err(invalid(
+                "reference requires canonical metadata, a target and a nonempty mapping".into(),
+            ));
         }
         let mut sources = BTreeSet::new();
         let mut targets = BTreeSet::new();
         for mapping in &contract.columns {
-            if mapping.target.is_empty() || mapping.source.iter().any(String::is_empty)
-                || !sources.insert(&mapping.source) || !targets.insert(&mapping.target)
+            if mapping.target.is_empty()
+                || mapping.source.iter().any(String::is_empty)
+                || !sources.insert(&mapping.source)
+                || !targets.insert(&mapping.target)
             {
-                return Err(invalid("reference mappings require distinct source paths and target columns".into()));
+                return Err(invalid(
+                    "reference mappings require distinct source paths and target columns".into(),
+                ));
             }
         }
         Ok(contract)

@@ -245,7 +245,9 @@ fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys()
     let sparse = expression(5);
     assert!(sparse.starts_with("this.value.all(entry_1, ("), "{sparse}");
     assert!(sparse.contains("entry_1.value <="), "{sparse}");
-    let sparse_wrapper = message.nested_type.iter()
+    let sparse_wrapper = message
+        .nested_type
+        .iter()
         .find(|owner| owner.name.as_deref() == Some("Field5Value"))
         .unwrap();
     assert_eq!(sparse_wrapper.field[0].name.as_deref(), Some("value"));
@@ -275,7 +277,11 @@ fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys()
                     .segments
                     .last()
                     .is_some_and(|part| part.ident == "from_projection_bytes")
-                && function.path.segments.iter().any(|part| part.ident == "ProjectionBytes")
+                && function
+                    .path
+                    .segments
+                    .iter()
+                    .any(|part| part.ident == "ProjectionBytes")
                 && let Some(syn::Expr::Field(field)) = call.args.first()
                 && matches!(&field.member, syn::Member::Named(name) if name == "key")
                 && matches!(field.base.as_ref(), syn::Expr::Path(base) if base.path.is_ident("entry"))

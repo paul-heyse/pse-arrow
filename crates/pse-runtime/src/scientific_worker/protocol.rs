@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Actual scientific worker operation owners and source-derived wire metadata.
-use pse_ids::{ContentHash, SemanticId};
 use pse_contract::boundary_projection::{Direction, LocalRule};
+use pse_ids::{ContentHash, SemanticId};
 
 /// Conservative effects of the multiplexed authenticated Exchange operation.
 /// Preparation, numerical work and lifecycle control are effectful. Duplicate refusal

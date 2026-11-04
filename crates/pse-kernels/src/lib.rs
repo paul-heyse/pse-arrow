@@ -13,17 +13,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub mod portable;
 mod batch;
+pub mod portable;
 mod provider;
 mod shape;
+pub use batch::{ProviderBatchOutcome, ProviderBatchPoint, ProviderBatchResults};
 pub use provider::{
     PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer, ProviderCompletion,
     ProviderDemand, ProviderExtents, ProviderLinearizationToken, ProviderOutput, ProviderRuntime,
 };
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};
-pub use batch::{ProviderBatchOutcome, ProviderBatchPoint, ProviderBatchResults};
 
 // Registration extents are shared by native admission and its boundary declaration.
 const MAXIMUM_SCALAR_PORTS: usize = 4096;
@@ -339,8 +339,11 @@ pub struct ProviderSpec {
 impl ProviderSpec {
     /// Owned descriptor heap, excluding inline fields held by the enclosing owner.
     pub fn heap_bytes(&self) -> usize {
-        self.inputs.capacity().saturating_add(self.outputs.capacity())
-            .saturating_mul(size_of::<Port>()).saturating_add(self.shapes.retained_bytes())
+        self.inputs
+            .capacity()
+            .saturating_add(self.outputs.capacity())
+            .saturating_mul(size_of::<Port>())
+            .saturating_add(self.shapes.retained_bytes())
     }
     /// Check a demand-specific executable capability against its admitted mathematical meaning.
     /// Capability may narrow; all physical, data and implementation fields stay exact.
@@ -500,7 +503,9 @@ pub trait Provider: std::fmt::Debug + Send {
         _request: &PreparedProviderRequest,
         _context: &EvaluationContext<'_>,
     ) -> Result<ProviderBatchResults, ProviderError> {
-        Err(ProviderError::Contract("provider batch demand unavailable".into()))
+        Err(ProviderError::Contract(
+            "provider batch demand unavailable".into(),
+        ))
     }
     /// Product support is checked once while binding an immutable prepared request.
     fn supports(&self, demand: &ProviderDemand) -> bool {
@@ -753,8 +758,12 @@ impl Provider for ScopedProvider {
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
     }
-    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
-        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+    fn fill_batch(
+        &mut self,
+        points: &[&ProviderBatchPoint],
+        request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
         self.scope.check()?;
         let result = self.inner.batch_inner(points, request, context);
         self.scope.check()?;
@@ -829,17 +838,24 @@ impl Provider for Enveloped {
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
     }
-    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
-        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+    fn fill_batch(
+        &mut self,
+        points: &[&ProviderBatchPoint],
+        request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
         let mut results = self.inner.batch_inner(points, request, context)?;
         for result in &mut results {
             if let Ok(values) = result {
                 for (&ordinal, &value) in request.outputs.iter().zip(&values.values) {
                     if let Some(&(lower, upper)) = self.envelope.get(ordinal)
-                        && value.is_finite() && !(lower <= value && value <= upper) {
+                        && value.is_finite()
+                        && !(lower <= value && value <= upper)
+                    {
                         *result = Err(ProviderError::Contract(format!(
                             "provider {} output {ordinal} = {value} lies outside its declared envelope [{lower}, {upper}]",
-                            self.inner.spec().id)));
+                            self.inner.spec().id
+                        )));
                         break;
                     }
                 }
@@ -960,20 +976,38 @@ impl Provider for ObservedProvider {
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
         self.inner.supports_batch(request)
     }
-    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
-        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+    fn fill_batch(
+        &mut self,
+        points: &[&ProviderBatchPoint],
+        request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
         let current = pse_diagnostics::observation::current();
-        let _phase = current.as_ref().map(|context| context.phase("kernel.provider.evaluate_batch"));
+        let _phase = current
+            .as_ref()
+            .map(|context| context.phase("kernel.provider.evaluate_batch"));
         if let Some(current) = &current {
             current.count("kernel.provider.batch_calls", "calls", 1);
-            current.count("kernel.provider.batch_points", "points", points.len() as u64);
+            current.count(
+                "kernel.provider.batch_points",
+                "points",
+                points.len() as u64,
+            );
         }
         let results = self.inner.batch_inner(points, request, context);
         if let Some(current) = &current {
             match &results {
                 Ok(results) => {
-                    current.count("kernel.provider.batch_completed_points", "points", results.iter().filter(|r| r.is_ok()).count() as u64);
-                    current.count("kernel.provider.batch_refused_points", "points", results.iter().filter(|r| r.is_err()).count() as u64);
+                    current.count(
+                        "kernel.provider.batch_completed_points",
+                        "points",
+                        results.iter().filter(|r| r.is_ok()).count() as u64,
+                    );
+                    current.count(
+                        "kernel.provider.batch_refused_points",
+                        "points",
+                        results.iter().filter(|r| r.is_err()).count() as u64,
+                    );
                 }
                 Err(_) => current.count("kernel.provider.batch_failures", "calls", 1),
             }

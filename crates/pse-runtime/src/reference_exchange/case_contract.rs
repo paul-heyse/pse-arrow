@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared case correspondence; numerical candidates are exchanged separately.
 use crate::workflow::PhysicalQuantityDescription;
+use pse_contract::boundary_projection::{Direction, LocalRule};
 use pse_ids::SemanticId;
 use pse_model::{document::Version, reference_exchange::ReferenceMeaning};
-use pse_contract::{boundary_projection::{Direction, LocalRule}};
 
 const KEY: LocalRule = LocalRule::Utf8Bytes { min: 1, max: 1024 };
 const POPULATION: LocalRule = LocalRule::Length {

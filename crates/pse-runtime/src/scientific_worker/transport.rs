@@ -239,7 +239,10 @@ impl IoOwner {
         checkpoint()?;
         let timeout = rpc_timeout(
             scope,
-            matches!(&request, p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)),
+            matches!(
+                &request,
+                p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)
+            ),
             std::time::Instant::now(),
         )?;
         let (reply, received) = std::sync::mpsc::channel();
@@ -296,18 +299,32 @@ struct HandleControls {
 impl HandleControls {
     fn admit(&mut self, request: &p::Request) -> Result<(), WorkerError> {
         if self.closed {
-            return Err(ProviderError::Contract("scientific worker admission is closed".into()).into());
+            return Err(
+                ProviderError::Contract("scientific worker admission is closed".into()).into(),
+            );
         }
         match request {
             p::Request::Prepare(value) => {
                 if self.handles.len() >= 64 || self.handles.contains_key(&value.handle.generation) {
-                    return Err(ProviderError::Contract("scientific worker duplicate/excess preparation".into()).into());
+                    return Err(ProviderError::Contract(
+                        "scientific worker duplicate/excess preparation".into(),
+                    )
+                    .into());
                 }
-                self.handles.insert(value.handle.generation, (value.handle.clone(), Default::default()));
+                self.handles.insert(
+                    value.handle.generation,
+                    (value.handle.clone(), Default::default()),
+                );
             }
-            p::Request::Evaluate(value) => { self.control(&value.handle)?; }
-            p::Request::EvaluateBatch(value) => { self.control(&value.handle)?; }
-            p::Request::Close(handle) => { self.control(handle)?; }
+            p::Request::Evaluate(value) => {
+                self.control(&value.handle)?;
+            }
+            p::Request::EvaluateBatch(value) => {
+                self.control(&value.handle)?;
+            }
+            p::Request::Close(handle) => {
+                self.control(handle)?;
+            }
             p::Request::Stop(handle) => self.control(handle)?.cancel(),
             p::Request::Shutdown => {
                 self.closed = true;
@@ -319,15 +336,22 @@ impl HandleControls {
         Ok(())
     }
     fn control(&self, handle: &p::Handle) -> Result<&pse_diagnostics::Cancellation, WorkerError> {
-        self.handles.get(&handle.generation)
+        self.handles
+            .get(&handle.generation)
             .filter(|(actual, _)| actual == handle)
             .map(|(_, cancellation)| cancellation)
-            .ok_or_else(|| ProviderError::Contract("scientific worker unknown or foreign handle".into()).into())
+            .ok_or_else(|| {
+                ProviderError::Contract("scientific worker unknown or foreign handle".into()).into()
+            })
     }
 }
 type SharedControls = Arc<std::sync::Mutex<HandleControls>>;
-fn controls_lock(controls: &SharedControls) -> Result<std::sync::MutexGuard<'_, HandleControls>, WorkerError> {
-    controls.lock().map_err(|_| infrastructure("scientific worker controls poisoned"))
+fn controls_lock(
+    controls: &SharedControls,
+) -> Result<std::sync::MutexGuard<'_, HandleControls>, WorkerError> {
+    controls
+        .lock()
+        .map_err(|_| infrastructure("scientific worker controls poisoned"))
 }
 struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
@@ -353,15 +377,25 @@ impl services::ScientificWorker for Server {
                 )));
             }
         };
-        let work = if matches!(&request, p::Request::Prepare(_) | p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)) {
+        let work = if matches!(
+            &request,
+            p::Request::Prepare(_) | p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)
+        ) {
             match self.work.clone().try_acquire_owned() {
                 Ok(permit) => Some(permit),
-                Err(_) => return Ok(connectrpc::Response::new(pb::Response::from(
-                    p::Response::Failure(p::Failure::Resource("scientific worker numerical lane is busy".into())),
-                ))),
+                Err(_) => {
+                    return Ok(connectrpc::Response::new(pb::Response::from(
+                        p::Response::Failure(p::Failure::Resource(
+                            "scientific worker numerical lane is busy".into(),
+                        )),
+                    )));
+                }
             }
-        } else { None };
-        let admitted = controls_lock(&self.controls).and_then(|mut controls| controls.admit(&request));
+        } else {
+            None
+        };
+        let admitted =
+            controls_lock(&self.controls).and_then(|mut controls| controls.admit(&request));
         if let Err(error) = admitted {
             return Ok(connectrpc::Response::new(pb::Response::from(
                 p::Response::Failure(handler::failure(error)),
@@ -369,7 +403,11 @@ impl services::ScientificWorker for Server {
         }
         let (response, received) = tokio::sync::oneshot::channel();
         self.jobs
-            .send(Job { request, response, _work: work })
+            .send(Job {
+                request,
+                response,
+                _work: work,
+            })
             .await
             .map_err(|_| {
                 connectrpc::ConnectError::unavailable("scientific worker native lane departed")
@@ -436,12 +474,17 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
-                        let cancellation = controls_lock(&native_controls)?.control(&value.handle)?.clone();
+                        let cancellation = controls_lock(&native_controls)?
+                            .control(&value.handle)?
+                            .clone();
                         let prepared = prepare(value, cancellation)?;
                         let handle = p::Handle::from(prepared.handle());
                         let batch_supported = prepared.supports_batch();
                         sessions.insert(handle.generation, prepared);
-                        Ok(p::Response::Prepared(p::Prepared { handle, batch_supported }))
+                        Ok(p::Response::Prepared(p::Prepared {
+                            handle,
+                            batch_supported,
+                        }))
                     }
                     p::Request::Evaluate(value) => {
                         let owner =
@@ -453,8 +496,12 @@ pub(super) fn serve_with_preparation(
                         Ok(p::Response::Values(handler::evaluate(owner, value)?))
                     }
                     p::Request::EvaluateBatch(value) => {
-                        let owner = sessions.get_mut(&value.handle.generation).ok_or_else(||
-                            ProviderError::Contract("scientific worker unknown generation".into()))?;
+                        let owner =
+                            sessions.get_mut(&value.handle.generation).ok_or_else(|| {
+                                ProviderError::Contract(
+                                    "scientific worker unknown generation".into(),
+                                )
+                            })?;
                         Ok(p::Response::Batch(handler::evaluate_batch(owner, value)?))
                     }
                     p::Request::Stop(handle) => {
@@ -471,23 +518,34 @@ pub(super) fn serve_with_preparation(
                         }
                         actual.stop();
                         sessions.remove(&handle.generation);
-                        controls_lock(&native_controls)?.handles.remove(&handle.generation);
+                        controls_lock(&native_controls)?
+                            .handles
+                            .remove(&handle.generation);
                         Ok(p::Response::Closed(handle))
                     }
                     p::Request::Close(handle) => {
                         let actual = sessions.get_mut(&handle.generation).ok_or_else(|| {
-                            ProviderError::Contract("scientific worker unknown closing generation".into())
+                            ProviderError::Contract(
+                                "scientific worker unknown closing generation".into(),
+                            )
                         })?;
                         if actual.handle() != handle.clone().into() {
-                            return Err(ProviderError::Contract("scientific worker foreign closing context".into()).into());
+                            return Err(ProviderError::Contract(
+                                "scientific worker foreign closing context".into(),
+                            )
+                            .into());
                         }
                         actual.close();
                         sessions.remove(&handle.generation);
-                        controls_lock(&native_controls)?.handles.remove(&handle.generation);
+                        controls_lock(&native_controls)?
+                            .handles
+                            .remove(&handle.generation);
                         Ok(p::Response::Closed(handle))
                     }
                     p::Request::Shutdown => {
-                        for owner in sessions.values_mut() { owner.stop(); }
+                        for owner in sessions.values_mut() {
+                            owner.stop();
+                        }
                         sessions.clear();
                         controls_lock(&native_controls)?.handles.clear();
                         drained.store(true, Ordering::Release);
@@ -538,8 +596,11 @@ pub(super) fn serve_with_preparation(
             ));
         }
         let router = Arc::new(Server {
-            jobs: jobs.clone(), controls: controls.clone(), work: Arc::new(tokio::sync::Semaphore::new(1)),
-        }).register(connectrpc::Router::new());
+            jobs: jobs.clone(),
+            controls: controls.clone(),
+            work: Arc::new(tokio::sync::Semaphore::new(1)),
+        })
+        .register(connectrpc::Router::new());
         let service = connectrpc::ConnectRpcService::new(router).with_limits(
             connectrpc::Limits::default()
                 .with_max_request_body_size(FRAME_LIMIT)
@@ -562,7 +623,9 @@ pub(super) fn serve_with_preparation(
     });
     if let Ok(mut controls) = controls_lock(&controls) {
         controls.closed = true;
-        for (_, cancellation) in controls.handles.values() { cancellation.cancel(); }
+        for (_, cancellation) in controls.handles.values() {
+            cancellation.cancel();
+        }
     }
     if !closed.load(Ordering::Acquire) {
         // A disconnected active RPC must settle its actual native call, even if
@@ -594,16 +657,28 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
     if let p::Response::Batch(batch) = &mut response {
         match std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() {
             Ok("water-batch-wrong-shape") => {
-                if let Some(p::BatchOutcome { result: p::BatchResult::Product(product), .. }) = batch.points.last_mut() {
+                if let Some(p::BatchOutcome {
+                    result: p::BatchResult::Product(product),
+                    ..
+                }) = batch.points.last_mut()
+                {
                     product.values.clear();
                 }
             }
             Ok("water-batch-wrong-point") => {
-                if let Some(point) = batch.points.last_mut() { point.id = SemanticId::NIL; }
+                if let Some(point) = batch.points.last_mut() {
+                    point.id = SemanticId::NIL;
+                }
             }
-            Ok("water-batch-missing-point") => { batch.points.pop(); }
+            Ok("water-batch-missing-point") => {
+                batch.points.pop();
+            }
             Ok("water-batch-nonfinite") => {
-                if let Some(p::BatchOutcome { result: p::BatchResult::Product(product), .. }) = batch.points.last_mut() {
+                if let Some(p::BatchOutcome {
+                    result: p::BatchResult::Product(product),
+                    ..
+                }) = batch.points.last_mut()
+                {
                     product.values.fill(f64::NAN);
                 }
             }
@@ -623,7 +698,11 @@ mod tests {
         let lane = Arc::new(tokio::sync::Semaphore::new(1));
         let permit = lane.clone().try_acquire_owned().unwrap();
         let (response, observer) = tokio::sync::oneshot::channel();
-        let job = Job { request: p::Request::Shutdown, response, _work: Some(permit) };
+        let job = Job {
+            request: p::Request::Shutdown,
+            response,
+            _work: Some(permit),
+        };
         drop(observer);
         assert!(lane.clone().try_acquire_owned().is_err());
         drop(job);
@@ -642,8 +721,12 @@ mod tests {
         let a = pse_diagnostics::Cancellation::default();
         let b = pse_diagnostics::Cancellation::default();
         let mut controls = HandleControls::default();
-        controls.handles.insert(first.generation, (first.clone(), a.clone()));
-        controls.handles.insert(second.generation, (second.clone(), b.clone()));
+        controls
+            .handles
+            .insert(first.generation, (first.clone(), a.clone()));
+        controls
+            .handles
+            .insert(second.generation, (second.clone(), b.clone()));
         let mut foreign = first.clone();
         foreign.attempt = SemanticId::NIL;
         assert!(controls.admit(&p::Request::Stop(foreign)).is_err());

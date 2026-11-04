@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Local trait integration of the original lower-level diagnostic declarations.
 
-use pse_contract::boundary_projection::*;
 use crate::boundary::{BoundaryDeclaration, BoundaryField, BoundaryVocabulary};
+use pse_contract::boundary_projection::*;
 
 macro_rules! diagnostic_vocabulary {
     ($($owner:path),* $(,)?) => { $(
@@ -22,7 +22,12 @@ macro_rules! diagnostic_vocabulary {
         }
     )* };
 }
-diagnostic_vocabulary!(crate::DiagnosticCode, crate::DiagnosticStage, crate::DiagnosticRule, crate::NonFinite);
+diagnostic_vocabulary!(
+    crate::DiagnosticCode,
+    crate::DiagnosticStage,
+    crate::DiagnosticRule,
+    crate::NonFinite
+);
 
 macro_rules! diagnostic_record {
     ($owner:path; $public:expr; $name:literal; $version:literal; $direction:ident;

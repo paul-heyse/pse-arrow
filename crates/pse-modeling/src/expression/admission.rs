@@ -623,28 +623,53 @@ pub fn admit_partial(
 #[cfg(test)]
 mod projection_tests {
     use super::*;
-    use pse_contract::boundary_projection::{ConstructionRole, ProjectionAlternative, ProjectionGraph, ProjectionRecord, Shape};
+    use pse_contract::boundary_projection::{
+        ConstructionRole, ProjectionAlternative, ProjectionGraph, ProjectionRecord, Shape,
+    };
 
     #[test]
     fn physical_admission_record_projection_keeps_generic_obligation_and_replay_refusal() {
         let at = DeclarationId::from(pse_ids::SemanticId::from_bytes([71; 16]));
         let value = PhysicalAdmission::checked(
-            &OpRequest::FiniteReduce { kind: pse_quantity::ReductionKind::Sum, domain: None },
-            vec![Scheme::Variable("T".into())], None, at,
-        ).unwrap();
+            &OpRequest::FiniteReduce {
+                kind: pse_quantity::ReductionKind::Sum,
+                domain: None,
+            },
+            vec![Scheme::Variable("T".into())],
+            None,
+            at,
+        )
+        .unwrap();
         let record = PhysicalAdmissionRecord::capture(&value);
         let expected = br#"{"request":{"FiniteReduce":["sum",null]},"operands":[{"Variable":"T"}],"resolved":null}"#;
         assert_eq!(serde_json::to_vec(&record).unwrap(), expected);
-        let restored = PhysicalAdmissionRecord::from_projection_fields(record.into_projection_fields()).unwrap();
+        let restored =
+            PhysicalAdmissionRecord::from_projection_fields(record.into_projection_fields())
+                .unwrap();
         assert_eq!(serde_json::to_vec(&restored).unwrap(), expected);
         assert!(restored.restore(at).is_err());
         let graph = ProjectionGraph::of::<PhysicalAdmissionRecord>().unwrap();
-        for name in ["ModelingPhysicalAdmissionRecord", "ModelingPhysicalRequestFacts", "PhysicalSchemeRecord", "PhysicalInferenceRecord"] {
-            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+        for name in [
+            "ModelingPhysicalAdmissionRecord",
+            "ModelingPhysicalRequestFacts",
+            "PhysicalSchemeRecord",
+            "PhysicalInferenceRecord",
+        ] {
+            assert_eq!(
+                graph.definitions()[name].construction,
+                ConstructionRole::Data
+            );
         }
-        let Shape::Alternatives(variants) = &graph.definitions()["ModelingPhysicalRequestFacts"].shape else { panic!("actual complete physical request facts") };
+        let Shape::Alternatives(variants) =
+            &graph.definitions()["ModelingPhysicalRequestFacts"].shape
+        else {
+            panic!("actual complete physical request facts")
+        };
         assert_eq!(variants.len(), 12);
-        let fields = <PhysicalRequest as ProjectionAlternative<10>>::into_projection_alternative(PhysicalRequest::FiniteReduce(pse_quantity::ReductionKind::Sum, None)).unwrap();
+        let fields = <PhysicalRequest as ProjectionAlternative<10>>::into_projection_alternative(
+            PhysicalRequest::FiniteReduce(pse_quantity::ReductionKind::Sum, None),
+        )
+        .unwrap();
         assert_eq!(fields, (pse_quantity::ReductionKind::Sum, None));
     }
 }

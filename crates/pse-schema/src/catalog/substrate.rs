@@ -1273,9 +1273,13 @@ mod boundary_tests {
     fn result_wire_presentation_preserves_native_semantics_and_encoding() {
         let registry = crate::catalog::assemble().unwrap();
         for name in [
-            "canonical_runs", "canonical_attempts", "canonical_result_sets",
-            "canonical_result_batches", "canonical_result_manifests",
-            "canonical_result_blocks", "canonical_result_block_outputs",
+            "canonical_runs",
+            "canonical_attempts",
+            "canonical_result_sets",
+            "canonical_result_batches",
+            "canonical_result_manifests",
+            "canonical_result_blocks",
+            "canonical_result_block_outputs",
         ] {
             let published = registry.relation(&format!("runtime.{name}")).unwrap();
             let mut native = published.clone();

@@ -7,7 +7,8 @@ use super::*;
 fn opaque_byte_projection_preserves_actual_native_data_without_wire_dependency() {
     let bytes = crate::Bytes::new(vec![0, 255, 7]);
     let expected = bytes.as_slice().to_vec();
-    let restored = crate::Bytes::from_projection_bytes(bytes.into_projection_bytes(), "payload").unwrap();
+    let restored =
+        crate::Bytes::from_projection_bytes(bytes.into_projection_bytes(), "payload").unwrap();
     assert_eq!(restored.as_slice(), expected);
 }
 

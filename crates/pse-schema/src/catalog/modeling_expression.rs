@@ -3,7 +3,8 @@
 
 //! The modeling source grammar inventory, declared at exact native field paths.
 use crate::model::{
-    ExpressionGrammar as G, ExpressionOrdinal as O, FieldContract, expression::AnnotationSyntax, field_facets as F,
+    ExpressionGrammar as G, ExpressionOrdinal as O, FieldContract, expression::AnnotationSyntax,
+    field_facets as F,
 };
 use arrow_schema::DataType;
 
@@ -290,9 +291,10 @@ fn role(path: &str) -> (&str, O) {
             ("scope.fixture.integration.schedules.{0}.upper", O::Zero)
         }
         "scope.fixture.diagnostics.members" => ("scope.fixture.diagnostics.{0}.members", O::List),
-        "state_specification.coordinates.indices.domain" => {
-            ("state_specification.coordinates.{0}.indices.domain", O::List)
-        }
+        "state_specification.coordinates.indices.domain" => (
+            "state_specification.coordinates.{0}.indices.domain",
+            O::List,
+        ),
         "state_specification.reconstructions.indices.domain" => (
             "state_specification.reconstructions.{0}.indices.domain",
             O::List,

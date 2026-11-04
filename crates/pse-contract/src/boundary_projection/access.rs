@@ -343,12 +343,13 @@ impl AdapterError {
     }
 }
 
-
-
 impl miette::Diagnostic for AdapterError {
     fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
         match self {
-            Self::Refused { kind: AdapterFailure::LayoutMismatch, .. } => Some(Box::new("workflow.internal")),
+            Self::Refused {
+                kind: AdapterFailure::LayoutMismatch,
+                ..
+            } => Some(Box::new("workflow.internal")),
             Self::Refused { .. } => Some(Box::new("workflow.input")),
             Self::Validation(error) => miette::Diagnostic::code(error),
         }

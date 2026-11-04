@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! The fixed helper's native operations; placement and descendant settlement remain outside.
 use super::{
-    Action, Input, Outcome, Pending, Phase, PhaseKind, Report, EvidenceRole, phase, report::GroupObservation,
+    Action, EvidenceRole, Input, Outcome, Pending, Phase, PhaseKind, Report, phase,
+    report::GroupObservation,
 };
 use crate::{
     envelope::RedactionPolicy,
@@ -84,8 +85,22 @@ fn failed(report: &mut Report, error: WorkflowError, destination: &Path) {
         WorkflowError::ChildWait { .. } => true,
         _ => false,
     };
-    if let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt { evidence, phases, .. }) = &error {
-        let prefix = evidence.strip_prefix(destination).ok().filter(|prefix| !prefix.as_os_str().is_empty() && prefix.components().all(|part| matches!(part, std::path::Component::Normal(_)))).and_then(Path::to_str);
+    if let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt {
+        evidence,
+        phases,
+        ..
+    }) = &error
+    {
+        let prefix = evidence
+            .strip_prefix(destination)
+            .ok()
+            .filter(|prefix| {
+                !prefix.as_os_str().is_empty()
+                    && prefix
+                        .components()
+                        .all(|part| matches!(part, std::path::Component::Normal(_)))
+            })
+            .and_then(Path::to_str);
         match prefix {
             Some(prefix) => {
                 for phase in phases {
@@ -97,7 +112,9 @@ fn failed(report: &mut Report, error: WorkflowError, destination: &Path) {
                 }
             }
             _ => {
-                report.failure(WorkflowError::Invalid("original discovery account is outside the performing evidence root".into()));
+                report.failure(WorkflowError::Invalid(
+                    "original discovery account is outside the performing evidence root".into(),
+                ));
                 incomplete = true;
             }
         }
@@ -231,7 +248,13 @@ async fn perform(
         let mut groups = Vec::new();
         for group in 0..report.admission.len() {
             let capture = destination.join(format!("check-build-{group}"));
-            report.expect_path(destination, &capture.join("build.json"), EvidenceRole::CompilerContext, Some(group), false)?;
+            report.expect_path(
+                destination,
+                &capture.join("build.json"),
+                EvidenceRole::CompilerContext,
+                Some(group),
+                false,
+            )?;
             directory(&capture)?;
             let mut request = prepared.command(group)?;
             if input.timings {
@@ -351,17 +374,35 @@ async fn perform(
                 continue;
             }
             let mut observer = listed.observer(group)?;
-            report.expect_path(destination, observer.report_path(), EvidenceRole::RunnerReport, Some(group), false)?;
+            report.expect_path(
+                destination,
+                observer.report_path(),
+                EvidenceRole::RunnerReport,
+                Some(group),
+                false,
+            )?;
             if requirements.iter().any(|requirement| {
                 requirement.group() == group
                     && requirement.ownership() == crate::fixtures::Ownership::RunnerBorrowed
             }) {
                 let outcome = destination.join(format!("fixture-outcome-{group}.json"));
-                report.expect_path(destination, &outcome, EvidenceRole::FixtureOutcome, Some(group), false)?;
+                report.expect_path(
+                    destination,
+                    &outcome,
+                    EvidenceRole::FixtureOutcome,
+                    Some(group),
+                    false,
+                )?;
                 observer = observer.with_fixture_outcome(outcome);
             }
             let request = listed.command(group)?;
-            report.expect_path(destination, &listed.run_configuration_path(group), EvidenceRole::RunnerConfiguration, Some(group), true)?;
+            report.expect_path(
+                destination,
+                &listed.run_configuration_path(group),
+                EvidenceRole::RunnerConfiguration,
+                Some(group),
+                true,
+            )?;
             groups.push((
                 fixtures.command(
                     request,
@@ -486,8 +527,18 @@ async fn group_policy(
                 command.arg("--ignore-default-filter");
             }
             let prefix = format!("group-policy-{group}-{ordinal}");
-            report.expect_file(format!("{prefix}.stdout"), EvidenceRole::Stdout, Some(group), false);
-            report.expect_file(format!("{prefix}.stderr"), EvidenceRole::Stderr, Some(group), false);
+            report.expect_file(
+                format!("{prefix}.stdout"),
+                EvidenceRole::Stdout,
+                Some(group),
+                false,
+            );
+            report.expect_file(
+                format!("{prefix}.stderr"),
+                EvidenceRole::Stderr,
+                Some(group),
+                false,
+            );
             let mut capture = phase::run(
                 command,
                 &destination.join(format!("{prefix}.stdout")),
@@ -651,8 +702,18 @@ async fn execute_groups_with_policy(
         let prefix = format!("run-{group}");
         let stdout = destination.join(format!("{prefix}.stdout"));
         let stderr = destination.join(format!("{prefix}.stderr"));
-        report.expect_file(format!("{prefix}.stdout"), EvidenceRole::Stdout, Some(group), false);
-        report.expect_file(format!("{prefix}.stderr"), EvidenceRole::Stderr, Some(group), false);
+        report.expect_file(
+            format!("{prefix}.stdout"),
+            EvidenceRole::Stdout,
+            Some(group),
+            false,
+        );
+        report.expect_file(
+            format!("{prefix}.stderr"),
+            EvidenceRole::Stderr,
+            Some(group),
+            false,
+        );
         let policy = input.policy;
         // Only contexts sharing a native named exclusion sequence. Each native runner still
         // schedules its own tests; unrelated names and global contexts retain concurrency.

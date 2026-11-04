@@ -9,10 +9,9 @@ use super::{
 use pse_backend_native::coolprop::{WaterFactory, WaterRegime};
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{
-    EvaluationContext, ExecutionScope, PreparedProviderRequest, Provider, ProviderBinding,
-    ProviderDemand, ProviderError, ProviderFactory, ProviderOutput, ProviderRequest,
-    ProviderRuntime, ProviderSpec, ProviderValues, Registration,
-    ProviderBatchPoint, ProviderBatchResults,
+    EvaluationContext, ExecutionScope, PreparedProviderRequest, Provider, ProviderBatchPoint,
+    ProviderBatchResults, ProviderBinding, ProviderDemand, ProviderError, ProviderFactory,
+    ProviderOutput, ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues, Registration,
 };
 use std::{
     sync::{Arc, Weak},
@@ -303,7 +302,8 @@ impl Proxy {
         };
         match remote.exchange(p::Request::Prepare(prepare), &self.scope, None)? {
             p::Response::Prepared(actual) if actual.handle == handle => {
-                self.prepared.push((request.request().clone(), handle, actual.batch_supported));
+                self.prepared
+                    .push((request.request().clone(), handle, actual.batch_supported));
                 Ok(())
             }
             p::Response::Failure(value) => Err(handler::refusal(value)),
@@ -334,49 +334,104 @@ fn scientific_remaining_ns(
 }
 impl Provider for Proxy {
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
-        self.prepared.iter().any(|(actual, _, batch)| *batch && actual == request.request())
+        self.prepared
+            .iter()
+            .any(|(actual, _, batch)| *batch && actual == request.request())
     }
-    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
-        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+    fn fill_batch(
+        &mut self,
+        points: &[&ProviderBatchPoint],
+        request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
         if let Err(error) = self.scope.check().and_then(|()| context.check()) {
             return Err(self.fail(error.into()).into_provider());
         }
-        if !self.supports_batch(request) { return Err(ProviderError::Contract("scientific worker batch demand unavailable".into())); }
-        let handle = self.handle_for(request).ok_or_else(|| ProviderError::Contract("scientific worker demand was not prepared".into()))?;
-        self.invocation = self.invocation.checked_add(1).ok_or(ProviderError::Limit("scientific worker invocation identity"))?;
+        if !self.supports_batch(request) {
+            return Err(ProviderError::Contract(
+                "scientific worker batch demand unavailable".into(),
+            ));
+        }
+        let handle = self.handle_for(request).ok_or_else(|| {
+            ProviderError::Contract("scientific worker demand was not prepared".into())
+        })?;
+        self.invocation = self.invocation.checked_add(1).ok_or(ProviderError::Limit(
+            "scientific worker invocation identity",
+        ))?;
         let bits = |values: &[f64]| values.iter().map(|value| value.to_bits()).collect();
         let result = (|| {
-            let remote = self.remote.as_ref().ok_or_else(|| infrastructure("scientific worker binding is invalidated"))?;
-            match remote.exchange(p::Request::EvaluateBatch(p::EvaluateBatch {
-                handle: handle.clone(), invocation: self.invocation,
-                points: points.iter().map(|point| p::BatchPoint { id: point.id,
-                    inputs: bits(&point.inputs), directions: bits(&point.directions),
-                    cotangents: bits(&point.cotangents), weights: bits(&point.weights),
-                }).collect(),
-            }), &self.scope, Some(context.cancelled))? {
-                p::Response::Batch(batch) if batch.handle == handle && batch.invocation == self.invocation => {
-                    if batch.points.len() != points.len() { return Err(WorkerError::UnknownCompletion("scientific worker group completion extent differs".into())); }
+            let remote = self
+                .remote
+                .as_ref()
+                .ok_or_else(|| infrastructure("scientific worker binding is invalidated"))?;
+            match remote.exchange(
+                p::Request::EvaluateBatch(p::EvaluateBatch {
+                    handle: handle.clone(),
+                    invocation: self.invocation,
+                    points: points
+                        .iter()
+                        .map(|point| p::BatchPoint {
+                            id: point.id,
+                            inputs: bits(&point.inputs),
+                            directions: bits(&point.directions),
+                            cotangents: bits(&point.cotangents),
+                            weights: bits(&point.weights),
+                        })
+                        .collect(),
+                }),
+                &self.scope,
+                Some(context.cancelled),
+            )? {
+                p::Response::Batch(batch)
+                    if batch.handle == handle && batch.invocation == self.invocation =>
+                {
+                    if batch.points.len() != points.len() {
+                        return Err(WorkerError::UnknownCompletion(
+                            "scientific worker group completion extent differs".into(),
+                        ));
+                    }
                     let extent = request.extents();
                     let mut results = Vec::with_capacity(points.len());
                     for (actual, original) in batch.points.into_iter().zip(points) {
-                        if actual.id != original.id { return Err(WorkerError::UnknownCompletion("scientific worker group point identity differs".into())); }
+                        if actual.id != original.id {
+                            return Err(WorkerError::UnknownCompletion(
+                                "scientific worker group point identity differs".into(),
+                            ));
+                        }
                         results.push(match actual.result {
                             p::BatchResult::Product(product) => {
-                                if product.values.len() != extent.values || product.jacobian.len() != extent.jacobian
-                                    || product.hessians.len() != extent.hessians || product.values.iter().chain(&product.jacobian)
-                                        .chain(&product.hessians).any(|value| !value.is_finite()) {
-                                    return Err(WorkerError::UnknownCompletion("scientific worker group product is malformed".into()));
+                                if product.values.len() != extent.values
+                                    || product.jacobian.len() != extent.jacobian
+                                    || product.hessians.len() != extent.hessians
+                                    || product
+                                        .values
+                                        .iter()
+                                        .chain(&product.jacobian)
+                                        .chain(&product.hessians)
+                                        .any(|value| !value.is_finite())
+                                {
+                                    return Err(WorkerError::UnknownCompletion(
+                                        "scientific worker group product is malformed".into(),
+                                    ));
                                 }
-                                Ok(ProviderValues { values: product.values, jacobian: product.jacobian, hessians: product.hessians })
+                                Ok(ProviderValues {
+                                    values: product.values,
+                                    jacobian: product.jacobian,
+                                    hessians: product.hessians,
+                                })
                             }
-                            p::BatchResult::Refused(refusal) => Err(handler::refusal(refusal).into_provider()),
+                            p::BatchResult::Refused(refusal) => {
+                                Err(handler::refusal(refusal).into_provider())
+                            }
                         });
                     }
                     self.scope.check()?;
                     Ok(results)
                 }
                 p::Response::Failure(value) => Err(handler::refusal(value)),
-                _ => Err(WorkerError::UnknownCompletion("scientific worker group completion context differs".into())),
+                _ => Err(WorkerError::UnknownCompletion(
+                    "scientific worker group completion context differs".into(),
+                )),
             }
         })();
         match result {

@@ -203,7 +203,9 @@ impl NumericalPolicy {
         .any(|v| !pse_contract::boundary_projection::Float64Domain::PositiveFinite.contains(v))
             || [self.mip_absolute_gap, self.mip_relative_gap]
                 .into_iter()
-                .any(|v| !pse_contract::boundary_projection::Float64Domain::NonnegativeFinite.contains(v))
+                .any(|v| {
+                    !pse_contract::boundary_projection::Float64Domain::NonnegativeFinite.contains(v)
+                })
             || self.acceptable.is_some_and(|k| {
                 !k.stationarity.is_finite()
                     || !k.complementarity.is_finite()
@@ -526,7 +528,9 @@ mod policy_identity_tests {
     }
     #[test]
     fn actual_numerical_policy_projection_preserves_original_bytes_and_numeric_domains() {
-        use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+        use pse_contract::boundary_projection::{
+            ProjectionGraph, ProjectionRecord, ValidateProjection,
+        };
         let mut policy = NumericalPolicy::default();
         policy.engineering_relative_fraction = -0.0;
         policy.mip_absolute_gap = -0.0;

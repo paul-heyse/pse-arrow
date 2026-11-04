@@ -10,10 +10,14 @@ pub struct DomainDiagnostic {
     inner: Box<dyn miette::Diagnostic + Send + Sync>,
 }
 impl std::fmt::Display for DomainDiagnostic {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.inner.fmt(formatter) }
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(formatter)
+    }
 }
 impl std::error::Error for DomainDiagnostic {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> { Some(self.inner.as_ref()) }
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.inner.as_ref())
+    }
 }
 
 /// A structural acquisition, schema, codec or explicitly selected domain refusal.
@@ -102,18 +106,37 @@ pub enum MetadataError {
 impl MetadataError {
     /// Whether this refusal retains an unavailable interpretation rather than malformed input.
     pub fn is_unavailable(&self) -> bool {
-        match self { Self::Unavailable { .. } => true, Self::At { source, .. } | Self::Context { source, .. } => source.is_unavailable(), _ => false }
+        match self {
+            Self::Unavailable { .. } => true,
+            Self::At { source, .. } | Self::Context { source, .. } => source.is_unavailable(),
+            _ => false,
+        }
     }
     /// Preserve an actual file/subject association around a typed native error.
     pub fn at(self, file: impl Into<String>, subject: impl Into<String>) -> Self {
-        Self::At { file: file.into(), subject: subject.into(), source: Box::new(self) }
+        Self::At {
+            file: file.into(),
+            subject: subject.into(),
+            source: Box::new(self),
+        }
     }
     /// Add logical schema/member context without claiming a source coordinate.
     pub fn context(self, subject: impl Into<String>) -> Self {
-        Self::Context { subject: subject.into(), source: Box::new(self) }
+        Self::Context {
+            subject: subject.into(),
+            source: Box::new(self),
+        }
     }
     /// Retain the original typed diagnostic supplied by an external domain owner.
-    pub fn domain(policy: impl Into<String>, source: impl miette::Diagnostic + Send + Sync + 'static) -> Self {
-        Self::Domain { policy: policy.into(), source: DomainDiagnostic { inner: Box::new(source) } }
+    pub fn domain(
+        policy: impl Into<String>,
+        source: impl miette::Diagnostic + Send + Sync + 'static,
+    ) -> Self {
+        Self::Domain {
+            policy: policy.into(),
+            source: DomainDiagnostic {
+                inner: Box::new(source),
+            },
+        }
     }
 }

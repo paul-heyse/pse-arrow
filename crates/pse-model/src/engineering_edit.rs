@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact-parent authored-file intent; the native loader owns all scientific interpretation.
-use pse_contract::boundary_projection::{Direction, LocalRule};
 use crate::engineering::{LOCAL_REVISION_RULE, OPERATION_ID_RULE, SOURCE_FILE_PATH_RULE};
+use pse_contract::boundary_projection::{Direction, LocalRule};
 use pse_ids::SemanticId;
 
 pse_contract::projection_enum! {

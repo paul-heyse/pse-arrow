@@ -747,7 +747,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<crate::compiler_investigation::DetailPage<'static>>(command, view)
         }
         "inspect tests" => envelope::schema::<crate::test_inventory::TestPage>(command, view),
-        "inspect developer-evidence" => envelope::schema::<crate::developer_evidence::Export>(command, view),
+        "inspect developer-evidence" => {
+            envelope::schema::<crate::developer_evidence::Export>(command, view)
+        }
         "inspect tests failures" => {
             envelope::schema::<crate::test_inventory::FailurePage>(command, view)
         }

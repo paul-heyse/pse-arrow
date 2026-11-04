@@ -46,7 +46,12 @@ solver-kinsol = ["package-fixtures", "pse-runtime/solver-kinsol"]
 native-solvers = ["solver-kinsol", "pse-runtime/native-solvers"]
 default = []
 native-abi = ["dep:bindgen"]
-full-codegen = ["package-fixtures", "native-abi", "evidence-tools", "host-contracts"]
+full-codegen = [
+  "package-fixtures",
+  "native-abi",
+  "evidence-tools",
+  "host-contracts",
+]
 host-contracts = ["dep:pse-host"]
 evidence-tools = [
   "dep:pse-operations",

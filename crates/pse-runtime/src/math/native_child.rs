@@ -3,6 +3,9 @@
 //! Private store-free execution placement for a closed authored implicit-root factory.
 //! One child owns one fresh serial KINSOL solve. Parent admission and original screening
 //! remain authoritative; this is neither continuation nor distributed decomposition.
+use super::native_root_protocol::{
+    Hello, REQUEST_LIMIT, RESPONSE_LIMIT, Request, Response, RootBindings, RootInput, RootOutcome,
+};
 use super::{MathRuntimeError, MathService, Submission, solves::SolveHandle};
 use pse_columnar::AllocationLease;
 use pse_compiler::{
@@ -27,7 +30,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use super::native_root_protocol::{Hello, Request, Response, RootBindings, RootInput, RootOutcome, REQUEST_LIMIT, RESPONSE_LIMIT};
 mod wire;
 
 const PROTOCOL: &str = "pse.private-native-root.v3";
@@ -221,7 +223,6 @@ pub struct PortableRootResult {
     /// Actual executable byte identity.
     pub executable_sha256: String,
 }
-
 
 impl RootBindings {
     fn capture(bindings: &SourceBindings) -> Self {
@@ -832,7 +833,10 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
             attempt,
             execution: request.execution,
             request: request.request,
-            result: match result { Ok(point) => RootOutcome::Proposal(point), Err(cause) => RootOutcome::Refused(cause) },
+            result: match result {
+                Ok(point) => RootOutcome::Proposal(point),
+                Err(cause) => RootOutcome::Refused(cause),
+            },
         },
         RESPONSE_LIMIT,
         &scope,
@@ -857,9 +861,12 @@ fn reconstruct_physical_context(
     expected: ContentHash,
 ) -> Result<pse_quantity::QuantityRegistry, MathRuntimeError> {
     let registry = declarations.build().map_err(pse_math::MathError::from)?;
-    let prerequisites = pse_quantity::PhysicalPreconditions::new(prerequisites).map_err(pse_math::MathError::from)?;
+    let prerequisites = pse_quantity::PhysicalPreconditions::new(prerequisites)
+        .map_err(pse_math::MathError::from)?;
     if pse_compiler::workspace::physical_identity(&registry, &prerequisites) != expected {
-        return Err(MathRuntimeError::Internal("native child reconstructed physical context differs from original body".into()));
+        return Err(MathRuntimeError::Internal(
+            "native child reconstructed physical context differs from original body".into(),
+        ));
     }
     Ok(registry)
 }
@@ -879,7 +886,8 @@ fn reconstruct_and_solve(
             "native child physical registry or provider closure differs".into(),
         ));
     }
-    let registry = reconstruct_physical_context(wire.registry, wire.preconditions, wire.spec.physical)?;
+    let registry =
+        reconstruct_physical_context(wire.registry, wire.preconditions, wire.spec.physical)?;
     pse_math::initialize()?;
     checkpoint(scope)?;
     // SAFETY: this function is reached only by serve_private's trusted inherited socket

@@ -89,13 +89,24 @@ fn factory() -> Factory {
 fn scalar_support_never_advertises_or_synthesizes_a_native_group() {
     let factory = factory();
     let mut binding = factory.create().unwrap();
-    let request = binding.prepare(ProviderRequest::all(binding.spec(), DerivativeOrder::Value)).unwrap();
+    let request = binding
+        .prepare(ProviderRequest::all(binding.spec(), DerivativeOrder::Value))
+        .unwrap();
     assert!(!binding.supports_batch(&request));
     let point = pse_kernels::ProviderBatchPoint::values(SemanticId::from_bytes([9; 16]), vec![2.0]);
     let cancelled = std::sync::atomic::AtomicBool::new(false);
-    assert!(binding.evaluate_batch(&[point], &request, &EvaluationContext {
-        cancelled: &cancelled, max_result_bytes: 4096,
-    }).is_err());
+    assert!(
+        binding
+            .evaluate_batch(
+                &[point],
+                &request,
+                &EvaluationContext {
+                    cancelled: &cancelled,
+                    max_result_bytes: 4096,
+                }
+            )
+            .is_err()
+    );
     assert_eq!(factory.calls.load(Ordering::SeqCst), 0);
 }
 fn handle() -> SessionHandle {

@@ -20,7 +20,11 @@ pub(super) fn record(
         &spec.columns,
         row,
         fields,
-        &spec.columns.iter().map(|field| super::types::relation_field_stem(stem, field.name())).collect::<Vec<_>>(),
+        &spec
+            .columns
+            .iter()
+            .map(|field| super::types::relation_field_stem(stem, field.name()))
+            .collect::<Vec<_>>(),
         super::super::native::Mode::Domain,
     )
 }
@@ -58,14 +62,22 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
-        let emitted = record(&owner, &format_ident!("ReferenceQuantityTypesRow"), &fields, "ReferenceQuantityTypes").unwrap();
+        let emitted = record(
+            &owner,
+            &format_ident!("ReferenceQuantityTypesRow"),
+            &fields,
+            "ReferenceQuantityTypes",
+        )
+        .unwrap();
         syn::parse2::<syn::File>(emitted.clone()).unwrap();
         let text = emitted.to_string();
         assert!(text.contains("RegistryPhysicalQuantityType"));
         assert!(text.contains("37u32") || text.contains("37"));
         assert!(text.contains("pse.domain.fk.relation") && text.contains("reference.units"));
         assert!(text.contains("ProjectionRecord") && text.contains("Direction :: Output"));
-        assert!(text.contains("Result < Self , pse_contract :: boundary_projection :: AdapterError >"));
+        assert!(
+            text.contains("Result < Self , pse_contract :: boundary_projection :: AdapterError >")
+        );
     }
 
     #[test]

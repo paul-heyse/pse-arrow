@@ -18,33 +18,57 @@ crate::projection_enum! {
 }
 impl ProjectionType for PathBuf {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-        let root = graph.declare::<Self>("NativePathBuf", file!(), 1, Direction::Both, &[], &[], |graph| {
-            Ok(Shape::Record(vec![Field::of::<PlatformPathBytes>(graph, "platform", 1,
-                Direction::Both, vec![LocalRule::Required])?]))
-        })?;
+        let root = graph.declare::<Self>(
+            "NativePathBuf",
+            file!(),
+            1,
+            Direction::Both,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![Field::of::<PlatformPathBytes>(
+                    graph,
+                    "platform",
+                    1,
+                    Direction::Both,
+                    vec![LocalRule::Required],
+                )?]))
+            },
+        )?;
         graph.public_path::<Self>(&root, "std::path::PathBuf")?;
         graph.checked_record::<Self>(&root)?;
         Ok(root)
     }
 }
 impl ValidateProjection for PathBuf {
-    fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
 }
 impl CheckedProjectionRecord for PathBuf {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "platform")];
     type Fields = (PlatformPathBytes,);
     fn try_into_projection_fields(self) -> Result<Self::Fields, AdapterError> {
-        #[cfg(unix)] {
+        #[cfg(unix)]
+        {
             use std::os::unix::ffi::OsStringExt;
             Ok((PlatformPathBytes::Unix(self.into_os_string().into_vec()),))
         }
-        #[cfg(windows)] {
+        #[cfg(windows)]
+        {
             use std::os::windows::ffi::OsStrExt;
-            Ok((PlatformPathBytes::Windows(self.as_os_str().encode_wide().collect()),))
+            Ok((PlatformPathBytes::Windows(
+                self.as_os_str().encode_wide().collect(),
+            ),))
         }
-        #[cfg(not(any(unix, windows)))] {
-            Err(AdapterError::refused("platform", AdapterFailure::InvalidValue, "unsupported native path platform"))
+        #[cfg(not(any(unix, windows)))]
+        {
+            Err(AdapterError::refused(
+                "platform",
+                AdapterFailure::InvalidValue,
+                "unsupported native path platform",
+            ))
         }
     }
     fn from_projection_fields((platform,): Self::Fields) -> Result<Self, AdapterError> {
@@ -59,8 +83,11 @@ impl CheckedProjectionRecord for PathBuf {
                 use std::os::windows::ffi::OsStringExt;
                 Ok(std::ffi::OsString::from_wide(&units).into())
             }
-            _ => Err(AdapterError::refused("platform", AdapterFailure::InvalidValue,
-                "foreign platform path data cannot become a native PathBuf")),
+            _ => Err(AdapterError::refused(
+                "platform",
+                AdapterFailure::InvalidValue,
+                "foreign platform path data cannot become a native PathBuf",
+            )),
         }
     }
 }

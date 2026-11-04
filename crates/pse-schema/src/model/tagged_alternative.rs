@@ -105,12 +105,16 @@ impl TaggedAlternative {
     pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
         let invalid = |reason| crate::checks::invalid(path, reason);
         let value: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
-        if value.canonical() != text || value.discriminator.is_empty() || value.arms.is_empty()
+        if value.canonical() != text
+            || value.discriminator.is_empty()
+            || value.arms.is_empty()
             || value.arms.keys().any(String::is_empty)
             || value.arms.values().flatten().any(String::is_empty)
             || value.payloads().contains(value.discriminator.as_str())
         {
-            return Err(invalid("tagged alternative requires canonical named nonempty arms".into()));
+            return Err(invalid(
+                "tagged alternative requires canonical named nonempty arms".into(),
+            ));
         }
         Ok(value)
     }

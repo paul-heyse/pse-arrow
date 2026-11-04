@@ -18,22 +18,61 @@ impl CanonicalFieldContract {
     /// Check the existing opaque-key physical contract at the actual native field.
     /// # Errors
     /// Canonical lookup keys require Utf8 text without semantic identity or enum meaning.
-    pub fn validate_field(&self, field: &super::FieldContract, path: &str) -> Result<(), crate::SchemaError> {
-        if self.key.is_some() && (field.data_type() != arrow_schema::DataType::Utf8 || field.identity().is_some() || field.enum_name().is_some()) {
-            return Err(crate::checks::invalid(path, "canonical lookup keys require opaque text, distinct from semantic identities and vocabularies"));
+    pub fn validate_field(
+        &self,
+        field: &super::FieldContract,
+        path: &str,
+    ) -> Result<(), crate::SchemaError> {
+        if self.key.is_some()
+            && (field.data_type() != arrow_schema::DataType::Utf8
+                || field.identity().is_some()
+                || field.enum_name().is_some())
+        {
+            return Err(crate::checks::invalid(
+                path,
+                "canonical lookup keys require opaque text, distinct from semantic identities and vocabularies",
+            ));
         }
         Ok(())
     }
     /// Parse source facets without admitting or operating a database record.
     /// # Errors
     /// Unknown key kinds or noncanonical boolean markers refuse at the source path.
-    pub fn parse_metadata(key: Option<&str>, readonly: Option<&str>, record_key: Option<&str>, path: &str) -> Result<Option<Self>, crate::SchemaError> {
-        if key.is_none() && readonly.is_none() && record_key.is_none() { return Ok(None); }
-        let invalid = || crate::checks::invalid(path, "unknown canonical key kind or noncanonical field-policy marker");
-        let key = key.map(|value| CanonicalKeyKind::parse(value).ok_or_else(invalid)).transpose()?;
-        let readonly = readonly.map(|value| match value { "true" => Ok(true), "false" => Ok(false), _ => Err(invalid()) }).transpose()?;
-        let record_key = match record_key { None => false, Some("true") => true, _ => return Err(invalid()) };
-        Ok(Some(Self { key, readonly, record_key }))
+    pub fn parse_metadata(
+        key: Option<&str>,
+        readonly: Option<&str>,
+        record_key: Option<&str>,
+        path: &str,
+    ) -> Result<Option<Self>, crate::SchemaError> {
+        if key.is_none() && readonly.is_none() && record_key.is_none() {
+            return Ok(None);
+        }
+        let invalid = || {
+            crate::checks::invalid(
+                path,
+                "unknown canonical key kind or noncanonical field-policy marker",
+            )
+        };
+        let key = key
+            .map(|value| CanonicalKeyKind::parse(value).ok_or_else(invalid))
+            .transpose()?;
+        let readonly = readonly
+            .map(|value| match value {
+                "true" => Ok(true),
+                "false" => Ok(false),
+                _ => Err(invalid()),
+            })
+            .transpose()?;
+        let record_key = match record_key {
+            None => false,
+            Some("true") => true,
+            _ => return Err(invalid()),
+        };
+        Ok(Some(Self {
+            key,
+            readonly,
+            record_key,
+        }))
     }
 }
 

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual contextual model and passive retained-provider inspection crossings.
 
-use pse_model::{engineering::OPERATION_ID_RULE};
-use pse_contract::{boundary_projection::{Direction, LocalRule}};
+use pse_contract::boundary_projection::{Direction, LocalRule};
+use pse_model::engineering::OPERATION_ID_RULE;
 
 pse_contract::projection_struct! {
     /// Select the original complete contextual model inspection without dispatching its procedure.
@@ -34,8 +34,10 @@ pse_contract::projection_struct! {
 pub(super) fn service(
     service: pse_contract::boundary_projection::Service,
     graph: &mut pse_contract::boundary_projection::ProjectionGraph,
-) -> Result<pse_contract::boundary_projection::Service, pse_contract::boundary_projection::ProjectionError>
-{
+) -> Result<
+    pse_contract::boundary_projection::Service,
+    pse_contract::boundary_projection::ProjectionError,
+> {
     service
         .unary::<EngineeringInspectModeling, crate::workflow::ModelingInspection>(
             graph,

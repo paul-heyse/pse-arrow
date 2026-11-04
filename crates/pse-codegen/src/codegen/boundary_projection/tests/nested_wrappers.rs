@@ -16,15 +16,45 @@ projection_struct! {
 #[test]
 fn collection_map_values_live_outside_synthetic_entries_and_use_actual_buffa_modules() {
     let graph = ProjectionGraph::of::<NestedCollections>().unwrap();
-    let output = generate_with_config(&graph, "pse.nested.v1", "nested.proto", &imports(),
-        &default_config("crate::wire::__buffa_fds")).unwrap();
-    let file = output.descriptor_set.file.iter().find(|file| file.name.as_deref() == Some("nested.proto")).unwrap();
-    let owner = file.message_type.iter().find(|owner| owner.name.as_deref() == Some("HTTP2Case")).unwrap();
-    let entry = owner.nested_type.iter().find(|nested| nested.name.as_deref() == Some("Field1Entry")).unwrap();
+    let output = generate_with_config(
+        &graph,
+        "pse.nested.v1",
+        "nested.proto",
+        &imports(),
+        &default_config("crate::wire::__buffa_fds"),
+    )
+    .unwrap();
+    let file = output
+        .descriptor_set
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("nested.proto"))
+        .unwrap();
+    let owner = file
+        .message_type
+        .iter()
+        .find(|owner| owner.name.as_deref() == Some("HTTP2Case"))
+        .unwrap();
+    let entry = owner
+        .nested_type
+        .iter()
+        .find(|nested| nested.name.as_deref() == Some("Field1Entry"))
+        .unwrap();
     assert_eq!(entry.options.as_option().unwrap().map_entry, Some(true));
-    assert!(entry.nested_type.is_empty(), "synthetic map entries cannot hide emitted value types");
-    assert_eq!(entry.field[1].type_name.as_deref(), Some(".pse.nested.v1.HTTP2Case.Field1Value"));
-    assert!(owner.nested_type.iter().any(|nested| nested.name.as_deref() == Some("Field1Value")));
+    assert!(
+        entry.nested_type.is_empty(),
+        "synthetic map entries cannot hide emitted value types"
+    );
+    assert_eq!(
+        entry.field[1].type_name.as_deref(),
+        Some(".pse.nested.v1.HTTP2Case.Field1Value")
+    );
+    assert!(
+        owner
+            .nested_type
+            .iter()
+            .any(|nested| nested.name.as_deref() == Some("Field1Value"))
+    );
     let source = &output.sources["pse.nested.v1.rs"];
     assert!(source.contains("pub mod http2case"));
     assert!(source.contains("pub mod field2value"));

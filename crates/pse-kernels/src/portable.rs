@@ -25,7 +25,9 @@ pub struct ProviderRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_contract::boundary_projection::{ConstructionRole, Direction, ProjectionGraph, ProjectionRecord};
+    use pse_contract::boundary_projection::{
+        ConstructionRole, Direction, ProjectionGraph, ProjectionRecord,
+    };
 
     #[test]
     fn portable_record_projects_untrusted_data_with_one_owned_interpretation() {
@@ -35,7 +37,12 @@ mod tests {
         assert_eq!(<ProviderRecord as ProjectionRecord>::VERSION, VERSION);
         assert_eq!(definition.direction, Direction::Both);
         assert_eq!(definition.construction, ConstructionRole::Data);
-        for name in ["KernelProviderPort", "KernelProviderShape", "KernelProviderShapes", "KernelProviderSpec"] {
+        for name in [
+            "KernelProviderPort",
+            "KernelProviderShape",
+            "KernelProviderShapes",
+            "KernelProviderSpec",
+        ] {
             assert_eq!(graph.definitions()[name].direction, Direction::Both);
         }
     }

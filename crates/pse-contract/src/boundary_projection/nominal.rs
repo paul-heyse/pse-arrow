@@ -5,8 +5,12 @@
 /// The native record layout shared by nominal identity owners and their source renderer.
 pub fn identity_shape(base: super::TypeRef) -> super::Shape {
     super::Shape::Record(vec![super::Field {
-        name: "id".into(), tag: 1, ty: base, direction: super::Direction::Both,
-        rules: vec![super::LocalRule::Required], named_facets: Default::default(),
+        name: "id".into(),
+        tag: 1,
+        ty: base,
+        direction: super::Direction::Both,
+        rules: vec![super::LocalRule::Required],
+        named_facets: Default::default(),
     }])
 }
 
@@ -68,7 +72,10 @@ mod tests {
         let local: Result<_> = Ok(LocalResultNominal(12));
         let value = local.unwrap();
         let fields = value.into_projection_fields();
-        assert_eq!(LocalResultNominal::from_projection_fields(fields).unwrap(), LocalResultNominal(12));
+        assert_eq!(
+            LocalResultNominal::from_projection_fields(fields).unwrap(),
+            LocalResultNominal(12)
+        );
         ProjectionGraph::of::<LocalResultNominal>().unwrap();
     }
 }

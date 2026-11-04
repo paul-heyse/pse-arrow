@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 
 mod duration;
 mod float_collections;
-mod observation;
 mod nested_wrappers;
+mod observation;
 mod signed_integer;
 
 #[test]
@@ -659,41 +659,59 @@ projection_struct! {
 // Import schema only: no host operation or semantic owner is projected from this corpus.
 pub(super) fn imports() -> Vec<FileDescriptorProto> {
     static IMPORTS: std::sync::OnceLock<Vec<FileDescriptorProto>> = std::sync::OnceLock::new();
-    IMPORTS.get_or_init(|| {
-    let mut imports = FileDescriptorSet::decode_from_slice(include_bytes!(
-        "../../../../pse-host/src/generated/code-intelligence/descriptor.bin"
-    ))
-    .unwrap()
-    .file
-    .into_iter()
-    .filter(|file| {
-        file.name
-            .as_deref()
-            .is_some_and(|name| name.starts_with("google/") || name.starts_with("buf/"))
-    })
-    .collect::<Vec<_>>();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    for source in ["crates/pse-contract/proto", "crates/pse-schema/proto"] {
-    let output = std::process::Command::new("buf")
-        .args(["build", source, "--as-file-descriptor-set", "-o", "-"])
-        .current_dir(&root).output().unwrap();
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
-    let compiled = FileDescriptorSet::decode_from_slice(&output.stdout).unwrap();
-    for file in compiled.file {
-        if let Some(existing) = imports.iter().find(|existing| existing.name == file.name) {
-            assert_eq!(existing, &file, "compiler import identity must be preserved");
-        } else { imports.push(file); }
-    }
-    }
-    imports
-    }).clone()
+    IMPORTS
+        .get_or_init(|| {
+            let mut imports = FileDescriptorSet::decode_from_slice(include_bytes!(
+                "../../../../pse-host/src/generated/code-intelligence/descriptor.bin"
+            ))
+            .unwrap()
+            .file
+            .into_iter()
+            .filter(|file| {
+                file.name
+                    .as_deref()
+                    .is_some_and(|name| name.starts_with("google/") || name.starts_with("buf/"))
+            })
+            .collect::<Vec<_>>();
+            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+            for source in ["crates/pse-contract/proto", "crates/pse-schema/proto"] {
+                let output = std::process::Command::new("buf")
+                    .args(["build", source, "--as-file-descriptor-set", "-o", "-"])
+                    .current_dir(&root)
+                    .output()
+                    .unwrap();
+                assert!(
+                    output.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                let compiled = FileDescriptorSet::decode_from_slice(&output.stdout).unwrap();
+                for file in compiled.file {
+                    if let Some(existing) =
+                        imports.iter().find(|existing| existing.name == file.name)
+                    {
+                        assert_eq!(
+                            existing, &file,
+                            "compiler import identity must be preserved"
+                        );
+                    } else {
+                        imports.push(file);
+                    }
+                }
+            }
+            imports
+        })
+        .clone()
 }
 
 #[test]
 fn immutable_native_policy_uses_source_versions_and_nested_field_coverage() {
     let mut graph = ProjectionGraph::of::<Request>().unwrap();
-    let service = Service::new("Reader").unary::<Request, Request>(&mut graph, "Inspect").unwrap()
-        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION).unwrap();
+    let service = Service::new("Reader")
+        .unary::<Request, Request>(&mut graph, "Inspect")
+        .unwrap()
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)
+        .unwrap();
     graph.service(service).unwrap();
     let source = native_policy_source(&graph, "pse.policy.v1", Direction::Input).unwrap();
     syn::parse_file(&source).unwrap();
@@ -702,7 +720,14 @@ fn immutable_native_policy_uses_source_versions_and_nested_field_coverage() {
     assert!(source.contains("pse.policy.v1.Value.Alternative3.value"));
     assert!(source.contains("pse.policy.v1.Reader.Inspect"));
     assert!(!source.contains("pse.policy.v1.Request.output_only"));
-    assert!(native_policy_source(&ProjectionGraph::default(), "pse.policy.v1", Direction::Both).is_err());
+    assert!(
+        native_policy_source(
+            &ProjectionGraph::default(),
+            "pse.policy.v1",
+            Direction::Both
+        )
+        .is_err()
+    );
     assert!(native_policy_source(&graph, "pse.policy", Direction::Both).is_err());
 }
 

@@ -145,7 +145,9 @@ mod tests {
 
     #[test]
     fn preparation_completion_projection_retains_original_scope_and_shared_bound() {
-        use pse_contract::boundary_projection::{ProjectionGraph, Shape, TypeRef, ValidateProjection};
+        use pse_contract::boundary_projection::{
+            ProjectionGraph, Shape, TypeRef, ValidateProjection,
+        };
         let graph = ProjectionGraph::of::<PreparationDiscoveryReport>().unwrap();
         let Shape::Record(fields) = &graph.definitions()["PreparationDiscoveryReport"].shape else {
             panic!("original completion owner")

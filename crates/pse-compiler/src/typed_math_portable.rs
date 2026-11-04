@@ -79,15 +79,15 @@ impl Recipe {
         // Interpret the bounded header before decoding representation-specific native records.
         // An older shape is incompatible data, not corruption of the current representation.
         #[derive(Deserialize)]
-        struct Header { interpretation: String }
+        struct Header {
+            interpretation: String,
+        }
         let header: Header = serde_json::from_slice(payload).map_err(contract)?;
         if header.interpretation != INTERPRETATION {
             return Err(contract("unsupported admitted recipe interpretation"));
         }
         let value: Self = serde_json::from_slice(payload).map_err(contract)?;
-        if value.physical != value.spec.physical
-            || value.structure != value.spec.structure
-        {
+        if value.physical != value.spec.physical || value.structure != value.spec.structure {
             return Err(contract(
                 "portable interpretation or admitted specification differs",
             ));
@@ -105,22 +105,33 @@ impl Recipe {
 #[cfg(test)]
 fn historical_recipe_interpretation_refuses_before_decoding_old_provider_shape() {
     let historical = br#"{"interpretation":"pse.admitted-body.v2","providers":{"spec":{"shapes":[],"derivatives":0}}}"#;
-    assert!(matches!(Recipe::decode(historical), Err(MathError::Contract(reason))
-        if reason == "unsupported admitted recipe interpretation"));
+    assert!(
+        matches!(Recipe::decode(historical), Err(MathError::Contract(reason))
+        if reason == "unsupported admitted recipe interpretation")
+    );
 }
 #[test]
 #[cfg(test)]
 fn native_body_spec_preserves_exact_recipe_json_layout_and_strict_fields() {
     let hash = |byte| ContentHash::from_bytes([byte; 32]);
     let spec = BodySpec {
-        definition: hash(1), structure: hash(2), physical: hash(3),
-        admissions: hash(4), providers: vec![hash(5), hash(6)], policy: hash(7),
+        definition: hash(1),
+        structure: hash(2),
+        physical: hash(3),
+        admissions: hash(4),
+        providers: vec![hash(5), hash(6)],
+        policy: hash(7),
     };
     // Independently spell the retired six-field recipe record's exact emitted order.
     let expected = format!(
         "{{\"definition\":\"{}\",\"structure\":\"{}\",\"physical\":\"{}\",\"admissions\":\"{}\",\"providers\":[\"{}\",\"{}\"],\"policy\":\"{}\"}}",
-        hash(1).to_prefixed(), hash(2).to_prefixed(), hash(3).to_prefixed(),
-        hash(4).to_prefixed(), hash(5).to_prefixed(), hash(6).to_prefixed(), hash(7).to_prefixed(),
+        hash(1).to_prefixed(),
+        hash(2).to_prefixed(),
+        hash(3).to_prefixed(),
+        hash(4).to_prefixed(),
+        hash(5).to_prefixed(),
+        hash(6).to_prefixed(),
+        hash(7).to_prefixed(),
     );
     assert_eq!(serde_json::to_vec(&spec).unwrap(), expected.as_bytes());
     assert_eq!(serde_json::from_str::<BodySpec>(&expected).unwrap(), spec);
@@ -322,8 +333,17 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
     let record = SupportRecord::from_projection_fields(record.into_projection_fields()).unwrap();
     assert_eq!(serde_json::to_vec(&record).unwrap(), original_record);
     let graph = ProjectionGraph::of::<SupportRecord>().unwrap();
-    for name in ["ModelingSupportRecord", "ModelingSupportNodeRecord", "ModelingBodyInputRecord", "ModelingDerivedRelationship", "PhysicalOutputBoundaryRecord"] {
-        assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+    for name in [
+        "ModelingSupportRecord",
+        "ModelingSupportNodeRecord",
+        "ModelingBodyInputRecord",
+        "ModelingDerivedRelationship",
+        "PhysicalOutputBoundaryRecord",
+    ] {
+        assert_eq!(
+            graph.definitions()[name].construction,
+            ConstructionRole::Data
+        );
     }
     let (_, stream) =
         pse_quantity::resolved::receipts::capture(|| Ok::<_, pse_quantity::QuantityError>(()))

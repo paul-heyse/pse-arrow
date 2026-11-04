@@ -141,14 +141,28 @@ mod tests {
     #[test]
     fn mixed_tuple_enum_bit_representations_keep_native_integer_payloads_exact() {
         let graph = ProjectionGraph::of::<ActualMixedBits>().unwrap();
-        let Shape::Alternatives(variants) = &graph.definitions()["ActualMixedBits"].shape else { panic!("actual source alternatives") };
+        let Shape::Alternatives(variants) = &graph.definitions()["ActualMixedBits"].shape else {
+            panic!("actual source alternatives")
+        };
         assert_eq!(variants[0].fields[0].ty, TypeRef::Scalar(Scalar::F32Bits));
         assert_eq!(variants[1].fields[0].ty, TypeRef::Scalar(Scalar::F64Bits));
-        let narrow = <ActualMixedBits as ProjectionAlternative<1>>::from_projection_alternative((u32::MAX,));
-        assert_eq!(serde_json::to_vec(&narrow).unwrap(), br#"{"Tuple":4294967295}"#);
-        assert_eq!(<ActualMixedBits as ProjectionAlternative<1>>::into_projection_alternative(narrow).unwrap(), (u32::MAX,));
-        let wide = <ActualMixedBits as ProjectionAlternative<2>>::from_projection_alternative((u64::MAX,));
-        assert_eq!(serde_json::to_vec(&wide).unwrap(), br#"{"Named":{"bits":18446744073709551615}}"#);
+        let narrow =
+            <ActualMixedBits as ProjectionAlternative<1>>::from_projection_alternative((u32::MAX,));
+        assert_eq!(
+            serde_json::to_vec(&narrow).unwrap(),
+            br#"{"Tuple":4294967295}"#
+        );
+        assert_eq!(
+            <ActualMixedBits as ProjectionAlternative<1>>::into_projection_alternative(narrow)
+                .unwrap(),
+            (u32::MAX,)
+        );
+        let wide =
+            <ActualMixedBits as ProjectionAlternative<2>>::from_projection_alternative((u64::MAX,));
+        assert_eq!(
+            serde_json::to_vec(&wide).unwrap(),
+            br#"{"Named":{"bits":18446744073709551615}}"#
+        );
     }
     projection_tuple_enum! {
         #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]

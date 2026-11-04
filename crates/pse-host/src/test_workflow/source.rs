@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit source selection resolves before the pure Cargo declaration normalizer.
-use super::{
-    WorkflowError,
-    execute::Action,
-};
+use super::{WorkflowError, execute::Action};
 use crate::{
     environment::Environment,
     selection::{self, Plan, Request, RerunCase, Scope, SourceBasis},
@@ -90,7 +87,12 @@ pub(super) fn resolve(
                 .resolve(&invocation, None)?
                 .ok_or_else(|| WorkflowError::Invalid("rerun invocation is absent".into()))?;
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
-            let original = crate::managed::workflow::retained_input(&store, &id, Action::Test, &captured_evidence.observation)?;
+            let original = crate::managed::workflow::retained_input(
+                &store,
+                &id,
+                Action::Test,
+                &captured_evidence.observation,
+            )?;
             let historical: HistoricalReport = serde_json::from_slice(&captured_evidence.report)
                 .map_err(crate::discovery::DiscoveryError::from)?;
             if captured_evidence.observation.action != Action::Test {

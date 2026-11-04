@@ -29,11 +29,17 @@ pub fn argument_name(ty: &TypeRef) -> String {
     }
 }
 /// Existing Option argument naming, independent of representation folding.
-pub fn optional_argument_name(element: &str) -> String { format!("Optional{element}") }
+pub fn optional_argument_name(element: &str) -> String {
+    format!("Optional{element}")
+}
 /// Existing Vec argument naming, including byte vectors' actual Rust container.
-pub fn sequence_argument_name(element: &str) -> String { format!("List{element}") }
+pub fn sequence_argument_name(element: &str) -> String {
+    format!("List{element}")
+}
 /// Existing array argument naming, independent of its named projection shortcut.
-pub fn array_argument_name(element: &str, extent: usize) -> String { format!("Array{extent}{element}") }
+pub fn array_argument_name(element: &str, extent: usize) -> String {
+    format!("Array{extent}{element}")
+}
 
 /// Declare one actual generic record and its source metadata without a monomorphic
 /// field-table twin. Each admitted argument gets its own checked owner identity.

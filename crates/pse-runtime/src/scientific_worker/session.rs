@@ -4,9 +4,9 @@
 use super::WorkerError;
 use pse_ids::SemanticId;
 use pse_kernels::{
-    EvaluationContext, ExecutionScope, PreparedProviderRequest, ProviderBinding, ProviderBuffer,
-    ProviderError, ProviderFactory, ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues,
-    ProviderBatchPoint, ProviderBatchOutcome,
+    EvaluationContext, ExecutionScope, PreparedProviderRequest, ProviderBatchOutcome,
+    ProviderBatchPoint, ProviderBinding, ProviderBuffer, ProviderError, ProviderFactory,
+    ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues,
 };
 
 /// Attempt-bound context reference, checked on every invocation; never a proof token.
@@ -120,26 +120,56 @@ impl PreparedSession {
     }
     /// Genuine group capability of this exact native preparation.
     pub fn supports_batch(&self) -> bool {
-        self.binding.as_ref().is_some_and(|binding| binding.supports_batch(&self.request))
+        self.binding
+            .as_ref()
+            .is_some_and(|binding| binding.supports_batch(&self.request))
     }
     /// Execute one native group under the original scope and shared scalar/group invocation sequence.
-    pub fn evaluate_batch(&mut self, handle: SessionHandle, invocation: u64,
-        points: &[ProviderBatchPoint]) -> Result<Vec<ProviderBatchOutcome>, WorkerError> {
-        if let Err(error) = self.scope.check() { self.close(); return Err(error.into()); }
-        if self.state != SessionState::Ready || handle != self.handle || invocation == 0
-            || invocation <= self.last_invocation || !self.supports_batch() {
-            return Err(ProviderError::Contract("scientific worker stale or unsupported batch context".into()).into());
+    pub fn evaluate_batch(
+        &mut self,
+        handle: SessionHandle,
+        invocation: u64,
+        points: &[ProviderBatchPoint],
+    ) -> Result<Vec<ProviderBatchOutcome>, WorkerError> {
+        if let Err(error) = self.scope.check() {
+            self.close();
+            return Err(error.into());
+        }
+        if self.state != SessionState::Ready
+            || handle != self.handle
+            || invocation == 0
+            || invocation <= self.last_invocation
+            || !self.supports_batch()
+        {
+            return Err(ProviderError::Contract(
+                "scientific worker stale or unsupported batch context".into(),
+            )
+            .into());
         }
         // Frame refusal precedes the mutable invocation transition and native admission.
-        self.binding.as_ref().ok_or_else(|| ProviderError::Terminal("scientific worker native state is closed".into()))?
-            .check_batch_frame(points, &self.request, &EvaluationContext {
-                cancelled: self.scope.cancellation(), max_result_bytes: self.result_limit,
-            })?;
+        self.binding
+            .as_ref()
+            .ok_or_else(|| {
+                ProviderError::Terminal("scientific worker native state is closed".into())
+            })?
+            .check_batch_frame(
+                points,
+                &self.request,
+                &EvaluationContext {
+                    cancelled: self.scope.cancellation(),
+                    max_result_bytes: self.result_limit,
+                },
+            )?;
         self.last_invocation = invocation;
         self.state = SessionState::Evaluating;
         let result: Result<Vec<ProviderBatchOutcome>, ProviderError> = (|| {
-            let binding = self.binding.as_mut().ok_or_else(|| ProviderError::Terminal("scientific worker native state is closed".into()))?;
-            let context = EvaluationContext { cancelled: self.scope.cancellation(), max_result_bytes: self.result_limit };
+            let binding = self.binding.as_mut().ok_or_else(|| {
+                ProviderError::Terminal("scientific worker native state is closed".into())
+            })?;
+            let context = EvaluationContext {
+                cancelled: self.scope.cancellation(),
+                max_result_bytes: self.result_limit,
+            };
             let completed = binding.evaluate_batch(points, &self.request, &context)?;
             self.scope.check()?;
             Ok(completed)

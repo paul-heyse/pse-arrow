@@ -245,27 +245,33 @@ fn publish<T: Serialize>(
     limit: Option<u64>,
 ) -> Result<(), HostError> {
     publish_file(&directory.join(name), 0o600, |file| {
-    serde_json::to_writer(&mut *file, value)
-        .map_err(|error| invalid(format!("evidence serialization failed: {error}")))?;
-    file.write_all(b"\n")?;
-    if limit.is_some_and(|limit| {
-        file
-            .metadata()
-            .map_or(true, |metadata| metadata.len() > limit)
-    }) {
-        return Err(invalid(
-            "serialized evidence exceeds its declared storage bound",
-        ));
-    }
-    Ok(())
+        serde_json::to_writer(&mut *file, value)
+            .map_err(|error| invalid(format!("evidence serialization failed: {error}")))?;
+        file.write_all(b"\n")?;
+        if limit.is_some_and(|limit| {
+            file.metadata()
+                .map_or(true, |metadata| metadata.len() > limit)
+        }) {
+            return Err(invalid(
+                "serialized evidence exceeds its declared storage bound",
+            ));
+        }
+        Ok(())
     })
 }
 
 /// Publish exact already-encoded bytes with the same exclusive native publication
 /// used for original invocation records. The extent is checked before any output.
-pub(crate) fn publish_bytes(destination: &Path, bytes: &[u8], limit: Option<usize>, mode: u32) -> Result<(), HostError> {
+pub(crate) fn publish_bytes(
+    destination: &Path,
+    bytes: &[u8],
+    limit: Option<usize>,
+    mode: u32,
+) -> Result<(), HostError> {
     if limit.is_some_and(|limit| bytes.len() > limit) {
-        return Err(invalid("encoded evidence exceeds its declared storage bound"));
+        return Err(invalid(
+            "encoded evidence exceeds its declared storage bound",
+        ));
     }
     publish_file(destination, mode, |file| Ok(file.write_all(bytes)?))
 }
@@ -273,11 +279,20 @@ pub(crate) fn publish_bytes(destination: &Path, bytes: &[u8], limit: Option<usiz
 // Same-directory staging keeps the rename atomic. NOREPLACE preserves any existing
 // destination (including symlinks); a failed writer exposes no destination prefix.
 // rustix 1.1.5: https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html
-fn publish_file(destination: &Path, mode: u32, write: impl FnOnce(&mut File) -> Result<(), HostError>) -> Result<(), HostError> {
-    let directory = destination.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+fn publish_file(
+    destination: &Path,
+    mode: u32,
+    write: impl FnOnce(&mut File) -> Result<(), HostError>,
+) -> Result<(), HostError> {
+    let directory = destination
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     let mut temporary = tempfile::NamedTempFile::new_in(directory)?;
     write(temporary.as_file_mut())?;
-    temporary.as_file().set_permissions(fs::Permissions::from_mode(mode))?;
+    temporary
+        .as_file()
+        .set_permissions(fs::Permissions::from_mode(mode))?;
     temporary.as_file().sync_all()?;
     rustix::fs::renameat_with(
         rustix::fs::CWD,
@@ -632,7 +647,9 @@ impl InvocationDirectory {
         self.read_record(record.filename())
     }
     fn read_record<T: DeserializeOwned>(&self, name: &str) -> Result<Option<T>, HostError> {
-        let Some(bytes) = self.read_record_bytes(name)? else { return Ok(None); };
+        let Some(bytes) = self.read_record_bytes(name)? else {
+            return Ok(None);
+        };
         serde_json::from_slice(&bytes).map(Some).map_err(|error| {
             if name == "request.json" {
                 // A private malformed value can itself be a credential. Preserve location
@@ -649,7 +666,10 @@ impl InvocationDirectory {
         })
     }
     /// Exact bounded original owner-record bytes; fixed records exclude private requests.
-    pub(crate) fn evidence_bytes(&self, record: InvocationEvidence) -> Result<Option<Vec<u8>>, HostError> {
+    pub(crate) fn evidence_bytes(
+        &self,
+        record: InvocationEvidence,
+    ) -> Result<Option<Vec<u8>>, HostError> {
         self.read_record_bytes(record.filename())
     }
     fn read_record_bytes(&self, name: &str) -> Result<Option<Vec<u8>>, HostError> {

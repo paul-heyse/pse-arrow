@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed crossings to original study admission, creation, observation and protected cohorts.
 
-use pse_ids::ContentHash;
 use pse_contract::boundary_projection::{Direction, LocalRule};
+use pse_ids::ContentHash;
 use pse_model::engineering::{EngineeringFailure, EngineeringSourceSelection, OPERATION_ID_RULE};
 use pse_model::generated::identities::StudyId;
 
@@ -229,10 +229,12 @@ pse_contract::projection_struct! {
 pub(super) fn service(
     service: pse_contract::boundary_projection::Service,
     graph: &mut pse_contract::boundary_projection::ProjectionGraph,
-) -> Result<pse_contract::boundary_projection::Service, pse_contract::boundary_projection::ProjectionError>
-{
-    use pse_model::{engineering::EngineeringOperationKey};
-use pse_contract::{operation_effects::EffectFacts};
+) -> Result<
+    pse_contract::boundary_projection::Service,
+    pse_contract::boundary_projection::ProjectionError,
+> {
+    use pse_contract::operation_effects::EffectFacts;
+    use pse_model::engineering::EngineeringOperationKey;
     service
         .unary::<crate::workflow::StudyWorkbenchRequest, crate::workflow::StudyWorkbenchPage>(
             graph,

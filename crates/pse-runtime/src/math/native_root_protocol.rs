@@ -3,7 +3,10 @@
 //! Source-owned private root data, independent of native execution preparation.
 use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_ids::{ContentHash, SemanticId};
-use pse_math::{implicit::{Options, Unknown}, jets::EvaluationLimits};
+use pse_math::{
+    implicit::{Options, Unknown},
+    jets::EvaluationLimits,
+};
 use pse_model::diagnostic::BoundaryDiagnostic;
 use std::{collections::BTreeMap, time::Duration};
 
@@ -148,15 +151,32 @@ mod tests {
     #[test]
     fn private_native_source_graph_uses_actual_typed_context_and_platform_data() {
         let graph = projection_graph().unwrap();
-        for name in ["NativeRootInput", "NativeRootHello", "NativeRootRequest", "NativeRootResponse",
-            "ModelBoundaryDiagnostic", "ModelSourceLocation", "ApplicabilityObservation", "CapturedBuildInfo",
-            "FileObservation", "MathBodySpec", "ImplicitUnknown", "ImplicitOptions", "NativePathBuf", "PlatformPathBytes",
-            "PhysicalRegistryDeclarations", "PhysicalPrerequisiteDeclaration", "PhysicalPrerequisitePredicate"] {
-            assert!(graph.definitions().contains_key(name), "actual native dependency absent: {name}");
+        for name in [
+            "NativeRootInput",
+            "NativeRootHello",
+            "NativeRootRequest",
+            "NativeRootResponse",
+            "ModelBoundaryDiagnostic",
+            "ModelSourceLocation",
+            "ApplicabilityObservation",
+            "CapturedBuildInfo",
+            "FileObservation",
+            "MathBodySpec",
+            "ImplicitUnknown",
+            "ImplicitOptions",
+            "NativePathBuf",
+            "PlatformPathBytes",
+            "PhysicalRegistryDeclarations",
+            "PhysicalPrerequisiteDeclaration",
+            "PhysicalPrerequisitePredicate",
+        ] {
+            assert!(
+                graph.definitions().contains_key(name),
+                "actual native dependency absent: {name}"
+            );
         }
         assert_eq!(graph.definitions()["NativeRootInput"].version, 3);
         assert_eq!(graph.definitions()["NativeRootInput"].reserved_tags, [5]);
         assert!(graph.definitions()["NativePathBuf"].checked_record);
     }
 }
-

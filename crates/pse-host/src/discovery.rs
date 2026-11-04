@@ -84,7 +84,11 @@ fn invalid(message: impl Into<String>) -> DiscoveryError {
 impl DiscoveryError {
     /// Original incomplete raw capture remains distinct from a known child failure.
     pub(crate) fn capture_incomplete(&self) -> bool {
-        match self { Self::Capture { .. } => true, Self::Attempt { error, .. } => error.capture_incomplete(), _ => false }
+        match self {
+            Self::Capture { .. } => true,
+            Self::Attempt { error, .. } => error.capture_incomplete(),
+            _ => false,
+        }
     }
 }
 
@@ -367,16 +371,35 @@ async fn output(
         policy,
     )
     .await;
-    let prefix = match group { Some(group) => format!("group-{group}/{stage}"), None => stage.into() };
+    let prefix = match group {
+        Some(group) => format!("group-{group}/{stage}"),
+        None => stage.into(),
+    };
     phases.push(Phase {
-        native_stage: Some(stage.into()), elapsed_seconds: capture.as_ref().ok().map(|capture| capture.elapsed_seconds),
-        kind: PhaseKind::Discovery, group, stdout: format!("{prefix}.stdout"), stderr: format!("{prefix}.stderr"),
+        native_stage: Some(stage.into()),
+        elapsed_seconds: capture.as_ref().ok().map(|capture| capture.elapsed_seconds),
+        kind: PhaseKind::Discovery,
+        group,
+        stdout: format!("{prefix}.stdout"),
+        stderr: format!("{prefix}.stderr"),
         child_exit: capture.as_ref().ok().and_then(|capture| capture.child_exit),
-        capture_complete: capture.as_ref().is_ok_and(|capture| capture.capture_complete),
-        stdout_capture: capture.as_ref().ok().and_then(|capture| capture.stdout.clone()),
-        stderr_capture: capture.as_ref().ok().and_then(|capture| capture.stderr.clone()),
+        capture_complete: capture
+            .as_ref()
+            .is_ok_and(|capture| capture.capture_complete),
+        stdout_capture: capture
+            .as_ref()
+            .ok()
+            .and_then(|capture| capture.stdout.clone()),
+        stderr_capture: capture
+            .as_ref()
+            .ok()
+            .and_then(|capture| capture.stderr.clone()),
     });
-    let capture = capture.map_err(|error| DiscoveryError::Capture { stage, evidence: directory.into(), failures: vec![error] })?;
+    let capture = capture.map_err(|error| DiscoveryError::Capture {
+        stage,
+        evidence: directory.into(),
+        failures: vec![error],
+    })?;
     if !capture.capture_complete || !capture.failures.is_empty() || capture.child_exit.is_none() {
         return Err(DiscoveryError::Capture {
             stage,
@@ -406,17 +429,44 @@ async fn output(
     Ok(result)
 }
 
-fn complete_phases(phases: &[crate::test_workflow::execute::Phase]) -> Result<Vec<PhaseCapture>, DiscoveryError> {
-    phases.iter().map(|phase| Ok(PhaseCapture {
-        stage: phase.native_stage.clone().ok_or_else(|| invalid("original discovery phase identity is absent"))?,
-        elapsed_seconds: phase.elapsed_seconds, group: phase.group,
-        child_exit: phase.child_exit.ok_or_else(|| invalid("original discovery phase exit is absent"))?,
-        stdout: phase.stdout_capture.clone().ok_or_else(|| invalid("original discovery stdout account is absent"))?,
-        stderr: phase.stderr_capture.clone().ok_or_else(|| invalid("original discovery stderr account is absent"))?,
-    })).collect()
+fn complete_phases(
+    phases: &[crate::test_workflow::execute::Phase],
+) -> Result<Vec<PhaseCapture>, DiscoveryError> {
+    phases
+        .iter()
+        .map(|phase| {
+            Ok(PhaseCapture {
+                stage: phase
+                    .native_stage
+                    .clone()
+                    .ok_or_else(|| invalid("original discovery phase identity is absent"))?,
+                elapsed_seconds: phase.elapsed_seconds,
+                group: phase.group,
+                child_exit: phase
+                    .child_exit
+                    .ok_or_else(|| invalid("original discovery phase exit is absent"))?,
+                stdout: phase
+                    .stdout_capture
+                    .clone()
+                    .ok_or_else(|| invalid("original discovery stdout account is absent"))?,
+                stderr: phase
+                    .stderr_capture
+                    .clone()
+                    .ok_or_else(|| invalid("original discovery stderr account is absent"))?,
+            })
+        })
+        .collect()
 }
-fn finish_attempt<T>(destination: &Path, phases: Vec<crate::test_workflow::execute::Phase>, result: Result<T, DiscoveryError>) -> Result<T, DiscoveryError> {
-    result.map_err(|error| DiscoveryError::Attempt { evidence: destination.into(), phases, error: Box::new(error) })
+fn finish_attempt<T>(
+    destination: &Path,
+    phases: Vec<crate::test_workflow::execute::Phase>,
+    result: Result<T, DiscoveryError>,
+) -> Result<T, DiscoveryError> {
+    result.map_err(|error| DiscoveryError::Attempt {
+        evidence: destination.into(),
+        phases,
+        error: Box::new(error),
+    })
 }
 
 /// Explicitly build and list selected tests, retaining immutable executable copies.
@@ -456,7 +506,7 @@ pub async fn list(
     let captured_correctness =
         capture::executable(&control, &destination.join("cargo-pse-correctness"))?;
     // Every child uses independently hashed captured controls; the prepared image remains provenance.
-    let mut phases=Vec::new();
+    let mut phases = Vec::new();
     let result = async {
         let mut version = Command::new(&nextest.captured);
         version

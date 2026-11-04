@@ -83,9 +83,7 @@ impl IntegerRange {
             };
         };
         let range = Self::parse_metadata(text, field.name())?;
-        if field.data_type() != &DataType::Int64
-            || (ordinal && range != Self::NONNEGATIVE)
-        {
+        if field.data_type() != &DataType::Int64 || (ordinal && range != Self::NONNEGATIVE) {
             return Err(crate::checks::invalid(
                 field.name(),
                 "integer domain requires canonical Int64 storage and ordered bounds",
@@ -102,7 +100,10 @@ impl IntegerRange {
             .map_err(|error| crate::checks::invalid(path, error.to_string()))?;
         let value = Self { minimum, maximum };
         if minimum > maximum || value.canonical() != text {
-            return Err(crate::checks::invalid(path, "integer domain requires canonical ordered bounds"));
+            return Err(crate::checks::invalid(
+                path,
+                "integer domain requires canonical ordered bounds",
+            ));
         }
         Ok(value)
     }

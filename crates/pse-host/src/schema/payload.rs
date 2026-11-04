@@ -208,15 +208,28 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
     }
     let bundle = Bundle::load(&args.descriptor)?;
     let input_path = std::fs::canonicalize(&args.input)?;
-    let captured_evidence = matches!(args.message.as_str(), "pse.developer.evidence.v1.CapturedWorkflowReport" | "pse.developer.evidence.v1.CapturedWorkflowEvidence");
+    let captured_evidence = matches!(
+        args.message.as_str(),
+        "pse.developer.evidence.v1.CapturedWorkflowReport"
+            | "pse.developer.evidence.v1.CapturedWorkflowEvidence"
+    );
     let input = if captured_evidence {
         let mut bytes = Vec::new();
-        std::fs::File::open(&input_path)?.take((crate::developer_evidence::MAX_INPUT_BYTES + 1) as u64).read_to_end(&mut bytes)?;
+        std::fs::File::open(&input_path)?
+            .take((crate::developer_evidence::MAX_INPUT_BYTES + 1) as u64)
+            .read_to_end(&mut bytes)?;
         if bytes.len() > crate::developer_evidence::MAX_INPUT_BYTES {
-            return Err(SchemaError::DeveloperEvidence(Box::new(crate::developer_evidence::EvidenceError::InputLimit { observed_at_least: bytes.len(), maximum: crate::developer_evidence::MAX_INPUT_BYTES })));
+            return Err(SchemaError::DeveloperEvidence(Box::new(
+                crate::developer_evidence::EvidenceError::InputLimit {
+                    observed_at_least: bytes.len(),
+                    maximum: crate::developer_evidence::MAX_INPUT_BYTES,
+                },
+            )));
         }
         bytes
-    } else { std::fs::read(&input_path)? };
+    } else {
+        std::fs::read(&input_path)?
+    };
     let index = bundle.pool.message_index(&args.message).ok_or_else(|| {
         SchemaError::Invalid(format!(
             "message absent from selected descriptor: {}",
@@ -235,13 +248,25 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
     } else {
         (input.clone(), String::new())
     };
-    let (developer_evidence, developer_evidence_refusal) = if captured_evidence && !matches!(args.encoding, Encoding::Json) {
-        match crate::developer_evidence::inspect(&bundle.set, &args.message, &wire) {
-            Ok(readback) => (Some(readback), None),
-            Err(error @ (crate::developer_evidence::EvidenceError::Decode(_) | crate::developer_evidence::EvidenceError::InputLimit { .. })) => return Err(SchemaError::DeveloperEvidence(Box::new(error))),
-            Err(error) => (None, Some(crate::envelope::ErrorRecord::from_typed(&error, &crate::envelope::RedactionPolicy::from_environment()))),
-        }
-    } else { (None, None) };
+    let (developer_evidence, developer_evidence_refusal) =
+        if captured_evidence && !matches!(args.encoding, Encoding::Json) {
+            match crate::developer_evidence::inspect(&bundle.set, &args.message, &wire) {
+                Ok(readback) => (Some(readback), None),
+                Err(
+                    error @ (crate::developer_evidence::EvidenceError::Decode(_)
+                    | crate::developer_evidence::EvidenceError::InputLimit { .. }),
+                ) => return Err(SchemaError::DeveloperEvidence(Box::new(error))),
+                Err(error) => (
+                    None,
+                    Some(crate::envelope::ErrorRecord::from_typed(
+                        &error,
+                        &crate::envelope::RedactionPolicy::from_environment(),
+                    )),
+                ),
+            }
+        } else {
+            (None, None)
+        };
     let static_value = if bundle.compiled_world() {
         compiled(&args.message, &wire, args.encoding, args.depth, args.limit)?
     } else {
@@ -285,13 +310,34 @@ fn compiled(
     if name.starts_with("pse.developer.evidence.v1.") {
         use crate::developer_evidence_contracts::pb::pse::developer::evidence::v1 as pb;
         return match name {
-            "pse.developer.evidence.v1.CapturedWorkflowReport" => Some(static_preview::<pb::CapturedWorkflowReport>(input, encoding, depth, limit)),
-            "pse.developer.evidence.v1.CapturedWorkflowEvidence" => Some(static_preview::<pb::CapturedWorkflowEvidence>(input, encoding, depth, limit)),
-            "pse.developer.evidence.v1.NativeWorkflowReport" => Some(static_preview::<pb::NativeWorkflowReport>(input, encoding, depth, limit)),
-            "pse.developer.evidence.v1.WorkflowReportObservation" => Some(static_preview::<pb::WorkflowReportObservation>(input, encoding, depth, limit)),
-            "pse.developer.evidence.v1.WorkflowTerminalRecord" => Some(static_preview::<pb::WorkflowTerminalRecord>(input, encoding, depth, limit)),
+            "pse.developer.evidence.v1.CapturedWorkflowReport" => {
+                Some(static_preview::<pb::CapturedWorkflowReport>(
+                    input, encoding, depth, limit,
+                ))
+            }
+            "pse.developer.evidence.v1.CapturedWorkflowEvidence" => {
+                Some(static_preview::<pb::CapturedWorkflowEvidence>(
+                    input, encoding, depth, limit,
+                ))
+            }
+            "pse.developer.evidence.v1.NativeWorkflowReport" => {
+                Some(static_preview::<pb::NativeWorkflowReport>(
+                    input, encoding, depth, limit,
+                ))
+            }
+            "pse.developer.evidence.v1.WorkflowReportObservation" => {
+                Some(static_preview::<pb::WorkflowReportObservation>(
+                    input, encoding, depth, limit,
+                ))
+            }
+            "pse.developer.evidence.v1.WorkflowTerminalRecord" => {
+                Some(static_preview::<pb::WorkflowTerminalRecord>(
+                    input, encoding, depth, limit,
+                ))
+            }
             _ => None,
-        }.transpose();
+        }
+        .transpose();
     }
     use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb;
     macro_rules! dispatch { ($($ty:ident),+ $(,)?) => { match name { $(concat!("pse.code_intelligence.v1.", stringify!($ty)) => Some(static_preview::<pb::$ty>(input, encoding, depth, limit)),)+ _ => None }.transpose() }; }

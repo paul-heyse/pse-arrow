@@ -20,19 +20,37 @@ pub struct ProviderBatchPoint {
 impl ProviderBatchPoint {
     /// A point without invocation-local derivative seeds.
     pub fn values(id: SemanticId, inputs: Vec<f64>) -> Self {
-        Self { id, inputs, directions: vec![], cotangents: vec![], weights: vec![] }
+        Self {
+            id,
+            inputs,
+            directions: vec![],
+            cotangents: vec![],
+            weights: vec![],
+        }
     }
     /// Borrow invocation-local seeds; owner-sealed linearizations never cross groups.
     pub fn runtime(&self) -> ProviderRuntime<'_> {
-        ProviderRuntime { directions: &self.directions, cotangents: &self.cotangents,
-            weights: &self.weights, expected_linearization: None }
+        ProviderRuntime {
+            directions: &self.directions,
+            cotangents: &self.cotangents,
+            weights: &self.weights,
+            expected_linearization: None,
+        }
     }
     pub(super) fn bytes(&self) -> Result<usize, ProviderError> {
-        [self.inputs.len(), self.directions.len(), self.cotangents.len(), self.weights.len()]
-            .into_iter().try_fold(size_of::<Self>(), |n, cells| {
-                cells.checked_mul(size_of::<f64>()).and_then(|bytes| n.checked_add(bytes))
-                    .ok_or(ProviderError::Limit("provider batch storage"))
-            })
+        [
+            self.inputs.len(),
+            self.directions.len(),
+            self.cotangents.len(),
+            self.weights.len(),
+        ]
+        .into_iter()
+        .try_fold(size_of::<Self>(), |n, cells| {
+            cells
+                .checked_mul(size_of::<f64>())
+                .and_then(|bytes| n.checked_add(bytes))
+                .ok_or(ProviderError::Limit("provider batch storage"))
+        })
     }
 }
 

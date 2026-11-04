@@ -49,12 +49,22 @@ fn permission(n: u8, unknown: bool, extrapolate: bool) -> Permission {
 fn applicability_node_projection_preserves_original_record_json_and_screening() {
     use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord};
     let value = node(1, Region::Unknown);
-    let expected = format!(concat!(
-        "{{\"claim\":{{\"id\":\"{}\",\"coverage\":null,\"owner\":\"{}\",\"owner_lineage\":[\"{}\"],",
-        "\"evidence\":\"{}\",\"form\":\"{}\",\"call\":\"{}\",\"records\":[\"{}\"],",
-        "\"dependencies\":[],\"layer\":\"data\",\"basis\":null,\"reason\":null}},",
-        "\"region\":\"Unknown\",\"dependencies\":[],\"inputs\":[[\"T\",0,\"{}\"]],\"permissions\":[]}}"
-    ), id(1), id(10), id(10), id(11), id(12), id(31), id(51), id(80));
+    let expected = format!(
+        concat!(
+            "{{\"claim\":{{\"id\":\"{}\",\"coverage\":null,\"owner\":\"{}\",\"owner_lineage\":[\"{}\"],",
+            "\"evidence\":\"{}\",\"form\":\"{}\",\"call\":\"{}\",\"records\":[\"{}\"],",
+            "\"dependencies\":[],\"layer\":\"data\",\"basis\":null,\"reason\":null}},",
+            "\"region\":\"Unknown\",\"dependencies\":[],\"inputs\":[[\"T\",0,\"{}\"]],\"permissions\":[]}}"
+        ),
+        id(1),
+        id(10),
+        id(10),
+        id(11),
+        id(12),
+        id(31),
+        id(51),
+        id(80)
+    );
     assert_eq!(serde_json::to_vec(&value).unwrap(), expected.as_bytes());
     let decoded: Node = serde_json::from_slice(expected.as_bytes()).unwrap();
     assert_eq!(decoded, value);
@@ -63,7 +73,10 @@ fn applicability_node_projection_preserves_original_record_json_and_screening() 
     assert_eq!(restored.assess(&[], &[400.]).refused, vec![0]);
 
     let union = Region::Union(vec![value.clone()]);
-    assert_eq!(serde_json::to_vec(&union).unwrap(), format!("{{\"Union\":[{expected}]}}").as_bytes());
+    assert_eq!(
+        serde_json::to_vec(&union).unwrap(),
+        format!("{{\"Union\":[{expected}]}}").as_bytes()
+    );
     let mut recursive = node(2, union);
     recursive.dependencies.push(value);
     recursive.permissions.push(permission(3, true, false));
@@ -74,8 +87,16 @@ fn applicability_node_projection_preserves_original_record_json_and_screening() 
     assert_eq!(decoded.permissions[0].scope, id(90));
 
     let graph = ProjectionGraph::of::<Node>().unwrap();
-    for name in ["ApplicabilityNode", "ApplicabilityRegion", "ApplicabilityClaim", "ApplicabilityPermission"] {
-        assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+    for name in [
+        "ApplicabilityNode",
+        "ApplicabilityRegion",
+        "ApplicabilityClaim",
+        "ApplicabilityPermission",
+    ] {
+        assert_eq!(
+            graph.definitions()[name].construction,
+            ConstructionRole::Data
+        );
     }
 }
 #[test]

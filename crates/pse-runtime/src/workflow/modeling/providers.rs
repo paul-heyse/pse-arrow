@@ -3,8 +3,8 @@
 //! Passive bounded inspection of the actual retained executable registrations.
 
 use super::{ModelingPackage, WorkflowError, contract};
-use pse_ids::ContentHash;
 use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
+use pse_ids::ContentHash;
 use std::sync::Arc;
 
 const MAXIMUM_PROVIDER_INSPECTION_BYTES: usize = 64 << 10;

@@ -36,7 +36,9 @@ pub use support::{
 };
 /// Passive complete support record types, with private fields and no independent admission.
 pub mod support_records {
-    pub use super::support::record::{BodyInputRecord, BooleanRecord, CallRecord, NodeRecord, RangeRecord};
+    pub use super::support::record::{
+        BodyInputRecord, BooleanRecord, CallRecord, NodeRecord, RangeRecord,
+    };
 }
 /// Passive complete physical-operation records, separate from admitted physical witnesses.
 pub mod operation_records {
@@ -1196,26 +1198,41 @@ mod tests {
     use super::*;
     #[test]
     fn resolved_index_projection_preserves_nominal_native_position_and_json() {
-        use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord};
+        use pse_contract::boundary_projection::{
+            ConstructionRole, ProjectionGraph, ProjectionRecord,
+        };
         let native = NodeIx::from(usize::MAX);
         let original = serde_json::to_vec(&native).unwrap();
-        let reconstructed = NodeIx::from_projection_fields(native.into_projection_fields()).unwrap();
+        let reconstructed =
+            NodeIx::from_projection_fields(native.into_projection_fields()).unwrap();
         assert_eq!(reconstructed.position(), usize::MAX);
         assert_eq!(serde_json::to_vec(&reconstructed).unwrap(), original);
         let graph = ProjectionGraph::of::<NodeIx>().unwrap();
-        assert_eq!(graph.definitions()["ModelingResolvedNodeIx"].construction, ConstructionRole::Data);
+        assert_eq!(
+            graph.definitions()["ModelingResolvedNodeIx"].construction,
+            ConstructionRole::Data
+        );
         assert_eq!(serde_json::to_vec(&SymbolIx::from(7)).unwrap(), b"7");
     }
     #[test]
     fn scientific_number_projection_preserves_finite_bits_and_full_integer_data() {
-        use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, Scalar, Shape, TypeRef, ValidateProjection};
-        for (bits, integer) in [(0, i128::MIN), (1, i128::MAX), (1u64 << 63, 0), (f64::MAX.to_bits(), -1)] {
+        use pse_contract::boundary_projection::{
+            ProjectionGraph, ProjectionRecord, Scalar, Shape, TypeRef, ValidateProjection,
+        };
+        for (bits, integer) in [
+            (0, i128::MIN),
+            (1, i128::MAX),
+            (1u64 << 63, 0),
+            (f64::MAX.to_bits(), -1),
+        ] {
             let number = dsl::Number {
-                value: f64::from_bits(bits), exact_integer: Some(integer),
+                value: f64::from_bits(bits),
+                exact_integer: Some(integer),
                 unit: Some(pse_quantity::UnitProduct::symbol("m")),
             };
             let original = serde_json::to_vec(&number).unwrap();
-            let restored = dsl::Number::from_projection_fields(number.into_projection_fields()).unwrap();
+            let restored =
+                dsl::Number::from_projection_fields(number.into_projection_fields()).unwrap();
             assert_eq!(restored.value.to_bits(), bits);
             assert_eq!(restored.exact_integer, Some(integer));
             assert_eq!(serde_json::to_vec(&restored).unwrap(), original);
@@ -1225,7 +1242,10 @@ mod tests {
             panic!("actual authored literal fields")
         };
         assert_eq!(fields[0].ty, TypeRef::Scalar(Scalar::F64Bits));
-        assert_eq!(fields[1].ty, TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::I128Bits))));
+        assert_eq!(
+            fields[1].ty,
+            TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::I128Bits)))
+        );
         assert!(graph.definitions().contains_key("PhysicalUnitProduct"));
         // Raw exact integer transport does not establish supported membership normalization.
         // Plain field reconstruction preserves data. Boundary validation and the original

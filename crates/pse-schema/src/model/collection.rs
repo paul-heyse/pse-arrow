@@ -91,9 +91,8 @@ impl CollectionContract {
             }
         };
         if width.is_some_and(|width| {
-                width < value.minimum || value.maximum.is_some_and(|maximum| width > maximum)
-            })
-        {
+            width < value.minimum || value.maximum.is_some_and(|maximum| width > maximum)
+        }) {
             return Err(invalid(
                 "invalid collection cardinality or noncanonical metadata".into(),
             ));
@@ -107,10 +106,13 @@ impl CollectionContract {
     pub fn parse_metadata(text: &str, path: &str) -> Result<Self, SchemaError> {
         let invalid = |reason| crate::checks::invalid(path, reason);
         let value: Self = serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
-        if text != value.canonical() || value.minimum < 0
+        if text != value.canonical()
+            || value.minimum < 0
             || value.maximum.is_some_and(|maximum| maximum < value.minimum)
         {
-            return Err(invalid("invalid collection cardinality or noncanonical metadata".into()));
+            return Err(invalid(
+                "invalid collection cardinality or noncanonical metadata".into(),
+            ));
         }
         Ok(value)
     }

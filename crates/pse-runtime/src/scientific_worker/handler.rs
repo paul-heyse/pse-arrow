@@ -304,21 +304,41 @@ pub(super) fn evaluate(
         hessians: completed.hessians,
     })
 }
-pub(super) fn evaluate_batch(session: &mut PreparedSession, value: p::EvaluateBatch) -> Result<p::Batch, WorkerError> {
+pub(super) fn evaluate_batch(
+    session: &mut PreparedSession,
+    value: p::EvaluateBatch,
+) -> Result<p::Batch, WorkerError> {
     let floats = |bits: Vec<u64>| bits.into_iter().map(f64::from_bits).collect();
-    let points: Vec<_> = value.points.into_iter().map(|point| pse_kernels::ProviderBatchPoint {
-        id: point.id, inputs: floats(point.inputs), directions: floats(point.directions),
-        cotangents: floats(point.cotangents), weights: floats(point.weights),
-    }).collect();
-    let completed = session.evaluate_batch(value.handle.clone().into(), value.invocation, &points)?;
-    Ok(p::Batch { handle: value.handle, invocation: value.invocation,
-        points: completed.into_iter().map(|point| p::BatchOutcome { id: point.id,
-            result: match point.result {
-                Ok(values) => p::BatchResult::Product(p::BatchProduct { values: values.values,
-                    jacobian: values.jacobian, hessians: values.hessians }),
-                Err(error) => p::BatchResult::Refused(failure(error.into())),
-            },
-        }).collect(),
+    let points: Vec<_> = value
+        .points
+        .into_iter()
+        .map(|point| pse_kernels::ProviderBatchPoint {
+            id: point.id,
+            inputs: floats(point.inputs),
+            directions: floats(point.directions),
+            cotangents: floats(point.cotangents),
+            weights: floats(point.weights),
+        })
+        .collect();
+    let completed =
+        session.evaluate_batch(value.handle.clone().into(), value.invocation, &points)?;
+    Ok(p::Batch {
+        handle: value.handle,
+        invocation: value.invocation,
+        points: completed
+            .into_iter()
+            .map(|point| p::BatchOutcome {
+                id: point.id,
+                result: match point.result {
+                    Ok(values) => p::BatchResult::Product(p::BatchProduct {
+                        values: values.values,
+                        jacobian: values.jacobian,
+                        hessians: values.hessians,
+                    }),
+                    Err(error) => p::BatchResult::Refused(failure(error.into())),
+                },
+            })
+            .collect(),
     })
 }
 

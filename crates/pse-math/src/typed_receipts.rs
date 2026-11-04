@@ -187,21 +187,40 @@ pub(super) fn require_admission() -> Result<(), MathError> {
 #[cfg(test)]
 mod projection_tests {
     use super::*;
-    use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord, ValidateProjection};
+    use pse_contract::boundary_projection::{
+        ConstructionRole, ProjectionGraph, ProjectionRecord, ValidateProjection,
+    };
 
     #[test]
     fn mathematical_receipt_projection_is_data_and_does_not_start_replay() {
         let request = ContentHash::from_bytes([27; 32]);
-        let stream = ProofStream { version: 1, entries: vec![Proof { request, branches: vec![7, 2] }] };
+        let stream = ProofStream {
+            version: 1,
+            entries: vec![Proof {
+                request,
+                branches: vec![7, 2],
+            }],
+        };
         let original = serde_json::to_vec(&stream).unwrap();
-        let reconstructed = ProofStream::from_projection_fields(stream.into_projection_fields()).unwrap();
+        let reconstructed =
+            ProofStream::from_projection_fields(stream.into_projection_fields()).unwrap();
         assert_eq!(serde_json::to_vec(&reconstructed).unwrap(), original);
         let graph = ProjectionGraph::of::<ProofStream>().unwrap();
         for name in ["MathematicalProofStream", "MathematicalProofReceipt"] {
-            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+            assert_eq!(
+                graph.definitions()[name].construction,
+                ConstructionRole::Data
+            );
         }
         // Even complete decoded original receipt data does not install a replay session.
         assert_eq!(proof(request, || Ok(vec![9])).unwrap(), vec![9]);
-        assert!(ProofStream { version: 2, entries: vec![] }.validate_projection().is_err());
+        assert!(
+            ProofStream {
+                version: 2,
+                entries: vec![]
+            }
+            .validate_projection()
+            .is_err()
+        );
     }
 }

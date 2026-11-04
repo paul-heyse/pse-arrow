@@ -17,7 +17,8 @@ pub(super) fn render(
     field_stems: &[String],
     mode: super::super::native::Mode,
 ) -> Result<TokenStream, SchemaError> {
-    if fields.len() != columns.len() || field_stems.len() != columns.len()
+    if fields.len() != columns.len()
+        || field_stems.len() != columns.len()
         || fields
             .iter()
             .zip(columns)
@@ -48,8 +49,12 @@ pub(super) fn render(
         column.expression_source_contract()?;
         let ty = super::semantic::model_type(ty)?;
         let native_projection = match mode {
-            super::super::native::Mode::Domain => super::types::projection_type(column, field_stem)?,
-            super::super::native::Mode::Storage => super::types::projection_type_in(column, field_stem, mode)?,
+            super::super::native::Mode::Domain => {
+                super::types::projection_type(column, field_stem)?
+            }
+            super::super::native::Mode::Storage => {
+                super::types::projection_type_in(column, field_stem, mode)?
+            }
         };
         let native_projection = super::types::projection_tokens(&native_projection);
         if TaggedAlternative::from_field(column.field())?.is_some()
@@ -65,7 +70,10 @@ pub(super) fn render(
             ))
         })?;
         let field = super::types::ident(field_name);
-        let rules = super::types::field_rules(column)?.into_iter().map(|(_, tokens)| tokens).collect::<Vec<_>>();
+        let rules = super::types::field_rules(column)?
+            .into_iter()
+            .map(|(_, tokens)| tokens)
+            .collect::<Vec<_>>();
         field_rules.push(!rules.is_empty());
         let mut metadata = column
             .field()
@@ -77,10 +85,21 @@ pub(super) fn render(
         if column.checked_fk()?.is_some()
             && let Some(reference) = crate::model::ReferenceContract::for_contract(column)?
         {
-            metadata.insert(crate::model::reference::KEY_REFERENCE.into(), reference.canonical()?);
+            metadata.insert(
+                crate::model::reference::KEY_REFERENCE.into(),
+                reference.canonical()?,
+            );
         }
-        let native_field = column.field().clone().with_metadata(metadata.iter().map(|(key, value)| (key.clone(), value.clone())).collect());
-        metadata.insert(super::super::boundary_projection::REGISTRY_FIELD_SOURCE.into(), crate::model::field::render_field(&native_field)?);
+        let native_field = column.field().clone().with_metadata(
+            metadata
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+        );
+        metadata.insert(
+            super::super::boundary_projection::REGISTRY_FIELD_SOURCE.into(),
+            crate::model::field::render_field(&native_field)?,
+        );
         let facets = metadata
             .into_iter()
             .map(|(key, value)| quote!((#key.into(), #value.into())))

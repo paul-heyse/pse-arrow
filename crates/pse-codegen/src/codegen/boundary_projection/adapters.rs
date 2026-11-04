@@ -9,8 +9,8 @@ use pse_contract::boundary_projection::{
     ConstructionRole, Definition, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 
-use super::{error, protobuf_map_key, snake_case};
 use super::ProjectionCodegenError;
+use super::{error, protobuf_map_key, snake_case};
 mod borrowed;
 pub use borrowed::{NativeViewTarget, native_view_adapters};
 
@@ -25,7 +25,13 @@ pub enum AdapterVisibility {
     Parent,
 }
 impl AdapterVisibility {
-    fn rust(self) -> &'static str { match self { Self::Public => "pub", Self::Crate => "pub(crate)", Self::Parent => "pub(super)" } }
+    fn rust(self) -> &'static str {
+        match self {
+            Self::Public => "pub",
+            Self::Crate => "pub(crate)",
+            Self::Parent => "pub(super)",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -41,14 +47,23 @@ mod visibility_tests {
     #[test]
     fn scoped_wrapper_visibility_preserves_strict_unknown_adoption() {
         let graph = ProjectionGraph::of::<LocalOwner>().unwrap();
-        let strict = native_adapters_scoped(&graph, &["LocalOwner"], "crate::pb", "pse_codegen", AdapterVisibility::Crate).unwrap();
+        let strict = native_adapters_scoped(
+            &graph,
+            &["LocalOwner"],
+            "crate::pb",
+            "pse_codegen",
+            AdapterVisibility::Crate,
+        )
+        .unwrap();
         assert!(strict.contains("pub(crate) fn encode_local_owner"));
         assert!(strict.contains("pub(crate) fn decode_local_owner"));
         assert!(strict.contains("unknown_fields(&wire.__buffa_unknown_fields, path)?"));
         let public = native_adapters(&graph, &["LocalOwner"], "crate::pb", "pse_codegen").unwrap();
         assert!(public.contains("pub fn decode_local_owner"));
         assert!(public.contains("unknown_fields(&wire.__buffa_unknown_fields, path)?"));
-        let retained = native_adapters_retaining_wire(&graph, &["LocalOwner"], "crate::pb", "pse_codegen").unwrap();
+        let retained =
+            native_adapters_retaining_wire(&graph, &["LocalOwner"], "crate::pb", "pse_codegen")
+                .unwrap();
         assert!(retained.contains("pub(super) fn decode_local_owner"));
         assert!(!retained.contains("unknown_fields(&wire.__buffa_unknown_fields, path)?"));
     }
@@ -63,7 +78,13 @@ pub fn native_adapters(
     wire_root: &str,
     owner_crate: &str,
 ) -> Result<String, ProjectionCodegenError> {
-    native_adapters_scoped(graph, roots, wire_root, owner_crate, AdapterVisibility::Public)
+    native_adapters_scoped(
+        graph,
+        roots,
+        wire_root,
+        owner_crate,
+        AdapterVisibility::Public,
+    )
 }
 
 /// Emit strict native adoption with an explicit root-wrapper visibility. Private
@@ -87,7 +108,14 @@ pub fn native_adapters_retaining_wire(
     wire_root: &str,
     owner_crate: &str,
 ) -> Result<String, ProjectionCodegenError> {
-    generate(graph, roots, wire_root, owner_crate, true, AdapterVisibility::Parent)
+    generate(
+        graph,
+        roots,
+        wire_root,
+        owner_crate,
+        true,
+        AdapterVisibility::Parent,
+    )
 }
 
 fn generate(
@@ -108,26 +136,35 @@ fn generate(
         let owner = &graph.definitions()[name];
         let mut closure = BTreeSet::new();
         match &owner.shape {
-            Shape::Record(fields) => for field in fields {
-                select_type(graph, &field.ty, &mut closure)?;
-            },
-            Shape::Alternatives(alternatives) => for alternative in alternatives {
-                for field in &alternative.fields {
+            Shape::Record(fields) => {
+                for field in fields {
                     select_type(graph, &field.ty, &mut closure)?;
                 }
-            },
-            Shape::StringEnum(_) => {},
+            }
+            Shape::Alternatives(alternatives) => {
+                for alternative in alternatives {
+                    for field in &alternative.fields {
+                        select_type(graph, &field.ty, &mut closure)?;
+                    }
+                }
+            }
+            Shape::StringEnum(_) => {}
         }
         if owner.construction == ConstructionRole::Data
-            && let Some(child) = closure.iter().find(|child|
-            graph.definitions()[*child].construction == ConstructionRole::ObservationOnly)
+            && let Some(child) = closure.iter().find(|child| {
+                graph.definitions()[*child].construction == ConstructionRole::ObservationOnly
+            })
         {
-            return Err(error(format!("{name} contains observation-only native owner {child}; expose passive snapshot fields instead of reconstructing or moving live custody")));
+            return Err(error(format!(
+                "{name} contains observation-only native owner {child}; expose passive snapshot fields instead of reconstructing or moving live custody"
+            )));
         }
         if owner.construction == ConstructionRole::ObservationOnly
             && !matches!(owner.shape, Shape::Record(_))
         {
-            return Err(error(format!("{name}: borrowed observation requires a record accessor")));
+            return Err(error(format!(
+                "{name}: borrowed observation requires a record accessor"
+            )));
         }
     }
     let naming_config = buffa_codegen::CodeGenConfig::default();
@@ -150,7 +187,8 @@ fn generate(
         let method = snake_case(name);
         let visibility = visibility.rust();
         if definition.construction == ConstructionRole::ObservationOnly {
-            let _ = writeln!(out,
+            let _ = writeln!(
+                out,
                 "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = native_into(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
             );
             continue;
@@ -289,11 +327,19 @@ impl Generator<'_> {
                 // containers. Generated modules use Rust's identical prelude
                 // names, avoiding redundant qualifications in generic owners.
                 if path.segments.len() == 3 {
-                    let parts = path.segments.iter().map(|part| part.ident.to_string()).collect::<Vec<_>>();
+                    let parts = path
+                        .segments
+                        .iter()
+                        .map(|part| part.ident.to_string())
+                        .collect::<Vec<_>>();
                     if matches!(parts.as_slice(), [root, module, name]
                         if root == "std" && matches!((module.as_str(), name.as_str()),
-                            ("vec", "Vec") | ("option", "Option") | ("result", "Result") | ("string", "String") | ("boxed", "Box"))) {
-                        if let Some(last) = path.segments.pop() { path.segments.clear(); path.segments.push(last); }
+                            ("vec", "Vec") | ("option", "Option") | ("result", "Result") | ("string", "String") | ("boxed", "Box")))
+                    {
+                        if let Some(last) = path.segments.pop() {
+                            path.segments.clear();
+                            path.segments.push(last);
+                        }
                         path.leading_colon = None;
                     }
                 }
@@ -310,7 +356,9 @@ impl Generator<'_> {
             result.push_str(&if index + 1 == path.len() {
                 segment.clone()
             } else {
-                buffa_codegen::idents::escape_mod_ident(&self.naming.nested_module_name("", segment))
+                buffa_codegen::idents::escape_mod_ident(
+                    &self.naming.nested_module_name("", segment),
+                )
             });
         }
         result
@@ -350,7 +398,11 @@ impl Generator<'_> {
         )
     }
 
-    fn fields_encode(&self, fields: &[Field], message: &[String]) -> Result<String, ProjectionCodegenError> {
+    fn fields_encode(
+        &self,
+        fields: &[Field],
+        message: &[String],
+    ) -> Result<String, ProjectionCodegenError> {
         let mut out = String::new();
         for (index, field) in fields.iter().enumerate() {
             let name = buffa_codegen::idents::make_field_ident(&field.name);
@@ -373,7 +425,11 @@ impl Generator<'_> {
         Ok(out)
     }
 
-    fn fields_decode(&self, fields: &[Field], message: &[String]) -> Result<String, ProjectionCodegenError> {
+    fn fields_decode(
+        &self,
+        fields: &[Field],
+        message: &[String],
+    ) -> Result<String, ProjectionCodegenError> {
         let mut out = String::from("(");
         for field in fields {
             let name = buffa_codegen::idents::make_field_ident(&field.name);
@@ -403,8 +459,15 @@ impl Generator<'_> {
                     .collect::<String>();
                 let observation = owner.construction == ConstructionRole::ObservationOnly;
                 let layout = if observation {
-                    let layout = fields.iter().map(|field| format!("({}, {:?})", field.tag, field.name)).collect::<Vec<_>>().join(",");
-                    format!("layout(<{native} as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION, <{native} as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT, {}, &[{layout}], path)?;", owner.version)
+                    let layout = fields
+                        .iter()
+                        .map(|field| format!("({}, {:?})", field.tag, field.name))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    format!(
+                        "layout(<{native} as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION, <{native} as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT, {}, &[{layout}], path)?;",
+                        owner.version
+                    )
                 } else {
                     self.layout(&native, fields, owner.version, None, owner.checked_record)
                 };
@@ -416,7 +479,9 @@ impl Generator<'_> {
                     "ProjectionRecord"
                 };
                 let extract = if observation {
-                    format!("pse_contract::boundary_projection::{accessor}::observation_fields(self).map_err(|error| error.at(path))?")
+                    format!(
+                        "pse_contract::boundary_projection::{accessor}::observation_fields(self).map_err(|error| error.at(path))?"
+                    )
                 } else if owner.checked_record {
                     format!(
                         "pse_contract::boundary_projection::{accessor}::try_into_projection_fields(self).map_err(|error| error.at(path))?"
@@ -428,7 +493,8 @@ impl Generator<'_> {
                 };
                 let encode = self.fields_encode(fields, &message)?;
                 if observation {
-                    let _ = writeln!(out,
+                    let _ = writeln!(
+                        out,
                         "impl NativeInto<{wire}> for &{native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
                     );
                     return Ok(());
@@ -476,7 +542,11 @@ impl Generator<'_> {
                         buffa_codegen::idents::to_upper_camel_case(&snake_case(&alternative.name));
                     let tag = alternative.tag;
                     let alternative_name = &alternative.name;
-                    let path_setup = if !alternative.fields.iter().any(|field| encoding_uses_path(&field.ty)) {
+                    let path_setup = if !alternative
+                        .fields
+                        .iter()
+                        .any(|field| encoding_uses_path(&field.ty))
+                    {
                         String::new()
                     } else {
                         format!(
@@ -554,10 +624,13 @@ impl Generator<'_> {
             ),
             TypeRef::Named(name) => {
                 let value = if let Some(owner) = self.graph.definitions().get(name)
-                    && owner.construction == ConstructionRole::ObservationOnly {
+                    && owner.construction == ConstructionRole::ObservationOnly
+                {
                     let native = self.native(owner)?;
                     format!("::core::borrow::Borrow::<{native}>::borrow(&{value})")
-                } else { value.to_owned() };
+                } else {
+                    value.to_owned()
+                };
                 let converted = format!(
                     "native_into::<_, {}>({value}, {path})?",
                     self.wire(&[name.clone()])
@@ -589,10 +662,15 @@ impl Generator<'_> {
                 }
             },
             TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
-                if matches!(inner.as_ref(), TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash)) {
+                if matches!(
+                    inner.as_ref(),
+                    TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash)
+                ) {
                     // Owner-checked byte extraction is infallible. Avoid manufacturing
                     // unused per-element error paths for that native conversion.
-                    return Ok(format!("items({value}).map(pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes).collect::<Vec<_>>()"));
+                    return Ok(format!(
+                        "items({value}).map(pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes).collect::<Vec<_>>()"
+                    ));
                 }
                 let converted = if matches!(inner.as_ref(), TypeRef::Scalar(_) | TypeRef::Named(_))
                 {
@@ -614,7 +692,9 @@ impl Generator<'_> {
                     )?
                 };
                 if !encoding_uses_path(inner) {
-                    return Ok(format!("items({value}).map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()?"));
+                    return Ok(format!(
+                        "items({value}).map(|value| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()?"
+                    ));
                 }
                 format!(
                     "{{ let current_path = {path}; items({value}).enumerate().map(|(index, value)| -> Result<_, AdapterError> {{ Ok({converted}) }}).collect::<Result<Vec<_>, _>>()? }}"
@@ -764,7 +844,9 @@ fn encoding_uses_path(ty: &TypeRef) -> bool {
     match ty {
         TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash) => false,
         TypeRef::Scalar(_) | TypeRef::Named(_) => true,
-        TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => encoding_uses_path(inner),
+        TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
+            encoding_uses_path(inner)
+        }
         TypeRef::Map(key, value) => encoding_uses_path(key) || encoding_uses_path(value),
     }
 }

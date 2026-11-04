@@ -4,10 +4,17 @@
 
 use anyhow::{Context, Result, bail};
 use buffa::Message as _;
-use buffa_descriptor::generated::{compiler::{CodeGeneratorRequest, CodeGeneratorResponse}, descriptor::FileDescriptorSet};
+use buffa_descriptor::generated::{
+    compiler::{CodeGeneratorRequest, CodeGeneratorResponse},
+    descriptor::FileDescriptorSet,
+};
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
 use pse_contract::boundary_projection::ProjectionGraph;
-use std::{io::Write as _, path::{Component, Path, PathBuf}, process::{Command, Stdio}};
+use std::{
+    io::Write as _,
+    path::{Component, Path, PathBuf},
+    process::{Command, Stdio},
+};
 
 /// One independently published consumer world and its source attribution.
 pub(super) struct ProjectionTarget<'a> {
@@ -26,7 +33,15 @@ pub(super) fn projection(
     target: ProjectionTarget<'_>,
     imports: &FileDescriptorSet,
 ) -> Result<GeneratedTree> {
-    let ProjectionTarget { package, file, destination, rust_module, document_root, generator_path, generator_symbol } = target;
+    let ProjectionTarget {
+        package,
+        file,
+        destination,
+        rust_module,
+        document_root,
+        generator_path,
+        generator_symbol,
+    } = target;
     let config = boundary_projection::default_config(&format!("{rust_module}::__buffa_fds"));
     let output =
         boundary_projection::generate_with_config(graph, package, file, &imports.file, &config)?;
@@ -38,8 +53,17 @@ pub(super) fn projection(
     for (name, source) in output.sources {
         insert(&mut tree, &destination, &name, source.as_bytes())?;
     }
-    let policy = boundary_projection::native_policy_source(graph, package, pse_contract::BoundaryDirection::Both)?;
-    insert(&mut tree, &destination, "native-policy.rs", policy.as_bytes())?;
+    let policy = boundary_projection::native_policy_source(
+        graph,
+        package,
+        pse_contract::BoundaryDirection::Both,
+    )?;
+    insert(
+        &mut tree,
+        &destination,
+        "native-policy.rs",
+        policy.as_bytes(),
+    )?;
     tree.files.insert(
         destination.join("descriptor.bin"),
         output.descriptor_bytes.clone(),
@@ -162,7 +186,12 @@ fn plugin_response(
     Ok(response)
 }
 
-pub(super) fn insert(tree: &mut GeneratedTree, destination: &Path, name: &str, bytes: &[u8]) -> Result<()> {
+pub(super) fn insert(
+    tree: &mut GeneratedTree,
+    destination: &Path,
+    name: &str,
+    bytes: &[u8],
+) -> Result<()> {
     let relative = Path::new(name);
     if relative
         .components()

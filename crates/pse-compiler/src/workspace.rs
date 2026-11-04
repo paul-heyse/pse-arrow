@@ -87,7 +87,9 @@ impl Default for Profile {
 #[cfg(test)]
 mod projection_tests {
     use super::Profile;
-    use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+    use pse_contract::boundary_projection::{
+        ProjectionGraph, ProjectionRecord, ValidateProjection,
+    };
 
     #[test]
     fn actual_compiler_profile_projects_its_complete_math_controls() {

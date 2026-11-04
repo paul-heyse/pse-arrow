@@ -4,7 +4,10 @@
 mod diagnostic;
 mod presentation;
 mod validation;
-pub use diagnostic::{ErrorRecord, FactsRecord, LabelRecord, LocationRecord, ObservationValue, RecoveryCause, RecoveryRecord, RedactionPolicy};
+pub use diagnostic::{
+    ErrorRecord, FactsRecord, LabelRecord, LocationRecord, ObservationValue, RecoveryCause,
+    RecoveryRecord, RedactionPolicy,
+};
 pub use presentation::{OutputFormat, Presentation, PresentationError, schema, write};
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -148,26 +151,60 @@ impl TryFrom<String> for CliInvocationId {
 }
 
 impl pse_contract::boundary_projection::ProjectionType for CliInvocationId {
-    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
         use pse_contract::boundary_projection::{Direction, Field, Shape};
-        let root = graph.declare::<Self>("CliInvocationId", file!(), 1, Direction::Output, &[], &[], |graph| {
-            Ok(Shape::Record(vec![Field::of::<String>(graph, "value", 1, Direction::Output, vec![])?]))
-        })?;
+        let root = graph.declare::<Self>(
+            "CliInvocationId",
+            file!(),
+            1,
+            Direction::Output,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![Field::of::<String>(
+                    graph,
+                    "value",
+                    1,
+                    Direction::Output,
+                    vec![],
+                )?]))
+            },
+        )?;
         graph.public_path::<Self>(&root, "crate::envelope::CliInvocationId")?;
         Ok(root)
     }
 }
 impl pse_contract::boundary_projection::ValidateProjection for CliInvocationId {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> { Ok(()) }
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 impl pse_contract::boundary_projection::ProjectionRecord for CliInvocationId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
-    fn into_projection_fields(self) -> Self::Fields { (self.0,) }
-    fn from_projection_fields((value,): Self::Fields) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
-        Self::try_from(value).map_err(|error| pse_contract::boundary_projection::AdapterError::refused("value", pse_contract::boundary_projection::AdapterFailure::InvalidValue, error.to_string()))
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.0,)
+    }
+    fn from_projection_fields(
+        (value,): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Self::try_from(value).map_err(|error| {
+            pse_contract::boundary_projection::AdapterError::refused(
+                "value",
+                pse_contract::boundary_projection::AdapterFailure::InvalidValue,
+                error.to_string(),
+            )
+        })
     }
 }
 

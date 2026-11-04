@@ -25,17 +25,20 @@ use pse_contract::boundary_projection::{
     Direction, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 mod source_error;
+use pse_contract_proto::{CORE_IMPORT, NativeSelection, OptionEncoder, check_descriptors};
 pub use source_error::ProjectionCodegenError;
-use pse_contract_proto::{OptionEncoder, CORE_IMPORT, NativeSelection, check_descriptors};
 
 // Internal source-generation carrier only. Published options carry standard Arrow IPC.
 pub(crate) const REGISTRY_FIELD_SOURCE: &str = "pse.codegen.native_field";
 
 mod adapters;
 mod float_collections;
-mod source_metadata;
 mod registry_facets;
-pub use adapters::{AdapterVisibility, NativeViewTarget, native_view_adapters, native_adapters, native_adapters_retaining_wire, native_adapters_scoped};
+mod source_metadata;
+pub use adapters::{
+    AdapterVisibility, NativeViewTarget, native_adapters, native_adapters_retaining_wire,
+    native_adapters_scoped, native_view_adapters,
+};
 
 /// One complete generation closure. The caller owns publication and generated roots.
 #[derive(Debug)]
@@ -57,13 +60,20 @@ fn error(reason: impl Into<String>) -> ProjectionCodegenError {
     pse_schema::SchemaError::Codegen {
         language: "protobuf",
         reason: reason.into(),
-    }.into()
+    }
+    .into()
 }
 
 fn validate_package(package: &str) -> Result<(), ProjectionCodegenError> {
     if package.split('.').any(|part| !identifier(part))
-        || !package.split('.').next_back().is_some_and(|part| part.strip_prefix('v').is_some_and(|major| major.parse::<u32>().is_ok_and(|major| major > 0))) {
-        return Err(error("externally consumed package must end in an explicit nonzero major (for example pse.engineering.v1)"));
+        || !package.split('.').next_back().is_some_and(|part| {
+            part.strip_prefix('v')
+                .is_some_and(|major| major.parse::<u32>().is_ok_and(|major| major > 0))
+        })
+    {
+        return Err(error(
+            "externally consumed package must end in an explicit nonzero major (for example pse.engineering.v1)",
+        ));
     }
     Ok(())
 }
@@ -71,13 +81,26 @@ fn validate_package(package: &str) -> Result<(), ProjectionCodegenError> {
 /// Emit immutable native interpretation/coverage constants from the actual source
 /// graph, for independent consumers that cannot import the original native owner.
 /// Acquired descriptor contents never approve their own missing source coverage.
-pub fn native_policy_source(graph: &ProjectionGraph, package: &str, direction: Direction) -> Result<String, ProjectionCodegenError> {
+pub fn native_policy_source(
+    graph: &ProjectionGraph,
+    package: &str,
+    direction: Direction,
+) -> Result<String, ProjectionCodegenError> {
     validate_package(package)?;
     let selection = source_metadata::native_selection(graph, package, direction);
-    if selection.owners.is_empty() { return Err(error("native source policy requires at least one actual owner")); }
+    if selection.owners.is_empty() {
+        return Err(error(
+            "native source policy requires at least one actual owner",
+        ));
+    }
     Ok(format!(
         "// Source-derived immutable interpretation and coverage; no native authority.\n/// Exact source-owned interpretation versions available to this consumer.\npub const INTERPRETATIONS: &[(&str, u32)] = &{:?};\n/// Required source-selected coverage, independent of acquired option presence.\npub const NATIVE_SELECTION: pse_contract_proto::NativeSelection<'static> = pse_contract_proto::NativeSelection {{ owners: &{:?}, fields: &{:?}, methods: &{:?}, facets: &{:?}, facet_fields: &{:?} }};\n",
-        selection.interpretations, selection.owners, selection.fields, selection.methods, selection.facets, selection.facet_fields,
+        selection.interpretations,
+        selection.owners,
+        selection.fields,
+        selection.methods,
+        selection.facets,
+        selection.facet_fields,
     ))
 }
 
@@ -163,7 +186,9 @@ pub fn descriptors_for_direction(
             ..Default::default()
         };
         match &definition.shape {
-            Shape::Record(fields) => lower.fields(&mut message, fields).map_err(|e| e.at(definition.source, definition.rust_type))?,
+            Shape::Record(fields) => lower
+                .fields(&mut message, fields)
+                .map_err(|e| e.at(definition.source, definition.rust_type))?,
             Shape::Alternatives(alternatives) => {
                 message.reserved_name = definition
                     .reserved_names
@@ -192,10 +217,24 @@ pub fn descriptors_for_direction(
                         name: Some(nested_name.clone()),
                         ..Default::default()
                     };
-                    lower.fields(&mut nested, &alternative.fields).map_err(|e| e.at(definition.source, format!("{}::{}", definition.rust_type, alternative.name)))?;
+                    lower
+                        .fields(&mut nested, &alternative.fields)
+                        .map_err(|e| {
+                            e.at(
+                                definition.source,
+                                format!("{}::{}", definition.rust_type, alternative.name),
+                            )
+                        })?;
                     message.nested_type.push(nested);
                     let mut field_options = FieldOptions::default();
-                    metadata.field_correspondence(&mut field_options, &alternative.name, definition.direction, &TypeRef::Named(definition.name.clone()), &[], package)?;
+                    metadata.field_correspondence(
+                        &mut field_options,
+                        &alternative.name,
+                        definition.direction,
+                        &TypeRef::Named(definition.name.clone()),
+                        &[],
+                        package,
+                    )?;
                     message.field.push(FieldDescriptorProto {
                         name: Some(snake_case(&alternative.name)),
                         number: Some(alternative.tag as i32),
@@ -230,7 +269,14 @@ pub fn descriptors_for_direction(
                     },
                 )?;
                 let mut options = field.options.as_option().cloned().unwrap_or_default();
-                metadata.field_correspondence(&mut options, "value", definition.direction, &TypeRef::Named(definition.name.clone()), &[], package)?;
+                metadata.field_correspondence(
+                    &mut options,
+                    "value",
+                    definition.direction,
+                    &TypeRef::Named(definition.name.clone()),
+                    &[],
+                    package,
+                )?;
                 field.options = options.into();
                 message.field.push(field);
             }
@@ -262,7 +308,10 @@ pub fn descriptors_for_direction(
                         output_type: Some(named(&method.output)?),
                         client_streaming: Some(false),
                         server_streaming: Some(method.server_streaming),
-                        options: metadata.method_options(method.effects).map_err(|e| e.context(format!("{}.{}", service.name, method.name)))?.into(),
+                        options: metadata
+                            .method_options(method.effects)
+                            .map_err(|e| e.context(format!("{}.{}", service.name, method.name)))?
+                            .into(),
                         ..Default::default()
                     })
                 })
@@ -274,7 +323,14 @@ pub fn descriptors_for_direction(
         name: Some(file_name.into()),
         package: Some(package.into()),
         syntax: Some("proto3".into()),
-        dependency: std::iter::once(CORE_IMPORT.into()).chain(lower.uses_validation.then(|| "buf/validate/validate.proto".into())).chain(lower.uses_registry.then(|| registry_facets::IMPORT.into())).collect(),
+        dependency: std::iter::once(CORE_IMPORT.into())
+            .chain(
+                lower
+                    .uses_validation
+                    .then(|| "buf/validate/validate.proto".into()),
+            )
+            .chain(lower.uses_registry.then(|| registry_facets::IMPORT.into()))
+            .collect(),
         message_type: messages,
         service: services,
         ..Default::default()
@@ -284,20 +340,54 @@ pub fn descriptors_for_direction(
         file: dependency_order(files)?,
         ..Default::default()
     };
-    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage, pse_contract_proto::FieldContext<'_>) -> Result<Option<Vec<u8>>, ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_field_option)];
+    let validators: [(
+        &str,
+        fn(
+            &buffa_descriptor::DynamicMessage,
+            pse_contract_proto::FieldContext<'_>,
+        ) -> Result<Option<Vec<u8>>, ProjectionCodegenError>,
+    ); 1] = [(
+        registry_facets::EXTENSION,
+        registry_facets::normalize_field_option,
+    )];
     let names = source_metadata::native_selection(graph, package, direction);
-    let interpretations = names.interpretations.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
+    let interpretations = names
+        .interpretations
+        .iter()
+        .map(|(name, version)| (name.as_str(), *version))
+        .collect::<Vec<_>>();
     let owners = names.owners.iter().map(String::as_str).collect::<Vec<_>>();
     let fields = names.fields.iter().map(String::as_str).collect::<Vec<_>>();
     let methods = names.methods.iter().map(String::as_str).collect::<Vec<_>>();
-    let facets = names.facets.iter().map(|(subject, extension)| (subject.as_str(), extension.as_str())).collect::<Vec<_>>();
-    let facet_fields = names.facet_fields.iter().map(|(subject, extension, field)| (subject.as_str(), extension.as_str(), field.as_str())).collect::<Vec<_>>();
-    let selection = NativeSelection { owners: &owners, fields: &fields, methods: &methods, facets: &facets, facet_fields: &facet_fields };
+    let facets = names
+        .facets
+        .iter()
+        .map(|(subject, extension)| (subject.as_str(), extension.as_str()))
+        .collect::<Vec<_>>();
+    let facet_fields = names
+        .facet_fields
+        .iter()
+        .map(|(subject, extension, field)| (subject.as_str(), extension.as_str(), field.as_str()))
+        .collect::<Vec<_>>();
+    let selection = NativeSelection {
+        owners: &owners,
+        fields: &fields,
+        methods: &methods,
+        facets: &facets,
+        facet_fields: &facet_fields,
+    };
     let policy = source_metadata::TypedPolicy::new(&validators, &interpretations, selection);
-    let selected_extensions = if lower.uses_registry { &[registry_facets::EXTENSION][..] } else { &[] };
+    let selected_extensions = if lower.uses_registry {
+        &[registry_facets::EXTENSION][..]
+    } else {
+        &[]
+    };
     let assessment = check_descriptors(&descriptor_set, file_name, &policy, selected_extensions)?;
     if assessment.disposition != pse_contract::metadata::Disposition::Compatible {
-        return Err(error(format!("semantic metadata rejected by {}: {:?}", assessment.policy, assessment.findings)));
+        return Err(error(format!(
+            "semantic metadata rejected by {}: {:?}",
+            assessment.policy, assessment.findings
+        )));
     }
     Ok(descriptor_set)
 }
@@ -416,9 +506,16 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
                 field.ty,
                 field.direction,
                 field.rules,
-                format!("{:?}", field.named_facets.iter().filter(|(key, _)| key.as_str() != REGISTRY_FIELD_SOURCE).collect::<BTreeMap<_, _>>())
-                    .replace('|', "\\|")
-                    .replace('`', "&#96;")
+                format!(
+                    "{:?}",
+                    field
+                        .named_facets
+                        .iter()
+                        .filter(|(key, _)| key.as_str() != REGISTRY_FIELD_SOURCE)
+                        .collect::<BTreeMap<_, _>>()
+                )
+                .replace('|', "\\|")
+                .replace('`', "&#96;")
             );
         };
         match &owner.shape {
@@ -536,9 +633,12 @@ impl Lower<'_> {
                 }
             }
             let mut options = lowered.options.as_option().cloned().unwrap_or_default();
-            self.metadata.field_options(&mut options, field, self.package)?;
-            if let Some(facets) = registry_facets::field_options(field, self.graph, self.metadata)? {
-                self.metadata.attach(&mut options, registry_facets::EXTENSION, facets)?;
+            self.metadata
+                .field_options(&mut options, field, self.package)?;
+            if let Some(facets) = registry_facets::field_options(field, self.graph, self.metadata)?
+            {
+                self.metadata
+                    .attach(&mut options, registry_facets::EXTENSION, facets)?;
                 self.uses_registry = true;
             }
             lowered.options = options.into();
@@ -571,7 +671,9 @@ impl Lower<'_> {
                     Scalar::I64 => Type::TYPE_SINT64,
                     Scalar::F32Bits => Type::TYPE_FIXED32,
                     Scalar::F64Bits => Type::TYPE_FIXED64,
-                    Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits => Type::TYPE_BYTES,
+                    Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits => {
+                        Type::TYPE_BYTES
+                    }
                 });
                 if matches!(
                     scalar,
@@ -719,7 +821,11 @@ impl Lower<'_> {
                 });
             }
             TypeRef::Scalar(Scalar::I8 | Scalar::I16) => {
-                let (minimum, maximum) = if matches!(ty, TypeRef::Scalar(Scalar::I8)) { (i32::from(i8::MIN), i32::from(i8::MAX)) } else { (i32::from(i16::MIN), i32::from(i16::MAX)) };
+                let (minimum, maximum) = if matches!(ty, TypeRef::Scalar(Scalar::I8)) {
+                    (i32::from(i8::MIN), i32::from(i8::MAX))
+                } else {
+                    (i32::from(i16::MIN), i32::from(i16::MAX))
+                };
                 rules.r#type = Some(
                     SInt32Rules {
                         greater_than: Some(s_int32rules::GreaterThan::Gte(minimum)),
@@ -996,19 +1102,19 @@ fn apply_rule(
                     ..Default::default()
                 }
                 .into(),
-                TypeRef::Scalar(Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits) => {
-                    BytesRules {
-                        min_len: (*min != 0).then_some(*min),
-                        max_len: Some(*max),
-                        len: match ty {
-                            TypeRef::Scalar(Scalar::SemanticId | Scalar::I128Bits) => Some(16),
-                            TypeRef::Scalar(Scalar::ContentHash) => Some(32),
-                            _ => None,
-                        },
-                        ..Default::default()
-                    }
-                    .into()
+                TypeRef::Scalar(
+                    Scalar::Bytes | Scalar::SemanticId | Scalar::ContentHash | Scalar::I128Bits,
+                ) => BytesRules {
+                    min_len: (*min != 0).then_some(*min),
+                    max_len: Some(*max),
+                    len: match ty {
+                        TypeRef::Scalar(Scalar::SemanticId | Scalar::I128Bits) => Some(16),
+                        TypeRef::Scalar(Scalar::ContentHash) => Some(32),
+                        _ => None,
+                    },
+                    ..Default::default()
                 }
+                .into(),
                 TypeRef::Repeated(_) | TypeRef::Set(_) => {
                     let previous = match rules.r#type.take() {
                         Some(validate::__buffa::oneof::field_rules::Type::Repeated(previous)) => {
@@ -1076,21 +1182,42 @@ fn protobuf_map_key(ty: &TypeRef) -> bool {
     )
 }
 
-fn qualify_nested(message: &mut DescriptorProto, prefix: &str) -> Result<(), ProjectionCodegenError> {
-    fn visit(message: &mut DescriptorProto, prefix: &str, ancestors: &mut Vec<(String, std::collections::BTreeSet<String>)>) -> Result<(), ProjectionCodegenError> {
+fn qualify_nested(
+    message: &mut DescriptorProto,
+    prefix: &str,
+) -> Result<(), ProjectionCodegenError> {
+    fn visit(
+        message: &mut DescriptorProto,
+        prefix: &str,
+        ancestors: &mut Vec<(String, std::collections::BTreeSet<String>)>,
+    ) -> Result<(), ProjectionCodegenError> {
         let scope = format!("{prefix}.{}", message.name.as_deref().unwrap_or_default());
-        ancestors.push((scope.clone(), message.nested_type.iter().filter_map(|nested| nested.name.clone()).collect()));
+        ancestors.push((
+            scope.clone(),
+            message
+                .nested_type
+                .iter()
+                .filter_map(|nested| nested.name.clone())
+                .collect(),
+        ));
         for field in &mut message.field {
             if let Some(name) = &mut field.type_name {
                 if !name.starts_with('.') {
                     let first = name.split('.').next().unwrap_or_default();
-                    let declaring = ancestors.iter().rev().find(|(_, names)| names.contains(first))
-                        .ok_or_else(|| error(format!("{scope}: unresolved relative nested type {name}")))?;
+                    let declaring = ancestors
+                        .iter()
+                        .rev()
+                        .find(|(_, names)| names.contains(first))
+                        .ok_or_else(|| {
+                            error(format!("{scope}: unresolved relative nested type {name}"))
+                        })?;
                     *name = format!(".{}.{name}", declaring.0);
                 }
             }
         }
-        for nested in &mut message.nested_type { visit(nested, &scope, ancestors)?; }
+        for nested in &mut message.nested_type {
+            visit(nested, &scope, ancestors)?;
+        }
         ancestors.pop();
         Ok(())
     }

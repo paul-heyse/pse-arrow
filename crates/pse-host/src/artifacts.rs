@@ -9,8 +9,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::num::NonZeroU64;
 mod descriptor;
-pub use descriptor::{DescriptorIdentity, DescriptorRead, read_descriptor};
 pub(crate) use descriptor::identity as descriptor_identity;
+pub use descriptor::{DescriptorIdentity, DescriptorRead, read_descriptor};
 
 /// Explicit selected byte extent. `None` length requests all bytes from the offset.
 #[derive(Clone, Debug)]

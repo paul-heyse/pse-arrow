@@ -59,7 +59,9 @@ pub struct Observation {
 pub struct CompletedObserver(CompletedReport);
 impl CompletedObserver {
     /// Exact completed-artifact address already bound by its native consumer.
-    pub(crate) fn report_path(&self) -> &std::path::Path { self.0.path() }
+    pub(crate) fn report_path(&self) -> &std::path::Path {
+        self.0.path()
+    }
     /// Bind one private report and captured population.
     pub fn new(report: CompletedReport) -> Self {
         Self(report)

@@ -3,12 +3,25 @@
 
 //! Pure source-owned boundary contracts, without product or wire dependencies.
 pub mod boundary_projection;
-pub mod operation_effects;
 pub mod metadata;
+pub mod operation_effects;
 /// Crossing direction of an owner-derived boundary declaration.
-#[derive(Clone,Copy,Debug,PartialEq,Eq,PartialOrd,Ord,Hash,serde::Serialize,serde::Deserialize,strum::EnumString,strum::Display)]
-#[serde(rename_all="snake_case")]
-#[strum(serialize_all="snake_case",const_into_str)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    strum::EnumString,
+    strum::Display,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case", const_into_str)]
 pub enum BoundaryDirection {
     /// Accepted from clients.
     Input,
@@ -18,12 +31,20 @@ pub enum BoundaryDirection {
     Both,
 }
 impl BoundaryDirection {
- /// Every member in registry order.
- pub const ALL:[Self;3]=[Self::Input,Self::Output,Self::Both];
- /// Canonical registry spelling.
- pub const fn as_str(self)->&'static str {match self {Self::Input=>"input",Self::Output=>"output",Self::Both=>"both"}}
- /// Parse a canonical spelling without inventing an unknown member.
- pub fn parse(text:&str)->Option<Self>{text.parse().ok()}
+    /// Every member in registry order.
+    pub const ALL: [Self; 3] = [Self::Input, Self::Output, Self::Both];
+    /// Canonical registry spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Input => "input",
+            Self::Output => "output",
+            Self::Both => "both",
+        }
+    }
+    /// Parse a canonical spelling without inventing an unknown member.
+    pub fn parse(text: &str) -> Option<Self> {
+        text.parse().ok()
+    }
 }
 impl BoundaryDirection {
     /// Whether this declaration participates in the selected projection.

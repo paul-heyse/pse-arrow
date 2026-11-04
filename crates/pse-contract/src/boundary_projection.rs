@@ -14,13 +14,16 @@ mod float_collections;
 mod float_domain;
 mod float_interval;
 mod generic;
-pub use generic::{argument_name as projection_argument_name, optional_argument_name, sequence_argument_name, array_argument_name};
+pub use generic::{
+    argument_name as projection_argument_name, array_argument_name, optional_argument_name,
+    sequence_argument_name,
+};
 mod nominal;
 pub use nominal::identity_shape;
 #[cfg(test)]
-mod optional_text_tests;
-#[cfg(test)]
 mod observation_struct_tests;
+#[cfg(test)]
+mod optional_text_tests;
 mod path;
 mod public_alias_path;
 mod remote;
@@ -30,11 +33,11 @@ mod tuple_pair;
 mod tuple_triple;
 pub use access::{
     Adapted, AdapterError, AdapterFailure, CheckedProjectionRecord, ProjectionAdapter,
-    ProjectionAlternative, ProjectionObservationRecord, ProjectionRecord, SharedAdapter, adapter_source_path,
-    clone_adapter_field, validate_adapted,
+    ProjectionAlternative, ProjectionObservationRecord, ProjectionRecord, SharedAdapter,
+    adapter_source_path, clone_adapter_field, validate_adapted,
 };
-pub use float_collections::NativeContainer;
 pub use bytes::ProjectionBytes;
+pub use float_collections::NativeContainer;
 pub use float_collections::NominalFloat64;
 pub use float_domain::Float64Domain;
 pub use float_interval::Float64Interval;
@@ -385,8 +388,7 @@ impl Service {
 }
 
 /// Invalid or unsupported owner projection.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[derive(miette::Diagnostic)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code("validation.invariant"))]
 pub enum ProjectionError {
     /// A declaration cannot form an unambiguous supported boundary.
@@ -409,8 +411,7 @@ impl ProjectionError {
 }
 
 /// A locally decidable rule violation, separate from contextual or infrastructure refusals.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[derive(miette::Diagnostic)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code("workflow.input"))]
 pub enum ValidationError {
     /// A declared rule rejected the actual native value.
@@ -701,13 +702,27 @@ impl ProjectionGraph {
     /// # Errors
     /// The owner must exist, effect facts must be coherent and repeated source
     /// registration must retain the same declaration.
-    pub fn record_effects(&mut self, name: &str, effects: crate::operation_effects::EffectFacts) -> Result<(), ProjectionError> {
-        let owner = self.definitions.get_mut(name).ok_or_else(|| ProjectionError::invalid(name, "action effect owner is unresolved"))?;
-        if !crate::metadata::effects_coherent(effects.scope, effects.read_only, effects.destructive) {
-            return Err(ProjectionError::invalid(name, "action effect scope conflicts with observation or custody release facts"));
+    pub fn record_effects(
+        &mut self,
+        name: &str,
+        effects: crate::operation_effects::EffectFacts,
+    ) -> Result<(), ProjectionError> {
+        let owner = self
+            .definitions
+            .get_mut(name)
+            .ok_or_else(|| ProjectionError::invalid(name, "action effect owner is unresolved"))?;
+        if !crate::metadata::effects_coherent(effects.scope, effects.read_only, effects.destructive)
+        {
+            return Err(ProjectionError::invalid(
+                name,
+                "action effect scope conflicts with observation or custody release facts",
+            ));
         }
         if owner.effects.is_some_and(|previous| previous != effects) {
-            return Err(ProjectionError::invalid(name, "conflicting original action effect declarations"));
+            return Err(ProjectionError::invalid(
+                name,
+                "conflicting original action effect declarations",
+            ));
         }
         owner.effects = Some(effects);
         Ok(())
@@ -721,19 +736,32 @@ impl ProjectionGraph {
         root: &TypeRef,
     ) -> Result<(), ProjectionError> {
         let TypeRef::Named(name) = root else {
-            return Err(ProjectionError::invalid("observation", "a named record is required"));
+            return Err(ProjectionError::invalid(
+                "observation",
+                "a named record is required",
+            ));
         };
-        if self.building.get(name).is_some_and(|owner| *owner == std::any::type_name::<T>()) {
+        if self
+            .building
+            .get(name)
+            .is_some_and(|owner| *owner == std::any::type_name::<T>())
+        {
             // Recursive registration completes the same outer declaration, which
             // installs the role after its actual fields have been resolved.
             return Ok(());
         }
-        let owner = self.definitions.get_mut(name)
+        let owner = self
+            .definitions
+            .get_mut(name)
             .ok_or_else(|| ProjectionError::invalid(name, "observation owner is unresolved"))?;
         if owner.rust_type != std::any::type_name::<T>()
-            || !matches!(owner.shape, Shape::Record(_)) || owner.checked_record
+            || !matches!(owner.shape, Shape::Record(_))
+            || owner.checked_record
         {
-            return Err(ProjectionError::invalid(name, "observation access must identify its actual native record"));
+            return Err(ProjectionError::invalid(
+                name,
+                "observation access must identify its actual native record",
+            ));
         }
         owner.construction = ConstructionRole::ObservationOnly;
         Ok(())
@@ -766,7 +794,10 @@ impl ProjectionGraph {
             ));
         }
         if owner.construction == ConstructionRole::ObservationOnly {
-            return Err(ProjectionError::invalid(name, "observation owner has no checked inverse adoption"));
+            return Err(ProjectionError::invalid(
+                name,
+                "observation owner has no checked inverse adoption",
+            ));
         }
         owner.checked_record = true;
         Ok(())
@@ -881,8 +912,12 @@ macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProject
 inline_validation!(bool, f32);
 impl ValidateProjection for i128 {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
-    fn projection_length(&self) -> Option<usize> { Some(16) }
+    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
+        Ok(())
+    }
+    fn projection_length(&self) -> Option<usize> {
+        Some(16)
+    }
 }
 impl ValidateProjection for f64 {
     const SUPPORTS_FLOAT64_DOMAIN: bool = true;
@@ -1077,12 +1112,19 @@ impl<T: ProjectionType> ProjectionType for Vec<T> {
 /// Existing native Vec projection, including its explicit byte-vector specialization.
 /// Source renderers reuse this owner instead of reconstructing collection meaning.
 pub fn sequence_type(element: TypeRef) -> TypeRef {
-    if element == TypeRef::Scalar(Scalar::U8) { TypeRef::Scalar(Scalar::Bytes) }
-    else { TypeRef::Repeated(Box::new(element)) }
+    if element == TypeRef::Scalar(Scalar::U8) {
+        TypeRef::Scalar(Scalar::Bytes)
+    } else {
+        TypeRef::Repeated(Box::new(element))
+    }
 }
 /// Recover an element where the existing Vec declaration is already known.
 pub fn sequence_element(sequence: &TypeRef) -> Option<TypeRef> {
-    match sequence { TypeRef::Repeated(element) => Some(element.as_ref().clone()), TypeRef::Scalar(Scalar::Bytes) => Some(TypeRef::Scalar(Scalar::U8)), _ => None }
+    match sequence {
+        TypeRef::Repeated(element) => Some(element.as_ref().clone()),
+        TypeRef::Scalar(Scalar::Bytes) => Some(TypeRef::Scalar(Scalar::U8)),
+        _ => None,
+    }
 }
 
 impl<T: ProjectionType> ProjectionType for Box<T> {

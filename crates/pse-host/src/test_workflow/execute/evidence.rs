@@ -3,11 +3,20 @@
 //! Original performing-helper dependency commitments, distinct from retention now.
 use super::ContentIdentity;
 use crate::test_workflow::WorkflowError;
-use crate::{HostError, envelope::{ErrorRecord, RedactionPolicy}};
+use crate::{
+    HostError,
+    envelope::{ErrorRecord, RedactionPolicy},
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use std::{collections::BTreeSet, fs::{File, OpenOptions}, io::{Read as _, Seek as _}, os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _}, path::{Component, Path, PathBuf}};
+use std::{
+    collections::BTreeSet,
+    fs::{File, OpenOptions},
+    io::{Read as _, Seek as _},
+    os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _},
+    path::{Component, Path, PathBuf},
+};
 
 pse_contract::projection_enum! {
 /// Exact requested developer observation scope; none grants execution authority.
@@ -120,33 +129,51 @@ pub(super) struct SourceFile {
     pub group: Option<usize>,
     pub settled: bool,
 }
-fn invalid(message: impl Into<String>) -> HostError { HostError::Ownership(format!("original workflow evidence: {}", message.into())) }
+fn invalid(message: impl Into<String>) -> HostError {
+    HostError::Ownership(format!("original workflow evidence: {}", message.into()))
+}
 pub(super) fn relative_file(path: &str) -> bool {
-    !path.is_empty() && !path.as_bytes().contains(&0)
-        && path.split('/').all(|part| !part.is_empty() && part != "." && part != "..")
-        && Path::new(path).components().all(|part| matches!(part, Component::Normal(_)))
+    !path.is_empty()
+        && !path.as_bytes().contains(&0)
+        && path
+            .split('/')
+            .all(|part| !part.is_empty() && part != "." && part != "..")
+        && Path::new(path)
+            .components()
+            .all(|part| matches!(part, Component::Normal(_)))
 }
 
 fn address(workflow: &Path, root: EvidenceRoot, path: &str) -> Result<PathBuf, HostError> {
     if !relative_file(path) {
-        return Err(invalid("dependency address is not a normalized relative file"));
+        return Err(invalid(
+            "dependency address is not a normalized relative file",
+        ));
     }
     let base = match root {
         EvidenceRoot::Workflow => workflow,
-        EvidenceRoot::Invocation if path == "workflow-input.json" => workflow.parent().ok_or_else(|| invalid("original invocation root is absent"))?,
-        EvidenceRoot::Invocation => return Err(invalid("invocation dependency is not the fixed workflow input")),
+        EvidenceRoot::Invocation if path == "workflow-input.json" => workflow
+            .parent()
+            .ok_or_else(|| invalid("original invocation root is absent"))?,
+        EvidenceRoot::Invocation => {
+            return Err(invalid(
+                "invocation dependency is not the fixed workflow input",
+            ));
+        }
     };
     crate::test_inventory::checked_parent(base)?;
     let mut current = base.to_owned();
     let mut components = Path::new(path).components().peekable();
     while let Some(component) = components.next() {
         current.push(component.as_os_str());
-        if components.peek().is_some() { crate::test_inventory::checked_parent(&current)?; }
+        if components.peek().is_some() {
+            crate::test_inventory::checked_parent(&current)?;
+        }
     }
     Ok(current)
 }
 fn identity(workflow: &Path, source: &SourceFile) -> Result<ContentIdentity, HostError> {
-    let mut file = crate::test_inventory::open_private(&address(workflow, source.root, &source.path)?)?;
+    let mut file =
+        crate::test_inventory::open_private(&address(workflow, source.root, &source.path)?)?;
     hash_file(&mut file)
 }
 fn hash_file(file: &mut File) -> Result<ContentIdentity, HostError> {
@@ -155,19 +182,39 @@ fn hash_file(file: &mut File) -> Result<ContentIdentity, HostError> {
     let mut buffer = [0u8; 64 * 1024];
     loop {
         let count = file.read(&mut buffer)?;
-        if count == 0 { break; }
+        if count == 0 {
+            break;
+        }
         hash.update(&buffer[..count]);
-        byte_length = byte_length.checked_add(count as u64).ok_or_else(|| invalid("dependency extent overflow"))?;
+        byte_length = byte_length
+            .checked_add(count as u64)
+            .ok_or_else(|| invalid("dependency extent overflow"))?;
     }
-    Ok(ContentIdentity { sha256: hash.finalize().iter().map(|byte| format!("{byte:02x}")).collect(), byte_length })
+    Ok(ContentIdentity {
+        sha256: hash
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+        byte_length,
+    })
 }
 fn owned_runner_entry(path: &Path, file: &File) -> Result<(), HostError> {
     let entry = std::fs::symlink_metadata(path)?;
     let opened = file.metadata()?;
     let user = rustix::process::geteuid().as_raw();
-    if !entry.is_file() || !opened.is_file() || entry.uid()!=user || opened.uid()!=user
-        || entry.nlink()!=1 || opened.nlink()!=1 || entry.dev()!=opened.dev() || entry.ino()!=opened.ino() {
-        return Err(invalid("original runner artifact is not the same unaliased owned regular file"));
+    if !entry.is_file()
+        || !opened.is_file()
+        || entry.uid() != user
+        || opened.uid() != user
+        || entry.nlink() != 1
+        || opened.nlink() != 1
+        || entry.dev() != opened.dev()
+        || entry.ino() != opened.ino()
+    {
+        return Err(invalid(
+            "original runner artifact is not the same unaliased owned regular file",
+        ));
     }
     Ok(())
 }
@@ -179,36 +226,73 @@ fn finalize_runner_descriptor(path: &Path, mut file: File) -> Result<ContentIden
     file.rewind()?;
     let content = hash_file(&mut file)?;
     owned_runner_entry(path, &file)?;
-    if crate::artifacts::descriptor_identity(&file)? != sealed || content.byte_length != sealed.bytes {
-        return Err(invalid("original runner artifact changed during producer finalization"));
+    if crate::artifacts::descriptor_identity(&file)? != sealed
+        || content.byte_length != sealed.bytes
+    {
+        return Err(invalid(
+            "original runner artifact changed during producer finalization",
+        ));
     }
     Ok(content)
 }
-fn finalize_runner_report(workflow: &Path, source: &SourceFile) -> Result<ContentIdentity, HostError> {
-    if source.root != EvidenceRoot::Workflow || source.role != EvidenceRole::RunnerReport { return Err(invalid("only the declared workflow runner artifact can be finalized here")); }
+fn finalize_runner_report(
+    workflow: &Path,
+    source: &SourceFile,
+) -> Result<ContentIdentity, HostError> {
+    if source.root != EvidenceRoot::Workflow || source.role != EvidenceRole::RunnerReport {
+        return Err(invalid(
+            "only the declared workflow runner artifact can be finalized here",
+        ));
+    }
     let path = address(workflow, source.root, &source.path)?;
-    let file = OpenOptions::new().read(true).custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32).open(&path)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .open(&path)?;
     finalize_runner_descriptor(&path, file)
 }
 /// Seal from actual settled producer facts once; retain every original typed cause.
-pub(super) fn seal(workflow: &Path, sources: Vec<SourceFile>) -> (Vec<EvidenceFile>, Vec<WorkflowError>) {
+pub(super) fn seal(
+    workflow: &Path,
+    sources: Vec<SourceFile>,
+) -> (Vec<EvidenceFile>, Vec<WorkflowError>) {
     let mut files = Vec::new();
     let mut causes = Vec::new();
     for source in sources {
-        let mut file = EvidenceFile { root:source.root, path:source.path.clone(), role:source.role, group:source.group, content:None, omission:None, failure:None };
-        if !source.settled { file.omission = Some(EvidenceOmission::Unsettled); }
-        else { match if source.role == EvidenceRole::RunnerReport { finalize_runner_report(workflow, &source) } else { identity(workflow, &source) } {
-            Ok(content) => file.content = Some(content),
-            Err(error) => {
-                file.omission = Some(match &error {
-                    HostError::Io(error) if error.kind() == std::io::ErrorKind::NotFound => EvidenceOmission::Missing,
-                    HostError::Io(_) => EvidenceOmission::Unreadable,
-                    _ => EvidenceOmission::Refused,
-                });
-                file.failure = Some(ErrorRecord::from_typed(&error, &RedactionPolicy::from_environment()));
-                causes.push(error.into());
+        let mut file = EvidenceFile {
+            root: source.root,
+            path: source.path.clone(),
+            role: source.role,
+            group: source.group,
+            content: None,
+            omission: None,
+            failure: None,
+        };
+        if !source.settled {
+            file.omission = Some(EvidenceOmission::Unsettled);
+        } else {
+            match if source.role == EvidenceRole::RunnerReport {
+                finalize_runner_report(workflow, &source)
+            } else {
+                identity(workflow, &source)
+            } {
+                Ok(content) => file.content = Some(content),
+                Err(error) => {
+                    file.omission = Some(match &error {
+                        HostError::Io(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                            EvidenceOmission::Missing
+                        }
+                        HostError::Io(_) => EvidenceOmission::Unreadable,
+                        _ => EvidenceOmission::Refused,
+                    });
+                    file.failure = Some(ErrorRecord::from_typed(
+                        &error,
+                        &RedactionPolicy::from_environment(),
+                    ));
+                    causes.push(error.into());
+                }
             }
-        }}
+        }
         files.push(file);
     }
     (files, causes)
@@ -220,23 +304,63 @@ pub(crate) fn validate(files: &[EvidenceFile]) -> Result<(), HostError> {
         if !relative_file(&file.path) || !addresses.insert((file.root, &file.path)) {
             return Err(invalid("dependency addresses are invalid or repeated"));
         }
-        if file.root == EvidenceRoot::Invocation && (file.path != "workflow-input.json" || file.role != EvidenceRole::Input) {
-            return Err(invalid("only the authenticated input may address invocation custody"));
+        if file.root == EvidenceRoot::Invocation
+            && (file.path != "workflow-input.json" || file.role != EvidenceRole::Input)
+        {
+            return Err(invalid(
+                "only the authenticated input may address invocation custody",
+            ));
         }
-        if file.role == EvidenceRole::Input && file.root != EvidenceRoot::Invocation { return Err(invalid("input commitment has the wrong original custody root")); }
-        if file.role == EvidenceRole::Inventory && (file.root != EvidenceRoot::Workflow || file.path != "inventory/inventory.json") { return Err(invalid("inventory commitment has the wrong original address")); }
-        if (matches!(file.role, EvidenceRole::Input | EvidenceRole::Inventory) && file.group.is_some())
-            || (matches!(file.role, EvidenceRole::RunnerReport | EvidenceRole::CompilerContext | EvidenceRole::FixtureOutcome | EvidenceRole::DiscoveryContext) && file.group.is_none()) {
-            return Err(invalid("dependency role and original compiler-group association disagree"));
+        if file.role == EvidenceRole::Input && file.root != EvidenceRoot::Invocation {
+            return Err(invalid(
+                "input commitment has the wrong original custody root",
+            ));
         }
-        if file.content.is_some() == file.omission.is_some() || (file.content.is_some() && file.failure.is_some()) {
-            return Err(invalid("dependency must have exactly one original commitment or omission"));
+        if file.role == EvidenceRole::Inventory
+            && (file.root != EvidenceRoot::Workflow || file.path != "inventory/inventory.json")
+        {
+            return Err(invalid(
+                "inventory commitment has the wrong original address",
+            ));
         }
-        if file.content.as_ref().is_some_and(|content| content.sha256.len() != 64 || !content.sha256.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))) {
+        if (matches!(file.role, EvidenceRole::Input | EvidenceRole::Inventory)
+            && file.group.is_some())
+            || (matches!(
+                file.role,
+                EvidenceRole::RunnerReport
+                    | EvidenceRole::CompilerContext
+                    | EvidenceRole::FixtureOutcome
+                    | EvidenceRole::DiscoveryContext
+            ) && file.group.is_none())
+        {
+            return Err(invalid(
+                "dependency role and original compiler-group association disagree",
+            ));
+        }
+        if file.content.is_some() == file.omission.is_some()
+            || (file.content.is_some() && file.failure.is_some())
+        {
+            return Err(invalid(
+                "dependency must have exactly one original commitment or omission",
+            ));
+        }
+        if file.content.as_ref().is_some_and(|content| {
+            content.sha256.len() != 64
+                || !content
+                    .sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        }) {
             return Err(invalid("dependency digest is not canonical SHA-256"));
         }
-        if file.omission.is_some_and(|omission| omission != EvidenceOmission::Unsettled) && file.failure.is_none() {
-            return Err(invalid("original dependency refusal lacks its original typed diagnostic"));
+        if file
+            .omission
+            .is_some_and(|omission| omission != EvidenceOmission::Unsettled)
+            && file.failure.is_none()
+        {
+            return Err(invalid(
+                "original dependency refusal lacks its original typed diagnostic",
+            ));
         }
     }
     Ok(())
@@ -246,38 +370,86 @@ pub(super) fn revalidate(workflow: &Path, files: &[EvidenceFile]) -> Result<(), 
     validate(files)?;
     for file in files {
         if let Some(expected) = &file.content {
-            let actual = identity(workflow, &SourceFile { root:file.root, path:file.path.clone(), role:file.role, group:file.group, settled:true })?;
-            if &actual != expected { return Err(invalid(format!("dependency {} differs from its original commitment", file.path))); }
+            let actual = identity(
+                workflow,
+                &SourceFile {
+                    root: file.root,
+                    path: file.path.clone(),
+                    role: file.role,
+                    group: file.group,
+                    settled: true,
+                },
+            )?;
+            if &actual != expected {
+                return Err(invalid(format!(
+                    "dependency {} differs from its original commitment",
+                    file.path
+                )));
+            }
         }
     }
     Ok(())
 }
 /// Acquire a bounded portable closure from the same original native custody reader.
-pub(crate) fn capture(workflow: &Path, files: &[EvidenceFile], budget: usize) -> Result<Vec<CapturedFile>, HostError> {
+pub(crate) fn capture(
+    workflow: &Path,
+    files: &[EvidenceFile],
+    budget: usize,
+) -> Result<Vec<CapturedFile>, HostError> {
     validate(files)?;
     let mut remaining = budget;
     let mut captured = Vec::new();
     for (dependency, file) in files.iter().enumerate() {
-        let Some(expected) = &file.content else { continue; };
-        if expected.byte_length > remaining as u64 { return Err(invalid("full dependency closure exceeds the selected portable extent")); }
-        let file_handle = crate::test_inventory::open_private(&address(workflow, file.root, &file.path)?)?;
+        let Some(expected) = &file.content else {
+            continue;
+        };
+        if expected.byte_length > remaining as u64 {
+            return Err(invalid(
+                "full dependency closure exceeds the selected portable extent",
+            ));
+        }
+        let file_handle =
+            crate::test_inventory::open_private(&address(workflow, file.root, &file.path)?)?;
         let mut original = Vec::new();
-        file_handle.take(remaining.saturating_add(1) as u64).read_to_end(&mut original)?;
+        file_handle
+            .take(remaining.saturating_add(1) as u64)
+            .read_to_end(&mut original)?;
         if original.len() > remaining || &ContentIdentity::of(&original) != expected {
-            return Err(invalid(format!("dependency {} is missing, changed or beyond its original portable extent", file.path)));
+            return Err(invalid(format!(
+                "dependency {} is missing, changed or beyond its original portable extent",
+                file.path
+            )));
         }
         remaining -= original.len();
-        captured.push(CapturedFile { dependency, original });
+        captured.push(CapturedFile {
+            dependency,
+            original,
+        });
     }
     Ok(captured)
 }
 /// Same content/omission rules for independent passive readback; no native owner is constructed.
-pub(crate) fn validate_captured(files: &[EvidenceFile], captured: &[CapturedFile]) -> Result<(), HostError> {
+pub(crate) fn validate_captured(
+    files: &[EvidenceFile],
+    captured: &[CapturedFile],
+) -> Result<(), HostError> {
     validate(files)?;
-    let expected: Vec<_> = files.iter().enumerate().filter_map(|(index, file)| file.content.as_ref().map(|content| (index,content))).collect();
-    if expected.len() != captured.len() { return Err(invalid("included files do not cover the original dependency commitments")); }
+    let expected: Vec<_> = files
+        .iter()
+        .enumerate()
+        .filter_map(|(index, file)| file.content.as_ref().map(|content| (index, content)))
+        .collect();
+    if expected.len() != captured.len() {
+        return Err(invalid(
+            "included files do not cover the original dependency commitments",
+        ));
+    }
     for ((index, content), file) in expected.into_iter().zip(captured) {
-        if file.dependency != index || &ContentIdentity::of(&file.original) != content { return Err(invalid("included file bytes or dependency association differ from the original report")); }
+        if file.dependency != index || &ContentIdentity::of(&file.original) != content {
+            return Err(invalid(
+                "included file bytes or dependency association differ from the original report",
+            ));
+        }
     }
     Ok(())
 }
@@ -292,13 +464,20 @@ mod tests {
         root
     }
     fn source(path: &str, settled: bool) -> SourceFile {
-        SourceFile { root:EvidenceRoot::Workflow, path:path.into(), role:EvidenceRole::Stdout, group:Some(0), settled }
+        SourceFile {
+            root: EvidenceRoot::Workflow,
+            path: path.into(),
+            role: EvidenceRole::Stdout,
+            group: Some(0),
+            settled,
+        }
     }
     #[test]
-    fn sealed_original_dependencies_refuse_same_shape_mutation_missing_and_truncated_portable_closure() {
+    fn sealed_original_dependencies_refuse_same_shape_mutation_missing_and_truncated_portable_closure()
+     {
         let root = private_root();
         let path = root.path().join("run-0.stdout");
-        let original = [0xff,b'\n',b'a'];
+        let original = [0xff, b'\n', b'a'];
         fs::write(&path, original).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
         let (files, causes) = seal(root.path(), vec![source("run-0.stdout", true)]);
@@ -313,24 +492,35 @@ mod tests {
         let mut changed = captured.clone();
         changed.push(captured[0].clone());
         assert!(validate_captured(&files, &changed).is_err());
-        assert!(capture(root.path(), &files, original.len()-1).is_err());
+        assert!(capture(root.path(), &files, original.len() - 1).is_err());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-        fs::write(&path, [0xff,b'\n',b'b']).unwrap();
+        fs::write(&path, [0xff, b'\n', b'b']).unwrap();
         assert!(revalidate(root.path(), &files).is_err());
         assert!(capture(root.path(), &files, 32).is_err());
         fs::remove_file(path).unwrap();
         assert!(capture(root.path(), &files, 32).is_err());
-        assert_eq!(files[0].content.as_ref().unwrap(), &ContentIdentity::of(&original));
+        assert_eq!(
+            files[0].content.as_ref().unwrap(),
+            &ContentIdentity::of(&original)
+        );
     }
     #[test]
     fn original_omissions_do_not_become_commitments_when_files_appear_later() {
         let root = private_root();
-        let (files, causes) = seal(root.path(), vec![source("unsettled.stdout", false),source("absent.stdout", true)]);
+        let (files, causes) = seal(
+            root.path(),
+            vec![
+                source("unsettled.stdout", false),
+                source("absent.stdout", true),
+            ],
+        );
         assert_eq!(causes.len(), 1);
         assert_eq!(files[0].omission, Some(EvidenceOmission::Unsettled));
         assert_eq!(files[1].omission, Some(EvidenceOmission::Missing));
         assert!(files[1].failure.is_some());
-        for name in ["unsettled.stdout","absent.stdout"] { fs::write(root.path().join(name), b"later bytes").unwrap(); }
+        for name in ["unsettled.stdout", "absent.stdout"] {
+            fs::write(root.path().join(name), b"later bytes").unwrap();
+        }
         revalidate(root.path(), &files).unwrap();
         assert!(capture(root.path(), &files, 1024).unwrap().is_empty());
         validate_captured(&files, &[]).unwrap();
@@ -347,10 +537,26 @@ mod tests {
         assert_eq!(files[0].omission, Some(EvidenceOmission::Refused));
         assert!(files[0].content.is_none());
         assert!(capture(root.path(), &files, 1024).unwrap().is_empty());
-        let request = EvidenceFile { root:EvidenceRoot::Invocation, path:"request.json".into(), role:EvidenceRole::Input, group:None, content:None, omission:Some(EvidenceOmission::Refused), failure:None };
+        let request = EvidenceFile {
+            root: EvidenceRoot::Invocation,
+            path: "request.json".into(),
+            role: EvidenceRole::Input,
+            group: None,
+            content: None,
+            omission: Some(EvidenceOmission::Refused),
+            failure: None,
+        };
         assert!(validate(&[request]).is_err());
-        for path in ["../secret","/absolute","nested/../secret","nested//secret","nested/./secret","nul\0file"] {
-            let mut file = files[0].clone(); file.path=path.into();
+        for path in [
+            "../secret",
+            "/absolute",
+            "nested/../secret",
+            "nested//secret",
+            "nested/./secret",
+            "nul\0file",
+        ] {
+            let mut file = files[0].clone();
+            file.path = path.into();
             assert!(validate(&[file]).is_err());
         }
     }
@@ -360,7 +566,8 @@ mod tests {
         let path = root.path().join("junit.xml");
         fs::write(&path, b"<original-report/>").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o664)).unwrap();
-        let mut declared = source("junit.xml", true); declared.role=EvidenceRole::RunnerReport;
+        let mut declared = source("junit.xml", true);
+        declared.role = EvidenceRole::RunnerReport;
         let (files, causes) = seal(root.path(), vec![declared]);
         assert!(causes.is_empty());
         assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o400);
@@ -369,7 +576,11 @@ mod tests {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o664)).unwrap();
         assert!(capture(root.path(), &files, 1024).is_err());
         assert!(revalidate(root.path(), &files).is_err());
-        assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o664, "retained readers cannot finalize or repair a producer artifact");
+        assert_eq!(
+            fs::metadata(&path).unwrap().mode() & 0o777,
+            0o664,
+            "retained readers cannot finalize or repair a producer artifact"
+        );
     }
     #[test]
     fn unresolved_runner_writer_remains_original_omission_without_chmod_or_hash() {
@@ -377,7 +588,8 @@ mod tests {
         let path = root.path().join("junit.xml");
         fs::write(&path, b"partial original bytes").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o664)).unwrap();
-        let mut declared = source("junit.xml", false); declared.role=EvidenceRole::RunnerReport;
+        let mut declared = source("junit.xml", false);
+        declared.role = EvidenceRole::RunnerReport;
         let (files, causes) = seal(root.path(), vec![declared]);
         assert!(causes.is_empty());
         assert_eq!(files[0].omission, Some(EvidenceOmission::Unsettled));
@@ -392,7 +604,8 @@ mod tests {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o664)).unwrap();
         let alias = root.path().join("alias.xml");
         fs::hard_link(&path, &alias).unwrap();
-        let mut declared = source("junit.xml", true); declared.role=EvidenceRole::RunnerReport;
+        let mut declared = source("junit.xml", true);
+        declared.role = EvidenceRole::RunnerReport;
         let (files, causes) = seal(root.path(), vec![declared]);
         assert_eq!(causes.len(), 1);
         assert_eq!(files[0].omission, Some(EvidenceOmission::Refused));

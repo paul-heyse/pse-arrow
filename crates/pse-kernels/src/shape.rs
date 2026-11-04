@@ -117,7 +117,10 @@ impl ProviderShapes {
     }
     /// Owned shape heap, including unused vector slots once, excluding inline shape-list headers.
     pub fn retained_bytes(&self) -> usize {
-        let slots = self.inputs.capacity().saturating_add(self.outputs.capacity())
+        let slots = self
+            .inputs
+            .capacity()
+            .saturating_add(self.outputs.capacity())
             .saturating_mul(size_of::<ProviderShape>());
         self.inputs
             .iter()
@@ -142,21 +145,35 @@ mod tests {
 
     #[test]
     fn retained_shapes_charge_spare_slots_and_nested_allocations_once() {
-        let mut shape = ProviderShape { id: SemanticId::from_bytes([1; 16]),
-            axes: Vec::with_capacity(7), coordinates: Vec::with_capacity(5), cells: Vec::with_capacity(9) };
+        let mut shape = ProviderShape {
+            id: SemanticId::from_bytes([1; 16]),
+            axes: Vec::with_capacity(7),
+            coordinates: Vec::with_capacity(5),
+            cells: Vec::with_capacity(9),
+        };
         shape.axes.push(SemanticId::from_bytes([2; 16]));
         let mut coordinate = Vec::with_capacity(4);
         coordinate.push(SemanticId::from_bytes([3; 16]));
         shape.coordinates.push(coordinate);
         shape.cells.push(SemanticId::from_bytes([4; 16]));
-        let nested = (shape.axes.capacity() + shape.cells.capacity() + shape.coordinates[0].capacity()) * size_of::<SemanticId>()
-            + shape.coordinates.capacity() * size_of::<Vec<SemanticId>>();
-        let mut shapes = ProviderShapes { inputs: Vec::with_capacity(6), outputs: Vec::with_capacity(3) };
+        let nested =
+            (shape.axes.capacity() + shape.cells.capacity() + shape.coordinates[0].capacity())
+                * size_of::<SemanticId>()
+                + shape.coordinates.capacity() * size_of::<Vec<SemanticId>>();
+        let mut shapes = ProviderShapes {
+            inputs: Vec::with_capacity(6),
+            outputs: Vec::with_capacity(3),
+        };
         shapes.inputs.push(shape);
-        let slots = (shapes.inputs.capacity() + shapes.outputs.capacity()) * size_of::<ProviderShape>();
+        let slots =
+            (shapes.inputs.capacity() + shapes.outputs.capacity()) * size_of::<ProviderShape>();
         assert_eq!(shapes.retained_bytes(), slots + nested);
         shapes.inputs.clear();
-        assert_eq!(shapes.retained_bytes(), slots, "spare outer slots remain owned after nested values drop");
+        assert_eq!(
+            shapes.retained_bytes(),
+            slots,
+            "spare outer slots remain owned after nested values drop"
+        );
     }
 
     #[test]

@@ -293,5 +293,5 @@ pub mod stop;
 /// Owner-independent execution lifecycle vocabulary.
 pub mod lifecycle;
 
-mod contract_projection;
 mod contract_errors;
+mod contract_projection;

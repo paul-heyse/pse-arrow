@@ -294,8 +294,10 @@ impl<const N: u32> Version<N> {
 impl<const N: u32> pse_contract::boundary_projection::ProjectionType for Version<N> {
     fn projection(
         graph: &mut pse_contract::boundary_projection::ProjectionGraph,
-    ) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError>
-    {
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
         use pse_contract::boundary_projection::{Direction, Field, LocalRule, Shape};
         graph.declare::<Self>(
             &format!("DocumentVersion{N}"),
@@ -342,7 +344,10 @@ impl<const N: u32> pse_contract::boundary_projection::ProjectionRecord for Versi
 }
 impl<const N: u32> pse_contract::boundary_projection::ValidateProjection for Version<N> {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

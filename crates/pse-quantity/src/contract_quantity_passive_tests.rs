@@ -65,12 +65,9 @@ fn passive_resolved_output_facts_are_readable_but_native_restoration_requires_re
     // handmade receipt or a duplicate Type AST would not establish this case.
     let registry = crate::generated::standard_registry().unwrap();
     let quantity = registry.neutral_dimensionless().unwrap();
-    let contract = crate::ResolvedPhysicalContract::named(
-        quantity,
-        crate::IndexSet::new(),
-        &registry,
-    )
-    .unwrap();
+    let contract =
+        crate::ResolvedPhysicalContract::named(quantity, crate::IndexSet::new(), &registry)
+            .unwrap();
     let record = ContractRecord::capture(&contract);
     let original = serde_json::to_vec(&record).unwrap();
     let scheme = Scheme::Resolved(Box::new(contract.clone()));

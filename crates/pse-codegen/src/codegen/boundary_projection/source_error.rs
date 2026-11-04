@@ -44,7 +44,11 @@ pub enum ProjectionCodegenError {
 }
 impl ProjectionCodegenError {
     pub(super) fn at(self, file: impl Into<String>, subject: impl Into<String>) -> Self {
-        Self::At { file: file.into(), subject: subject.into(), source: Box::new(self) }
+        Self::At {
+            file: file.into(),
+            subject: subject.into(),
+            source: Box::new(self),
+        }
     }
 }
 
@@ -55,15 +59,26 @@ mod tests {
 
     #[test]
     fn source_and_metadata_categories_remain_typed_at_codegen_boundary() {
-        let source = pse_schema::SchemaError::UnknownReference { context: "native field".into(), reference: "absent owner".into() };
+        let source = pse_schema::SchemaError::UnknownReference {
+            context: "native field".into(),
+            reference: "absent owner".into(),
+        };
         let original_code = source.code().unwrap().to_string();
         let wrapped = ProjectionCodegenError::from(source);
         assert_eq!(wrapped.code().unwrap().to_string(), original_code);
-        assert!(matches!(wrapped, ProjectionCodegenError::Registry(pse_schema::SchemaError::UnknownReference { .. })));
-        let source = pse_contract_proto::MetadataError::Invalid { reason: "selected option absent".into() };
+        assert!(matches!(
+            wrapped,
+            ProjectionCodegenError::Registry(pse_schema::SchemaError::UnknownReference { .. })
+        ));
+        let source = pse_contract_proto::MetadataError::Invalid {
+            reason: "selected option absent".into(),
+        };
         let original_code = source.code().unwrap().to_string();
         let wrapped = ProjectionCodegenError::from(source);
         assert_eq!(wrapped.code().unwrap().to_string(), original_code);
-        assert!(matches!(wrapped, ProjectionCodegenError::Metadata(pse_contract_proto::MetadataError::Invalid { .. })));
+        assert!(matches!(
+            wrapped,
+            ProjectionCodegenError::Metadata(pse_contract_proto::MetadataError::Invalid { .. })
+        ));
     }
 }

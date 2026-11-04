@@ -175,7 +175,9 @@ pub enum HostError {
 }
 
 impl From<developer_evidence::EvidenceError> for HostError {
-    fn from(error: developer_evidence::EvidenceError) -> Self { Self::DeveloperEvidence(Box::new(error)) }
+    fn from(error: developer_evidence::EvidenceError) -> Self {
+        Self::DeveloperEvidence(Box::new(error))
+    }
 }
 
 pse_diagnostics::impl_diagnostic! {

@@ -240,9 +240,8 @@ impl bindings::EngineeringService for Implementation {
             )
             .await
             .map_err(transport)?;
-        let message =
-            crate::engineering_projection::encode_original_source_file(output.document)
-                .map_err(study::projection_error)?;
+        let message = crate::engineering_projection::encode_original_source_file(output.document)
+            .map_err(study::projection_error)?;
         Ok(connectrpc::Response::new(AccountedResponse {
             message,
             reservation: output.owner,
@@ -650,20 +649,36 @@ mod connection_settlement_tests {
         let mut connections = tokio::task::JoinSet::new();
         connections.spawn(async { Ok::<_, std::io::Error>(()) });
         connections.spawn(async { Err(std::io::Error::other("original connection failure")) });
-        let mut failures = vec![EngineeringServiceError::Request("original native shutdown refusal".into())];
+        let mut failures = vec![EngineeringServiceError::Request(
+            "original native shutdown refusal".into(),
+        )];
         while let Some(joined) = connections.join_next().await {
             if let Some(error) = connection_failure(joined, false) {
                 failures.push(error);
             }
         }
-        let EngineeringServiceError::Shutdown(failures) = shutdown_result(failures).unwrap_err() else {
+        let EngineeringServiceError::Shutdown(failures) = shutdown_result(failures).unwrap_err()
+        else {
             panic!("independent failures must remain an aggregate")
         };
         assert_eq!(failures.len(), 2);
-        assert!(matches!(&failures[0], EngineeringServiceError::Request(message) if message == "original native shutdown refusal"));
-        let EngineeringServiceError::Owner(source) = &failures[1] else { panic!("connection cause lost") };
-        assert_eq!(source.downcast_ref::<std::io::Error>().unwrap().to_string(), "original connection failure");
-        assert!(connection_failure(Ok(Err(std::io::Error::other("completed before abort"))), true).is_some());
+        assert!(
+            matches!(&failures[0], EngineeringServiceError::Request(message) if message == "original native shutdown refusal")
+        );
+        let EngineeringServiceError::Owner(source) = &failures[1] else {
+            panic!("connection cause lost")
+        };
+        assert_eq!(
+            source.downcast_ref::<std::io::Error>().unwrap().to_string(),
+            "original connection failure"
+        );
+        assert!(
+            connection_failure(
+                Ok(Err(std::io::Error::other("completed before abort"))),
+                true
+            )
+            .is_some()
+        );
         assert!(shutdown_result(Vec::new()).is_ok());
     }
 
@@ -673,10 +688,16 @@ mod connection_settlement_tests {
         connections.spawn(async { panic!("original connection panic") });
         let joined = connections.join_next().await.unwrap();
         assert!(joined.as_ref().unwrap_err().is_panic());
-        let EngineeringServiceError::Owner(source) = connection_failure(joined, true).unwrap() else {
+        let EngineeringServiceError::Owner(source) = connection_failure(joined, true).unwrap()
+        else {
             panic!("original task failure lost")
         };
-        assert!(source.downcast_ref::<tokio::task::JoinError>().unwrap().is_panic());
+        assert!(
+            source
+                .downcast_ref::<tokio::task::JoinError>()
+                .unwrap()
+                .is_panic()
+        );
     }
 
     #[tokio::test]

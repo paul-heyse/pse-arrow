@@ -223,18 +223,41 @@ pub struct OperandConversion {
 }
 }
 impl pse_contract::boundary_projection::ProjectionType for BuiltInRule {
-    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
         use pse_contract::boundary_projection::{Direction, Shape};
-        let root = graph.declare::<Self>("PhysicalBuiltInRule", file!(), 1, Direction::Both, &[], &[], |_| {
-            Ok(Shape::StringEnum(Self::ALL.iter().map(|value| value.as_str().to_owned()).collect()))
-        })?;
+        let root = graph.declare::<Self>(
+            "PhysicalBuiltInRule",
+            file!(),
+            1,
+            Direction::Both,
+            &[],
+            &[],
+            |_| {
+                Ok(Shape::StringEnum(
+                    Self::ALL
+                        .iter()
+                        .map(|value| value.as_str().to_owned())
+                        .collect(),
+                ))
+            },
+        )?;
         graph.public_path::<Self>(&root, "crate::infer::BuiltInRule")?;
         Ok(root)
     }
 }
 impl pse_contract::boundary_projection::ValidateProjection for BuiltInRule {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> { Ok(()) }
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        Ok(())
+    }
 }
 /// The complete result and derivation dependencies.
 #[derive(Clone, Debug)]

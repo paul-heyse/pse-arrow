@@ -563,7 +563,10 @@ fn exact_byte_publication_is_bounded_atomic_and_exclusive() {
     assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
     publish_bytes(&destination, b"complete", Some(8), 0o400).unwrap();
     assert_eq!(fs::read(&destination).unwrap(), b"complete");
-    assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o400);
+    assert_eq!(
+        fs::metadata(&destination).unwrap().permissions().mode() & 0o777,
+        0o400
+    );
     assert!(publish_bytes(&destination, b"replaced", Some(8), 0o600).is_err());
     assert_eq!(fs::read(&destination).unwrap(), b"complete");
     assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 1);

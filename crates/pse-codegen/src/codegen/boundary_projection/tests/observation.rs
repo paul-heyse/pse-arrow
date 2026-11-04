@@ -22,17 +22,28 @@ fn observation_parents_borrow_nested_sealed_box_and_collection_snapshots() {
             selected: Option<NativeObservation> => { tag: 3, direction: Direction::Both, rules: [] };
         }
     }
-    let native = ObservedParent { child: Box::new(NativeObservation { recorded: 42 }),
-        history: vec![NativeObservation { recorded: 17 }], selected: None };
+    let native = ObservedParent {
+        child: Box::new(NativeObservation { recorded: 42 }),
+        history: vec![NativeObservation { recorded: 17 }],
+        selected: None,
+    };
     let (child, history, selected) = native.observation_fields().unwrap();
-    assert_eq!(child.recorded, 42); assert_eq!(history[0].recorded, 17); assert!(selected.is_none());
+    assert_eq!(child.recorded, 42);
+    assert_eq!(history[0].recorded, 17);
+    assert!(selected.is_none());
     assert_eq!(native.child.recorded, 42);
     let graph = ProjectionGraph::of::<ObservedParent>().unwrap();
-    for source in [native_adapters(&graph, &["ObservedParent"], "crate::wire", "pse_codegen").unwrap(),
-        native_adapters_retaining_wire(&graph, &["ObservedParent"], "crate::wire", "pse_codegen").unwrap()] {
+    for source in [
+        native_adapters(&graph, &["ObservedParent"], "crate::wire", "pse_codegen").unwrap(),
+        native_adapters_retaining_wire(&graph, &["ObservedParent"], "crate::wire", "pse_codegen")
+            .unwrap(),
+    ] {
         assert!(!source.contains("NativeFrom"));
         assert!(!source.contains("decode_observed_parent"));
-        assert!(source.contains("Borrow::<"), "named sealed children borrow through Box and collection snapshots");
+        assert!(
+            source.contains("Borrow::<"),
+            "named sealed children borrow through Box and collection snapshots"
+        );
         syn::parse_file(&source).unwrap();
     }
 }
@@ -43,10 +54,23 @@ impl Drop for NativeObservation {
 
 impl ProjectionType for NativeObservation {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-        let root = graph.declare::<Self>("NativeObservation", file!(), 1,
-            Direction::Output, &[], &[], |graph| Ok(Shape::Record(vec![
-                Field::of::<u64>(graph, "recorded", 1, Direction::Output, vec![])?,
-            ])))?;
+        let root = graph.declare::<Self>(
+            "NativeObservation",
+            file!(),
+            1,
+            Direction::Output,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![Field::of::<u64>(
+                    graph,
+                    "recorded",
+                    1,
+                    Direction::Output,
+                    vec![],
+                )?]))
+            },
+        )?;
         graph.observation_record::<Self>(&root)?;
         Ok(root)
     }
@@ -62,7 +86,10 @@ impl ProjectionObservationRecord for NativeObservation {
 }
 
 impl pse_contract::boundary_projection::ValidateProjection for NativeObservation {
-    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -71,30 +98,74 @@ impl pse_contract::boundary_projection::ValidateProjection for NativeObservation
 fn observation_owners_are_borrowed_and_never_have_inverse_native_adapters() {
     let native = NativeObservation { recorded: 42 };
     assert_eq!(native.observation_fields().unwrap(), (42,));
-    assert_eq!(native.recorded, 42, "observation does not consume Drop custody");
+    assert_eq!(
+        native.recorded, 42,
+        "observation does not consume Drop custody"
+    );
     let graph = ProjectionGraph::of::<NativeObservation>().unwrap();
-    let descriptors = descriptors_with_imports(&graph, "pse.observation.v1", "observation.proto", &imports()).unwrap();
-    let file = descriptors.file.iter().find(|file| file.name.as_deref() == Some("observation.proto")).unwrap();
-    assert!(file.source_code_info.as_option().is_none(), "owner provenance does not invent a Rust source span");
+    let descriptors = descriptors_with_imports(
+        &graph,
+        "pse.observation.v1",
+        "observation.proto",
+        &imports(),
+    )
+    .unwrap();
+    let file = descriptors
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("observation.proto"))
+        .unwrap();
+    assert!(
+        file.source_code_info.as_option().is_none(),
+        "owner provenance does not invent a Rust source span"
+    );
     let encoder = OptionEncoder::new(&descriptors.file).unwrap();
-    let options = encoder.decode_extension(file.message_type[0].options.as_option().unwrap(), "pse.contract.v1.message").unwrap().unwrap();
-    assert_eq!(options.field_by_number(4), Some(&buffa_descriptor::Value::EnumNumber(2)), "output direction is independently published");
-    assert_eq!(options.field_by_number(5), Some(&buffa_descriptor::Value::EnumNumber(2)), "the native observation role is published explicitly");
+    let options = encoder
+        .decode_extension(
+            file.message_type[0].options.as_option().unwrap(),
+            "pse.contract.v1.message",
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        options.field_by_number(4),
+        Some(&buffa_descriptor::Value::EnumNumber(2)),
+        "output direction is independently published"
+    );
+    assert_eq!(
+        options.field_by_number(5),
+        Some(&buffa_descriptor::Value::EnumNumber(2)),
+        "the native observation role is published explicitly"
+    );
     for source in [
         native_adapters(&graph, &["NativeObservation"], "crate::wire", "pse_codegen").unwrap(),
-        native_adapters_retaining_wire(&graph, &["NativeObservation"], "crate::wire", "pse_codegen").unwrap(),
+        native_adapters_retaining_wire(
+            &graph,
+            &["NativeObservation"],
+            "crate::wire",
+            "pse_codegen",
+        )
+        .unwrap(),
     ] {
         let parsed = syn::parse_file(&source).unwrap();
         assert!(source.contains("ProjectionObservationRecord"));
         assert!(!source.contains("NativeFrom"));
         assert!(!source.contains("from_projection_fields"));
         assert!(!source.contains("decode_native_observation"));
-        let encode = parsed.items.iter().find_map(|item| match item {
-            syn::Item::Fn(function) if function.sig.ident == "encode_native_observation" => Some(function),
-            _ => None,
-        }).unwrap();
-        assert!(matches!(encode.sig.inputs.first(), Some(syn::FnArg::Typed(argument))
-            if matches!(argument.ty.as_ref(), syn::Type::Reference(_))));
+        let encode = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                syn::Item::Fn(function) if function.sig.ident == "encode_native_observation" => {
+                    Some(function)
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert!(
+            matches!(encode.sig.inputs.first(), Some(syn::FnArg::Typed(argument))
+            if matches!(argument.ty.as_ref(), syn::Type::Reference(_)))
+        );
     }
 }
 
@@ -108,6 +179,11 @@ fn reconstructible_parent_cannot_hide_observation_only_native_child() {
         }
     }
     let graph = ProjectionGraph::of::<NativeParent>().unwrap();
-    let error = native_adapters(&graph, &["NativeParent"], "crate::wire", "pse_codegen").unwrap_err();
-    assert!(error.to_string().contains("observation-only native owner NativeObservation"));
+    let error =
+        native_adapters(&graph, &["NativeParent"], "crate::wire", "pse_codegen").unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("observation-only native owner NativeObservation")
+    );
 }

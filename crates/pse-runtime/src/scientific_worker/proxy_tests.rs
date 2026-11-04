@@ -37,16 +37,25 @@ struct ControlledNative {
 }
 impl Provider for ControlledNative {
     fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
-        self.mode == "batch-cooperative" && request.order == DerivativeOrder::Value
+        self.mode == "batch-cooperative"
+            && request.order == DerivativeOrder::Value
             && matches!(request.demand, ProviderDemand::CompleteJets)
     }
-    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], _request: &PreparedProviderRequest,
-        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+    fn fill_batch(
+        &mut self,
+        points: &[&ProviderBatchPoint],
+        _request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
         assert_eq!(points.len(), 2, "one controlled group owns both points");
         std::fs::write(&self.marker, b"one native group active").unwrap();
         loop {
             if let Err(error) = context.check() {
-                std::fs::write(self.marker.with_extension("settled"), b"native group returned").unwrap();
+                std::fs::write(
+                    self.marker.with_extension("settled"),
+                    b"native group returned",
+                )
+                .unwrap();
                 return Err(error);
             }
             std::thread::sleep(Duration::from_millis(1));
@@ -371,51 +380,122 @@ fn actual_water_group_transport_preserves_raw_point_admission_and_capability() {
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("batch-native");
     let registry = pse_quantity::standard::standard_registry().unwrap();
-    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap()
-        .test_entry("scientific_worker::proxy::tests::controlled_child", "water-batch", marker);
-    let factory = LocalWaterFactory::prepare(image, &registry, WaterRegime::Liquid, service.clone()).unwrap();
-    let raw = ProviderRequest { outputs: vec![2, 0, 1], order: DerivativeOrder::Value,
-        demand: ProviderDemand::CompleteJets };
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+        .unwrap()
+        .test_entry(
+            "scientific_worker::proxy::tests::controlled_child",
+            "water-batch",
+            marker,
+        );
+    let factory =
+        LocalWaterFactory::prepare(image, &registry, WaterRegime::Liquid, service.clone()).unwrap();
+    let raw = ProviderRequest {
+        outputs: vec![2, 0, 1],
+        order: DerivativeOrder::Value,
+        demand: ProviderDemand::CompleteJets,
+    };
     let request = PreparedProviderRequest::new(Arc::new(factory.spec().clone()), raw).unwrap();
     let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
-    let mut proxy = Proxy { factory, scope, attempt: pse_operations::mint_id(), remote: None,
-        prepared: vec![], invocation: 0, failed: false };
+    let mut proxy = Proxy {
+        factory,
+        scope,
+        attempt: pse_operations::mint_id(),
+        remote: None,
+        prepared: vec![],
+        invocation: 0,
+        failed: false,
+    };
     proxy.prepare_demand(&request).unwrap();
     assert!(proxy.supports_batch(&request));
     let pid = proxy.remote.as_ref().unwrap().child.pid();
-    let derivative = PreparedProviderRequest::new(Arc::new(proxy.factory.spec().clone()),
-        ProviderRequest::all(proxy.factory.spec(), DerivativeOrder::First)).unwrap();
+    let derivative = PreparedProviderRequest::new(
+        Arc::new(proxy.factory.spec().clone()),
+        ProviderRequest::all(proxy.factory.spec(), DerivativeOrder::First),
+    )
+    .unwrap();
     proxy.prepare_demand(&derivative).unwrap();
     assert!(!proxy.supports_batch(&derivative));
     let points = [
-        ProviderBatchPoint::values(SemanticId::from_bytes([1; 16]), vec![300.0, 996.556 / 0.018_015_268]),
-        ProviderBatchPoint::values(SemanticId::from_bytes([2; 16]), vec![f64::from_bits(0x7ff8_0000_0000_1234), 55000.0]),
+        ProviderBatchPoint::values(
+            SemanticId::from_bytes([1; 16]),
+            vec![300.0, 996.556 / 0.018_015_268],
+        ),
+        ProviderBatchPoint::values(
+            SemanticId::from_bytes([2; 16]),
+            vec![f64::from_bits(0x7ff8_0000_0000_1234), 55000.0],
+        ),
         ProviderBatchPoint::values(SemanticId::from_bytes([3; 16]), vec![250.0, 55000.0]),
-        ProviderBatchPoint::values(SemanticId::from_bytes([4; 16]), vec![500.0, 0.435 / 0.018_015_268]),
+        ProviderBatchPoint::values(
+            SemanticId::from_bytes([4; 16]),
+            vec![500.0, 0.435 / 0.018_015_268],
+        ),
         ProviderBatchPoint::values(SemanticId::from_bytes([5; 16]), vec![310.0, 56000.0]),
     ];
     let cancelled = std::sync::atomic::AtomicBool::new(false);
-    let context = EvaluationContext { cancelled: &cancelled, max_result_bytes: 65536 };
+    let context = EvaluationContext {
+        cancelled: &cancelled,
+        max_result_bytes: 65536,
+    };
     // Enter below parent-side scalar shape admission so raw NaN actually crosses the binary wire.
     let refs: Vec<_> = points.iter().collect();
     let results = proxy.fill_batch(&refs, &request, &context).unwrap();
     let first = results[0].as_ref().unwrap();
-    assert!((first.values[1] - 99_241.835_2).abs() < 0.02, "independent IAPWS pressure control");
+    assert!(
+        (first.values[1] - 99_241.835_2).abs() < 0.02,
+        "independent IAPWS pressure control"
+    );
     assert!(results[1..4].iter().all(Result::is_err));
     assert!(results[4].is_ok());
     let handle = proxy.handle_for(&request).unwrap();
-    let response = proxy.remote.as_ref().unwrap().exchange(p::Request::EvaluateBatch(p::EvaluateBatch {
-        handle: handle.clone(), invocation: proxy.invocation,
-        points: vec![p::BatchPoint { id: points[0].id, inputs: points[0].inputs.iter().map(|x| x.to_bits()).collect(),
-            directions: vec![], cotangents: vec![], weights: vec![] }],
-    }), &proxy.scope, None).unwrap();
-    assert!(matches!(response, p::Response::Failure(p::Failure::Contract(_))));
-    let duplicate = p::BatchPoint { id: points[0].id,
-        inputs: points[0].inputs.iter().map(|x| x.to_bits()).collect(), directions: vec![], cotangents: vec![], weights: vec![] };
-    let response = proxy.remote.as_ref().unwrap().exchange(p::Request::EvaluateBatch(p::EvaluateBatch {
-        handle, invocation: proxy.invocation + 1, points: vec![duplicate.clone(), duplicate],
-    }), &proxy.scope, None).unwrap();
-    assert!(matches!(response, p::Response::Failure(p::Failure::Contract(_))));
+    let response = proxy
+        .remote
+        .as_ref()
+        .unwrap()
+        .exchange(
+            p::Request::EvaluateBatch(p::EvaluateBatch {
+                handle: handle.clone(),
+                invocation: proxy.invocation,
+                points: vec![p::BatchPoint {
+                    id: points[0].id,
+                    inputs: points[0].inputs.iter().map(|x| x.to_bits()).collect(),
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }],
+            }),
+            &proxy.scope,
+            None,
+        )
+        .unwrap();
+    assert!(matches!(
+        response,
+        p::Response::Failure(p::Failure::Contract(_))
+    ));
+    let duplicate = p::BatchPoint {
+        id: points[0].id,
+        inputs: points[0].inputs.iter().map(|x| x.to_bits()).collect(),
+        directions: vec![],
+        cotangents: vec![],
+        weights: vec![],
+    };
+    let response = proxy
+        .remote
+        .as_ref()
+        .unwrap()
+        .exchange(
+            p::Request::EvaluateBatch(p::EvaluateBatch {
+                handle,
+                invocation: proxy.invocation + 1,
+                points: vec![duplicate.clone(), duplicate],
+            }),
+            &proxy.scope,
+            None,
+        )
+        .unwrap();
+    assert!(matches!(
+        response,
+        p::Response::Failure(p::Failure::Contract(_))
+    ));
     // A refused replay did not revoke this original prepared session or its next invocation.
     assert!(proxy.fill_batch(&refs, &request, &context).unwrap()[0].is_ok());
     drop(proxy);
@@ -424,7 +504,10 @@ fn actual_water_group_transport_preserves_raw_point_admission_and_capability() {
     let execution = native.execution_report();
     for name in ["math_native_active", "math_native_population"] {
         assert_eq!(
-            execution.iter().find(|(key, _)| *key == name).map(|(_, count)| *count),
+            execution
+                .iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, count)| *count),
             Some(Some(0)),
             "native admission counter {name} must be present and settled",
         );
@@ -437,14 +520,30 @@ fn stop_active_group_drains_native_work_and_preserves_control_admission() {
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("group-active");
     let registry = pse_quantity::standard::standard_registry().unwrap();
-    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap()
-        .test_entry("scientific_worker::proxy::tests::controlled_child", "batch-cooperative", marker.clone());
-    let factory = LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
-    let request = PreparedProviderRequest::new(Arc::new(factory.spec().clone()),
-        ProviderRequest::all(factory.spec(), DerivativeOrder::Value)).unwrap();
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+        .unwrap()
+        .test_entry(
+            "scientific_worker::proxy::tests::controlled_child",
+            "batch-cooperative",
+            marker.clone(),
+        );
+    let factory =
+        LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let request = PreparedProviderRequest::new(
+        Arc::new(factory.spec().clone()),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
+    )
+    .unwrap();
     let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
-    let mut proxy = Proxy { factory, scope, attempt: pse_operations::mint_id(), remote: None,
-        prepared: vec![], invocation: 0, failed: false };
+    let mut proxy = Proxy {
+        factory,
+        scope,
+        attempt: pse_operations::mint_id(),
+        remote: None,
+        prepared: vec![],
+        invocation: 0,
+        failed: false,
+    };
     proxy.prepare_demand(&request).unwrap();
     assert!(proxy.supports_batch(&request));
     let handle = proxy.handle_for(&request).unwrap();
@@ -452,19 +551,47 @@ fn stop_active_group_drains_native_work_and_preserves_control_admission() {
     let pid = remote.child.pid();
     let io = remote.io.as_ref().unwrap();
     std::thread::scope(|threads| {
-        let evaluating = threads.spawn(|| io.exchange(p::Request::EvaluateBatch(p::EvaluateBatch {
-            handle: handle.clone(), invocation: 1,
-            points: [1, 2].map(|id| p::BatchPoint { id: SemanticId::from_bytes([id; 16]),
-                inputs: [500.0f64, 20.0].map(f64::to_bits).to_vec(), directions: vec![], cotangents: vec![], weights: vec![] }).to_vec(),
-        }), &proxy.scope, None));
+        let evaluating = threads.spawn(|| {
+            io.exchange(
+                p::Request::EvaluateBatch(p::EvaluateBatch {
+                    handle: handle.clone(),
+                    invocation: 1,
+                    points: [1, 2]
+                        .map(|id| p::BatchPoint {
+                            id: SemanticId::from_bytes([id; 16]),
+                            inputs: [500.0f64, 20.0].map(f64::to_bits).to_vec(),
+                            directions: vec![],
+                            cotangents: vec![],
+                            weights: vec![],
+                        })
+                        .to_vec(),
+                }),
+                &proxy.scope,
+                None,
+            )
+        });
         let deadline = Instant::now() + Duration::from_secs(10);
-        while !marker.exists() { assert!(Instant::now() < deadline); std::thread::sleep(Duration::from_millis(1)); }
+        while !marker.exists() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert!(pool.reserved() > 0);
-        assert!(matches!(io.exchange(p::Request::Stop(handle.clone()), &proxy.scope, None).unwrap(),
-            p::Response::Closed(actual) if actual == handle));
-        assert!(marker.with_extension("settled").exists(), "stop acknowledgement follows actual group return");
-        assert!(matches!(evaluating.join().unwrap().unwrap(), p::Response::Failure(p::Failure::Cancelled)));
-        assert!(pool.reserved() > 0, "process and I/O custody retain aggregate admission after one group retires");
+        assert!(
+            matches!(io.exchange(p::Request::Stop(handle.clone()), &proxy.scope, None).unwrap(),
+            p::Response::Closed(actual) if actual == handle)
+        );
+        assert!(
+            marker.with_extension("settled").exists(),
+            "stop acknowledgement follows actual group return"
+        );
+        assert!(matches!(
+            evaluating.join().unwrap().unwrap(),
+            p::Response::Failure(p::Failure::Cancelled)
+        ));
+        assert!(
+            pool.reserved() > 0,
+            "process and I/O custody retain aggregate admission after one group retires"
+        );
     });
     drop(proxy);
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
@@ -476,25 +603,60 @@ fn malformed_group_completion_never_publishes_partial_products() {
     let (service, pool, _native) = service();
     let registry = pse_quantity::standard::standard_registry().unwrap();
     let directory = tempfile::tempdir().unwrap();
-    for mode in ["water-batch-wrong-shape", "water-batch-wrong-point", "water-batch-missing-point", "water-batch-nonfinite"] {
-        let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap()
-            .test_entry("scientific_worker::proxy::tests::controlled_child", mode, directory.path().join(mode));
-        let factory = LocalWaterFactory::prepare(image, &registry, WaterRegime::Liquid, service.clone()).unwrap();
-        let request = PreparedProviderRequest::new(Arc::new(factory.spec().clone()),
-            ProviderRequest::all(factory.spec(), DerivativeOrder::Value)).unwrap();
+    for mode in [
+        "water-batch-wrong-shape",
+        "water-batch-wrong-point",
+        "water-batch-missing-point",
+        "water-batch-nonfinite",
+    ] {
+        let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
+            .unwrap()
+            .test_entry(
+                "scientific_worker::proxy::tests::controlled_child",
+                mode,
+                directory.path().join(mode),
+            );
+        let factory =
+            LocalWaterFactory::prepare(image, &registry, WaterRegime::Liquid, service.clone())
+                .unwrap();
+        let request = PreparedProviderRequest::new(
+            Arc::new(factory.spec().clone()),
+            ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
+        )
+        .unwrap();
         let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
-        let mut proxy = Proxy { factory, scope, attempt: pse_operations::mint_id(), remote: None,
-            prepared: vec![], invocation: 0, failed: false };
+        let mut proxy = Proxy {
+            factory,
+            scope,
+            attempt: pse_operations::mint_id(),
+            remote: None,
+            prepared: vec![],
+            invocation: 0,
+            failed: false,
+        };
         proxy.prepare_demand(&request).unwrap();
         let pid = proxy.remote.as_ref().unwrap().child.pid();
         let points = [
-            ProviderBatchPoint::values(SemanticId::from_bytes([1; 16]), vec![300.0, 996.556 / 0.018_015_268]),
+            ProviderBatchPoint::values(
+                SemanticId::from_bytes([1; 16]),
+                vec![300.0, 996.556 / 0.018_015_268],
+            ),
             ProviderBatchPoint::values(SemanticId::from_bytes([2; 16]), vec![310.0, 56000.0]),
         ];
         let refs: Vec<_> = points.iter().collect();
         let cancelled = std::sync::atomic::AtomicBool::new(false);
-        let result = proxy.fill_batch(&refs, &request, &EvaluationContext { cancelled: &cancelled, max_result_bytes: 65536 });
-        assert!(result.is_err(), "malformed whole-group framing never grants its first point's partial success");
+        let result = proxy.fill_batch(
+            &refs,
+            &request,
+            &EvaluationContext {
+                cancelled: &cancelled,
+                max_result_bytes: 65536,
+            },
+        );
+        assert!(
+            result.is_err(),
+            "malformed whole-group framing never grants its first point's partial success"
+        );
         assert!(proxy.failed);
         assert!(proxy.remote.is_none());
         assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
@@ -868,7 +1030,9 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
             .unwrap()
             .exchange(p::Request::Prepare(request), &proxy.scope, None)
             .unwrap();
-        assert!(matches!(response, p::Response::Prepared(actual) if actual.handle == handle && !actual.batch_supported));
+        assert!(
+            matches!(response, p::Response::Prepared(actual) if actual.handle == handle && !actual.batch_supported)
+        );
         proxy.prepared.push((raw, handle.clone(), false));
         let invocation = index as u64 + 1;
         let response = proxy
@@ -921,53 +1085,95 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
     let mut foreign = survivor.clone();
     foreign.attempt = SemanticId::NIL;
     assert!(matches!(
-        remote.exchange(p::Request::Stop(foreign), &proxy.scope, None).unwrap(),
+        remote
+            .exchange(p::Request::Stop(foreign), &proxy.scope, None)
+            .unwrap(),
         p::Response::Failure(_)
     ));
     let io = remote.io.as_ref().unwrap();
     let scope = &proxy.scope;
     std::thread::scope(|threads| {
         let evaluate_handle = active.clone();
-        let evaluating = threads.spawn(move || io.exchange(p::Request::Evaluate(p::Evaluate {
-            handle: evaluate_handle, invocation: 20_000, inputs: vec![13., 5.],
-            directions: vec![], cotangents: vec![], weights: vec![],
-        }), scope, None));
+        let evaluating = threads.spawn(move || {
+            io.exchange(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: evaluate_handle,
+                    invocation: 20_000,
+                    inputs: vec![13., 5.],
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }),
+                scope,
+                None,
+            )
+        });
         let deadline = Instant::now() + Duration::from_secs(5);
         while !marker.with_extension("active").exists() {
-            assert!(Instant::now() < deadline, "controlled native evaluation never entered");
+            assert!(
+                Instant::now() < deadline,
+                "controlled native evaluation never entered"
+            );
             std::thread::sleep(Duration::from_millis(1));
         }
         assert!(matches!(
             io.exchange(p::Request::Stop(active.clone()), scope, None).unwrap(),
             p::Response::Closed(actual) if actual == active
         ));
-        assert!(matches!(evaluating.join().unwrap().unwrap(),
-            p::Response::Failure(p::Failure::Cancelled)));
+        assert!(matches!(
+            evaluating.join().unwrap().unwrap(),
+            p::Response::Failure(p::Failure::Cancelled)
+        ));
     });
     // Independent scalar values for the still-live selected-columns handle. Neither
     // another handle's close/stop nor a foreign context may cancel this preparation.
-    let response = remote.exchange(p::Request::Evaluate(p::Evaluate {
-        handle: survivor.clone(),
-        invocation: 10_000,
-        inputs: vec![3., 5.],
-        directions: vec![], cotangents: vec![], weights: vec![],
-    }), &proxy.scope, None).unwrap();
+    let response = remote
+        .exchange(
+            p::Request::Evaluate(p::Evaluate {
+                handle: survivor.clone(),
+                invocation: 10_000,
+                inputs: vec![3., 5.],
+                directions: vec![],
+                cotangents: vec![],
+                weights: vec![],
+            }),
+            &proxy.scope,
+            None,
+        )
+        .unwrap();
     assert!(matches!(response, p::Response::Values(values)
         if values.handle == survivor && values.values == [14., 15., 25.]));
     for (invocation, successful) in [(10_000, false), (10_001, true)] {
-        let response = remote.exchange(p::Request::Evaluate(p::Evaluate {
-            handle: survivor.clone(), invocation, inputs: vec![3., 5.],
-            directions: vec![], cotangents: vec![], weights: vec![],
-        }), &proxy.scope, None).unwrap();
-        assert_eq!(matches!(response, p::Response::Values(_)), successful,
-            "a replay refused before mutation must not erase the admitted native preparation");
+        let response = remote
+            .exchange(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: survivor.clone(),
+                    invocation,
+                    inputs: vec![3., 5.],
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }),
+                &proxy.scope,
+                None,
+            )
+            .unwrap();
+        assert_eq!(
+            matches!(response, p::Response::Values(_)),
+            successful,
+            "a replay refused before mutation must not erase the admitted native preparation"
+        );
     }
     assert!(matches!(
-        remote.exchange(p::Request::Close(first), &proxy.scope, None).unwrap(),
+        remote
+            .exchange(p::Request::Close(first), &proxy.scope, None)
+            .unwrap(),
         p::Response::Failure(_)
     ));
     assert!(matches!(
-        remote.exchange(p::Request::Shutdown, &proxy.scope, None).unwrap(),
+        remote
+            .exchange(p::Request::Shutdown, &proxy.scope, None)
+            .unwrap(),
         p::Response::Shutdown
     ));
     proxy.remote.as_mut().unwrap().closed = true;

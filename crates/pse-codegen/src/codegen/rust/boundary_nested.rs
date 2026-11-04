@@ -22,8 +22,18 @@ pub(super) fn render(
         alternatives(field, &shape, &alternative, &row, fields)
     } else {
         let children = field.children();
-        let stems = children.iter().map(|child| super::super::native::child_stem(field, stem, child.field())).collect::<Vec<_>>();
-        super::boundary_record::render(&shape, &children, &row, fields, &stems, super::super::native::child_mode(field, mode))
+        let stems = children
+            .iter()
+            .map(|child| super::super::native::child_stem(field, stem, child.field()))
+            .collect::<Vec<_>>();
+        super::boundary_record::render(
+            &shape,
+            &children,
+            &row,
+            fields,
+            &stems,
+            super::super::native::child_mode(field, mode),
+        )
     }
 }
 
@@ -146,8 +156,17 @@ fn alternatives(
                 .find(|(name, _, _)| name == arm)
                 .ok_or_else(|| super::error(format!("{name}.{tag}: native payload absent")))?;
             let ty = payload_type(ty)?;
-            let column = contract.children().into_iter().find(|field| field.name() == arm).ok_or_else(|| super::error("native alternative source payload is absent".into()))?;
-            let rules = super::types::alternative_field_rules(&column)?.into_iter().map(|(_, tokens)| tokens).collect::<Vec<_>>();
+            let column = contract
+                .children()
+                .into_iter()
+                .find(|field| field.name() == arm)
+                .ok_or_else(|| {
+                    super::error("native alternative source payload is absent".into())
+                })?;
+            let rules = super::types::alternative_field_rules(&column)?
+                .into_iter()
+                .map(|(_, tokens)| tokens)
+                .collect::<Vec<_>>();
             (
                 quote!(
                     vec![pse_contract::boundary_projection::Field::of::<#ty>(graph,"value",1,

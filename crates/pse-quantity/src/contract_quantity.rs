@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Trait-owner integration of actual quantity declarations; no copied physical field schema.
 
-use pse_contract::boundary_projection::*;
 use crate::boundary::{BoundaryField, BoundaryRecord};
+use pse_contract::boundary_projection::*;
 
 macro_rules! quantity_record {
     ($owner:path; $($field:ident => $tag:literal;)*) => {

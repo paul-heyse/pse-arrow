@@ -140,6 +140,6 @@ pub mod functions;
 #[doc(hidden)]
 pub mod premises;
 
+mod contract_ids;
 mod contract_quantity;
 mod contract_quantity_passive;
-mod contract_ids;
