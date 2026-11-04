@@ -117,6 +117,47 @@ fn scientific_recipe_native_projection_keeps_current_json_and_qualified_restorat
 fn contract(error: impl std::fmt::Display) -> MathError {
     MathError::Contract(error.to_string())
 }
+pub(super) fn reconstruction_quantity_error(error: pse_quantity::QuantityError) -> MathError {
+    match error {
+        pse_quantity::QuantityError::RecordMembership(_) => MathError::Quantity(error),
+        error => contract(error),
+    }
+}
+pub(super) fn reconstruction_model_error(error: pse_modeling::ModelingError) -> MathError {
+    fn native_extent(error: &pse_modeling::ModelingError) -> Option<usize> {
+        match error {
+            pse_modeling::ModelingError::RecordMembership { source, .. } => {
+                Some(size_of_val(error) + source.retained_heap_bytes())
+            }
+            pse_modeling::ModelingError::Located { cause, name, .. } => {
+                native_extent(cause).map(|bytes| {
+                    bytes
+                        .saturating_add(size_of_val(error))
+                        .saturating_add(name.capacity())
+                })
+            }
+            _ => None,
+        }
+    }
+    if let Some(retained) = native_extent(&error) {
+        MathError::Typed {
+            retained,
+            cause: pse_model::diagnostic::DiagnosticCause::new(error),
+        }
+    } else {
+        contract(error)
+    }
+}
+pub(super) fn reconstruction_provider_error(error: pse_kernels::ProviderError) -> MathError {
+    if matches!(error, pse_kernels::ProviderError::RecordMembership(_)) {
+        MathError::Typed {
+            retained: error.retained_bytes(),
+            cause: pse_model::diagnostic::DiagnosticCause::new(error),
+        }
+    } else {
+        contract(error)
+    }
+}
 fn oversized(required: usize) -> MathError {
     MathError::ByteLimit {
         resource: "portable body payload",
@@ -261,33 +302,47 @@ pub fn reconstruct_portable(
 ) -> Result<AdmittedBody, MathError> {
     let payload = permit.payload();
     let recipe = Recipe::decode(payload)?;
+    let mut body = reconstruct_recipe(recipe, permit.records(), registry, cancelled)?;
+    // Preserve the active JSON-v3 leaf only after complete original receipt drain.
+    body.portable = Some(Arc::from(payload));
+    Ok(body)
+}
+
+fn reconstruct_recipe(
+    recipe: Recipe,
+    records: &pse_ids::scientific_replay::RecordAuthority,
+    registry: &QuantityRegistry,
+    cancelled: &Arc<AtomicBool>,
+) -> Result<AdmittedBody, MathError> {
     let expected = &recipe.spec;
     let limits = BodyLimits {
         slots: recipe.slots,
         occurrences: recipe.occurrences,
     };
-    let mut body =
-        pse_quantity::resolved::receipts::replay(&recipe.receipts, permit.records(), || {
-            let syntax = recipe
-                .syntax
-                .restore(limits.occurrences)
-                .map_err(contract)?;
-            let support = recipe.support.restore(&syntax).map_err(contract)?;
-            let providers = recipe.providers.restore(&syntax, &support)?;
-            let request = Request {
-                definition: SemanticId::NIL,
-                syntax: &syntax,
-                inputs: &recipe.inputs,
-                support: &support,
-                providers: &providers,
-                physical: recipe.physical,
-                structure: recipe.structure,
-                limits,
-            };
-            pse_math::typed::receipts::replay(&recipe.proofs, permit.records(), || {
-                request.admit_inner(registry, &pse_quantity::infer::NoInvariantFacts, cancelled)
-            })
-        })?;
+    let mut body = pse_quantity::resolved::receipts::replay(&recipe.receipts, records, || {
+        let syntax = recipe
+            .syntax
+            .restore(limits.occurrences)
+            .map_err(reconstruction_model_error)?;
+        let support = recipe
+            .support
+            .restore(&syntax)
+            .map_err(reconstruction_model_error)?;
+        let providers = recipe.providers.restore(&syntax, &support)?;
+        let request = Request {
+            definition: SemanticId::NIL,
+            syntax: &syntax,
+            inputs: &recipe.inputs,
+            support: &support,
+            providers: &providers,
+            physical: recipe.physical,
+            structure: recipe.structure,
+            limits,
+        };
+        pse_math::typed::receipts::replay(&recipe.proofs, records, || {
+            request.admit_inner(registry, &pse_quantity::infer::NoInvariantFacts, cancelled)
+        })
+    })?;
     if &body.spec != expected
         || body.quantities != recipe.outputs
         || body.math.checked_members() != &recipe.checked_members
@@ -299,9 +354,6 @@ pub fn reconstruct_portable(
         ));
     }
     body.semantic_identity = recipe.semantic_identity;
-    // The authority session has drained. Retain only immutable exact bytes, no permit,
-    // mutable context, deserialized syntax/support pool or reconstruction authority.
-    body.portable = Some(Arc::from(payload));
     Ok(body)
 }
 #[cfg(test)]

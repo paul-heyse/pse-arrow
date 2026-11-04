@@ -63,8 +63,12 @@ impl ProviderRecord {
     /// Restore inside the caller-qualified physical receipt session. Port admission is
     /// retained exactly; execution still needs an independently matching factory.
     pub fn restore(&self) -> Result<AdmittedProvider, ProviderError> {
-        pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|e| ProviderError::Contract(e.to_string()))?;
+        pse_quantity::resolved::receipts::require_record(self).map_err(|error| match error {
+            pse_quantity::QuantityError::RecordMembership(source) => {
+                ProviderError::RecordMembership(source)
+            }
+            error => ProviderError::Contract(error.to_string()),
+        })?;
         if self.version != VERSION {
             return Err(ProviderError::Contract(
                 "unsupported provider record".into(),

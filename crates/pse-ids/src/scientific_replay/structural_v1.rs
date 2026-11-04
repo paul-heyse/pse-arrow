@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded structural V1 traversal prerequisite; hashes/data never grant authority.
 //!
-//! This module is test-only until ADR-0245's compiler association and full receiving
-//! admission are implemented. Bounds below cover this traversal's buffers, including
+//! Bounds below cover only this traversal's buffers, including
 //! its tiny pinned-library normalization helpers. Decoded roots, caller Serialize
 //! implementations/stacks, receiving validation and scientific reconstruction remain
 //! separate admission obligations. No universal arbitrary-Serde equivalence is claimed.
@@ -14,18 +13,25 @@ use std::{borrow::Cow, cell::Cell, collections::TryReserveError, fmt, ops::Range
 const RAW_SENTINEL: &str = "$serde_json::private::RawValue";
 const NUMBER_SENTINEL: &str = "$serde_json::private::Number";
 
+/// Fallible normalization, shape and allocation outcome of a pure native traversal.
 #[derive(Debug, thiserror::Error)]
-pub(super) enum Error {
+pub enum Error {
+    /// A concrete traversal allowance was exhausted.
     #[error("structural membership allowance exhausted: {0}")]
     Limit(&'static str),
+    /// The source uses unsupported normalization behavior.
     #[error("unsupported structural membership source profile: {0}")]
     Profile(&'static str),
+    /// Count and hash emitted different shapes.
     #[error("native serialization changed between count and hash")]
     ChangedShape,
+    /// Pinned JSON primitive/key normalization refused.
     #[error("structural membership serialization: {0}")]
     Json(#[from] serde_json::Error),
+    /// A preadmitted buffer allocation failed.
     #[error("structural membership allocation: {0}")]
     Allocation(#[from] TryReserveError),
+    /// The source serializer's bounded explanation.
     #[error("structural membership serialization: {0}")]
     Custom(String),
 }
@@ -47,14 +53,34 @@ impl ser::Error for Error {
         }
     }
 }
+impl From<Error> for crate::IdError {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::Limit(resource) => Self::ScientificMembershipLimit { resource },
+            Error::Profile(profile) => Self::ScientificMembershipProfile { profile },
+            Error::ChangedShape => Self::ScientificMembershipChangedShape,
+            Error::Allocation(error) => Self::ScientificMembershipAllocation {
+                detail: error.to_string(),
+            },
+            Error::Json(error) => Self::ScientificMembershipSerialization {
+                detail: error.to_string(),
+            },
+            Error::Custom(detail) => Self::ScientificMembershipSerialization { detail },
+        }
+    }
+}
 type Result<T> = std::result::Result<T, Error>;
 
 /// Logical source/query limits, not a workspace lease or a scientific permit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct Limits {
+pub struct Limits {
+    /// Maximum actual emitted nodes, independent of length hints.
     pub nodes: usize,
+    /// Maximum retained rendered-key capacities (static keys count their length).
     pub key_bytes: usize,
+    /// Maximum one-key/display normalization text and returned key capacity.
     pub helper_bytes: usize,
+    /// Maximum source serialization nesting.
     pub depth: usize,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -66,8 +92,9 @@ struct Emissions {
     depth: usize,
 }
 #[derive(Clone, Copy, Debug)]
-pub(super) struct Counts {
-    limits: Limits,
+/// Actual source emissions counted without constructing a global index.
+pub struct Counts {
+    pub(super) limits: Limits,
     actual: Emissions,
 }
 #[derive(Debug)]
@@ -92,7 +119,7 @@ fn admitted(required: usize, available: usize) -> Result<()> {
 
 impl Limits {
     /// Pre-admit this before count or query normalization. Only one helper is live.
-    pub(super) fn count_scratch_bytes(self) -> Result<usize> {
+    pub fn count_scratch_bytes(self) -> Result<usize> {
         // One map-to-null normalization object. The pinned std BTree node holds
         // eleven entries; this also covers IndexMap's one-entry initial tables.
         // Include headers/alignment, bounded Display text and the copied key. This
@@ -101,25 +128,27 @@ impl Limits {
             mul(12, size_of::<(String, serde_json::Value)>())?,
             mul(32, size_of::<usize>())?,
         )?;
-        add(add(fixed, mul(2, self.helper_bytes)?)?, 1024)
+        // Moving growth of the bounded serializer-error text can retain old and
+        // new buffers together, independently of the key/display helper limit.
+        add(add(fixed, mul(2, self.helper_bytes)?)?, 2 * 1024)
     }
 }
 impl Counts {
     /// Conservative simultaneous traversal buffers; no byte-to-root multiplier.
-    pub(super) fn index_scratch_bytes(self) -> Result<usize> {
+    pub fn index_scratch_bytes(self) -> Result<usize> {
         let events = mul(self.actual.nodes, size_of::<ContentHash>())?;
-        let dead = mul(mul(2, self.actual.entries)?, size_of::<Range<usize>>())?;
-        let arrays = mul(mul(2, self.actual.edges)?, size_of::<Summary>())?;
-        let objects = mul(mul(2, self.actual.entries)?, size_of::<Entry>())?;
+        let dead = mul(mul(3, self.actual.entries)?, size_of::<Range<usize>>())?;
+        let arrays = mul(mul(3, self.actual.edges)?, size_of::<Summary>())?;
+        let objects = mul(mul(3, self.actual.entries)?, size_of::<Entry>())?;
         add(
             add(add(add(events, dead)?, arrays)?, objects)?,
             add(self.actual.key_bytes, self.limits.count_scratch_bytes()?)?,
         )
     }
     /// A concrete query uses child/key buffers but never the global event/index log.
-    pub(super) fn query_scratch_bytes(self) -> Result<usize> {
-        let arrays = mul(mul(2, self.actual.edges)?, size_of::<Summary>())?;
-        let objects = mul(mul(2, self.actual.entries)?, size_of::<Entry>())?;
+    pub fn query_scratch_bytes(self) -> Result<usize> {
+        let arrays = mul(mul(3, self.actual.edges)?, size_of::<Summary>())?;
+        let objects = mul(mul(3, self.actual.entries)?, size_of::<Entry>())?;
         add(
             add(arrays, objects)?,
             add(self.actual.key_bytes, self.limits.count_scratch_bytes()?)?,
@@ -190,7 +219,10 @@ impl State {
         Ok(())
     }
     fn key(&mut self, key: &str) -> Result<()> {
-        self.actual.key_bytes = add(self.actual.key_bytes, key.len())?;
+        self.key_capacity(key.len())
+    }
+    fn key_capacity(&mut self, capacity: usize) -> Result<()> {
+        self.actual.key_bytes = add(self.actual.key_bytes, capacity)?;
         let bound = self.bounds.map_or(self.limits.key_bytes, |v| v.key_bytes);
         if self.actual.key_bytes > bound {
             return Err(Error::Limit("rendered key bytes"));
@@ -328,11 +360,16 @@ pub(super) fn query_hash<T: ?Sized + Serialize>(
     admitted(counts.query_scratch_bytes()?, scratch)?;
     supported_profile()?;
     let mut state = State::new(Mode::Query, counts.limits, binding, Some(counts.actual));
-    Ok(state.visit(value, 0)?.digest)
+    let root = state.visit(value, 0)?;
+    if state.actual != counts.actual {
+        return Err(Error::ChangedShape);
+    }
+    Ok(root.digest)
 }
 
 /// Grow only this concrete buffer, by at most doubling actual emitted elements.
-/// No length hint can trigger allocation. The caller admitted twice counted slots.
+/// No length hint can trigger allocation. Three counted slots cover old-plus-new
+/// moving growth at every buffer's C+1 boundary, across all simultaneous buffers.
 fn push<T>(values: &mut Vec<T>, value: T) -> Result<()> {
     if values.len() == values.capacity() {
         let target = values
@@ -639,7 +676,7 @@ impl ser::SerializeMap for Object<'_> {
     type Error = Error;
     fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<()> {
         let key = normalize_key(key, self.state.limits.helper_bytes, self.state.limits.depth)?;
-        self.state.key(&key)?;
+        self.state.key_capacity(key.capacity())?;
         self.pending = Some(if self.state.mode == Mode::Count {
             drop(key);
             Cow::Borrowed("")
@@ -778,7 +815,7 @@ fn normalize_key<T: ?Sized + Serialize>(value: &T, limit: usize, depth: usize) -
         .ok_or(Error::Profile("map key normalization"))?;
     // Primitive numeric keys are fixed-size tiny normalizations but must still fit
     // the selected rendered-key profile, independently of integer VALUE support.
-    if key.len() > limit {
+    if key.len() > limit || key.capacity() > limit {
         return Err(Error::Limit("map key normalization"));
     }
     Ok(key)
@@ -952,3 +989,104 @@ impl<S: ser::Serializer> ser::Serializer for KeySerializer<'_, S> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod growth_tests {
+    use super::*;
+
+    fn moving_peak<T>(length: usize, mut value: impl FnMut(usize) -> T) -> usize {
+        let mut values = Vec::new();
+        let mut peak = 0;
+        for index in 0..length {
+            let old = values.capacity();
+            push(&mut values, value(index)).unwrap();
+            let current = values.capacity();
+            // Conservative moving-reallocation observation: old and new owned
+            // allocations may overlap even when this allocator can grow in place.
+            let simultaneous = if current != old {
+                old + current
+            } else {
+                current
+            };
+            peak = peak.max(simultaneous * size_of::<T>());
+        }
+        peak
+    }
+
+    #[test]
+    fn membership_v1_simultaneous_extent_covers_moving_growth_and_falsifies_twice_slots() {
+        let length = 4097;
+        let limits = Limits {
+            nodes: 100_000,
+            key_bytes: 1 << 20,
+            helper_bytes: 4096,
+            depth: 256,
+        };
+        let values = vec![0_u8; length];
+        let helper = limits.count_scratch_bytes().unwrap();
+        let counted = count(&values, limits, helper).unwrap();
+        let summary = |index| Summary {
+            digest: ContentHash::from_bytes([0; 32]),
+            start: index,
+            end: index + 1,
+        };
+        let array_peak = moving_peak(length, summary);
+        assert!(
+            array_peak > 2 * length * size_of::<Summary>() + helper,
+            "the earlier complete flat-sequence query allowance was too small"
+        );
+        assert!(array_peak + helper <= counted.query_scratch_bytes().unwrap());
+        assert!(
+            array_peak + helper + counted.actual.nodes * size_of::<ContentHash>()
+                <= counted.index_scratch_bytes().unwrap()
+        );
+        let object_peak = moving_peak(length, |index| Entry {
+            key: Cow::Borrowed("k"),
+            value: summary(index),
+            ordinal: index,
+        });
+        let dead_peak = moving_peak(length, |index| index..index + 1);
+        assert!(object_peak <= 3 * length * size_of::<Entry>());
+        assert!(dead_peak <= 3 * length * size_of::<Range<usize>>());
+        let counts = Counts {
+            limits,
+            actual: Emissions {
+                nodes: length + 1,
+                edges: length,
+                entries: length,
+                ..Emissions::default()
+            },
+        };
+        assert!(
+            array_peak + object_peak + dead_peak + helper <= counts.index_scratch_bytes().unwrap()
+        );
+    }
+
+    #[test]
+    fn membership_v1_counts_retained_key_capacities_and_bounds_formatted_text_growth() {
+        let limits = Limits {
+            nodes: 1000,
+            key_bytes: 1 << 20,
+            helper_bytes: 4096,
+            depth: 256,
+        };
+        let key = normalize_key(&17_u64, limits.helper_bytes, limits.depth).unwrap();
+        let value = std::collections::BTreeMap::from([(17_u64, true)]);
+        let counted = count(&value, limits, limits.count_scratch_bytes().unwrap()).unwrap();
+        assert!(counted.actual.key_bytes >= key.capacity());
+        let mut text = Text::new(limits.helper_bytes);
+        let mut peak = 0;
+        for _ in 0..2049 {
+            let old = text.value.capacity();
+            fmt::Write::write_str(&mut text, "x").unwrap();
+            let current = text.value.capacity();
+            peak = peak.max(if old != current {
+                old + current
+            } else {
+                current
+            });
+        }
+        assert!(peak <= 2 * limits.helper_bytes);
+        assert!(text.value.capacity() <= limits.helper_bytes);
+    }
+}

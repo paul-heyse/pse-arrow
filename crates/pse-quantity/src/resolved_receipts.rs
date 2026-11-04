@@ -408,10 +408,12 @@ impl SchemeRecord {
 }
 /// Refuse restoration unless this complete owning record belongs to the qualified recipe.
 pub fn require_record<T: Serialize>(record: &T) -> Result<(), QuantityError> {
-    let admitted = SESSION.with(|s| match &*s.borrow() {
-        Some(State::Replay { authority, .. }) => authority.admits(record).unwrap_or(false),
-        _ => false,
-    });
+    let admitted = SESSION
+        .with(|s| match &*s.borrow() {
+            Some(State::Replay { authority, .. }) => authority.admits(record),
+            _ => Ok(false),
+        })
+        .map_err(QuantityError::RecordMembership)?;
     if admitted {
         Ok(())
     } else {
@@ -641,7 +643,7 @@ pub fn replay<T, E: From<QuantityError>>(
 ) -> Result<T, E> {
     if !authority
         .admits(stream)
-        .map_err(|_| refusal("physical.receipt", "malformed receipt authority"))?
+        .map_err(QuantityError::RecordMembership)?
     {
         return Err(refusal(
             "physical.receipt",

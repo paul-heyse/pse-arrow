@@ -96,7 +96,7 @@ pub fn replay<T>(
 ) -> Result<T, MathError> {
     if !authority
         .admits(stream)
-        .map_err(|_| MathError::Contract("malformed mathematical receipt authority".into()))?
+        .map_err(pse_quantity::QuantityError::RecordMembership)?
     {
         return Err(MathError::Contract(
             "mathematical proof receipts are absent from qualified recipe".into(),

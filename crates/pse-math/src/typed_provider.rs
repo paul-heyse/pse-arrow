@@ -216,10 +216,16 @@ impl PreparedProviderCallRecord {
     /// No registry, inference, worker factory or conversion calculation is available here.
     pub fn restore(&self) -> Result<PreparedProviderCall, MathError> {
         pse_quantity::resolved::receipts::require_record(self)?;
-        let registration = self
-            .registration
-            .restore()
-            .map_err(|error| MathError::Contract(error.to_string()))?;
+        let registration = self.registration.restore().map_err(|error| {
+            if matches!(error, pse_kernels::ProviderError::RecordMembership(_)) {
+                MathError::Typed {
+                    retained: error.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::new(error),
+                }
+            } else {
+                MathError::Contract(error.to_string())
+            }
+        })?;
         let spec = registration.spec();
         if self.inputs.len() != spec.inputs.len()
             || self.outputs.len() != spec.outputs.len()

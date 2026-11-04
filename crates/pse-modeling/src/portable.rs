@@ -813,14 +813,17 @@ impl TypeWire {
                 declaration: *declaration,
                 map: *map,
             },
-            Self::Quantity(v) => {
-                Type::Quantity(v.restore().map_err(|e| invalid(at, e.to_string()))?)
-            }
+            Self::Quantity(v) => Type::Quantity(
+                v.restore()
+                    .map_err(|error| crate::record_membership_error(at, error))?,
+            ),
             Self::Refined {
                 quantity,
                 refinement,
             } => Type::RefinedQuantity {
-                quantity: quantity.restore().map_err(|e| invalid(at, e.to_string()))?,
+                quantity: quantity
+                    .restore()
+                    .map_err(|error| crate::record_membership_error(at, error))?,
                 refinement: refinement.restore(at)?,
             },
             Self::Entity(v) => Type::Entity(*v),
@@ -1171,7 +1174,7 @@ impl FunctionRecord {
     /// occurrence product; no expression checking, specialization or proof runs here.
     pub fn restore(&self) -> Result<Function> {
         pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|e| invalid(self.id, e.to_string()))?;
+            .map_err(|error| crate::record_membership_error(self.id, error))?;
         if self.version != 2 {
             return Err(invalid(self.id, "unsupported function record"));
         }
@@ -1289,7 +1292,7 @@ impl ValueRecord {
     /// Require exact qualified record membership before reconstructing the typed value.
     pub fn restore(&self, at: DeclarationId) -> Result<crate::specialize::Value> {
         pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|error| invalid(at, error.to_string()))?;
+            .map_err(|error| crate::record_membership_error(at, error))?;
         self.value.restore(at)
     }
     /// Known retained wire extent.
@@ -1317,7 +1320,7 @@ impl TypeRecord {
     /// Require the qualified record before nested quantity-owner contract restoration.
     pub fn restore(&self, at: DeclarationId) -> Result<Type> {
         pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|error| invalid(at, error.to_string()))?;
+            .map_err(|error| crate::record_membership_error(at, error))?;
         self.value.restore(at)
     }
     /// Known retained wire extent.

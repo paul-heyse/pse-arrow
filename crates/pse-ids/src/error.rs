@@ -15,6 +15,33 @@
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum IdError {
+    /// A native structural membership traversal exceeded its admitted resource.
+    #[error("native scientific membership allowance exhausted: {resource}")]
+    ScientificMembershipLimit {
+        /// Actual exhausted traversal resource.
+        resource: &'static str,
+    },
+    /// A native source uses unsupported JSON normalization.
+    #[error("unsupported native scientific membership profile: {profile}")]
+    ScientificMembershipProfile {
+        /// Unsupported source/normalization behavior.
+        profile: &'static str,
+    },
+    /// Native serialization emitted a different shape after its count pass.
+    #[error("native scientific membership serialization changed after counting")]
+    ScientificMembershipChangedShape,
+    /// Native serialization refused with its original bounded explanation.
+    #[error("native scientific membership serialization: {detail}")]
+    ScientificMembershipSerialization {
+        /// Original bounded serialization explanation.
+        detail: String,
+    },
+    /// A preadmitted native traversal allocation failed.
+    #[error("native scientific membership allocation failed: {detail}")]
+    ScientificMembershipAllocation {
+        /// Original allocator refusal explanation.
+        detail: String,
+    },
     /// A scientific replay descriptor exceeds its bounded wire extent.
     #[error("scientific replay descriptor exceeds the bounded wire extent")]
     ScientificRecipeLimit,
@@ -59,9 +86,23 @@ pub enum IdError {
     },
 }
 
+impl IdError {
+    /// Owned explanation storage beyond the inline error value.
+    pub fn retained_heap_bytes(&self) -> usize {
+        match self {
+            Self::ScientificMembershipSerialization { detail }
+            | Self::ScientificMembershipAllocation { detail } => detail.capacity(),
+            _ => 0,
+        }
+    }
+}
+
 pse_diagnostics::impl_diagnostic! {
     IdError,
     code(this) { match this {
+            Self::ScientificMembershipLimit { .. } | Self::ScientificMembershipAllocation { .. } => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
+            Self::ScientificMembershipProfile { .. } | Self::ScientificMembershipSerialization { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
+            Self::ScientificMembershipChangedShape => Some(pse_diagnostics::DiagnosticCode::InternalInvariant),
             Self::ScientificRecipeLimit | Self::ScientificRecipeEncoding | Self::ScientificRecipeDigest | Self::Length { .. } | Self::HexLength { .. } | Self::HexDigit { .. } | Self::Prefix { .. } => Some(pse_diagnostics::DiagnosticCode::ValidationInvariant),
 
 

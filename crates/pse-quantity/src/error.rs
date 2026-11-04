@@ -103,6 +103,9 @@ crate::closed_enum! {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum QuantityError {
+    /// Original record-membership normalization, resource or serialization refusal.
+    #[error("{0}")]
+    RecordMembership(#[source] pse_ids::IdError),
     /// A physical numeric boundary received a nonfinite source magnitude.
     #[error("nonfinite magnitude {value} for quantity `{quantity}` in unit `{unit}`")]
     NonfiniteMagnitude {
@@ -280,6 +283,7 @@ impl QuantityError {
     /// Conservative owned diagnostic extent, including variable operand witnesses.
     pub fn retained_bytes(&self) -> usize {
         let heap = match self {
+            Self::RecordMembership(error) => error.retained_heap_bytes(),
             Self::Registry { detail, .. } | Self::InferencePrecondition { detail, .. } => {
                 detail.capacity()
             }
@@ -361,7 +365,7 @@ pse_diagnostics::impl_diagnostic! {
 
             _ => None,
         } },
-    forward(_this) { None },
+    forward(this) { match this { Self::RecordMembership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(_this) { None },
     source(_this) { None },
@@ -370,6 +374,7 @@ pse_diagnostics::impl_diagnostic! {
         let mut facts = DiagnosticFacts::default();
         facts.observe("detail", O::Text(this.to_string()));
         match this {
+            Self::RecordMembership(_) => {},
             Self::Incompatible { operands, hint, reason } => {
                 facts.rule = Some(R::QuantityIncompatible);
                 facts.observe("reason", O::Text(reason.to_string()));

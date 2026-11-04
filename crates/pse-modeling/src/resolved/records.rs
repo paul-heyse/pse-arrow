@@ -774,7 +774,7 @@ impl ResolvedRecord {
     /// No AST, text parser, type inference, provider inventory or mutable context is consulted.
     pub fn restore(&self, limit: usize) -> Result<ResolvedSyntax> {
         pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|error| invalid(SemanticId::NIL, error.to_string()))?;
+            .map_err(|error| crate::record_membership_error(SemanticId::NIL, error))?;
         let pool = self
             .functions
             .iter()
@@ -993,7 +993,7 @@ impl Rebuild<'_> {
             )
         })?;
         pse_quantity::resolved::receipts::require_record(record)
-            .map_err(|error| invalid(record.declaration, error.to_string()))?;
+            .map_err(|error| crate::record_membership_error(record.declaration, error))?;
         let at = record.declaration;
         let syntax = self.syntax(&record.syntax)?;
         let physical = Arc::new(record.physical.restore(&syntax)?);

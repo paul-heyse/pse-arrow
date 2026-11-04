@@ -101,10 +101,13 @@ impl SelectedProvidersRecord {
         syntax: &ResolvedSyntax,
         support: &pse_modeling::resolved::PhysicalSupport,
     ) -> Result<SelectedProviders, MathError> {
-        pse_quantity::resolved::receipts::require_record(self).map_err(contract)?;
+        pse_quantity::resolved::receipts::require_record(self)
+            .map_err(crate::typed_math::portable::reconstruction_quantity_error)?;
         let mut descriptors = BTreeMap::new();
         for (key, record) in &self.descriptors {
-            let descriptor = record.restore().map_err(contract)?;
+            let descriptor = record
+                .restore()
+                .map_err(crate::typed_math::portable::reconstruction_provider_error)?;
             if descriptor.spec().identity() != *key
                 || descriptors.insert(*key, descriptor).is_some()
             {
@@ -130,9 +133,16 @@ impl SelectedProvidersRecord {
                 inputs: call
                     .inputs
                     .iter()
-                    .map(|record| record.restore().map_err(contract))
+                    .map(|record| {
+                        record
+                            .restore()
+                            .map_err(crate::typed_math::portable::reconstruction_quantity_error)
+                    })
                     .collect::<Result<_, _>>()?,
-                result: call.result.restore().map_err(contract)?,
+                result: call
+                    .result
+                    .restore()
+                    .map_err(crate::typed_math::portable::reconstruction_quantity_error)?,
                 prepared: std::sync::Arc::new(call.prepared.restore()?),
             };
             if value.prepared.descriptor().spec().identity() != call.descriptor
@@ -171,7 +181,10 @@ impl SelectedProvidersRecord {
             descriptors,
             functions,
             direct_calls,
-            premises: self.premises.restore().map_err(contract)?,
+            premises: self
+                .premises
+                .restore()
+                .map_err(crate::typed_math::portable::reconstruction_model_error)?,
         };
         // This walk checks graph joins only. It never calls the mutable provider inventory,
         // admission, quantity resolution, inference, or worker factories.

@@ -541,6 +541,9 @@ pub trait Provider: std::fmt::Debug + Send {
 /// Failure classes retained across the math and native boundaries.
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError {
+    /// Original native membership query failure while restoring a provider record.
+    #[error("{0}")]
+    RecordMembership(#[source] pse_ids::IdError),
     /// Cooperative evaluation cancellation.
     #[error("provider evaluation cancelled")]
     Cancelled,
@@ -614,6 +617,7 @@ impl ProviderError {
     /// Owned failure extent for retaining the original typed witness.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(match self {
+            Self::RecordMembership(error) => error.retained_heap_bytes(),
             Self::Contract(s) | Self::Trial(s) | Self::Singular(s) | Self::Terminal(s) => {
                 s.capacity()
             }
@@ -653,7 +657,7 @@ impl ProviderError {
 pse_diagnostics::impl_diagnostic! {
     ProviderError,
     code(this) { match this {
-        Self::Nested {..} => None,
+        Self::Nested {..} | Self::RecordMembership(_) => None,
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
         Self::Deadline => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
         Self::Limit(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
@@ -662,7 +666,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Terminal(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::LinearizationChanged | Self::Trial(_) | Self::OutsideEnvelope {..} | Self::Singular(_) | Self::RegimeCrossing {..} => Some(pse_diagnostics::DiagnosticCode::MathProvider),
     } },
-    forward(this) { match this { Self::Nested {cause,..} => Some(cause.as_ref()), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    forward(this) { match this { Self::Nested {cause,..} => Some(cause.as_ref()), Self::RecordMembership(error) => Some(error), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticFacts, DiagnosticObservation as O, DiagnosticRule as R};
         if matches!(this, Self::Nested {..}) {return DiagnosticFacts::default();}
@@ -681,7 +685,7 @@ pse_diagnostics::impl_diagnostic! {
                 facts.observe("requested_derivative_order", O::Integer(order(*requested)));
                 facts.observe("available_derivative_order", O::Integer(order(*available)));
             }
-            Self::LinearizationChanged | Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
+            Self::RecordMembership(_) | Self::LinearizationChanged | Self::Nested {..} | Self::Cancelled | Self::Deadline | Self::Limit(_) | Self::Contract(_) | Self::Trial(_) | Self::Singular(_) | Self::Terminal(_) => {}
         }
         facts
     }

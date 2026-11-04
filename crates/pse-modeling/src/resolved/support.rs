@@ -2041,7 +2041,7 @@ impl PhysicalEvidenceRecord {
     /// Exact immutable record membership is mandatory. This never creates captured facts.
     pub fn restore(&self) -> Result<PhysicalEvidence> {
         pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|error| invalid(SemanticId::NIL, error.to_string()))?;
+            .map_err(|error| crate::record_membership_error(SemanticId::NIL, error))?;
         Ok(PhysicalEvidence {
             identity: self.identity,
             live: None,

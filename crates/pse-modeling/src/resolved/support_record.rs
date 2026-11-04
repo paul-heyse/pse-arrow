@@ -28,7 +28,7 @@ impl BodyInputRecord {
         }
     }
     pub(in crate::resolved) fn restore(&self) -> Result<BodyInputSupport> {
-        let boundary = self.boundary.restore().map_err(refusal)?;
+        let boundary = self.boundary.restore().map_err(quantity_refusal)?;
         if boundary.operation() != self.relationship.identity() {
             return Err(refusal(
                 "restored body authorization relationship differs from its exact operation",
@@ -130,6 +130,9 @@ pub struct SupportRecord {
 fn refusal(error: impl std::fmt::Display) -> crate::ModelingError {
     invalid(SemanticId::NIL, error.to_string())
 }
+fn quantity_refusal(error: pse_quantity::QuantityError) -> crate::ModelingError {
+    crate::record_membership_error(SemanticId::NIL, error)
+}
 fn identity(value: &PhysicalSupport) -> ContentHash {
     let mut hash = FramedHasher::new(pse_ids::Frame::ModelingResolvedBodyV1);
     hash.str("complete-support-record");
@@ -213,7 +216,7 @@ impl SupportRecord {
     /// Restore exact admitted records without a registry, context, resolver, expected type,
     /// or fallback. Qualified replay products explicitly cannot become live Salsa evidence.
     pub fn restore(&self, syntax: &ResolvedSyntax) -> Result<PhysicalSupport> {
-        pse_quantity::resolved::receipts::require_record(self).map_err(refusal)?;
+        pse_quantity::resolved::receipts::require_record(self).map_err(quantity_refusal)?;
         if self.syntax != syntax.identity()? || self.outputs.len() != syntax.outputs.len() {
             return Err(refusal(
                 "support record belongs to another exact typed graph or output layout",
@@ -243,12 +246,12 @@ impl SupportRecord {
                     }
                     Ok::<_, crate::ModelingError>(CallSupport {
                         function,
-                        nominal_result: call.nominal_result.restore().map_err(refusal)?,
+                        nominal_result: call.nominal_result.restore().map_err(quantity_refusal)?,
                         wrt: call.wrt.clone(),
                         inputs: call
                             .inputs
                             .iter()
-                            .map(|value| value.restore().map_err(refusal))
+                            .map(|value| value.restore().map_err(quantity_refusal))
                             .collect::<Result<_>>()?,
                         body_result: call
                             .body_result
@@ -258,7 +261,7 @@ impl SupportRecord {
                         partial: call
                             .partial
                             .as_ref()
-                            .map(|value| value.restore().map_err(refusal))
+                            .map(|value| value.restore().map_err(quantity_refusal))
                             .transpose()?,
                     })
                 })
@@ -268,34 +271,40 @@ impl SupportRecord {
                 .as_ref()
                 .map(|range| {
                     Ok::<_, crate::ModelingError>(RangeSupport {
-                        lower: range.lower.restore().map_err(refusal)?,
-                        upper: range.upper.restore().map_err(refusal)?,
-                        lower_difference: range.lower_difference.restore().map_err(refusal)?,
-                        upper_difference: range.upper_difference.restore().map_err(refusal)?,
+                        lower: range.lower.restore().map_err(quantity_refusal)?,
+                        upper: range.upper.restore().map_err(quantity_refusal)?,
+                        lower_difference: range
+                            .lower_difference
+                            .restore()
+                            .map_err(quantity_refusal)?,
+                        upper_difference: range
+                            .upper_difference
+                            .restore()
+                            .map_err(quantity_refusal)?,
                     })
                 })
                 .transpose()?;
             let value = NodeSupport {
                 ty: record.ty.restore(SemanticId::NIL.into())?,
-                contract: record.contract.restore().map_err(refusal)?,
+                contract: record.contract.restore().map_err(quantity_refusal)?,
                 operation: record
                     .operation
                     .as_ref()
-                    .map(|value| value.restore().map_err(refusal))
+                    .map(|value| value.restore().map_err(quantity_refusal))
                     .transpose()?,
                 literal: record
                     .literal
                     .as_ref()
                     .map(|value| {
                         Ok::<_, crate::ModelingError>(LiteralSupport {
-                            conversion: value.restore().map_err(refusal)?,
+                            conversion: value.restore().map_err(quantity_refusal)?,
                         })
                     })
                     .transpose()?,
                 boundary: record
                     .boundary
                     .as_ref()
-                    .map(|value| value.restore().map_err(refusal))
+                    .map(|value| value.restore().map_err(quantity_refusal))
                     .transpose()?,
                 call,
                 range,
@@ -314,10 +323,10 @@ impl SupportRecord {
             .as_ref()
             .map(|value| {
                 Ok::<_, crate::ModelingError>(BooleanSupport {
-                    contract: value.contract.restore().map_err(refusal)?,
-                    conversion: value.conversion.restore().map_err(refusal)?,
-                    literal: value.literal.restore().map_err(refusal)?,
-                    conditional: value.conditional.restore().map_err(refusal)?,
+                    contract: value.contract.restore().map_err(quantity_refusal)?,
+                    conversion: value.conversion.restore().map_err(quantity_refusal)?,
+                    literal: value.literal.restore().map_err(quantity_refusal)?,
+                    conditional: value.conditional.restore().map_err(quantity_refusal)?,
                 })
             })
             .transpose()?;
@@ -336,7 +345,7 @@ impl SupportRecord {
                         "strict support input layout is absent, repeated or defined",
                     ));
                 }
-                Ok::<_, crate::ModelingError>((slot, record.restore().map_err(refusal)?))
+                Ok::<_, crate::ModelingError>((slot, record.restore().map_err(quantity_refusal)?))
             })
             .collect::<Result<Vec<_>>>()?;
         let value = PhysicalSupport {
@@ -347,19 +356,19 @@ impl SupportRecord {
             outputs: self
                 .outputs
                 .iter()
-                .map(|value| value.restore().map_err(refusal))
+                .map(|value| value.restore().map_err(quantity_refusal))
                 .collect::<Result<_>>()?,
             premises: self.premises.restore()?,
             boolean,
             reduction: self
                 .reduction
                 .as_ref()
-                .map(|value| value.restore().map_err(refusal))
+                .map(|value| value.restore().map_err(quantity_refusal))
                 .transpose()?,
             reduction_output: self
                 .reduction_output
                 .as_ref()
-                .map(|value| value.restore().map_err(refusal))
+                .map(|value| value.restore().map_err(quantity_refusal))
                 .transpose()?,
         };
         if identity(&value) != self.identity {

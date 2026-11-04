@@ -99,6 +99,15 @@ impl ModelingContractReason {
 /// An attributable checking or specialization failure.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelingError {
+    /// Original native record query refusal, attributed to its concrete source owner.
+    #[error("modeling record {declaration}: {source}")]
+    RecordMembership {
+        /// Actual declaration, or NIL when the owner has no declaration attribution.
+        declaration: SemanticId,
+        /// Original classified query failure, distinct from semantic nonmembership.
+        #[source]
+        source: pse_ids::IdError,
+    },
     /// The declaration owner retains its source witness when admission fails.
     #[error("{cause}")]
     Located {
@@ -194,7 +203,7 @@ pub enum ModelingError {
 }
 pse_diagnostics::impl_diagnostic! {
     ModelingError, code(this) { Some(match this {
-        ModelingError::Located { .. } => return None,
+        ModelingError::Located { .. } | ModelingError::RecordMembership { .. } => return None,
         ModelingError::Contract { .. } => pse_diagnostics::DiagnosticCode::ValidationInvariant,
         ModelingError::Unsupported { .. } => pse_diagnostics::DiagnosticCode::CapabilityBackend,
         ModelingError::Domain { reason, .. } => if reason.is_unsupported() {
@@ -212,12 +221,13 @@ pse_diagnostics::impl_diagnostic! {
         ModelingError::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         ModelingError::Budget(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
     }) },
-    forward(this) { match this { ModelingError::Located { cause, .. } => Some(cause.as_ref()), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    forward(this) { match this { ModelingError::Located { cause, .. } => Some(cause.as_ref()), ModelingError::RecordMembership { source, .. } => Some(source), _ => None } }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 impl ModelingError {
     pub(crate) fn located(self, rows: &[Declaration]) -> Self {
         let id = match &self {
-            Self::Contract { declaration, .. }
+            Self::RecordMembership { declaration, .. }
+            | Self::Contract { declaration, .. }
             | Self::Unsupported { declaration, .. }
             | Self::Domain { declaration, .. }
             | Self::Realization { declaration, .. }
@@ -249,6 +259,20 @@ impl ModelingError {
     pub fn boundary_diagnostic(&self) -> pse_model::diagnostic::BoundaryDiagnostic {
         use pse_model::diagnostic::{BoundaryClass as Class, BoundaryDiagnostic, Observation};
         let (class, rule, source, detail) = match self {
+            Self::RecordMembership {
+                declaration,
+                source,
+            } => {
+                let mut diagnostic = pse_model::diagnostic::project_typed(
+                    source,
+                    pse_diagnostics::DiagnosticStage::Modeling,
+                );
+                diagnostic.sources.push(*declaration);
+                diagnostic
+                    .observations
+                    .insert("detail".into(), Observation::Text(source.to_string()));
+                return diagnostic;
+            }
             Self::Located { span, name, cause } => {
                 let mut diagnostic = cause.boundary_diagnostic();
                 // A record's span cannot witness the distinct requirement's bytes.
@@ -662,6 +686,19 @@ pub(crate) fn indicator_type(
 /// A contract failure attributed to a declaration, or to the instance or member it names.
 pub(crate) fn invalid(id: impl Into<SemanticId>, message: impl Into<String>) -> ModelingError {
     invalid_reason(id, ModelingContractReason::Unclassified, message)
+}
+/// Keep native query failures typed while retaining legacy semantic refusal context.
+pub(crate) fn record_membership_error(
+    declaration: impl Into<SemanticId>,
+    error: pse_quantity::QuantityError,
+) -> ModelingError {
+    match error {
+        pse_quantity::QuantityError::RecordMembership(source) => ModelingError::RecordMembership {
+            declaration: declaration.into(),
+            source,
+        },
+        error => invalid(declaration, error.to_string()),
+    }
 }
 /// A source-classified contract failure; never recover its reason from rendered detail.
 pub(crate) fn invalid_reason(

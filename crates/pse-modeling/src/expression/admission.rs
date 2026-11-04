@@ -316,18 +316,24 @@ impl PhysicalAdmissionRecord {
     /// Restore only inside the enclosing qualified strict numerical reconstruction.
     pub fn restore(&self, at: DeclarationId) -> Result<PhysicalAdmission> {
         pse_quantity::resolved::receipts::require_record(self)
-            .map_err(|e| invalid(at, e.to_string()))?;
+            .map_err(|error| crate::record_membership_error(at, error))?;
         Ok(PhysicalAdmission {
             request: self.request.clone(),
             operands: self
                 .operands
                 .iter()
-                .map(|v| v.restore().map_err(|e| invalid(at, e.to_string())))
+                .map(|v| {
+                    v.restore()
+                        .map_err(|error| crate::record_membership_error(at, error))
+                })
                 .collect::<Result<_>>()?,
             resolved: self
                 .resolved
                 .as_ref()
-                .map(|v| v.restore().map_err(|e| invalid(at, e.to_string())))
+                .map(|v| {
+                    v.restore()
+                        .map_err(|error| crate::record_membership_error(at, error))
+                })
                 .transpose()?,
         })
     }
