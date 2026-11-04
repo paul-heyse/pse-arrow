@@ -14,6 +14,14 @@ previous selection. Help, activation and reads never rebuild. A missing host req
 preparation; an effectful new-work command refreshes an existing stale host before admission.
 Existing invocation wait/cancel uses its recorded identities without a current-source rebuild.
 
+When an intentional host dependency edit requires a lockfile change, the stale host cannot
+rebuild with `--locked` before that change exists. Refresh only the named workspace packages
+with pinned-toolchain Cargo directly, for example `cargo update -p pse-host -p xtask`, under
+the selected user scope. Inspect the lock diff for the intended dependency edges and version
+moves, then run `scripts/bootstrap-host` explicitly and resume ordinary native routes. This
+source-lock operation needs no prepared host; it does not execute a product workload or replace
+native workload custody. Keep locked host construction and avoid a wholesale re-resolution.
+
 `scripts/pse` is the agent-facing native command. The native environment prepends this checkout's
 `scripts/` to `PATH`, exposing that same launcher as `pse` without another wrapper or global
 configuration. Without activation, use `scripts/pse` explicitly. The local `pse-cli` skill
