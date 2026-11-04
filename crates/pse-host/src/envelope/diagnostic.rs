@@ -335,12 +335,61 @@ pub struct ErrorRecord {
     /// Optional recovery facts from the owner that knows the failed operation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery: Option<Box<RecoveryRecord>> => { tag: 15, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Source-owned semantic RPC observation, independent of native verdict authority.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_rpc: Option<Box<crate::semantic::RpcObservation>> => { tag: 16, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
 }
 impl ErrorRecord {
+    fn semantic_rpc<'error>(
+        error: &'error (dyn std::error::Error + 'static),
+    ) -> Option<&'error crate::semantic::RpcFailure> {
+        let mut current: &(dyn std::error::Error + 'static) = error;
+        loop {
+            if let Some(crate::semantic::Error::Rpc(rpc)) =
+                current.downcast_ref::<crate::semantic::Error>()
+            {
+                return Some(rpc);
+            }
+            if let Some(error) = current.downcast_ref::<crate::HostError>() {
+                match error {
+                    crate::HostError::Semantic(error) => {
+                        current = error.as_ref();
+                        continue;
+                    }
+                    crate::HostError::Investigation(error) => {
+                        current = error;
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(crate::investigation::Error::Semantic(error)) =
+                current.downcast_ref::<crate::investigation::Error>()
+            {
+                current = error.as_ref();
+                continue;
+            }
+            let Some(source) = current.source() else {
+                return None;
+            };
+            current = source;
+        }
+    }
+    fn contains_semantic_rpc(error: &dyn TypedDiagnostic) -> bool {
+        Self::semantic_rpc(error).is_some()
+            || error
+                .diagnostic_children()
+                .is_some_and(|mut children| children.any(Self::contains_semantic_rpc))
+    }
     /// Capture a typed native diagnostic without flattening its aggregate structure.
     pub fn from_typed(error: &dyn TypedDiagnostic, policy: &RedactionPolicy) -> Self {
-        let mut record = Self::from_diagnostic(error, None, policy);
+        let rpc = Self::semantic_rpc(error);
+        // miette erases typed child identities. A mixed graph omits flattened raw causes
+        // throughout its derived diagnostic relationships; independently captured typed
+        // children below preserve each sibling's facts, causes and individual RPC facet.
+        let mut record =
+            Self::capture_diagnostic(error, None, policy, !Self::contains_semantic_rpc(error));
         record.code = error
             .diagnostic_code()
             .map(|code| code.as_str().to_owned())
@@ -355,6 +404,14 @@ impl ErrorRecord {
                     .collect()
             })
             .unwrap_or_default();
+        if let Some(rpc) = rpc {
+            record.semantic_rpc = Some(Box::new(rpc.observation_with_policy(policy)));
+            // Full original ConnectRPC/validator sources remain available locally.
+            // Publicly rendering them would restore intentionally omitted input.
+            if let Some(conversion) = rpc.conversion_error() {
+                record.related.push(Self::from_typed(conversion, policy));
+            }
+        }
         record
     }
     /// Recover a source-owned presentation cause without interpreting its display string.
@@ -382,6 +439,14 @@ impl ErrorRecord {
         error: &dyn Diagnostic,
         inherited: Option<&dyn SourceCode>,
         policy: &RedactionPolicy,
+    ) -> Self {
+        Self::capture_diagnostic(error, inherited, policy, true)
+    }
+    fn capture_diagnostic(
+        error: &dyn Diagnostic,
+        inherited: Option<&dyn SourceCode>,
+        policy: &RedactionPolicy,
+        include_causes: bool,
     ) -> Self {
         let source = error.source_code().or(inherited);
         let labels = error
@@ -417,7 +482,9 @@ impl ErrorRecord {
             })
             .unwrap_or_default();
         let mut causes = Vec::new();
-        let mut cause = std::error::Error::source(error);
+        let mut cause = include_causes
+            .then(|| std::error::Error::source(error))
+            .flatten();
         while let Some(value) = cause {
             causes.push(policy.redact(&value.to_string()));
             cause = value.source();
@@ -435,20 +502,28 @@ impl ErrorRecord {
             facts: FactsRecord::default(),
             children: Vec::new(),
             causes,
-            diagnostic_source: error
-                .diagnostic_source()
-                .map(|child| Box::new(Self::from_diagnostic(child, source, policy))),
+            diagnostic_source: error.diagnostic_source().map(|child| {
+                Box::new(Self::capture_diagnostic(
+                    child,
+                    source,
+                    policy,
+                    include_causes,
+                ))
+            }),
             related: error
                 .related()
                 .map(|related| {
                     related
-                        .map(|child| Self::from_diagnostic(child, source, policy))
+                        .map(|child| {
+                            Self::capture_diagnostic(child, source, policy, include_causes)
+                        })
                         .collect()
                 })
                 .unwrap_or_default(),
             labels,
             parser_context: BTreeMap::new(),
             recovery: None,
+            semantic_rpc: None,
         }
     }
     /// Convert clap's native context into the common structured diagnostic record.
@@ -475,6 +550,7 @@ impl ErrorRecord {
                 )
                 .collect(),
             recovery: None,
+            semantic_rpc: None,
         }
     }
 }

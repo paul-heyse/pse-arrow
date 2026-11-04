@@ -2186,6 +2186,7 @@ impl NativeInto<
                 (13, "labels"),
                 (14, "parser_context"),
                 (15, "recovery"),
+                (16, "semantic_rpc"),
             ],
             path,
         )?;
@@ -2205,6 +2206,7 @@ impl NativeInto<
             field_12,
             field_13,
             field_14,
+            field_15,
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
@@ -2338,6 +2340,17 @@ impl NativeInto<
                 })
                 .transpose()?
                 .into(),
+            semantic_rpc: field_15
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+                        >(value, &child_path(path, "semantic_rpc"))?,
+                    )
+                })
+                .transpose()?
+                .into(),
             ..Default::default()
         })
     }
@@ -2370,6 +2383,7 @@ impl NativeFrom<
                 (13, "labels"),
                 (14, "parser_context"),
                 (15, "recovery"),
+                (16, "semantic_rpc"),
             ],
             path,
         )?;
@@ -2524,11 +2538,434 @@ impl NativeFrom<
                     )
                 })
                 .transpose()?,
+            wire
+                .semantic_rpc
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+                        >(value, &child_path(path, "semantic_rpc"))?,
+                    )
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
             )
             .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+> for crate::semantic::FailurePhase {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Schema(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Constraint(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Context(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Validator(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative4 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            5,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Provider(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative5 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                6,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                6,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            6,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Transport(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative6 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                7,
+            >>::VERSION,
+            <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                7,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+            7,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Settlement(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_phase::Alternative7 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+> for crate::semantic::FailurePhase {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Schema(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Schema");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Constraint(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Constraint");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Context(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Context");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Validator(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Validator");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Provider(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Provider");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Transport(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Transport");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_phase::Kind::Settlement(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Settlement");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::VERSION,
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailurePhase as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
     }
 }
 impl NativeInto<
@@ -3042,6 +3479,311 @@ impl NativeFrom<
                 Ok(
                     <crate::semantic::FailureReason as pse_contract::boundary_projection::ProjectionAlternative<
                         9,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+> for crate::semantic::FailureState {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Unavailable(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_state::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Unsupported(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_state::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Cancelled(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_state::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Stale(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_state::Alternative4 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::VERSION,
+            <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+            5,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Failed(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::failure_state::Alternative5 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+> for crate::semantic::FailureState {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Unavailable(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unavailable");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Unsupported(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unsupported");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Cancelled(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Cancelled");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Stale(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Stale");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::failure_state::Kind::Failed(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Failed");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::VERSION,
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::FailureState as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
                     >>::from_projection_alternative(fields),
                 )
             }
@@ -3770,6 +4512,621 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition,
+> for crate::semantic::RpcDisposition {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Native(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Absent(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Unrecognized(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Malformed(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative4 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            5,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::ConversionRefused(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative5 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                6,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                6,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            6,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Ambiguous(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative6 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                7,
+            >>::VERSION,
+            <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                7,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+            7,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Oversized(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::semantic_rpc_disposition::Alternative7 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition,
+> for crate::semantic::RpcDisposition {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Native(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Native");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Absent(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Absent");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Unrecognized(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unrecognized");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Malformed(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Malformed");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::ConversionRefused(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "ConversionRefused");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Ambiguous(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Ambiguous");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        6,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::semantic_rpc_disposition::Kind::Oversized(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Oversized");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::VERSION,
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::semantic::RpcDisposition as pse_contract::boundary_projection::ProjectionAlternative<
+                        7,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+> for crate::semantic::RpcObservation {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+        AdapterError,
+    > {
+        layout(
+            <crate::semantic::RpcObservation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::semantic::RpcObservation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "grpc_code"),
+                (2, "http_status"),
+                (3, "disposition"),
+                (4, "detail_count"),
+                (5, "native_detail_count"),
+                (6, "native_state"),
+                (7, "native_phase"),
+                (8, "validation"),
+                (9, "native_diagnostic_code"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation {
+            grpc_code: native_into::<_, u32>(field_0, &child_path(path, "grpc_code"))?,
+            http_status: native_into::<
+                _,
+                u32,
+            >(field_1, &child_path(path, "http_status"))?,
+            disposition: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition,
+                >(field_2, &child_path(path, "disposition"))?,
+            ),
+            detail_count: native_into::<
+                _,
+                u64,
+            >(field_3, &child_path(path, "detail_count"))?,
+            native_detail_count: native_into::<
+                _,
+                u64,
+            >(field_4, &child_path(path, "native_detail_count"))?,
+            native_state: field_5
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+                        >(value, &child_path(path, "native_state"))?,
+                    )
+                })
+                .transpose()?
+                .into(),
+            native_phase: field_6
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+                        >(value, &child_path(path, "native_phase"))?,
+                    )
+                })
+                .transpose()?
+                .into(),
+            validation: field_7
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+                        >(value, &child_path(path, "validation"))?,
+                    )
+                })
+                .transpose()?
+                .into(),
+            native_diagnostic_code: field_8
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "native_diagnostic_code"))?,
+                    )
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+> for crate::semantic::RpcObservation {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcObservation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::semantic::RpcObservation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::semantic::RpcObservation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "grpc_code"),
+                (2, "http_status"),
+                (3, "disposition"),
+                (4, "detail_count"),
+                (5, "native_detail_count"),
+                (6, "native_state"),
+                (7, "native_phase"),
+                (8, "validation"),
+                (9, "native_diagnostic_code"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u32>(wire.grpc_code, &child_path(path, "grpc_code"))?,
+            native_from::<_, u32>(wire.http_status, &child_path(path, "http_status"))?,
+            native_from::<
+                _,
+                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::SemanticRpcDisposition,
+            >(
+                required(
+                    wire.disposition.into_option(),
+                    &child_path(path, "disposition"),
+                )?,
+                &child_path(path, "disposition"),
+            )?,
+            native_from::<_, u64>(wire.detail_count, &child_path(path, "detail_count"))?,
+            native_from::<
+                _,
+                u64,
+            >(wire.native_detail_count, &child_path(path, "native_detail_count"))?,
+            wire
+                .native_state
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailureState,
+                        >(value, &child_path(path, "native_state"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .native_phase
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::FailurePhase,
+                        >(value, &child_path(path, "native_phase"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .validation
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+                        >(value, &child_path(path, "validation"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .native_diagnostic_code
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "native_diagnostic_code"))?,
+                    )
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::TestIdentity,
 > for crate::discovery::TestIdentity {
     fn into_wire(
@@ -3827,6 +5184,1474 @@ impl NativeFrom<
             native_from::<_, String>(wire.package_id, &child_path(path, "package_id"))?,
             native_from::<_, String>(wire.binary_id, &child_path(path, "binary_id"))?,
             native_from::<_, String>(wire.test_name, &child_path(path, "test_name"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+> for crate::envelope::ValidationCorrection {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+        AdapterError,
+    > {
+        layout(
+            <crate::envelope::ValidationCorrection as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationCorrection as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "disclosure"), (2, "violations"), (3, "diagnostics")],
+            path,
+        )?;
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection {
+            disclosure: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure,
+                >(field_0, &child_path(path, "disclosure"))?,
+            ),
+            violations: {
+                let current_path = &child_path(path, "violations");
+                items(field_1)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            diagnostics: {
+                let current_path = &child_path(path, "diagnostics");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                String,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+> for crate::envelope::ValidationCorrection {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCorrection,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::envelope::ValidationCorrection as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationCorrection as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "disclosure"), (2, "violations"), (3, "diagnostics")],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure,
+            >(
+                required(
+                    wire.disclosure.into_option(),
+                    &child_path(path, "disclosure"),
+                )?,
+                &child_path(path, "disclosure"),
+            )?,
+            {
+                let current_path = &child_path(path, "violations");
+                let values = wire
+                    .violations
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_from::<
+                                _,
+                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "diagnostics");
+                let values = wire
+                    .diagnostics
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_from::<
+                                _,
+                                String,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage,
+> for crate::envelope::ValidationCoverage {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::Unknown(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_coverage::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::Complete(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_coverage::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::Truncated(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_coverage::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::NotApplicable(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_coverage::Alternative4 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage,
+> for crate::envelope::ValidationCoverage {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::Unknown(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unknown");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::Complete(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Complete");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::Truncated(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Truncated");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_coverage::Kind::NotApplicable(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "NotApplicable");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationCoverage as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure,
+> for crate::envelope::ValidationDisclosure {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure,
+        AdapterError,
+    > {
+        layout(
+            <crate::envelope::ValidationDisclosure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationDisclosure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "message_type"),
+                (2, "descriptor_sha256"),
+                (3, "outcome"),
+                (4, "source_violation_count"),
+                (5, "emitted_violation_count"),
+                (6, "coverage"),
+                (7, "selectors"),
+                (8, "messages"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure {
+            message_type: field_0
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "message_type"))?,
+                    )
+                })
+                .transpose()?,
+            descriptor_sha256: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "descriptor_sha256"))?,
+                    )
+                })
+                .transpose()?,
+            outcome: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome,
+                >(field_2, &child_path(path, "outcome"))?,
+            ),
+            source_violation_count: field_3
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "source_violation_count"))?,
+                    )
+                })
+                .transpose()?,
+            emitted_violation_count: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "emitted_violation_count"))?,
+                    )
+                })
+                .transpose()?,
+            coverage: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage,
+                >(field_5, &child_path(path, "coverage"))?,
+            ),
+            selectors: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+                >(field_6, &child_path(path, "selectors"))?,
+            ),
+            messages: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+                >(field_7, &child_path(path, "messages"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure,
+> for crate::envelope::ValidationDisclosure {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationDisclosure,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::envelope::ValidationDisclosure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationDisclosure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "message_type"),
+                (2, "descriptor_sha256"),
+                (3, "outcome"),
+                (4, "source_violation_count"),
+                (5, "emitted_violation_count"),
+                (6, "coverage"),
+                (7, "selectors"),
+                (8, "messages"),
+            ],
+            path,
+        )?;
+        let fields = (
+            wire
+                .message_type
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "message_type"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .descriptor_sha256
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "descriptor_sha256"))?,
+                    )
+                })
+                .transpose()?,
+            native_from::<
+                _,
+                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome,
+            >(
+                required(wire.outcome.into_option(), &child_path(path, "outcome"))?,
+                &child_path(path, "outcome"),
+            )?,
+            wire
+                .source_violation_count
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "source_violation_count"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .emitted_violation_count
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "emitted_violation_count"))?,
+                    )
+                })
+                .transpose()?,
+            native_from::<
+                _,
+                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationCoverage,
+            >(
+                required(wire.coverage.into_option(), &child_path(path, "coverage"))?,
+                &child_path(path, "coverage"),
+            )?,
+            native_from::<
+                _,
+                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+            >(
+                required(wire.selectors.into_option(), &child_path(path, "selectors"))?,
+                &child_path(path, "selectors"),
+            )?,
+            native_from::<
+                _,
+                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+            >(
+                required(wire.messages.into_option(), &child_path(path, "messages"))?,
+                &child_path(path, "messages"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+> for crate::envelope::ValidationExposure {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_exposure::Kind::Unknown(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_exposure::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_exposure::Kind::OmittedByPolicy(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_exposure::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_exposure::Kind::AsReceived(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_exposure::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+> for crate::envelope::ValidationExposure {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationExposure,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_exposure::Kind::Unknown(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unknown");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_exposure::Kind::OmittedByPolicy(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "OmittedByPolicy");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_exposure::Kind::AsReceived(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "AsReceived");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationExposure as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome,
+> for crate::envelope::ValidationOutcome {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::Violations(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_outcome::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::CompileDefect(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_outcome::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::EvaluationDefect(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_outcome::Alternative3 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::InvalidEmptyError(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_outcome::Alternative4 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome,
+> for crate::envelope::ValidationOutcome {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationOutcome,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::Violations(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Violations");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::CompileDefect(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "CompileDefect");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::EvaluationDefect(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "EvaluationDefect");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_outcome::Kind::InvalidEmptyError(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "InvalidEmptyError");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationOutcome as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+> for crate::envelope::ValidationPathElement {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+        AdapterError,
+    > {
+        layout(
+            <crate::envelope::ValidationPathElement as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationPathElement as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "field_number"),
+                (2, "field_name"),
+                (3, "field_type"),
+                (4, "key_type"),
+                (5, "value_type"),
+                (6, "selector"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement {
+            field_number: field_0
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, i32>(value, &child_path(path, "field_number"))?)
+                })
+                .transpose()?,
+            field_name: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "field_name"))?)
+                })
+                .transpose()?,
+            field_type: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "field_type"))?)
+                })
+                .transpose()?,
+            key_type: field_3
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "key_type"))?)
+                })
+                .transpose()?,
+            value_type: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "value_type"))?)
+                })
+                .transpose()?,
+            selector: field_5
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+                        >(value, &child_path(path, "selector"))?,
+                    )
+                })
+                .transpose()?
+                .into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+> for crate::envelope::ValidationPathElement {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::envelope::ValidationPathElement as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationPathElement as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "field_number"),
+                (2, "field_name"),
+                (3, "field_type"),
+                (4, "key_type"),
+                (5, "value_type"),
+                (6, "selector"),
+            ],
+            path,
+        )?;
+        let fields = (
+            wire
+                .field_number
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, i32>(value, &child_path(path, "field_number"))?)
+                })
+                .transpose()?,
+            wire
+                .field_name
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "field_name"))?)
+                })
+                .transpose()?,
+            wire
+                .field_type
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "field_type"))?)
+                })
+                .transpose()?,
+            wire
+                .key_type
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "key_type"))?)
+                })
+                .transpose()?,
+            wire
+                .value_type
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "value_type"))?)
+                })
+                .transpose()?,
+            wire
+                .selector
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+                        >(value, &child_path(path, "selector"))?,
+                    )
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+> for crate::envelope::ValidationSelector {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "value")],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Index");
+                let path = alternative_path.as_str();
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_selector::Kind::Index(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_selector::Alternative1 {
+                                value: native_into::<
+                                    _,
+                                    String,
+                                >(field_0, &child_path(path, "value"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector {
+                    kind: Some(
+                        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_selector::Kind::RedactedMapKey(
+                            Box::new(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::validation_selector::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+> for crate::envelope::ValidationSelector {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationSelector,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_selector::Kind::Index(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Index");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "value")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, String>(wire.value, &child_path(path, "value"))?,
+                );
+                Ok(
+                    <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::__buffa::oneof::validation_selector::Kind::RedactedMapKey(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "RedactedMapKey");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::envelope::ValidationSelector as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+> for crate::envelope::ValidationViolation {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+        AdapterError,
+    > {
+        layout(
+            <crate::envelope::ValidationViolation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationViolation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "field"), (2, "rule"), (3, "rule_id"), (4, "message"), (5, "for_key")],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation {
+            field: {
+                let current_path = &child_path(path, "field");
+                items(field_0)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            rule: {
+                let current_path = &child_path(path, "rule");
+                items(field_1)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            rule_id: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "rule_id"))?)
+                })
+                .transpose()?,
+            message: field_3
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "message"))?)
+                })
+                .transpose()?,
+            for_key: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, bool>(value, &child_path(path, "for_key"))?)
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+> for crate::envelope::ValidationViolation {
+    fn from_wire(
+        wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationViolation,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::envelope::ValidationViolation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::envelope::ValidationViolation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "field"), (2, "rule"), (3, "rule_id"), (4, "message"), (5, "for_key")],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "field");
+                let values = wire
+                    .field
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_from::<
+                                _,
+                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "rule");
+                let values = wire
+                    .rule
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_from::<
+                                _,
+                                crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::ValidationPathElement,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            wire
+                .rule_id
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "rule_id"))?)
+                })
+                .transpose()?,
+            wire
+                .message
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "message"))?)
+                })
+                .transpose()?,
+            wire
+                .for_key
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, bool>(value, &child_path(path, "for_key"))?)
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,

@@ -1930,7 +1930,7 @@ pub(super) fn failure_to_pb(value: Failure) -> Result<pb::Failure> {
             FailurePhase::Settlement => pb::failure::Phase::Settlement,
         }
         .into(),
-        code: "semantic.native_refusal".into(),
+        code: value.diagnostic_code.unwrap_or_default(),
         message: value.message,
         backend_code: value.backend_code,
         original: value.backend_data.as_ref().map(opaque).transpose()?.into(),
@@ -1948,6 +1948,7 @@ pub(super) fn failure_to_pb(value: Failure) -> Result<pb::Failure> {
 }
 pub(super) fn failure_from_pb(mut value: pb::Failure) -> Result<Failure> {
     Ok(Failure {
+        diagnostic_code: (!value.code.is_empty()).then_some(value.code),
         context: value
             .context
             .take()
@@ -2470,6 +2471,7 @@ mod tests {
     #[test]
     fn contextual_failures_and_occurrence_scopes_preserve_native_meaning() {
         let failure = Failure {
+            diagnostic_code: None,
             context: Some(FailureContext {
                 reason: FailureReason::OutsidePreparedWorld,
                 operation: "reference_scope".into(),
@@ -2590,6 +2592,7 @@ mod tests {
             FailureState::Failed,
         ] {
             let failure = Failure {
+                diagnostic_code: None,
                 context: None,
                 state,
                 phase: FailurePhase::Provider,
@@ -2635,6 +2638,7 @@ mod tests {
                 for original in [
                     OriginalOutcome::Succeeded,
                     OriginalOutcome::Failed(Box::new(Failure {
+                        diagnostic_code: None,
                         context: None,
                         state: FailureState::Stale,
                         phase: FailurePhase::Context,
@@ -2646,6 +2650,7 @@ mod tests {
                     })),
                 ] {
                     let failure = Failure {
+                        diagnostic_code: None,
                         context: None,
                         state: FailureState::Cancelled,
                         phase,

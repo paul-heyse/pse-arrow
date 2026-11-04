@@ -45,6 +45,7 @@ pub(super) async fn request<R: Request>(server: &ServerHandle, params: Value) ->
         .map_err(|error| match error {
             lspf::ClientError::Cancelled => Error::Cancelled,
             lspf::ClientError::Remote(error) => Error::Refusal(Box::new(super::Failure {
+                diagnostic_code: None,
                 context: None,
                 phase: super::FailurePhase::Provider,
                 observed_cancellation: None,

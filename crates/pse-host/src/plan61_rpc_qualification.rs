@@ -549,13 +549,14 @@ async fn plan61_typed_caller_preserves_validation_field_locations_and_rule_ids()
         .await
         .unwrap();
     let wire_error = stream.message::<pb::NativeEvent>().await.unwrap_err();
-    let semantic::Error::Refusal(failure) = rpc::transport_error(wire_error) else {
-        panic!("missing typed request failure")
+    let error = rpc::transport_error(wire_error);
+    let semantic::Error::Rpc(original) = &error else {
+        panic!("missing original RPC failure")
     };
+    let failure = semantic::Failure::from_error(&error);
     assert!(matches!(failure.phase, semantic::FailurePhase::Constraint));
-    let details: Vec<connectrpc::ErrorDetail> =
-        serde_json::from_value(failure.backend_data.unwrap()["original_rpc_details"].clone())
-            .unwrap();
+    assert!(failure.backend_data.is_none());
+    let details = &original.original.details;
     let violations = details
         .iter()
         .find_map(|detail| protovalidate_buffa::decode_violations(detail).unwrap())
@@ -592,9 +593,11 @@ async fn unary_package_validation_preserves_origin_schema_and_original_details_b
         Err(error) => error,
         Ok(_) => panic!("invalid unary request was admitted"),
     };
-    let semantic::Error::Refusal(failure) = rpc::transport_error(error) else {
-        panic!("unary constraint lost its typed refusal")
+    let error = rpc::transport_error(error);
+    let semantic::Error::Rpc(original) = &error else {
+        panic!("unary constraint lost original RPC failure")
     };
+    let failure = semantic::Failure::from_error(&error);
     assert!(matches!(failure.phase, semantic::FailurePhase::Constraint));
     let correction = failure.validation.unwrap();
     assert_eq!(
@@ -612,9 +615,8 @@ async fn unary_package_validation_preserves_origin_schema_and_original_details_b
                     && element.field_name.as_deref() == Some("package_id")
             })
     }));
-    let details: Vec<connectrpc::ErrorDetail> =
-        serde_json::from_value(failure.backend_data.unwrap()["original_rpc_details"].clone())
-            .unwrap();
+    assert!(failure.backend_data.is_none());
+    let details = &original.original.details;
     assert!(details.iter().any(|detail| {
         protovalidate_buffa::decode_violations(detail)
             .unwrap()
@@ -638,6 +640,7 @@ async fn unary_validator_compile_and_evaluation_defects_remain_typed_through_rea
             Some("private evaluation detail".into()),
             ValidationOutcome::EvaluationDefect,
         ),
+        (None, None, ValidationOutcome::InvalidEmptyError),
     ] {
         let server = Server::start().await;
         *server.fixture.validation_error.lock().unwrap() =
@@ -658,9 +661,24 @@ async fn unary_validator_compile_and_evaluation_defects_remain_typed_through_rea
             Err(error) => error,
             Ok(_) => panic!("injected validator defect reached CPU admission"),
         };
-        let semantic::Error::Refusal(failure) = rpc::transport_error(error) else {
-            panic!("unary validator defect became a transport error")
+        let error = rpc::transport_error(error);
+        let semantic::Error::Rpc(original) = &error else {
+            panic!("unary validator defect lost original RPC failure")
         };
+        assert_eq!(original.original.code, connectrpc::ErrorCode::Internal);
+        assert!(std::error::Error::source(&original.original).is_none());
+        let record = crate::envelope::ErrorRecord::from_typed(
+            &error,
+            &crate::envelope::RedactionPolicy::default(),
+        );
+        let observation = record.semantic_rpc.unwrap();
+        assert_eq!(observation.disposition, semantic::RpcDisposition::Native);
+        assert!(matches!(
+            observation.native_phase,
+            Some(semantic::FailurePhase::Validator)
+        ));
+        assert_eq!(observation.validation.unwrap().disclosure.outcome, expected);
+        let failure = semantic::Failure::from_error(&error);
         assert!(matches!(failure.phase, semantic::FailurePhase::Validator));
         assert!(failure.backend_data.is_none());
         assert!(!serde_json::to_string(&failure).unwrap().contains("private"));

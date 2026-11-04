@@ -16,6 +16,10 @@ pub use facts::*;
 #[cfg(feature = "native-hir")]
 pub mod native;
 pub(crate) mod rpc;
+mod rpc_failure;
+#[cfg(test)]
+mod rpc_failure_tests;
+pub use rpc_failure::{RpcDisposition, RpcFailure, RpcObservation};
 pub(crate) mod service;
 #[cfg(test)]
 pub(crate) mod tests;
@@ -592,6 +596,9 @@ impl Response {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, thiserror::Error)]
 #[error("{message}")]
 pub struct Failure {
+    /// Original diagnostic identity, independent of transport status.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostic_code: Option<String>,
     /// Native-owned contextual classification, independent of opaque backend evidence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<FailureContext>,
@@ -647,39 +654,45 @@ pub enum FailureReason {
     ProviderFailed => 9;
 }
 }
+pse_contract::projection_enum! {
 /// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureState {
+    projection: { name: "FailureState", rust_path: crate::semantic::FailureState, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Explicit preparation is missing/pending or another selected premise is unavailable.
-    Unavailable,
+    Unavailable => 1;
     /// Selected backend does not implement the requested operation.
-    Unsupported,
+    Unsupported => 2;
     /// Abandoned request; session lifetime remains independent.
-    Cancelled,
+    Cancelled => 3;
     /// Source/configuration changed; reacquire inputs.
-    Stale,
+    Stale => 4;
     /// Original protocol, source or native owner failed.
-    Failed,
+    Failed => 5;
 }
+}
+pse_contract::projection_enum! {
 /// Original failure boundary, separate from native availability/cancellation state.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FailurePhase {
+    projection: { name: "FailurePhase", rust_path: crate::semantic::FailurePhase, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// A schema representation could not be decoded or did not match its contract.
-    Schema,
+    Schema => 1;
     /// The user's request violated a declared constraint or stream-control contract.
-    Constraint,
+    Constraint => 2;
     /// Original source/session/provider context is unavailable or stale.
-    Context,
+    Context => 3;
     /// Validator execution failed rather than rejecting the user's request.
-    Validator,
+    Validator => 4;
     /// Original selected provider failure.
-    Provider,
+    Provider => 5;
     /// Native result delivery or connection failed.
-    Transport,
+    Transport => 6;
     /// Cancellation observation retains actual original work settlement.
-    Settlement,
+    Settlement => 7;
+}
 }
 impl Failure {
     /// Preserve selected typed error categories at the serialization boundary.
@@ -687,6 +700,9 @@ impl Failure {
         Self::from_error_with_policy(error, &crate::envelope::RedactionPolicy::from_environment())
     }
     fn from_error_with_policy(error: &Error, policy: &crate::envelope::RedactionPolicy) -> Self {
+        if let Error::Rpc(failure) = error {
+            return failure.failure(policy);
+        }
         if let Error::Refusal(failure) = error {
             return failure.as_ref().clone().redacted(policy);
         }
@@ -696,17 +712,10 @@ impl Failure {
             Error::Unavailable(_) => FailureState::Unavailable,
             _ => FailureState::Failed,
         };
-        let phase = match error {
-            Error::InvalidRequest(_) => FailurePhase::Constraint,
-            Error::Validator(_) => FailurePhase::Validator,
-            Error::Transport(_) | Error::CancellationUnobserved { .. } => FailurePhase::Transport,
-            Error::Stale | Error::Unavailable(_) => FailurePhase::Context,
-            Error::Json(_) => FailurePhase::Schema,
-            Error::Schema(_) => FailurePhase::Schema,
-            Error::Cancelled | Error::CancelledObserved { .. } => FailurePhase::Settlement,
-            _ => FailurePhase::Provider,
-        };
+        let phase = error.phase();
         Self {
+            diagnostic_code: pse_diagnostics::TypedDiagnostic::diagnostic_code(error)
+                .map(|code| code.as_str().to_owned()),
             state,
             context: None,
             phase,
@@ -728,6 +737,10 @@ impl Failure {
         .redacted(policy)
     }
     fn redacted(mut self, policy: &crate::envelope::RedactionPolicy) -> Self {
+        self.diagnostic_code = self.diagnostic_code.map(|code| policy.redact(&code));
+        self.validation = self
+            .validation
+            .map(|value| Box::new(value.redacted(policy)));
         self.message = policy.redact(&self.message);
         if let Some(context) = &mut self.context {
             context.operation = policy.redact(&context.operation);
@@ -799,12 +812,18 @@ pub enum Error {
     /// Original schema/decode mismatch, distinct from user constraint violations.
     #[error("semantic schema: {0}")]
     Schema(String),
+    /// Original protobuf representation decode failure.
+    #[error("semantic protobuf: {0}")]
+    WireDecode(#[from] buffa::DecodeError),
     /// Validator fault, distinct from a rejected user request.
     #[error("semantic request validator: {0}")]
     Validator(String),
     /// Original helper connection or stream delivery failure.
     #[error("semantic RPC transport: {0}")]
     Transport(String),
+    /// RPC detail interpretation retains the original transport error and local cause.
+    #[error(transparent)]
+    Rpc(#[from] Box<RpcFailure>),
     /// An original native refusal retains structured machine meaning across clients.
     #[error(transparent)]
     Refusal(Box<Failure>),
@@ -838,9 +857,33 @@ pse_diagnostics::impl_diagnostic! { Error,
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
+    pub(crate) fn phase(&self) -> FailurePhase {
+        match self {
+            Error::Refusal(failure) => failure.phase,
+            Error::Rpc(rpc) => rpc.phase(),
+            Error::InvalidRequest(_) => FailurePhase::Constraint,
+            Error::Validator(_) => FailurePhase::Validator,
+            Error::Transport(_) | Error::CancellationUnobserved { .. } => FailurePhase::Transport,
+            Error::Stale | Error::Unavailable(_) => FailurePhase::Context,
+            Error::Json(_) => FailurePhase::Schema,
+            Error::WireDecode(_) => FailurePhase::Schema,
+            Error::Schema(_) => FailurePhase::Schema,
+            Error::Cancelled | Error::CancelledObserved { .. } => FailurePhase::Settlement,
+            _ => FailurePhase::Provider,
+        }
+    }
+    /// Original authored refusal, distinct from an undecodable or absent RPC detail.
+    pub(crate) fn native_failure(&self) -> Option<&Failure> {
+        match self {
+            Self::Refusal(failure) => Some(failure),
+            Self::Rpc(rpc) => rpc.native_failure(),
+            _ => None,
+        }
+    }
     /// Unsupported producer operation, distinct from missing explicit preparation.
     pub(super) fn unsupported(message: impl Into<String>) -> Self {
         Self::Refusal(Box::new(Failure {
+            diagnostic_code: None,
             context: None,
             state: FailureState::Unsupported,
             phase: FailurePhase::Provider,
@@ -872,6 +915,7 @@ mod failure_tests {
             )),
         ] {
             let original = Failure {
+                diagnostic_code: None,
                 context: Some(FailureContext {
                     reason: FailureReason::SourceChanged,
                     operation: "source_guard".into(),
@@ -906,6 +950,7 @@ mod failure_tests {
     #[test]
     fn cancellation_diagnostic_keeps_settlement_and_original_failure_typed() {
         let original = Failure {
+            diagnostic_code: None,
             context: None,
             state: FailureState::Stale,
             phase: FailurePhase::Context,

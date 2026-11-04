@@ -1734,6 +1734,7 @@ mod tests {
             ),
         ] {
             let original = crate::semantic::Failure {
+                diagnostic_code: None,
                 context: None,
                 state,
                 phase: crate::semantic::FailurePhase::Provider,
@@ -1770,6 +1771,7 @@ mod tests {
         }
         let error = Error::Semantic(Box::new(crate::semantic::Error::Refusal(Box::new(
             crate::semantic::Failure {
+                diagnostic_code: None,
                 context: None,
                 state: crate::semantic::FailureState::Unavailable,
                 phase: crate::semantic::FailurePhase::Context,

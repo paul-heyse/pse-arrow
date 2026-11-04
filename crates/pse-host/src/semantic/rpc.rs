@@ -86,39 +86,79 @@ pub(super) fn config() -> Result<connectrpc::client::ClientConfig> {
     )
     .with_protocol(connectrpc::Protocol::Grpc))
 }
+const FAILURE_DETAIL_TYPE: &str = "pse.code_intelligence.v1.Failure";
+// Bounds interpretation and expansion, not retention of the original ConnectError.
+const MAX_FAILURE_DETAIL_BYTES: usize = 64 * 1024;
+const MAX_FAILURE_DETAILS: usize = 64;
+pub(super) fn is_native_detail(detail: &connectrpc::ErrorDetail) -> bool {
+    detail
+        .type_url
+        .strip_prefix("type.googleapis.com/")
+        .unwrap_or(&detail.type_url)
+        == FAILURE_DETAIL_TYPE
+}
+pub(super) fn details_within_allowance(details: &[connectrpc::ErrorDetail]) -> bool {
+    details.len() <= MAX_FAILURE_DETAILS
+        && details
+            .iter()
+            .try_fold(0usize, |size, detail| {
+                size.checked_add(detail.type_url.len())?
+                    .checked_add(detail.value.as_ref().map_or(0, String::len))
+            })
+            .is_some_and(|size| size <= MAX_FAILURE_DETAIL_BYTES)
+}
 pub(crate) fn transport_error(error: ConnectError) -> Error {
+    use super::rpc_failure::{DecodeFailure, Detail, RpcFailure};
     use base64::Engine as _;
-    use buffa::Message as _;
-    for detail in &error.details {
-        let name = detail
-            .type_url
-            .strip_prefix("type.googleapis.com/")
-            .unwrap_or(&detail.type_url);
-        if name == "pse.code_intelligence.v1.Failure" {
-            if let Some(value) = &detail.value {
-                let decoded = base64::engine::general_purpose::STANDARD_NO_PAD
+    let mut native = error
+        .details
+        .iter()
+        .filter(|detail| is_native_detail(detail));
+    let first = native.next();
+    let detail = if native.next().is_some() {
+        Detail::Ambiguous
+    } else if !details_within_allowance(&error.details) {
+        Detail::Oversized
+    } else if let Some(detail) = first {
+        let decoded = detail
+            .value
+            .as_ref()
+            .ok_or(DecodeFailure::MissingValue)
+            .and_then(|value| {
+                base64::engine::general_purpose::STANDARD_NO_PAD
                     .decode(value)
-                    .or_else(|_| base64::engine::general_purpose::STANDARD.decode(value));
-                if let Ok(bytes) = decoded
-                    && let Ok(failure) = pb::Failure::decode_from_slice(&bytes)
-                {
-                    return wire::failure_from_pb(failure).map_or_else(
-                        |error| error,
-                        |failure| Error::Refusal(Box::new(retain_rpc_details(failure, &error))),
-                    );
+                    .or_else(|_| base64::engine::general_purpose::STANDARD.decode(value))
+                    .map_err(DecodeFailure::Base64)
+            })
+            .and_then(|bytes| {
+                buffa::DecodeOptions::default()
+                    .with_max_message_size(MAX_FAILURE_DETAIL_BYTES)
+                    .with_element_memory_limit(1024 * 1024)
+                    .decode_from_slice::<pb::Failure>(&bytes)
+                    .map_err(DecodeFailure::Protobuf)
+            });
+        match decoded {
+            Err(error) => Detail::Malformed(error),
+            Ok(failure) => match wire::failure_from_pb(failure) {
+                Err(error) => Detail::ConversionRefused(Box::new(error)),
+                Ok(mut failure) => {
+                    let disclosure = failure.validation.take().map(|value| value.disclosure);
+                    failure.validation =
+                        crate::envelope::ValidationCorrection::rpc(&error.details, disclosure)
+                            .map(Box::new);
+                    Detail::Native(Box::new(failure))
                 }
-            }
-            return Error::Transport("malformed typed semantic RPC failure detail".into());
+            },
         }
-    }
-    if error.code == connectrpc::ErrorCode::InvalidArgument {
-        Error::Refusal(Box::new(retain_rpc_details(
-            super::Failure::from_error(&Error::InvalidRequest(error.to_string())),
-            &error,
-        )))
+    } else if error.details.is_empty() {
+        Detail::Absent
     } else {
-        Error::Transport(format!("local semantic RPC: {error}"))
-    }
+        Detail::Unrecognized
+    };
+    Error::Rpc(Box::new(RpcFailure {
+        detail,
+        original: error,
+    }))
 }
 
 fn validation_error(
@@ -174,40 +214,25 @@ fn validation_error(
         Err(_) => transport,
     }
 }
-fn retain_rpc_details(mut failure: super::Failure, error: &ConnectError) -> super::Failure {
-    let disclosure = failure.validation.take().map(|value| value.disclosure);
-    failure.validation =
-        crate::envelope::ValidationCorrection::rpc(&error.details, disclosure).map(Box::new);
-    let originals = error
-        .details
-        .iter()
-        .filter(|detail| {
-            detail
-                .type_url
-                .strip_prefix("type.googleapis.com/")
-                .unwrap_or(&detail.type_url)
-                != "pse.code_intelligence.v1.Failure"
-        })
-        .collect::<Vec<_>>();
-    if !originals.is_empty() {
-        let details = serde_json::json!(originals);
-        match failure.backend_data.as_mut() {
-            Some(serde_json::Value::Object(object)) => {
-                object.insert("original_rpc_details".into(), details);
-            }
-            _ => {
-                failure.backend_data = Some(
-                    serde_json::json!({"original_rpc_details":details,"original_backend_data":failure.backend_data.take()}),
-                );
-            }
-        }
-    }
-    failure
+fn typed_error(error: Error, code: connectrpc::ErrorCode, message: String) -> ConnectError {
+    typed_error_with_policy(
+        error,
+        code,
+        message,
+        &crate::envelope::RedactionPolicy::from_environment(),
+    )
 }
-fn typed_error(error: &Error, transport: ConnectError) -> ConnectError {
-    match wire::failure_to_pb(super::Failure::from_error(error)) {
+fn typed_error_with_policy(
+    error: Error,
+    code: connectrpc::ErrorCode,
+    message: String,
+    policy: &crate::envelope::RedactionPolicy,
+) -> ConnectError {
+    let failure = wire::failure_to_pb(super::Failure::from_error_with_policy(&error, policy));
+    let transport = ConnectError::new(code, policy.redact(&message)).with_source(error);
+    match failure {
         Ok(failure) => transport.with_detail(connectrpc::ErrorDetail::from_message(
-            "pse.code_intelligence.v1.Failure",
+            FAILURE_DETAIL_TYPE,
             &failure,
         )),
         Err(_) => transport,
@@ -540,13 +565,13 @@ impl Session {
             let request = match first {
                 Some(Ok(pb::NativeControl { action: Some(pb::native_control::Action::Start(request)), .. })) => {
                     use protovalidate_buffa::Validate as _;
-                    match request.validate().map_err(|error| validation_error(error, <pb::NativeRequest as buffa::MessageName>::FULL_NAME)).and_then(|()| wire::request_from_pb(*request).map_err(|error| typed_error(&error, ConnectError::invalid_argument(error.to_string())))) {
+                    match request.validate().map_err(|error| validation_error(error, <pb::NativeRequest as buffa::MessageName>::FULL_NAME)).and_then(|()| wire::request_from_pb(*request).map_err(|error| { let message = error.to_string(); typed_error(error, connectrpc::ErrorCode::InvalidArgument, message) })) {
                         Ok(request) => request,
                         Err(error) => { let _sent = tx.try_send(Err(error)); return; }
                     }
                 }
                 Some(Err(error)) => { let _sent = tx.try_send(Err(error)); return; }
-                _ => { let error = Error::InvalidRequest("exactly one Start must be first".into()); let _sent = tx.try_send(Err(typed_error(&error, ConnectError::invalid_argument(error.to_string())))); return; }
+                _ => { let error = Error::InvalidRequest("exactly one Start must be first".into()); let _sent = tx.try_send(Err({ let message = error.to_string(); typed_error(error, connectrpc::ErrorCode::InvalidArgument, message) })); return; }
             };
             if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
                 let _sent = tx.try_send(Err(ConnectError::deadline_exceeded("semantic request deadline elapsed before admission")));
@@ -867,7 +892,8 @@ impl Implementation {
             .and_then(Response::into_status)
             .and_then(wire::status_to_pb)
             .map_err(|error| {
-                typed_error(&error, ConnectError::failed_precondition(error.to_string()))
+                let message = error.to_string();
+                typed_error(error, connectrpc::ErrorCode::FailedPrecondition, message)
             })
     }
 }
@@ -917,10 +943,10 @@ impl bindings::NativeSemantic for Implementation {
         impl connectrpc::Encodable<buffa_types::google::protobuf::Empty> + Send + use<'a>,
     > {
         authenticated(&context)?;
-        self.0
-            .workers
-            .stop()
-            .map_err(|error| ConnectError::internal(error.to_string()))?;
+        self.0.workers.stop().map_err(|error| {
+            let message = error.to_string();
+            typed_error(error, connectrpc::ErrorCode::Internal, message)
+        })?;
         Ok(connectrpc::Response::new(
             buffa_types::google::protobuf::Empty::default(),
         ))
@@ -937,10 +963,13 @@ impl bindings::NativeSemantic for Implementation {
             request.view(),
             <pb::NativePackageRequest as buffa::MessageName>::FULL_NAME,
         )?;
-        let request = request
-            .view()
-            .to_owned_message()
-            .map_err(|error| ConnectError::invalid_argument(error.to_string()))?;
+        let request = request.view().to_owned_message().map_err(|error| {
+            typed_error(
+                error.into(),
+                connectrpc::ErrorCode::InvalidArgument,
+                "semantic request decode failed".into(),
+            )
+        })?;
         let response = self
             .0
             .unary(
@@ -956,8 +985,10 @@ impl bindings::NativeSemantic for Implementation {
         {
             Ok(answer) => pb::native_package_reply::Result::Answer(Box::new(answer)),
             Err(error) => pb::native_package_reply::Result::Failure(Box::new(
-                wire::failure_to_pb(super::Failure::from_error(&error))
-                    .map_err(|error| ConnectError::internal(error.to_string()))?,
+                wire::failure_to_pb(super::Failure::from_error(&error)).map_err(|error| {
+                    let message = error.to_string();
+                    typed_error(error, connectrpc::ErrorCode::Internal, message)
+                })?,
             )),
         };
         Ok(connectrpc::Response::new(pb::NativePackageReply {
@@ -979,7 +1010,10 @@ impl bindings::NativeSemantic for Implementation {
                 Box::pin(requests.map(|item| item.map(|value| value.to_owned_message()))),
                 context.deadline(),
             )
-            .map_err(|error| ConnectError::unavailable(error.to_string()))?;
+            .map_err(|error| {
+                let message = error.to_string();
+                typed_error(error, connectrpc::ErrorCode::Unavailable, message)
+            })?;
         Ok(connectrpc::Response::new(stream))
     }
 }
@@ -1065,6 +1099,79 @@ pub(crate) async fn serve_fixture(
 mod correction_tests {
     use super::*;
     use crate::envelope::{ValidationCoverage, ValidationExposure, ValidationOutcome};
+    #[test]
+    fn semantic_rpc_producer_redacts_selected_public_text_and_retains_actual_native_cause() {
+        let marker = "producer-private-token";
+        let policy =
+            crate::envelope::RedactionPolicy::new([("EXPLICIT_SECRET".into(), marker.into())]);
+        for message in [
+            "deliberately generic".to_owned(),
+            format!("transport {marker}"),
+        ] {
+            let error = typed_error_with_policy(
+                Error::InvalidRequest(marker.into()),
+                connectrpc::ErrorCode::InvalidArgument,
+                message.clone(),
+                &policy,
+            );
+            assert_eq!(error.code, connectrpc::ErrorCode::InvalidArgument);
+            assert_eq!(
+                error.message.as_deref(),
+                Some(policy.redact(&message).as_str())
+            );
+            assert!(!serde_json::to_string(&error).unwrap().contains(marker));
+            let source = std::error::Error::source(&error)
+                .unwrap()
+                .downcast_ref::<Error>()
+                .unwrap();
+            assert!(matches!(source, Error::InvalidRequest(text) if text == marker));
+            let decoded = super::super::Failure::from_error(&transport_error(error));
+            assert!(matches!(
+                decoded.phase,
+                super::super::FailurePhase::Constraint
+            ));
+            assert!(!decoded.message.contains(marker));
+        }
+    }
+    #[test]
+    fn semantic_rpc_producer_retains_typed_cause_and_does_not_reclassify_from_status() {
+        for (cause, phase) in [
+            (
+                Error::Schema("original schema mismatch".into()),
+                super::super::FailurePhase::Schema,
+            ),
+            (
+                Error::InvalidRequest("original declared constraint".into()),
+                super::super::FailurePhase::Constraint,
+            ),
+            (
+                Error::Validator("original evaluator defect".into()),
+                super::super::FailurePhase::Validator,
+            ),
+        ] {
+            let original = typed_error(
+                cause,
+                connectrpc::ErrorCode::InvalidArgument,
+                "public RPC status".into(),
+            );
+            assert!(
+                std::error::Error::source(&original)
+                    .unwrap()
+                    .downcast_ref::<Error>()
+                    .is_some()
+            );
+            let error = transport_error(original);
+            let failure = super::super::Failure::from_error(&error);
+            assert_eq!(
+                std::mem::discriminant(&failure.phase),
+                std::mem::discriminant(&phase)
+            );
+            assert_eq!(
+                failure.diagnostic_code.as_deref(),
+                Some(pse_diagnostics::DiagnosticCode::HostOwnership.as_str())
+            );
+        }
+    }
     fn violations(rule: &str, count: usize) -> protovalidate_buffa::ValidationError {
         use protovalidate_buffa::{FieldPath, FieldPathElement, Subscript, Violation};
         protovalidate_buffa::ValidationError {
@@ -1092,11 +1199,35 @@ mod correction_tests {
             validation_error(error, <pb::NativeRequest as buffa::MessageName>::FULL_NAME);
         // The original typed validator cause remains upstream's source, independently of
         // the sanitized canonical details and the application's authored failure envelope.
-        assert!(std::error::Error::source(&transport).is_some());
-        let Error::Refusal(failure) = transport_error(transport) else {
-            panic!("missing typed refusal")
+        assert!(
+            std::error::Error::source(&transport)
+                .unwrap()
+                .downcast_ref::<protovalidate_buffa::ValidationError>()
+                .is_some()
+        );
+        let error = transport_error(transport);
+        let Error::Rpc(rpc) = &error else {
+            panic!("missing original RPC cause")
         };
-        *failure
+        assert_eq!(
+            rpc.observation().disposition,
+            super::super::RpcDisposition::Native
+        );
+        let record = crate::envelope::ErrorRecord::from_typed(
+            &error,
+            &crate::envelope::RedactionPolicy::default(),
+        );
+        let text = serde_json::to_string(&record).unwrap();
+        for secret in [
+            "private-map-key",
+            "private-message",
+            "private compile diagnostic",
+            "private evaluation diagnostic",
+        ] {
+            assert!(!text.contains(secret));
+        }
+        assert!(record.semantic_rpc.unwrap().validation.is_some());
+        super::super::Failure::from_error(&error)
     }
     #[test]
     fn native_origin_reports_exact_whole_violation_truncation_without_text_parsing() {
@@ -1156,6 +1287,7 @@ mod correction_tests {
                 Some("private evaluation diagnostic".into()),
                 ValidationOutcome::EvaluationDefect,
             ),
+            (None, None, ValidationOutcome::InvalidEmptyError),
         ] {
             let failure = roundtrip(protovalidate_buffa::ValidationError {
                 compile_error,

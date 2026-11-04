@@ -127,7 +127,7 @@ pub enum Error {
     Configuration(Box<figment::Error>),
     /// Preserve native semantic preparation, protocol, source and cancellation causes.
     #[error("investigation semantics: {0}")]
-    Semantic(Box<crate::semantic::Error>),
+    Semantic(#[source] Box<crate::semantic::Error>),
     /// Preserve original acquisition/source-equivalence failure from the API owner.
     #[error("investigation API: {0}")]
     Api(Box<crate::api::ApiError>),
@@ -188,8 +188,7 @@ impl Error {
         }
         let recovery = match self {
             Self::SourcePath(failure) => Some(failure.recovery.clone()),
-            Self::Semantic(error) => match error.as_ref() {
-                crate::semantic::Error::Refusal(failure) => failure.context.as_ref().map(|context| crate::envelope::RecoveryRecord {
+            Self::Semantic(error) => error.native_failure().and_then(|failure| failure.context.as_ref()).map(|context| crate::envelope::RecoveryRecord {
                     operation: context.operation.clone(), operand: context.operand.clone(), origin: None, selection: None,
                     cause: crate::envelope::RecoveryCause::Native(context.reason),
                     next: match (context.reason, context.operation.as_str(), context.operand.as_ref()) {
@@ -200,8 +199,6 @@ impl Error {
                         _ => None,
                     },
                 }),
-                _ => None,
-            },
             _ => None,
         };
         record.recovery = recovery.map(|recovery| Box::new(recovery.redacted(policy)));
@@ -230,7 +227,9 @@ impl Error {
             Self::SourcePath(_) => DiagnosticPhase::Context,
             Self::Delivery(_) => DiagnosticPhase::Delivery,
             Self::Semantic(error) => match error.as_ref() {
-                crate::semantic::Error::Schema(_) => DiagnosticPhase::Schema,
+                crate::semantic::Error::Schema(_) | crate::semantic::Error::WireDecode(_) => {
+                    DiagnosticPhase::Schema
+                }
                 crate::semantic::Error::InvalidRequest(_) => DiagnosticPhase::Constraint,
                 crate::semantic::Error::Validator(_) => DiagnosticPhase::Validator,
                 crate::semantic::Error::Transport(_) => DiagnosticPhase::Delivery,
@@ -241,15 +240,17 @@ impl Error {
                 | crate::semantic::Error::CancellationUnobserved { .. } => {
                     DiagnosticPhase::Settlement
                 }
-                crate::semantic::Error::Refusal(failure) => match failure.phase {
-                    crate::semantic::FailurePhase::Schema => DiagnosticPhase::Schema,
-                    crate::semantic::FailurePhase::Constraint => DiagnosticPhase::Constraint,
-                    crate::semantic::FailurePhase::Context => DiagnosticPhase::Context,
-                    crate::semantic::FailurePhase::Validator => DiagnosticPhase::Validator,
-                    crate::semantic::FailurePhase::Provider => DiagnosticPhase::Provider,
-                    crate::semantic::FailurePhase::Transport => DiagnosticPhase::Delivery,
-                    crate::semantic::FailurePhase::Settlement => DiagnosticPhase::Settlement,
-                },
+                crate::semantic::Error::Refusal(_) | crate::semantic::Error::Rpc(_) => {
+                    match error.phase() {
+                        crate::semantic::FailurePhase::Schema => DiagnosticPhase::Schema,
+                        crate::semantic::FailurePhase::Constraint => DiagnosticPhase::Constraint,
+                        crate::semantic::FailurePhase::Context => DiagnosticPhase::Context,
+                        crate::semantic::FailurePhase::Validator => DiagnosticPhase::Validator,
+                        crate::semantic::FailurePhase::Provider => DiagnosticPhase::Provider,
+                        crate::semantic::FailurePhase::Transport => DiagnosticPhase::Delivery,
+                        crate::semantic::FailurePhase::Settlement => DiagnosticPhase::Settlement,
+                    }
+                }
                 _ => DiagnosticPhase::Provider,
             },
             Self::Api(_) | Self::Cancelled => DiagnosticPhase::Provider,
@@ -258,13 +259,15 @@ impl Error {
     /// Preserve a genuine remote refusal without manufacturing one from a local error.
     pub fn native_refusal(&self) -> Option<crate::semantic::Failure> {
         match self {
-            Self::Semantic(error) => match error.as_ref() {
-                crate::semantic::Error::Refusal(_)
-                | crate::semantic::Error::CancelledObserved { .. } => {
-                    Some(crate::semantic::Failure::from_error(error))
-                }
-                _ => None,
-            },
+            Self::Semantic(error)
+                if error.native_failure().is_some()
+                    || matches!(
+                        error.as_ref(),
+                        crate::semantic::Error::CancelledObserved { .. }
+                    ) =>
+            {
+                Some(crate::semantic::Failure::from_error(error))
+            }
             _ => None,
         }
     }
@@ -291,14 +294,17 @@ impl Error {
                 crate::semantic::Error::Cancelled
                 | crate::semantic::Error::CancelledObserved { .. } => FailureDisposition::Cancelled,
                 crate::semantic::Error::Stale => FailureDisposition::Stale,
-                crate::semantic::Error::Refusal(failure) => match failure.state {
-                    crate::semantic::FailureState::Unavailable
-                    | crate::semantic::FailureState::Unsupported => FailureDisposition::Unavailable,
-                    crate::semantic::FailureState::Cancelled => FailureDisposition::Cancelled,
-                    crate::semantic::FailureState::Stale => FailureDisposition::Stale,
-                    crate::semantic::FailureState::Failed => FailureDisposition::Failed,
+                error => match error.native_failure().map(|failure| failure.state) {
+                    Some(
+                        crate::semantic::FailureState::Unavailable
+                        | crate::semantic::FailureState::Unsupported,
+                    ) => FailureDisposition::Unavailable,
+                    Some(crate::semantic::FailureState::Cancelled) => FailureDisposition::Cancelled,
+                    Some(crate::semantic::FailureState::Stale) => FailureDisposition::Stale,
+                    Some(crate::semantic::FailureState::Failed) | None => {
+                        FailureDisposition::Failed
+                    }
                 },
-                _ => FailureDisposition::Failed,
             },
             _ => FailureDisposition::Failed,
         }

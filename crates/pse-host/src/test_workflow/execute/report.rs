@@ -996,7 +996,8 @@ mod observation_tests {
         let Shape::Record(fields) = &graph.definitions()["ErrorRecord"].shape else {
             panic!("record expected")
         };
-        assert_eq!(fields.len(), 15);
+        assert_eq!(fields.len(), 16);
+        assert!(fields.iter().any(|field| field.name == "semantic_rpc"));
         assert!(fields.iter().any(|field| field.name == "diagnostic_source"));
         assert!(fields.iter().any(|field| field.name == "recovery"));
         assert!(graph.definitions().values().any(|owner| owner.rust_type == std::any::type_name::<pse_diagnostics::NonFinite>()));

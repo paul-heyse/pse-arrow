@@ -218,6 +218,23 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `labels` | 13 | `Repeated(Named("DiagnosticLabel"))` | `Output` | `[]` | `{}` |
 | `parser_context` | 14 | `Map(Scalar(String), Scalar(String))` | `Output` | `[]` | `{}` |
 | `recovery` | 15 | `Optional(Named("DiagnosticRecovery"))` | `Output` | `[]` | `{}` |
+| `semantic_rpc` | 16 | `Optional(Named("SemanticRpcObservation"))` | `Output` | `[]` | `{}` |
+
+## `FailurePhase`
+
+Rust owner: `pse_host::semantic::FailurePhase`. Source: `crates/pse-host/src/semantic.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Schema` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Constraint` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Context` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Validator` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Provider` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Transport` | 6 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Settlement` | 7 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
 
 ## `FailureReason`
 
@@ -236,6 +253,20 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `OriginalMappingUnavailable` | 7 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
 | `UnsupportedFact` | 8 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
 | `ProviderFailed` | 9 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `FailureState`
+
+Rust owner: `pse_host::semantic::FailureState`. Source: `crates/pse-host/src/semantic.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Unavailable` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Unsupported` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Cancelled` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Stale` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Failed` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
 
 ## `InputOrigin`
 
@@ -307,6 +338,40 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["Nan", "PositiveInfinity", "NegativeInfinity"]`.
 
+## `SemanticRpcDisposition`
+
+Rust owner: `pse_host::semantic::rpc_failure::RpcDisposition`. Source: `crates/pse-host/src/semantic/rpc_failure.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Native` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Absent` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Unrecognized` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Malformed` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `ConversionRefused` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Ambiguous` | 6 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Oversized` | 7 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `SemanticRpcObservation`
+
+Rust owner: `pse_host::semantic::rpc_failure::RpcObservation`. Source: `crates/pse-host/src/semantic/rpc_failure.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `grpc_code` | 1 | `Scalar(U32)` | `Output` | `[]` | `{}` |
+| `http_status` | 2 | `Scalar(U32)` | `Output` | `[]` | `{}` |
+| `disposition` | 3 | `Named("SemanticRpcDisposition")` | `Output` | `[]` | `{}` |
+| `detail_count` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `native_detail_count` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `native_state` | 6 | `Optional(Named("FailureState"))` | `Output` | `[]` | `{}` |
+| `native_phase` | 7 | `Optional(Named("FailurePhase"))` | `Output` | `[]` | `{}` |
+| `validation` | 8 | `Optional(Named("ValidationCorrection"))` | `Output` | `[]` | `{}` |
+| `native_diagnostic_code` | 9 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+
 ## `TestIdentity`
 
 Rust owner: `pse_host::discovery::TestIdentity`. Source: `crates/pse-host/src/discovery.rs`. Interpretation version: 1. Direction: `Output`.
@@ -319,6 +384,113 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `package_id` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
 | `binary_id` | 3 | `Scalar(String)` | `Output` | `[]` | `{}` |
 | `test_name` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
+
+## `ValidationCorrection`
+
+Rust owner: `pse_host::envelope::validation::ValidationCorrection`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `disclosure` | 1 | `Named("ValidationDisclosure")` | `Output` | `[]` | `{}` |
+| `violations` | 2 | `Repeated(Named("ValidationViolation"))` | `Output` | `[]` | `{}` |
+| `diagnostics` | 3 | `Repeated(Scalar(String))` | `Output` | `[]` | `{}` |
+
+## `ValidationCoverage`
+
+Rust owner: `pse_host::envelope::validation::ValidationCoverage`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Unknown` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Complete` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Truncated` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `NotApplicable` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ValidationDisclosure`
+
+Rust owner: `pse_host::envelope::validation::ValidationDisclosure`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `message_type` | 1 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `descriptor_sha256` | 2 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `outcome` | 3 | `Named("ValidationOutcome")` | `Output` | `[]` | `{}` |
+| `source_violation_count` | 4 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `emitted_violation_count` | 5 | `Optional(Scalar(U64))` | `Output` | `[]` | `{}` |
+| `coverage` | 6 | `Named("ValidationCoverage")` | `Output` | `[]` | `{}` |
+| `selectors` | 7 | `Named("ValidationExposure")` | `Output` | `[]` | `{}` |
+| `messages` | 8 | `Named("ValidationExposure")` | `Output` | `[]` | `{}` |
+
+## `ValidationExposure`
+
+Rust owner: `pse_host::envelope::validation::ValidationExposure`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Unknown` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `OmittedByPolicy` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `AsReceived` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ValidationOutcome`
+
+Rust owner: `pse_host::envelope::validation::ValidationOutcome`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Violations` | 1 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `CompileDefect` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `EvaluationDefect` | 3 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `InvalidEmptyError` | 4 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ValidationPathElement`
+
+Rust owner: `pse_host::envelope::validation::ValidationPathElement`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `field_number` | 1 | `Optional(Scalar(I32))` | `Output` | `[]` | `{}` |
+| `field_name` | 2 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `field_type` | 3 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `key_type` | 4 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `value_type` | 5 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `selector` | 6 | `Optional(Named("ValidationSelector"))` | `Output` | `[]` | `{}` |
+
+## `ValidationSelector`
+
+Rust owner: `pse_host::envelope::validation::ValidationSelector`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Index (alternative tag 1).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+| `RedactedMapKey` | 2 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+
+## `ValidationViolation`
+
+Rust owner: `pse_host::envelope::validation::ValidationViolation`. Source: `crates/pse-host/src/envelope/validation.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `field` | 1 | `Repeated(Named("ValidationPathElement"))` | `Output` | `[]` | `{}` |
+| `rule` | 2 | `Repeated(Named("ValidationPathElement"))` | `Output` | `[]` | `{}` |
+| `rule_id` | 3 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `message` | 4 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
+| `for_key` | 5 | `Optional(Scalar(Bool))` | `Output` | `[]` | `{}` |
 
 ## `WorkflowAction`
 

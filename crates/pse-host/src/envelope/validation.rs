@@ -6,111 +6,135 @@ use protovalidate_buffa::{ValidationError, proto};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pse_contract::projection_enum! {
 /// Validator execution and ordinary rejected constraints remain distinct.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ValidationOutcome {
+    projection: { name: "ValidationOutcome", rust_path: crate::envelope::ValidationOutcome, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Ordinary constraints rejected the request.
-    Violations,
+    Violations => 1;
     /// A malformed or unsupported rule failed compilation.
-    CompileDefect,
+    CompileDefect => 2;
     /// The selected validator failed to evaluate.
-    EvaluationDefect,
+    EvaluationDefect => 3;
     /// An error with neither defects nor violations is a validator defect.
-    InvalidEmptyError,
+    InvalidEmptyError => 4;
 }
+}
+pse_contract::projection_enum! {
 /// Coverage belongs to the origin; a receiver's visible count cannot establish it.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ValidationCoverage {
+    projection: { name: "ValidationCoverage", rust_path: crate::envelope::ValidationCoverage, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// No originating completeness assertion is available.
-    Unknown,
+    Unknown => 1;
     /// Every original violation is present.
-    Complete,
+    Complete => 2;
     /// At least one original whole violation was omitted.
-    Truncated,
+    Truncated => 3;
     /// Validator defects do not constitute a violation population.
-    NotApplicable,
+    NotApplicable => 4;
 }
+}
+pse_contract::projection_enum! {
 /// Original disclosure policy; missing keys/messages cannot be reconstructed.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ValidationExposure {
+    projection: { name: "ValidationExposure", rust_path: crate::envelope::ValidationExposure, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// The original disclosure policy is unavailable.
-    Unknown,
+    Unknown => 1;
     /// The origin intentionally omitted input-bearing detail.
-    OmittedByPolicy,
+    OmittedByPolicy => 2;
     /// Only the received representation is being described.
-    AsReceived,
+    AsReceived => 3;
 }
+}
+pse_contract::projection_struct! {
 /// Origin-owned facts about canonical violation publication.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ValidationDisclosure {
+    projection: { name: "ValidationDisclosure", rust_path: crate::envelope::ValidationDisclosure, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Fully qualified schema message when the origin knows it.
-    pub message_type: Option<String>,
+    pub message_type: Option<String> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exact compiled descriptor world, independently of payload validity.
-    pub descriptor_sha256: Option<String>,
+    pub descriptor_sha256: Option<String> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Native validator disposition.
-    pub outcome: ValidationOutcome,
+    pub outcome: ValidationOutcome => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Count at the originating selected validator, never inferred by receivers.
-    pub source_violation_count: Option<u64>,
+    pub source_violation_count: Option<u64> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Whole canonical violations actually emitted by that origin.
-    pub emitted_violation_count: Option<u64>,
+    pub emitted_violation_count: Option<u64> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Origin-established whole-record coverage.
-    pub coverage: ValidationCoverage,
+    pub coverage: ValidationCoverage => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Policy applied to input-bearing map selectors.
-    pub selectors: ValidationExposure,
+    pub selectors: ValidationExposure => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Policy applied to input-bearing diagnostic messages.
-    pub messages: ValidationExposure,
+    pub messages: ValidationExposure => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_enum! {
 /// Exact index, or an explicitly undisclosed map selector.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ValidationSelector {
+    projection: { name: "ValidationSelector", rust_path: crate::envelope::ValidationSelector, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Exact decimal text avoids integer rounding by JSON consumers.
-    Index(String),
+    Index(String) => 1;
     /// A map location is unavailable under the publication policy.
-    RedactedMapKey,
+    RedactedMapKey => 2;
 }
+}
+pse_contract::projection_struct! {
 /// Schema path element, preserving number/name and collection structure.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ValidationPathElement {
+    projection: { name: "ValidationPathElement", rust_path: crate::envelope::ValidationPathElement, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Authored field number, when supplied by the validator.
-    pub field_number: Option<i32>,
+    pub field_number: Option<i32> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Authored field name; absent names remain unavailable.
-    pub field_name: Option<String>,
+    pub field_name: Option<String> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original schema scalar/message category.
-    pub field_type: Option<String>,
+    pub field_type: Option<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original map key category, independently of key disclosure.
-    pub key_type: Option<String>,
+    pub key_type: Option<String> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original map value category.
-    pub value_type: Option<String>,
+    pub value_type: Option<String> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Repeated position or explicitly undisclosed map entry.
-    pub selector: Option<ValidationSelector>,
+    pub selector: Option<ValidationSelector> => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// One original supported violation; schema locations are not source byte spans.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ValidationViolation {
+    projection: { name: "ValidationViolation", rust_path: crate::envelope::ValidationViolation, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Numbered/indexed path into the original request.
-    pub field: Vec<ValidationPathElement>,
+    pub field: Vec<ValidationPathElement> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Numbered/indexed path into the authored validation rule.
-    pub rule: Vec<ValidationPathElement>,
+    pub rule: Vec<ValidationPathElement> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Upstream rule identity without interpreting the rendered diagnostic.
-    pub rule_id: Option<String>,
+    pub rule_id: Option<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Only the message actually disclosed by the original representation.
-    pub message: Option<String>,
+    pub message: Option<String> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// True distinguishes a map-key rule from a value rule.
-    pub for_key: Option<bool>,
+    pub for_key: Option<bool> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Public correction projected from originals, independently of their custody.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ValidationCorrection {
+    projection: { name: "ValidationCorrection", rust_path: crate::envelope::ValidationCorrection, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Origin-established disclosure and coverage limits.
-    pub disclosure: ValidationDisclosure,
+    pub disclosure: ValidationDisclosure => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Only the supported original whole violations present in this representation.
-    pub violations: Vec<ValidationViolation>,
+    pub violations: Vec<ValidationViolation> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Detail decode/projection defects, never relabelled as user violations.
-    pub diagnostics: Vec<String>,
+    pub diagnostics: Vec<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl ValidationDisclosure {
     pub(crate) fn original(
@@ -156,6 +180,31 @@ impl ValidationDisclosure {
     }
 }
 impl ValidationCorrection {
+    /// Apply the actual caller's disclosure policy to a copied public correction.
+    pub(crate) fn redacted(mut self, policy: &RedactionPolicy) -> Self {
+        fn text(value: &mut Option<String>, policy: &RedactionPolicy) {
+            if let Some(value) = value {
+                *value = policy.redact(value);
+            }
+        }
+        text(&mut self.disclosure.message_type, policy);
+        text(&mut self.disclosure.descriptor_sha256, policy);
+        for violation in &mut self.violations {
+            text(&mut violation.rule_id, policy);
+            text(&mut violation.message, policy);
+            for element in violation.field.iter_mut().chain(&mut violation.rule) {
+                text(&mut element.field_name, policy);
+                text(&mut element.field_type, policy);
+                text(&mut element.key_type, policy);
+                text(&mut element.value_type, policy);
+                // Index is a typed integer represented as decimal text, not input-bearing text.
+            }
+        }
+        for diagnostic in &mut self.diagnostics {
+            *diagnostic = policy.redact(diagnostic);
+        }
+        self
+    }
     /// Local compiled validation uses upstream canonical conversion, preserving defect identity.
     pub(crate) fn local(error: &ValidationError, message_type: &str) -> Self {
         let mut disclosure = ValidationDisclosure::original(error, message_type, None);

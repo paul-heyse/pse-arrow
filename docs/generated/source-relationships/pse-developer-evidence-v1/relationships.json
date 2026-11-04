@@ -2204,6 +2204,150 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailurePhase",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailurePhase"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "FailureReason",
       "declaration_kind": "rust_projection",
       "direction": "Output",
@@ -2348,6 +2492,150 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "FailureState",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::FailureState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "InputOrigin",
       "declaration_kind": "rust_projection",
       "direction": "Output",
@@ -3212,6 +3500,294 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcDisposition",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcDisposition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SemanticRpcObservation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/semantic/rpc_failure.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::semantic::rpc_failure::RpcObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "TestIdentity",
       "declaration_kind": "rust_projection",
       "direction": "Output",
@@ -3350,6 +3926,1158 @@
       "source_path": "crates/pse-host/src/discovery.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_host::discovery::TestIdentity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCorrection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCorrection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationCoverage",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationCoverage"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationDisclosure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationDisclosure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationExposure",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationExposure"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationPathElement",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationPathElement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationSelector",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationSelector"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/pse.developer.evidence.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/developer_evidence.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/validation/pse.developer.evidence.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ValidationViolation",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/developer-evidence/pse.developer.evidence.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/envelope/validation.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_host::envelope::validation::ValidationViolation"
     },
     {
       "basis": "declared",
