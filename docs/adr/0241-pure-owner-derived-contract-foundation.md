@@ -7,7 +7,7 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-04, AP-05, DP-01, DP-02, DP-24]
 blueprint: [§4.7, §21.7, §23.2]
-review: docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md
+review: docs/design_review/reviews/design_review_plan65_contract_foundation_2026-11-04.md
 evidence: Proposed
 supersedes: []
 superseded-by: null
