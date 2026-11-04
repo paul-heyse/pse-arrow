@@ -421,7 +421,14 @@ fn actual_water_group_transport_preserves_raw_point_admission_and_capability() {
     drop(proxy);
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
     assert_eq!(pool.reserved(), 0);
-    assert_eq!(native.used(), 0);
+    let execution = native.execution_report();
+    for name in ["math_native_active", "math_native_population"] {
+        assert_eq!(
+            execution.iter().find(|(key, _)| *key == name).map(|(_, count)| *count),
+            Some(Some(0)),
+            "native admission counter {name} must be present and settled",
+        );
+    }
 }
 
 #[test]
@@ -912,7 +919,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         p::Response::Closed(actual) if actual == stopped
     ));
     let mut foreign = survivor.clone();
-    foreign.attempt = pse_ids::SemanticId::NIL;
+    foreign.attempt = SemanticId::NIL;
     assert!(matches!(
         remote.exchange(p::Request::Stop(foreign), &proxy.scope, None).unwrap(),
         p::Response::Failure(_)
