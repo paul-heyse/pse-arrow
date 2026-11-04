@@ -290,6 +290,33 @@ impl<const N: u32> Version<N> {
     pub const NUMBER: u32 = N;
 }
 
+impl<const N: u32> crate::boundary_projection::ProjectionType for Version<N> {
+    fn projection(graph: &mut crate::boundary_projection::ProjectionGraph)
+        -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError>
+    {
+        use crate::boundary_projection::{Direction, Field, LocalRule, Shape};
+        graph.declare::<Self>(&format!("DocumentVersion{N}"), file!(), 1, Direction::Both, &[], &[], |graph|
+            Ok(Shape::Record(vec![Field::of::<u32>(graph, "value", 1, Direction::Both,
+                vec![LocalRule::UnsignedRange { min: u64::from(Self::NUMBER), max: u64::from(Self::NUMBER) }])?])))
+    }
+}
+impl<const N: u32> crate::boundary_projection::ProjectionRecord for Version<N> {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (u32,);
+    fn into_projection_fields(self) -> Self::Fields { (Self::NUMBER,) }
+    fn from_projection_fields((value,): Self::Fields) -> Result<Self, crate::boundary_projection::AdapterError> {
+        if value == Self::NUMBER { Ok(Self) }
+        else { Err(crate::boundary_projection::AdapterError::refused("value",
+            crate::boundary_projection::AdapterFailure::InvalidValue,
+            format!("document requires interpretation version {}", Self::NUMBER))) }
+    }
+}
+impl<const N: u32> crate::boundary_projection::ValidateProjection for Version<N> {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> { Ok(()) }
+}
+
 impl<const N: u32> serde::Serialize for Version<N> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_u32(N)

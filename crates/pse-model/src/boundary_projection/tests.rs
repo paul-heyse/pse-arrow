@@ -4,6 +4,64 @@
 use super::*;
 
 #[test]
+fn standard_version_duration_and_hash_roles_preserve_exact_native_leaves() {
+    use crate::document::Version;
+    let graph = ProjectionGraph::of::<Version<8>>().unwrap();
+    let Shape::Record(fields) = &graph.definitions()["DocumentVersion8"].shape else { panic!("version record") };
+    assert_eq!(fields[0].rules, [LocalRule::UnsignedRange { min: 8, max: 8 }]);
+    assert_eq!(Version::<8>.into_projection_fields(), (8,));
+    assert_eq!(Version::<8>::from_projection_fields((8,)).unwrap(), Version::<8>);
+    for unsupported in [0, 7, 9, u32::MAX] { assert!(Version::<8>::from_projection_fields((unsupported,)).is_err()); }
+    let edge = std::time::Duration::new(u64::MAX, 999_999_999);
+    assert_eq!(edge.into_projection_fields(), (u64::MAX, 999_999_999));
+    assert_eq!(std::time::Duration::from_projection_fields(edge.into_projection_fields()).unwrap(), edge);
+    for nanos in [1_000_000_000, u32::MAX] {
+        assert!(std::time::Duration::from_projection_fields((u64::MAX, nanos)).is_err(), "malformed nanos refuse before normalization/overflow");
+    }
+    let graph = ProjectionGraph::of::<std::time::Duration>().unwrap();
+    let Shape::Record(fields) = &graph.definitions()["NonnegativeDuration"].shape else { panic!("duration") };
+    assert_eq!(fields[1].rules, [LocalRule::UnsignedRange { min: 0, max: 999_999_999 }]);
+    let hash = pse_ids::ContentHash::from_bytes([0x42; 32]);
+    let revision = pse_ids::roles::SourceRevisionHash::from_projection_fields((hash,)).unwrap();
+    let binding = pse_ids::roles::BindingHash::from_projection_fields((hash,)).unwrap();
+    assert_eq!(revision.into_projection_fields(), (hash,));
+    assert_eq!(binding.into_projection_fields(), (hash,));
+    let mut graph = ProjectionGraph::of::<pse_ids::roles::SourceRevisionHash>().unwrap();
+    graph.register::<pse_ids::roles::BindingHash>().unwrap();
+    assert_eq!(graph.definitions().len(), 2, "equal bytes never erase different nominal roles");
+}
+
+#[test]
+fn record_local_fields_use_explicit_projection_checks_and_original_default() {
+    fn no_detached_proof(value: &Option<std::sync::Arc<()>>, path: &str) -> Result<(), ValidationError> {
+        if value.is_none() { Ok(()) }
+        else { Err(ValidationError::Rule { path: path.into(), rule: "local_proof", reason: "local evidence requires its original owner reconciliation".into() }) }
+    }
+    projection_struct! {
+        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        struct OwnedInput {
+            projection: { name: "OwnedInput", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            value: u16 => { tag: 1, direction: Direction::Both, rules: [] };
+            @local {
+                #[serde(skip)]
+                proof: Option<std::sync::Arc<()>> = None => check: no_detached_proof;
+            }
+        }
+    }
+    let graph = ProjectionGraph::of::<OwnedInput>().unwrap();
+    let Shape::Record(fields) = &graph.definitions()["OwnedInput"].shape else { panic!("actual record") };
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].ty, TypeRef::Scalar(Scalar::U16));
+    let decoded: OwnedInput = serde_json::from_str(r#"{"value":65535}"#).unwrap();
+    let reconstructed = OwnedInput::from_projection_fields(decoded.into_projection_fields()).unwrap();
+    assert_eq!(reconstructed.value, u16::MAX);
+    assert!(reconstructed.proof.is_none());
+    reconstructed.validate_projection().unwrap();
+    let with_proof = OwnedInput { value: 1, proof: Some(std::sync::Arc::new(())) };
+    assert!(matches!(with_proof.validate_projection(), Err(ValidationError::Rule { path, rule: "local_proof", .. }) if path == "proof"));
+}
+
+#[test]
 fn optional_unsigned_rules_constrain_present_values_without_requiring_a_deadline() {
     projection_struct! {
         struct OptionalDeadline {

@@ -538,7 +538,7 @@ impl Lower<'_> {
                 field.r#type = Some(match scalar {
                     Scalar::Bool => Type::TYPE_BOOL,
                     Scalar::String => Type::TYPE_STRING,
-                    Scalar::U8 | Scalar::U32 => Type::TYPE_UINT32,
+                    Scalar::U8 | Scalar::U16 | Scalar::U32 => Type::TYPE_UINT32,
                     Scalar::U64 => Type::TYPE_UINT64,
                     Scalar::I16 | Scalar::I32 => Type::TYPE_SINT32,
                     Scalar::I64 => Type::TYPE_SINT64,
@@ -548,7 +548,7 @@ impl Lower<'_> {
                 });
                 if matches!(
                     scalar,
-                    Scalar::SemanticId | Scalar::ContentHash | Scalar::U8 | Scalar::I16
+                    Scalar::SemanticId | Scalar::ContentHash | Scalar::U8 | Scalar::U16 | Scalar::I16
                 ) {
                     self.options(&mut field, self.base_rules(ty))?;
                 }
@@ -694,6 +694,12 @@ impl Lower<'_> {
                     }
                     .into(),
                 );
+            }
+            TypeRef::Scalar(Scalar::U16) => {
+                rules.r#type = Some(UInt32Rules {
+                    less_than: Some(u_int32rules::LessThan::Lte(u32::from(u16::MAX))),
+                    ..Default::default()
+                }.into());
             }
             TypeRef::Repeated(inner) | TypeRef::Set(inner)
                 if matches!(inner.as_ref(), TypeRef::Scalar(_)) =>
@@ -871,6 +877,7 @@ fn protobuf_map_key(ty: &TypeRef) -> bool {
             Scalar::Bool
                 | Scalar::String
                 | Scalar::U8
+                | Scalar::U16
                 | Scalar::U32
                 | Scalar::U64
                 | Scalar::I16

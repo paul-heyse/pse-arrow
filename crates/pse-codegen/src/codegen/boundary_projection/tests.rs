@@ -5,6 +5,36 @@ use super::*;
 use pse_model::boundary_projection::{Direction, LocalRule, ProjectionType, Service};
 use pse_model::{projection_enum, projection_struct};
 
+#[test]
+fn standard_leaf_descriptors_keep_intrinsic_width_version_and_duration_bounds() {
+    projection_struct! {
+        struct StandardLeaves {
+            projection: { name: "StandardLeaves", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+            version: pse_model::document::Version<8> => { tag: 1, direction: Direction::Both, rules: [LocalRule::Required] };
+            duration: std::time::Duration => { tag: 2, direction: Direction::Both, rules: [LocalRule::Required] };
+            pool: u16 => { tag: 3, direction: Direction::Both, rules: [] };
+        }
+    }
+    let graph = ProjectionGraph::of::<StandardLeaves>().unwrap();
+    let descriptors = descriptors_with_imports(&graph, "pse.standard.v1", "standard.proto", &imports()).unwrap();
+    let file = descriptors.file.iter().find(|file| file.name.as_deref() == Some("standard.proto")).unwrap();
+    let field = |name: &str, index: usize| &file.message_type.iter().find(|message| message.name.as_deref() == Some(name)).unwrap().field[index];
+    let rules = field("StandardLeaves", 2).options.as_option().unwrap().extension(&validate::FIELD).unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else { panic!("u16 native width") };
+    assert!(matches!(rules.less_than, Some(u_int32rules::LessThan::Lte(65535))));
+    let rules = field("DocumentVersion8", 0).options.as_option().unwrap().extension(&validate::FIELD).unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else { panic!("version") };
+    assert!(matches!(rules.greater_than, Some(u_int32rules::GreaterThan::Gte(8))));
+    assert!(matches!(rules.less_than, Some(u_int32rules::LessThan::Lte(8))));
+    let rules = field("NonnegativeDuration", 1).options.as_option().unwrap().extension(&validate::FIELD).unwrap();
+    let Some(validate::__buffa::oneof::field_rules::Type::Uint32(rules)) = rules.r#type else { panic!("canonical nanos") };
+    assert!(matches!(rules.less_than, Some(u_int32rules::LessThan::Lte(999_999_999))));
+    let source = native_adapters(&graph, &["StandardLeaves"], "crate::wire", "pse_codegen").unwrap();
+    assert!(source.contains("Version<8>"));
+    assert!(source.contains("time::Duration"));
+    syn::parse_file(&source).unwrap();
+}
+
 projection_enum! {
     #[derive(Debug)]
     enum Value {

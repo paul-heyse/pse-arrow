@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
 mod quantity;
+mod standard;
 pub use access::{AdapterError, AdapterFailure, ProjectionAlternative, ProjectionRecord};
 
 /// The shared public direction, independently of native Serde representation.
@@ -24,6 +25,8 @@ pub enum Scalar {
     U32,
     /// An octet; a vector of octets projects as binary data.
     U8,
+    /// Unsigned 16-bit native value, carried in a range-checked unsigned 32-bit wire scalar.
+    U16,
     /// Unsigned 64-bit value.
     U64,
     /// Signed 16-bit native value, carried in a range-checked signed 32-bit wire scalar.
@@ -654,7 +657,7 @@ macro_rules! scalar_types { ($($ty:ty => $scalar:ident),* $(,)?) => { $(
         }
     }
 )* }; }
-scalar_types!(bool => Bool, String => String, u8 => U8, u32 => U32, u64 => U64, usize => U64, i16 => I16, i32 => I32,
+scalar_types!(bool => Bool, String => String, u8 => U8, u16 => U16, u32 => U32, u64 => U64, usize => U64, i16 => I16, i32 => I32,
     i64 => I64, f32 => F32Bits, f64 => F64Bits, pse_ids::SemanticId => SemanticId,
     pse_ids::ContentHash => ContentHash, crate::Bytes => Bytes);
 
@@ -686,7 +689,7 @@ macro_rules! unsigned_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProje
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
     fn projection_unsigned(&self) -> Option<u64> { Some(u64::from(*self)) }
 })* }; }
-unsigned_validation!(u8, u32, u64);
+unsigned_validation!(u8, u16, u32, u64);
 impl ValidateProjection for usize {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
@@ -1092,8 +1095,14 @@ macro_rules! projection_struct {
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty => {
             tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)*
+        $(@local {
+            $($(#[$local_meta:meta])* $local_vis:vis $local:ident: $local_ty:ty = $local_default:expr => check: $local_check:expr;)*
+        })?
     }) => {
-        $(#[$meta])* $vis struct $name { $($(#[$field_meta])* $field_vis $field: $ty,)* }
+        $(#[$meta])* $vis struct $name {
+            $($(#[$field_meta])* $field_vis $field: $ty,)*
+            $($($(#[$local_meta])* $local_vis $local: $local_ty,)*)?
+        }
         $(#[allow(unused_qualifications, reason = "the explicit public alias is retained verbatim for generated cross-crate paths")]
         const _: fn($name) -> $public = |value| value;)?
         impl $crate::boundary_projection::ProjectionType for $name {
@@ -1113,6 +1122,8 @@ macro_rules! projection_struct {
                 let _ = path;
                 $( $crate::boundary_projection::validate_field(&self.$field,
                     &$crate::boundary_projection::field_path(path, stringify!($field)), &[$($rule),*])?; )*
+                $($( ($local_check)(&self.$local,
+                    &$crate::boundary_projection::field_path(path, stringify!($local)))?; )*)?
                 Ok(())
             }
         }
@@ -1123,7 +1134,7 @@ macro_rules! projection_struct {
             fn into_projection_fields(self) -> Self::Fields { ($(self.$field,)*) }
             fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
                 let ($($field,)*) = fields;
-                Ok(Self { $($field,)* })
+                Ok(Self { $($field,)* $($($local: $local_default,)*)? })
             }
         }
     };
