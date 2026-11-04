@@ -55,6 +55,55 @@ fn message(field_rules: Vec<FieldValidator>) -> MessageValidators {
     }
 }
 
+/// An optional semantic-keyed map lowers to a message containing repeated
+/// entry messages. Every actual field must survive CEL schema construction.
+#[test]
+fn optional_entry_map_cel_preserves_message_collection_members() {
+    use protoc_gen_protovalidate_buffa::emit::cel::preflight;
+
+    let mut entry = message(vec![
+        field("key", FieldKind::Bytes),
+        field("value", FieldKind::Fixed64),
+    ]);
+    entry.proto_name = "kw.v1.Entry".into();
+    entry.field_rules[1].field_number = 2;
+    let mut wrapper = message(vec![field(
+        "value",
+        FieldKind::Repeated(Box::new(FieldKind::Message {
+            full_name: entry.proto_name.clone(),
+        })),
+    )]);
+    wrapper.proto_name = "kw.v1.SparseStart".into();
+    let mut sparse = field(
+        "sparse_start",
+        FieldKind::Message { full_name: wrapper.proto_name.clone() },
+    );
+    sparse.cel.push(CelRule {
+        id: "float64.collection_domain".into(),
+        message: "finite binary64 map values".into(),
+        expression: format!(
+            "this.value.all(entry, (entry.value <= {}u || (entry.value >= {}u && entry.value <= {}u)))",
+            f64::MAX.to_bits(), (-0.0_f64).to_bits(), (-f64::MAX).to_bits()
+        ),
+        is_cel_expression: false,
+    });
+    let owner = message(vec![sparse]);
+    let messages = vec![owner, wrapper, entry];
+    assert!(preflight(&messages).is_empty(), "{:?}", preflight(&messages));
+    let source = render(&messages).unwrap().into_iter()
+        .filter_map(|file| file.content).collect::<Vec<_>>().join("\n");
+    assert!(!source.contains("unsupported CEL"), "{source}");
+    assert!(source.contains("18442240474082181119"), "negative finite bound retained: {source}");
+
+    // A real schema error must still refuse instead of becoming a dynamic pass.
+    let mut invalid = messages;
+    invalid[0].field_rules[0].cel[0].expression =
+        "this.value.all(entry, entry.missing <= 1u)".into();
+    let diagnostics = preflight(&invalid);
+    assert_eq!(diagnostics.len(), 1);
+    assert!(diagnostics[0].reason.contains("unknown field: missing"));
+}
+
 /// A plain (raw-able) keyword field name must become `self.r#type`.
 #[test]
 fn required_field_named_type_uses_raw_ident() {

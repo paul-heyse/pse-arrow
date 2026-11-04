@@ -554,7 +554,9 @@ fn scalar_this_for(kind: &FieldKind) -> Option<CelType> {
 /// emit nested field selects.
 fn scalar_this_for_with(kind: &FieldKind, schemas: Option<&SchemaIndex>) -> Option<CelType> {
     let inner = match kind {
-        FieldKind::Optional(i) | FieldKind::Wrapper(i) => i.as_ref(),
+        FieldKind::Optional(i) | FieldKind::Wrapper(i) => {
+            return scalar_this_for_with(i, schemas);
+        }
         FieldKind::Message { full_name } if full_name == "google.protobuf.Duration" => {
             return Some(CelType::Duration);
         }
@@ -565,8 +567,14 @@ fn scalar_this_for_with(kind: &FieldKind, schemas: Option<&SchemaIndex>) -> Opti
             // For a Message-typed element we need the schema of that
             // message to compile nested selects. Without a schema, fall
             // back.
-            let schema = schemas?.get(full_name)?.clone();
-            return Some(CelType::Message(Box::new(schema)));
+            // Schema construction also calls this without a completed index.
+            // Keep a typed reference instead of dropping repeated message fields
+            // from that schema. Resolve it on field selection, which also handles
+            // recursive messages without expanding an infinite schema tree.
+            return Some(match schemas.and_then(|index| index.get(full_name)) {
+                Some(schema) => CelType::Message(Box::new(schema.clone())),
+                None => CelType::MessageRef(full_name.clone()),
+            });
         }
         FieldKind::Map { key, value } => {
             let key_cel = scalar_this_for_with(key, schemas)?;

@@ -159,6 +159,8 @@ fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys()
                 rules:[LocalRule::Float64Domain(Float64Domain::Finite)]};
             windows: [Option<Vec<f64>>; 2] => {tag:4,direction:Direction::Both,
                 rules:[LocalRule::Float64Domain(Float64Domain::NonnegativeFinite)]};
+            sparse_start: Option<BTreeMap<pse_ids::SemanticId, f64>> => {tag:5,direction:Direction::Both,
+                rules:[LocalRule::Float64Domain(Float64Domain::Finite)]};
         }
     }
     let graph = ProjectionGraph::of::<NumericCollections>().unwrap();
@@ -240,6 +242,17 @@ fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys()
         arrays.contains(&format!("== {}u", (-0.0_f64).to_bits())),
         "{arrays}"
     );
+    let sparse = expression(5);
+    assert!(sparse.starts_with("this.value.all(entry_1, ("), "{sparse}");
+    assert!(sparse.contains("entry_1.value <="), "{sparse}");
+    let sparse_wrapper = message.nested_type.iter()
+        .find(|owner| owner.name.as_deref() == Some("Field5Value"))
+        .unwrap();
+    assert_eq!(sparse_wrapper.field[0].name.as_deref(), Some("value"));
+    assert_eq!(sparse_wrapper.field[0].label, Some(Label::LABEL_REPEATED));
+    let sparse_entry = &sparse_wrapper.nested_type[0];
+    assert_eq!(sparse_entry.field[0].r#type, Some(Type::TYPE_BYTES));
+    assert_eq!(sparse_entry.field[1].r#type, Some(Type::TYPE_FIXED64));
     // All layout expressions are emitted with their actual messages, not a
     // synthetic flattened schema; adapters retain the native semantic-ID key.
     let source = native_adapters(
