@@ -406,6 +406,11 @@ the producer newline. Both publication and retained selection refuse whitespace-
 replacement against that original identity; exact restoration preserves the sealed promise.
 The reviewer resolved the defect in source; this targeted pass supplies execution evidence.
 
+Worktree consolidation preserves the original invocation stores and full portable export
+outside the retired checkouts. Checkout-local tools/build outputs are retired; original
+outcomes and incomplete/unavailable custody observations are unchanged. This administrative
+cleanup does not qualify J04 expiry, active-reader retention, release or interruption behavior.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

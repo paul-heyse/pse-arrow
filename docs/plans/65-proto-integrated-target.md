@@ -288,10 +288,11 @@ their historical tests retain their original scope. At entry, expanded generatio
 inverse adoption, and worker Stop/Close cleared all sessions. The delivered foundation and
 native lifecycle changes below replace these mechanisms; full Plan64 completion was no barrier.
 
-The coordinator performs integration and verification on `main` in the ordinary checkout;
-three isolated executor checkouts own foundation, scientific and developer-evidence changes.
-Shared generator/adoption changes have one continuing foundation owner; the coordinator owns
-shared publication and integration. Completed coherent commits are integrated into main promptly.
+The coordinator performs integration and verification on `main` in the ordinary checkout.
+The original Plan65 checkout and the foundation, scientific and developer-evidence worker
+worktrees have been consolidated and removed at the operator's request. Their required source,
+tests and decisions are integrated on main; branch history and original evidence outside the
+checkouts are retained. Shared generator/adoption and publication work now continues from main.
 Shared maintained-validator lowering, unique governing scientific permission lookup and passive
 retained-report interpretation are integrated. Proposed ADR-0241–0244 and bounded assessments
 preceded the affected foundation, worker and shared-adapter changes. Proposed ADR-0245 and
@@ -337,6 +338,32 @@ developer dependency closure is integrated on main, including the correction ret
 authenticated startup input bytes across execution; 65j owns its tests and remaining lifecycle
 population. Completion-owned permission observations and their independent readback are
 integrated as the narrow F/I slice, with exact conditions and limits in 65f.
+
+### Consolidated handoff — 2026-11-04
+
+The final seven-file scientific handoff is integrated as `f0cba8780`, preserving main's
+formatting and earlier improvements. It completes the passive native Recipe source graph;
+65e owns the two passing main-branch compiler controls and the remaining codec/qualification
+work. Clean foundation and developer-evidence worktrees were reconciled against their actual
+main implementations, including transformed historical commits. Superseded bootstrap outputs
+were not copied over the newer generated worlds. No unresolved merge conflicts remain.
+
+Final regeneration after this source integration (`just codegen`) passed all thirteen targets
+with zero errors or warnings, configured unbounded placement, cache off and prepared native
+providers. Original capture and native settlement completed; published outputs were unchanged.
+The compiler's two targeted controls passed on main with the conditions retained in 65e.
+
+All four checkouts were removed only after their required changes were integrated and their
+current users were quiescent. Their rebuildable tools, environments and build targets were
+retired with them; retained invocation stores and the full developer evidence export outside
+the checkouts were preserved. Historical incomplete/unavailable custody records keep that
+meaning. Administrative cleanup does not close product lifecycle or qualification obligations.
+
+Continue from main with the actual Recipe graph and one shared generated output/configuration
+for publication and borrowed adapters. Complete the same-root receiving/indexing and original
+workspace admission/restoration obligations before activating the protobuf Recipe. A05/E02/E03,
+the remaining C/D/F/G/I/J populations and H assembled qualification retain their native owners;
+this handoff does not mark the Plan65 series complete.
 
 ## Verification boundary
 

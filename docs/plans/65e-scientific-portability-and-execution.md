@@ -355,12 +355,39 @@ shape capacity accounting, provider-free direct replay, retired recipe/envelope 
 and large opaque envelope hashing/forged extent. The initial seven-control population passed;
 a new source-projection test's misplaced module caused one discovery build failure and was
 corrected before this full nine-control rerun. Root-owned generated publication remains.
-Remaining E02 includes compiler-owned Recipe/source/physical records, generated receiving adapters and
-complete dependency/context reconstruction. E03 replaces private JSON serialization of
+Compiler-owned Recipe/source/physical co-declarations are subsequently delivered in the source
+graph slice below. Remaining E02 includes actual generated receiving adapters and complete
+dependency/context reconstruction. E03 replaces private JSON serialization of
 root input, source bindings and handshake/request/response on the existing bounded inherited
 channel, retaining provider-free admission, original image/build/registry checks, qualified
 recipe authority, original-coordinate screening and actual process custody. No kernel/ID owner
 acquires a Buffa dependency merely to encode this transitional descriptor representation.
+
+### E02 complete passive Recipe source graph
+
+The final scientific worktree handoff is integrated on main as `f0cba8780`.
+`pse_compiler::typed_math::scientific_recipe_projection()` now returns the source-owned graph
+of the actual private 17-field `Recipe`. Resolved syntax, support, selected-provider records,
+physical/mathematical receipts, native `BodySpec`, applicability and nominal body identity
+participate through their actual passive owners. The graph factory admits or restores nothing;
+it exposes no live Scheme, modeling Type, provider handle or qualified replay authority.
+Source presentation version one does not change the active JSON recipe interpretation three.
+
+**Tested, targeted on main:** `scripts/pse test pse-compiler --lib -E
+'test(scientific_recipe_source_graph_) | test(scientific_recipe_native_projection_)'`
+passed 2/2 with zero failures, pending tests or build warnings, in configured unbounded,
+cache-off mode with prepared compiler/KLU and complete original capture/native settlement.
+The controls check complete Data-only source closure and actual admission of an authored
+`doubled(x)=x+x` fixture, exact existing JSON after native field reconstruction, and refusal
+to restore syntax without original qualification. A worker's unnecessary-qualification warning
+was corrected before the clean main rerun. These controls do not exercise a protobuf Recipe.
+
+Next, publish the selected private wire family and borrowed adapters from the same actual
+`ProjectionOutput`, descriptor set and generation configuration. Do not generate a second
+descriptor world for adapter naming. Full binary decode/adoption, monomorphic same-root
+membership receivers, complete original workspace admission and restoration bounds, and the
+early original-function/formal-count check remain required. The existing JSON/qualification
+route stays active until those replacements and their refusal/drain controls are accepted.
 
 ## E03 closed-root envelope cutover
 
@@ -549,7 +576,8 @@ proposed ADR before implementation. Neither an artifact digest nor successful lo
 may mint this authority. The existing recipe leaf remains unchanged until a complete approved
 replacement and its original reconstruction/refusal controls are in place.
 
-The initial F03 envelope remains unresolved pending the complete actual Recipe graph.
+The initial F03 envelope remains unresolved. The complete native Recipe graph is now available;
+its generated wire profile, retained capacities and pre-admission bounds still require realization.
 The selected source-derived traversal can use Buffa 0.9.2
 [`decode_lazy_with_ctx`/`merge_lazy`, fragments and raw elements](https://docs.rs/buffa/0.9.2/src/buffa/view.rs.html)
 with one shared decode context. Default subtree getters recreate allowances. The
