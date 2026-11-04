@@ -81,9 +81,69 @@ struct OwnerPaths {
     model: bool,
     store: bool,
 }
+impl OwnerPaths {
+    fn macro_paths(&mut self, input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+        use proc_macro2::{TokenStream, TokenTree};
+        fn separator(tokens: &[TokenTree], at: usize) -> bool {
+            matches!(tokens.get(at), Some(TokenTree::Punct(value)) if value.as_char() == ':' && value.spacing() == proc_macro2::Spacing::Joint)
+                && matches!(tokens.get(at + 1), Some(TokenTree::Punct(value)) if value.as_char() == ':')
+        }
+        let tokens = input.into_iter().collect::<Vec<_>>();
+        let mut output = TokenStream::new();
+        let mut at = 0;
+        while at < tokens.len() {
+            if let TokenTree::Group(group) = &tokens[at] {
+                let mut rewritten =
+                    proc_macro2::Group::new(group.delimiter(), self.macro_paths(group.stream()));
+                rewritten.set_span(group.span());
+                output.extend([TokenTree::Group(rewritten)]);
+                at += 1;
+                continue;
+            }
+            let leading = separator(&tokens, at);
+            let first = at + if leading { 2 } else { 0 };
+            let Some(TokenTree::Ident(ident)) = tokens.get(first) else {
+                output.extend([tokens[at].clone()]);
+                at += 1;
+                continue;
+            };
+            let mut path = syn::Path {
+                leading_colon: leading.then(Default::default),
+                segments: std::iter::once(syn::PathSegment {
+                    ident: ident.clone(),
+                    arguments: syn::PathArguments::None,
+                })
+                .collect(),
+            };
+            let mut end = first + 1;
+            while separator(&tokens, end) {
+                let Some(TokenTree::Ident(ident)) = tokens.get(end + 2) else {
+                    break;
+                };
+                path.segments.push(syn::PathSegment {
+                    ident: ident.clone(),
+                    arguments: syn::PathArguments::None,
+                });
+                end += 3;
+            }
+            // `$crate` is a hygienic macro reference, not an ordinary owner path.
+            if !at.checked_sub(1).is_some_and(|previous| matches!(&tokens[previous], TokenTree::Punct(value) if value.as_char() == '$')) {
+                self.visit_path_mut(&mut path);
+            }
+            output.extend(quote::quote!(#path));
+            at = end;
+        }
+        output
+    }
+}
 impl VisitMut for OwnerPaths {
     // Visibility is relative to the destination crate; it is not a referenced type path.
     fn visit_visibility_mut(&mut self, _visibility: &mut syn::Visibility) {}
+
+    fn visit_macro_mut(&mut self, value: &mut syn::Macro) {
+        self.visit_path_mut(&mut value.path);
+        value.tokens = self.macro_paths(value.tokens.clone());
+    }
 
     fn visit_item_use_mut(&mut self, item: &mut syn::ItemUse) {
         if let syn::UseTree::Path(first) = &item.tree
@@ -239,6 +299,43 @@ impl VisitMut for NativeValuePaths {
 #[cfg(test)]
 mod native_value_tests {
     use super::*;
+    #[test]
+    fn development_owner_paths_relocate_nested_macro_paths_without_rewriting_literals_or_hygiene() {
+        let mut source: syn::File = syn::parse_quote! {
+            fn example() {
+                let _ = vec![crate::boundary_projection::Field::of::<String>(),
+                    (::pse_model::generated::canonical::ProblemKey::from_text("crate::boundary_projection"))];
+                let _ = matches!(None, Some(crate::generated::enums::NativeBackend::Ipopt));
+                macro_rules! keep { () => { $crate::generated::unchanged() }; }
+            }
+        };
+        OwnerPaths {
+            model: true,
+            store: false,
+        }
+        .visit_file_mut(&mut source);
+        let output = quote::quote!(#source).to_string();
+        assert!(output.contains("pse_model :: boundary_projection :: Field"));
+        assert!(output.contains("crate :: generated :: model :: canonical :: ProblemKey"));
+        assert!(output.contains("crate :: generated :: model :: enums :: NativeBackend"));
+        assert!(output.contains("\"crate::boundary_projection\""));
+        assert!(output.contains("$ crate :: generated :: unchanged"));
+        assert!(!output.contains(":: crate"));
+        let mut relation: syn::File = syn::parse_quote! {
+            fn example() { let _ = vec![crate::columnar::RelationRow::rows()]; }
+        };
+        OwnerPaths {
+            model: false,
+            store: false,
+        }
+        .visit_file_mut(&mut relation);
+        assert!(
+            quote::quote!(#relation)
+                .to_string()
+                .contains("pse_relations :: columnar :: RelationRow")
+        );
+    }
+
     #[test]
     fn dependency_qualification_preserves_logical_identity_and_changes_only_value_paths() {
         let logical = quote::quote!(

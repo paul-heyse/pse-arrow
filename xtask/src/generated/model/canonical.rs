@@ -104,13 +104,13 @@ impl pse_model::boundary_projection::ProjectionType for ProblemKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -243,13 +243,13 @@ impl pse_model::boundary_projection::ProjectionType for RevisionKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -386,13 +386,13 @@ impl pse_model::boundary_projection::ProjectionType for RunKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -525,13 +525,13 @@ impl pse_model::boundary_projection::ProjectionType for AttemptKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -664,13 +664,13 @@ impl pse_model::boundary_projection::ProjectionType for StudyKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -803,13 +803,13 @@ impl pse_model::boundary_projection::ProjectionType for StudyPointKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -946,13 +946,13 @@ impl pse_model::boundary_projection::ProjectionType for OperationKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1085,13 +1085,13 @@ impl pse_model::boundary_projection::ProjectionType for ArtifactKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1224,13 +1224,13 @@ impl pse_model::boundary_projection::ProjectionType for FileInstanceKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1363,13 +1363,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1502,13 +1502,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectBranchKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1641,13 +1641,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectDraftKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1780,13 +1780,13 @@ impl pse_model::boundary_projection::ProjectionType for DraftVersionKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1919,13 +1919,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectSavepointKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2058,13 +2058,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectBookmarkKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2197,13 +2197,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectAncestryKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2336,13 +2336,13 @@ impl pse_model::boundary_projection::ProjectionType for DraftDiagnosticKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2475,13 +2475,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectContextKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2614,13 +2614,13 @@ impl pse_model::boundary_projection::ProjectionType for ContextAncestryKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2753,13 +2753,13 @@ impl pse_model::boundary_projection::ProjectionType for ResearchReferenceKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2892,13 +2892,13 @@ impl pse_model::boundary_projection::ProjectionType for ResearchDatasetKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3031,13 +3031,13 @@ impl pse_model::boundary_projection::ProjectionType for ResearchSelectionKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3170,13 +3170,13 @@ impl pse_model::boundary_projection::ProjectionType for ResearchPublicationKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3309,13 +3309,13 @@ impl pse_model::boundary_projection::ProjectionType for ProjectImportKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3448,13 +3448,13 @@ impl pse_model::boundary_projection::ProjectionType for ProductKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3587,13 +3587,13 @@ impl pse_model::boundary_projection::ProjectionType for BodyContentKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3726,13 +3726,13 @@ impl pse_model::boundary_projection::ProjectionType for SelectionReceiptKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3865,13 +3865,13 @@ impl pse_model::boundary_projection::ProjectionType for ProductAssociationKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4004,13 +4004,13 @@ impl pse_model::boundary_projection::ProjectionType for ProductDescriptorKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4143,13 +4143,13 @@ impl pse_model::boundary_projection::ProjectionType for AnalysisKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4282,13 +4282,13 @@ impl pse_model::boundary_projection::ProjectionType for AnalysisNodeKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4421,13 +4421,13 @@ impl pse_model::boundary_projection::ProjectionType for MaintenanceOperationKey 
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4560,13 +4560,13 @@ impl pse_model::boundary_projection::ProjectionType for MaintenanceActivationKey
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4699,13 +4699,13 @@ impl pse_model::boundary_projection::ProjectionType for InlinePayloadKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4838,13 +4838,13 @@ impl pse_model::boundary_projection::ProjectionType for FileOwnerKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4977,13 +4977,13 @@ impl pse_model::boundary_projection::ProjectionType for FileBorrowerKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -5116,13 +5116,13 @@ impl pse_model::boundary_projection::ProjectionType for ManifestTicketKey {
                     Ok(
                         pse_model::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_model::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_model::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
