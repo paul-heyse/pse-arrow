@@ -27,12 +27,15 @@ macro_rules! projected_scalar {
                             crate::boundary_projection::Direction::Both,
                             vec![projected_scalar!(@rule $ty; $($validation)*)])?,
                     ])))?;
+                projected_scalar!(@mark $ty, graph, root);
                 graph.public_path::<Self>(&root, concat!("crate::scalars::", stringify!($name)))?;
                 Ok(root)
             }
         }
         impl crate::boundary_projection::ValidateProjection for $name {
+            const SUPPORTS_FLOAT64_DOMAIN: bool = projected_scalar!(@float $ty);
             const NEEDS_RECURSIVE_VALIDATION: bool = false;
+            fn projection_float64(&self) -> Option<f64> { projected_scalar!(@value $ty, self) }
             fn validate_at(&self, path: &str) -> Result<(), crate::boundary_projection::ValidationError> {
                 crate::boundary_projection::validate_field(&self.into_inner(),
                     &crate::boundary_projection::field_path(path, "value"),
@@ -49,7 +52,16 @@ macro_rules! projected_scalar {
                     "value", crate::boundary_projection::AdapterFailure::InvalidValue, error.to_string()))
             }
         }
+        projected_scalar!(@nominal $name, $ty);
     };
+    (@nominal $name:ident, f64) => { impl crate::boundary_projection::NominalFloat64 for $name {} };
+    (@nominal $name:ident, usize) => {};
+    (@mark f64, $graph:ident, $root:ident) => { $graph.nominal_float64::<Self>(&$root)? };
+    (@mark usize, $graph:ident, $root:ident) => {};
+    (@float f64) => { true };
+    (@float usize) => { false };
+    (@value f64, $self:ident) => { Some($self.into_inner()) };
+    (@value usize, $self:ident) => { None };
     (@rule f64; finite) => { crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::Finite) };
     (@rule f64; finite, greater = 0.0) => { crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite) };
     (@rule f64; finite, greater = 0.0, less_or_equal = 1.0) => { crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveUnit) };

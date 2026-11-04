@@ -246,6 +246,14 @@ compiled native-row controls cover exact JSON, field domains and invalid overlap
 The complete runtime settings/operation closure and full service descriptor publication
 remain in progress. These foundation controls do not establish their assembled acceptance.
 
+Exact finite numeric intervals now share their original endpoint inclusion rules between
+native predicates and fixed64/CEL projections. Checked nominal scalars retain their original
+subtypes: a consuming confidence field can require a strict upper endpoint without changing
+the underlying Fraction domain. Source-owned hooks identify these scalars; similarly shaped
+records acquire no numeric meaning. Targeted model and generator controls cover signed zero,
+adjacent represented endpoints, invalid intervals and nested optional nominal values. The
+complete settings graph and maintained-validator publication remain the next integration work.
+
 ## Verification and handoff
 
 **Proposed:** I01 targeted tests independently specify exact bits (including signed zero),

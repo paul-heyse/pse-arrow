@@ -9,25 +9,31 @@ use pse_model::boundary_projection::{
 use pse_schema::SchemaError;
 
 pub(super) fn scalar_expression(domain: Float64Domain, value: &str) -> Result<String, SchemaError> {
-    Ok(match domain {
-        Float64Domain::Finite => format!(
-            "{value} < {}u || ({value} >= {}u && {value} < {}u)",
-            f64::INFINITY.to_bits(),
-            (-0.0_f64).to_bits(),
-            f64::NEG_INFINITY.to_bits()
-        ),
-        Float64Domain::NonnegativeFinite => format!(
-            "{value} <= {}u || {value} == {}u",
-            f64::MAX.to_bits(),
-            (-0.0_f64).to_bits()
-        ),
-        Float64Domain::PositiveFinite | Float64Domain::PositiveUnit => {
-            let maximum = domain.positive_maximum_bits().ok_or_else(|| {
-                error("positive floating domain has no source-owned bit interval")
-            })?;
-            format!("{value} > 0u && {value} <= {maximum}u")
-        }
-    })
+    let interval = domain.interval();
+    if !interval.is_valid() {
+        return Err(error("floating domain has no finite represented values"));
+    }
+    let intervals = interval.bit_intervals();
+    let multiple = intervals.iter().flatten().count() > 1;
+    Ok(intervals
+        .into_iter()
+        .flatten()
+        .map(|(minimum, maximum)| {
+            if minimum == maximum {
+                format!("{value} == {minimum}u")
+            } else if minimum == 0 {
+                format!("{value} <= {maximum}u")
+            } else {
+                let expression = format!("{value} >= {minimum}u && {value} <= {maximum}u");
+                if multiple {
+                    format!("({expression})")
+                } else {
+                    expression
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" || "))
 }
 
 pub(super) fn collection_expression(
@@ -117,7 +123,7 @@ pub(super) fn collection_expression(
                 }
             }
             TypeRef::Named(name) => {
-                let Some(NativeContainer::FixedArray { element, .. }) = graph
+                let Some(container) = graph
                     .definitions()
                     .get(name)
                     .and_then(|owner| owner.native_container.as_ref())
@@ -126,13 +132,18 @@ pub(super) fn collection_expression(
                         "floating domain requires its declared scalar/container owner",
                     ));
                 };
-                expression(
-                    graph,
-                    &TypeRef::Repeated(Box::new(element.clone())),
-                    domain,
-                    field(value, "values"),
-                    depth + 1,
-                )?
+                match container {
+                    NativeContainer::NominalFloat64 => {
+                        scalar_expression(domain, &format!("{value}.value"))?
+                    }
+                    NativeContainer::FixedArray { element, .. } => expression(
+                        graph,
+                        &TypeRef::Repeated(Box::new(element.clone())),
+                        domain,
+                        field(value, "values"),
+                        depth + 1,
+                    )?,
+                }
             }
             TypeRef::Scalar(_) => {
                 return Err(error("floating domain requires actual binary64 leaves"));

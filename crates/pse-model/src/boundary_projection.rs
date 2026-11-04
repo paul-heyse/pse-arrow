@@ -10,6 +10,7 @@ mod access;
 mod diagnostics;
 mod float_collections;
 mod float_domain;
+mod float_interval;
 mod generic;
 mod nominal;
 mod quantity;
@@ -22,7 +23,9 @@ pub use access::{
     clone_adapter_field, validate_adapted,
 };
 pub use float_collections::NativeContainer;
+pub(crate) use float_collections::NominalFloat64;
 pub use float_domain::Float64Domain;
+pub use float_interval::Float64Interval;
 pub use generic::generic_argument;
 
 /// The shared public direction, independently of native Serde representation.
@@ -1280,8 +1283,9 @@ fn validate_fields(
                 ));
             }
             let valid = match rule {
-                LocalRule::Float64Domain(_) => {
-                    float_collections::supports_float64_domain(&field.ty, definitions)
+                LocalRule::Float64Domain(domain) => {
+                    domain.interval().is_valid()
+                        && float_collections::supports_float64_domain(&field.ty, definitions)
                 }
                 LocalRule::Utf8Bytes { min, max } => {
                     min <= max && matches!(field.ty, TypeRef::Scalar(Scalar::String))

@@ -3,6 +3,148 @@
 
 use super::*;
 use pse_model::boundary_projection::Float64Domain;
+use pse_model::boundary_projection::Float64Interval;
+
+#[test]
+fn finite_interval_descriptors_preserve_strict_endpoints_and_nominal_value_paths() {
+    const ALPHA: Float64Domain =
+        Float64Domain::Interval(Float64Interval::new(1.0, false, 2.0, true));
+    const PIVOT: Float64Domain =
+        Float64Domain::Interval(Float64Interval::new(0.0, true, 1.0, true));
+    const NEGATIVE: Float64Domain =
+        Float64Domain::Interval(Float64Interval::new(-2.0, true, -1.0, false));
+    const OPEN_UNIT: Float64Domain =
+        Float64Domain::Interval(Float64Interval::new(0.0, false, 1.0, false));
+    projection_struct! {
+        struct IntervalSettings {
+            projection:{name:"IntervalSettings",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
+            alpha: f64 => {tag:1,direction:Direction::Both,rules:[LocalRule::Float64Domain(ALPHA)]};
+            pivot: Option<f64> => {tag:2,direction:Direction::Both,rules:[LocalRule::Float64Domain(PIVOT)]};
+            negative: f64 => {tag:3,direction:Direction::Both,rules:[LocalRule::Float64Domain(NEGATIVE)]};
+            confidence: pse_model::scalars::Fraction => {tag:4,direction:Direction::Both,rules:[LocalRule::Float64Domain(OPEN_UNIT)]};
+            offsets: Vec<Option<pse_model::scalars::FiniteBound>> => {tag:5,direction:Direction::Both,rules:[LocalRule::Float64Domain(NEGATIVE)]};
+        }
+    }
+    let graph = ProjectionGraph::of::<IntervalSettings>().unwrap();
+    let set =
+        descriptors_with_imports(&graph, "pse.interval.v1", "interval.proto", &imports()).unwrap();
+    let file = set
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some("interval.proto"))
+        .unwrap();
+    let message = file
+        .message_type
+        .iter()
+        .find(|message| message.name.as_deref() == Some("IntervalSettings"))
+        .unwrap();
+    let rules = |tag| {
+        message
+            .field
+            .iter()
+            .find(|field| field.number == Some(tag))
+            .unwrap()
+            .options
+            .as_option()
+            .unwrap()
+            .extension(&validate::FIELD)
+            .unwrap()
+    };
+    let samples = [
+        f64::NAN,
+        f64::from_bits(0xfff8_0000_0000_0042),
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        -2.0,
+        f64::from_bits((-2.0_f64).to_bits() - 1),
+        -1.0,
+        f64::from_bits((-1.0_f64).to_bits() + 1),
+        -0.0,
+        0.0,
+        1.0,
+        f64::from_bits(1.0_f64.to_bits() + 1),
+        2.0,
+        f64::from_bits(2.0_f64.to_bits() + 1),
+    ];
+    // Evaluate the actual emitted standard fixed64 bounds, including the reversed
+    // unsigned ordering of negative IEEE values, against the original native predicate.
+    for (tag, domain) in [(1, ALPHA), (3, NEGATIVE)] {
+        let envelope = rules(tag);
+        let Some(validate::__buffa::oneof::field_rules::Type::Fixed64(bounds)) = envelope.r#type
+        else {
+            panic!("standard fixed64 interval")
+        };
+        for value in samples {
+            let bits = value.to_bits();
+            let lower = match &bounds.greater_than {
+                Some(fixed64rules::GreaterThan::Gt(minimum)) => bits > *minimum,
+                Some(fixed64rules::GreaterThan::Gte(minimum)) => bits >= *minimum,
+                None => true,
+            };
+            let upper = match &bounds.less_than {
+                Some(fixed64rules::LessThan::Lt(maximum)) => bits < *maximum,
+                Some(fixed64rules::LessThan::Lte(maximum)) => bits <= *maximum,
+                None => true,
+            };
+            assert_eq!(
+                domain.contains(value),
+                lower && upper,
+                "tag {tag}, {value:?}"
+            );
+        }
+    }
+    let pivot = rules(2);
+    assert!(
+        pivot.r#type.is_none(),
+        "both signed zeros require disjoint unsigned intervals"
+    );
+    assert_eq!(
+        pivot.cel[0].expression.as_deref(),
+        Some(
+            format!(
+                "this <= {}u || this == {}u",
+                1.0_f64.to_bits(),
+                (-0.0_f64).to_bits()
+            )
+            .as_str()
+        )
+    );
+    assert!(message.field[1].proto3_optional.unwrap_or(false));
+    let confidence = rules(4);
+    assert_eq!(
+        confidence.cel[0].expression.as_deref(),
+        Some(
+            format!(
+                "this.value >= 1u && this.value <= {}u",
+                1.0_f64.to_bits() - 1
+            )
+            .as_str()
+        )
+    );
+    let offsets = rules(5);
+    let expression = offsets.cel[0].expression.as_deref().unwrap();
+    assert!(expression.contains("has(element_0.value)"), "{expression}");
+    assert!(
+        expression.contains("element_0.value.value >="),
+        "{expression}"
+    );
+    // The actual Fraction child still publishes its original (0,1] constructor contract.
+    let fraction = file
+        .message_type
+        .iter()
+        .find(|owner| owner.name.as_deref() == Some("Fraction"))
+        .unwrap();
+    let child = fraction.field[0]
+        .options
+        .as_option()
+        .unwrap()
+        .extension(&validate::FIELD)
+        .unwrap();
+    assert!(
+        matches!(child.r#type, Some(validate::__buffa::oneof::field_rules::Type::Fixed64(bounds))
+        if bounds.less_than == Some(fixed64rules::LessThan::Lte(1.0_f64.to_bits())))
+    );
+}
 
 #[test]
 fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys() {
@@ -56,10 +198,10 @@ fn binary64_collection_domains_follow_declared_wire_wrappers_and_semantic_keys()
     assert_eq!(
         expression(1),
         format!(
-            "this.value.all(element_1, (!(has(element_1.value)) || (element_1.value.value.all(element_3, (element_3 < {}u || (element_3 >= {}u && element_3 < {}u))))))",
-            f64::INFINITY.to_bits(),
+            "this.value.all(element_1, (!(has(element_1.value)) || (element_1.value.value.all(element_3, (element_3 <= {}u || (element_3 >= {}u && element_3 <= {}u))))))",
+            f64::MAX.to_bits(),
             (-0.0_f64).to_bits(),
-            f64::NEG_INFINITY.to_bits()
+            (-f64::MAX).to_bits()
         )
     );
     let entries = message

@@ -289,7 +289,7 @@ fn binary64_setting_domains_lower_to_exact_fixed64_bounds_and_finite_cel() {
     assert_eq!(
         rules.cel[0].expression.as_deref(),
         Some(
-            "this < 9218868437227405312u || (this >= 9223372036854775808u && this < 18442240474082181120u)"
+            "this <= 9218868437227405311u || (this >= 9223372036854775808u && this <= 18442240474082181119u)"
         )
     );
 }

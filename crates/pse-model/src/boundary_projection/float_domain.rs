@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Intrinsic binary64 setting domains shared by native and wire validation.
 
+use super::Float64Interval;
+
 /// Locally decidable scalar domains declared by the native setting owner.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Float64Domain {
@@ -13,24 +15,22 @@ pub enum Float64Domain {
     PositiveFinite,
     /// Finite values greater than zero and at most one.
     PositiveUnit,
+    /// Exact finite source-owned endpoints, including their open/closed interpretation.
+    Interval(Float64Interval),
 }
 impl Float64Domain {
     /// Evaluate the actual native domain independently of its fixed64 transport.
     pub const fn contains(self, value: f64) -> bool {
-        match self {
-            Self::Finite => value.is_finite(),
-            Self::NonnegativeFinite => value.is_finite() && value >= 0.0,
-            Self::PositiveFinite => value.is_finite() && value > 0.0,
-            Self::PositiveUnit => value.is_finite() && value > 0.0 && value <= 1.0,
-        }
+        self.interval().contains(value)
     }
-    /// Exact increasing positive-bit interval for domains excluding both signed zeros.
-    /// Signed finite domains require both IEEE sign intervals instead.
-    pub const fn positive_maximum_bits(self) -> Option<u64> {
+    /// Resolve every preset and declared interval through the same exact finite mechanism.
+    pub const fn interval(self) -> Float64Interval {
         match self {
-            Self::Finite | Self::NonnegativeFinite => None,
-            Self::PositiveFinite => Some(f64::MAX.to_bits()),
-            Self::PositiveUnit => Some(1.0_f64.to_bits()),
+            Self::Finite => Float64Interval::new(-f64::MAX, true, f64::MAX, true),
+            Self::NonnegativeFinite => Float64Interval::new(0.0, true, f64::MAX, true),
+            Self::PositiveFinite => Float64Interval::new(0.0, false, f64::MAX, true),
+            Self::PositiveUnit => Float64Interval::new(0.0, false, 1.0, true),
+            Self::Interval(interval) => interval,
         }
     }
 }

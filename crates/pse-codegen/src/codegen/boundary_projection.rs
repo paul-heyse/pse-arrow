@@ -806,45 +806,39 @@ fn apply_rule(
                 });
                 return Ok(());
             }
-            match domain {
-                pse_model::boundary_projection::Float64Domain::PositiveFinite
-                | pse_model::boundary_projection::Float64Domain::PositiveUnit => {
-                    let maximum = domain.positive_maximum_bits().ok_or_else(|| {
-                        error("positive binary64 domain has no declared bit interval")
-                    })?;
+            let interval = domain.interval();
+            if !interval.is_valid() {
+                return Err(error("floating domain has no finite represented values"));
+            }
+            match interval.bit_intervals() {
+                [Some((minimum, maximum)), None] | [None, Some((minimum, maximum))] => {
                     rules.r#type = Some(
                         Fixed64Rules {
-                            greater_than: Some(fixed64rules::GreaterThan::Gt(0)),
+                            greater_than: minimum.checked_sub(1).map(fixed64rules::GreaterThan::Gt),
                             less_than: Some(fixed64rules::LessThan::Lte(maximum)),
                             ..Default::default()
                         }
                         .into(),
                     );
                 }
-                pse_model::boundary_projection::Float64Domain::NonnegativeFinite => {
+                _ => {
+                    let (id, message) = match domain {
+                        pse_model::boundary_projection::Float64Domain::Finite => {
+                            ("float64.finite", "binary64 value must be finite")
+                        }
+                        pse_model::boundary_projection::Float64Domain::NonnegativeFinite => (
+                            "float64.nonnegative_finite",
+                            "binary64 value must be finite and nonnegative",
+                        ),
+                        _ => (
+                            "float64.interval",
+                            "binary64 value must satisfy its source-owned finite interval",
+                        ),
+                    };
                     rules.cel.push(Rule {
-                        id: Some("float64.nonnegative_finite".into()),
-                        message: Some("binary64 value must be finite and nonnegative".into()),
-                        expression: Some(format!(
-                            "this <= {}u || this == {}u",
-                            f64::MAX.to_bits(),
-                            (-0.0_f64).to_bits()
-                        )),
-                        ..Default::default()
-                    });
-                }
-                pse_model::boundary_projection::Float64Domain::Finite => {
-                    // Each IEEE sign interval is monotonic in the transported unsigned
-                    // bits. Exclude both infinities and every NaN, preserving both zeros.
-                    rules.cel.push(Rule {
-                        id: Some("float64.finite".into()),
-                        message: Some("binary64 value must be finite".into()),
-                        expression: Some(format!(
-                            "this < {}u || (this >= {}u && this < {}u)",
-                            f64::INFINITY.to_bits(),
-                            (-0.0_f64).to_bits(),
-                            f64::NEG_INFINITY.to_bits()
-                        )),
+                        id: Some(id.into()),
+                        message: Some(message.into()),
+                        expression: Some(float_collections::scalar_expression(*domain, "this")?),
                         ..Default::default()
                     });
                 }

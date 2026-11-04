@@ -3,7 +3,8 @@
 //! Explicit native container facts for recursively declared floating-point domains.
 
 use super::{
-    Definition, LocalRule, ProjectionError, ProjectionGraph, ProjectionType, Shape, TypeRef,
+    Definition, LocalRule, ProjectionError, ProjectionGraph, ProjectionRecord, ProjectionType,
+    Scalar, Shape, TypeRef,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -11,6 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Arbitrary record shapes never acquire numeric collection meaning by resemblance.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NativeContainer {
+    /// The actual checked binary64 nominal scalar, declared by its source scalar macro.
+    NominalFloat64,
     /// The actual `[T; N]` declaration; the existing wire record stores `values`.
     FixedArray {
         /// Actual element's recursively resolved projection.
@@ -20,7 +23,38 @@ pub enum NativeContainer {
     },
 }
 
+/// Implemented only alongside actual checked f64 nominal declarations in this crate.
+pub(crate) trait NominalFloat64: ProjectionRecord<Fields = (f64,)> {}
+
 impl ProjectionGraph {
+    /// Attach scalar-value meaning from its actual checked source declaration.
+    pub(crate) fn nominal_float64<T: NominalFloat64>(
+        &mut self,
+        root: &TypeRef,
+    ) -> Result<(), ProjectionError> {
+        let TypeRef::Named(name) = root else {
+            return Err(ProjectionError::invalid(
+                "nominal scalar",
+                "scalar owner is not named",
+            ));
+        };
+        let definition = self
+            .definitions
+            .get_mut(name)
+            .ok_or_else(|| ProjectionError::invalid(name, "nominal scalar owner is unresolved"))?;
+        if definition.rust_type != std::any::type_name::<T>()
+            || !matches!(&definition.shape, Shape::Record(fields)
+                if fields.len() == 1 && fields[0].name == "value" && fields[0].tag == 1
+                    && fields[0].ty == TypeRef::Scalar(Scalar::F64Bits))
+        {
+            return Err(ProjectionError::invalid(
+                name,
+                "nominal scalar hook must identify its actual f64 declaration",
+            ));
+        }
+        definition.native_container = Some(NativeContainer::NominalFloat64);
+        Ok(())
+    }
     /// Record intrinsic array meaning only for the actual Rust array declaration.
     /// The generic owner proves the native type; an arbitrary similarly shaped
     /// record can never opt itself into numeric-container traversal.
@@ -75,7 +109,7 @@ pub(super) fn supports_float64_domain(
         active: &mut BTreeSet<String>,
     ) -> bool {
         match ty {
-            TypeRef::Scalar(super::Scalar::F64Bits) => true,
+            TypeRef::Scalar(Scalar::F64Bits) => true,
             TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
                 visit(inner, definitions, active)
             }
@@ -88,6 +122,7 @@ pub(super) fn supports_float64_domain(
                     .get(name)
                     .and_then(|definition| definition.native_container.as_ref())
                     .is_some_and(|container| match container {
+                        NativeContainer::NominalFloat64 => true,
                         NativeContainer::FixedArray { element, .. } => {
                             visit(element, definitions, active)
                         }
