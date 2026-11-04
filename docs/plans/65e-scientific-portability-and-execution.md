@@ -423,7 +423,8 @@ recursion to 64 and retained unknown fields to 256. Unknown admitted meanings ar
 after decoding rather than silently normalized. Structural adapters live separately from
 private channel functions; native data and generated messages remain inspectable without
 KINSOL preparation. Crate-visible private adapter entry points are the selected generator
-scope; the matching publication remains an integration obligation below.
+scope, published on main. The first envelope snapshot below precedes the complete physical
+declaration cutover and its later main-branch controls.
 
 Original Buffa encode/decode and generated adoption/validation causes survive inside
 `NativeRootWireError` and existing typed runtime custody. Codec byte/element/depth/unknown
@@ -434,7 +435,9 @@ authority or scientific permission. Original problem/options validation precedes
 and the parent retains original-coordinate screening after decoding the child's proposal.
 Raw candidate floating-point bits, including nonfinite values, remain representable before
 that scientific screening. Existing native-profile hashing and receipt interpretation are
-unchanged; exact registry JSON and admitted recipe bytes remain staged leaves.
+unchanged. The first envelope snapshot left registry JSON and admitted recipe bytes as staged
+leaves; the physical declaration cutover below removes registry JSON. The admitted recipe
+continues through its original qualification interpretation pending the remaining decision.
 
 **Tested, targeted on 2026-11-04:** genuine user scope, approved direnv unbounded mode,
 cache off, explicit compiler/KLU preparation and force-validation through
@@ -462,7 +465,7 @@ the coordinator's assembled integration/qualification population.
 
 ### E02 complete physical declaration exchange
 
-**Implemented source, awaiting generated activation:** `QuantityRegistryBuilder` and its
+**Implemented and generated on main:** `QuantityRegistryBuilder` and its
 complete declaration closure are source-projected at their native owners, including defined
 units, derived kinds, conversions, operation policies, optional unit-set positions and ordered
 reduction domains. Declaration vectors preserve duplicates for original atomic `build()`
@@ -494,6 +497,18 @@ with zero failures, pending work or build warnings. These are source-owner/graph
 new generated codec activation and actual v3 child execution remain required. Prepared
 receiving controls cover nonempty prerequisites, duplicate units, changed unit scale,
 changed prerequisite meaning and missing prerequisites through the generated codec.
+
+**Tested, targeted on main, 2026-11-04:** after source-built native-lane publication with
+explicit compiler/KLU preparation, `scripts/pse test pse-runtime --lib --features solver-kinsol`
+using the 17-control filter above passed all 17, zero failures/pending/build warnings, configured
+unbounded mode and cache off, with original capture and native settlement complete. The actual
+`PSE_NATIVE_LANE_EXECUTABLE` artifact SHA256 was
+`b46a1a1dc5a34cc4a02a3744674fc49e446edcef449af8e320ad7c570697d47f`.
+The selection includes the generated typed-registry/prerequisite round trip, original physical
+identity and duplicate/scale/prerequisite refusal cases, alongside actual native child execution
+and original process/error controls. It resolves the earlier generated visibility warning
+obligation for this profile. Full recipe conversion, complete E02/E03 population, scientific
+extension and assembled H qualification remain open; no measured speedup or full RSS claim follows.
 
 ### Remaining recipe qualification decision
 
