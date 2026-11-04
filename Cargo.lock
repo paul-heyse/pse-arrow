@@ -8052,6 +8052,7 @@ dependencies = [
  "insta",
  "petgraph",
  "proptest",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",

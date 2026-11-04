@@ -12,17 +12,22 @@ pub struct Span {
     pub end: u32,
 }
 
+pse_contract::projection_struct! {
 /// A numeric token and its optional authored unit.
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct Number {
+    projection: { name: "AuthoredScientificNumber", rust_path: crate::dsl::Number,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Finite numeric value. A syntactic minus is represented by `ExprKind::Neg`.
     #[serde(with = "finite_float_bits")]
-    pub value: f64,
+    pub value: f64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::Finite)] };
     /// Exact integral token outside the consecutive IEEE-754 integer range.
-    pub exact_integer: Option<i128>,
+    pub exact_integer: Option<i128> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The unit as a canonical product of unit symbols with rational exponents, before
     /// the physical registry composes it (ADR-0124). Spellings of one product are equal.
-    pub unit: Option<pse_quantity::UnitProduct>,
+    pub unit: Option<pse_quantity::UnitProduct> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 // Scientific AST literals use exact IEEE-754 bits in portable descriptions.

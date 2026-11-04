@@ -27,6 +27,7 @@ mod remote;
 mod standard;
 mod tuple;
 mod tuple_pair;
+mod tuple_triple;
 pub use access::{
     Adapted, AdapterError, AdapterFailure, CheckedProjectionRecord, ProjectionAdapter,
     ProjectionAlternative, ProjectionObservationRecord, ProjectionRecord, SharedAdapter, adapter_source_path,

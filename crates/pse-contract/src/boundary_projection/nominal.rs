@@ -21,7 +21,7 @@ macro_rules! projection_newtype {
     }) => {
         $(#[$meta])* $vis struct $name($field_vis $ty);
         impl $crate::boundary_projection::ProjectionType for $name {
-            fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
+            fn projection(graph: &mut $crate::boundary_projection::ProjectionGraph) -> ::core::result::Result<$crate::boundary_projection::TypeRef, $crate::boundary_projection::ProjectionError> {
                 graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
                     Ok($crate::boundary_projection::Shape::Record(vec![
                         $crate::boundary_projection::Field::of::<$ty>(graph, "value", $tag, $direction, vec![$($rule),*])?,
@@ -30,7 +30,7 @@ macro_rules! projection_newtype {
             }
         }
         impl $crate::boundary_projection::ValidateProjection for $name {
-            fn validate_at(&self, path: &str) -> Result<(), $crate::boundary_projection::ValidationError> {
+            fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
                 $crate::boundary_projection::validate_field(&self.0,
                     &$crate::boundary_projection::field_path(path, "value"), &[$($rule),*])
             }
@@ -40,11 +40,35 @@ macro_rules! projection_newtype {
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[($tag, "value")];
             type Fields = ($ty,);
             fn into_projection_fields(self) -> Self::Fields { (self.0,) }
-            fn from_projection_fields(fields: Self::Fields) -> Result<Self, $crate::boundary_projection::AdapterError> {
+            fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
                 let value = Self(fields.0);
                 $crate::boundary_projection::ValidateProjection::validate_projection(&value)?;
                 Ok(value)
             }
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{ProjectionGraph, ProjectionRecord};
+
+    type Result<T> = core::result::Result<T, ()>;
+    crate::projection_newtype! {
+        /// Fixture keeps a consumer-local scientific error alias in scope.
+        #[derive(Debug, PartialEq)]
+        pub(crate) struct LocalResultNominal(u16) {
+            projection: { name: "LocalResultNominal", version: 1,
+                direction: crate::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+            value: { tag: 1, rules: [] };
+        }
+    }
+    #[test]
+    fn nominal_projection_macro_keeps_consumer_result_alias_out_of_trait_signatures() {
+        let local: Result<_> = Ok(LocalResultNominal(12));
+        let value = local.unwrap();
+        let fields = value.into_projection_fields();
+        assert_eq!(LocalResultNominal::from_projection_fields(fields).unwrap(), LocalResultNominal(12));
+        ProjectionGraph::of::<LocalResultNominal>().unwrap();
+    }
 }

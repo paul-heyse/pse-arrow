@@ -12,6 +12,7 @@
 
 use crate::{DimensionError, Ratio};
 
+pse_contract::projection_struct! {
 /// A canonical product of unit symbols with nonzero rational exponents, in symbol order.
 #[derive(
     serde::Serialize,
@@ -26,7 +27,10 @@ use crate::{DimensionError, Ratio};
     Hash,
 )]
 pub struct UnitProduct {
-    factors: Vec<(String, Ratio)>,
+    projection: { name: "PhysicalUnitProduct", rust_path: crate::unit_product::UnitProduct,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    factors: Vec<(String, Ratio)> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 impl UnitProduct {
@@ -159,6 +163,18 @@ impl std::fmt::Display for UnitProduct {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unit_product_projection_preserves_original_canonical_factors() {
+        use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord};
+        let product = UnitProduct::symbol("m").div(&UnitProduct::symbol("s")).unwrap();
+        let original = serde_json::to_vec(&product).unwrap();
+        let restored = UnitProduct::from_projection_fields(product.into_projection_fields()).unwrap();
+        assert_eq!(restored.to_string(), "m/s");
+        assert_eq!(serde_json::to_vec(&restored).unwrap(), original);
+        let graph = ProjectionGraph::of::<UnitProduct>().unwrap();
+        assert_eq!(graph.definitions()["PhysicalUnitProduct"].construction, ConstructionRole::Data);
+    }
 
     fn r(num: i32, den: i32) -> Ratio {
         Ratio::new(num, den).unwrap()
