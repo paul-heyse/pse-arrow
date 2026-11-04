@@ -79,6 +79,18 @@ close. Native and real-transport two-handle controls cover independent survival 
 Generated publication and actual-process acceptance remain required before E04 completion;
 source changes alone do not establish that acceptance.
 
+The numerical lane uses Tokio 1.53.3 `Semaphore::try_acquire_owned`; its
+`OwnedSemaphorePermit` moves into the native job rather than remaining on an observing RPC.
+Observer cancellation therefore cannot admit a second numerical mutation before the original
+native job settles. See the [versioned semaphore contract](https://docs.rs/tokio/1.53.3/tokio/sync/struct.Semaphore.html#method.try_acquire_owned).
+The existing I/O owner polls at most two RPC futures using futures-util 0.3.34
+`FuturesUnordered`, allowing a control operation beside numerical evaluation without detached
+tasks or a second driver. Dropping that collection cancels pending transport futures, while
+the native job and parent process reservation retain their own settlement duties; the
+[versioned stream contract](https://docs.rs/futures-util/0.3.34/futures_util/stream/struct.FuturesUnordered.html)
+describes polling and drop semantics. Those mechanisms use existing pinned dependencies and
+express the worker's serial mutable lane, not a new host-wide concurrency limit.
+
 ## Selected design and alternatives
 
 Use the pure structural contract owner from [65a](65a-contract-foundations-and-generation.md)
