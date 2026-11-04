@@ -623,8 +623,47 @@ its original evidence is retained outside the checkout. Provider population, non
 mathematical-proof ordering, real canonical/private authentication and full receiving admission
 remain open. No production activation or complete F01–F03 acceptance follows.
 
-The initial F03 envelope remains unresolved. The complete native Recipe graph is now available;
-its generated wire profile, retained capacities and pre-admission bounds still require realization.
+### Library-owned pre-growth prerequisite
+
+Main `44708962e` integrates the independently reviewed maintained Buffa/Buffa-codegen
+0.9.2 profile. `CodeGenConfig::allocation_accounted_views` defaults to false and is
+selected only for the private Recipe world. `DecodeContext::with_allocation_budget`
+shares a caller-owned `Cell` across descendants/merges; the runtime debits the full
+new backing layout before each fallible vector/box growth, retaining earlier charges
+for overlap and replacement. Layout overflow, exhausted allowance, unaccounted decoder
+and actual reservation failure remain distinct typed refusals. These APIs are maintained
+source functionality, not claims about the unmodified release; see the exact
+[runtime contract and source](../../vendor/buffa/pse-patch.md) and
+[generator contract and controls](../../vendor/buffa-codegen/pse-patch.md).
+
+The profile covers opted-in eager/lazy decode stores, packed extenders, singular/group/
+oneof boxes, fragments/raw elements and unknown-field backing. Child capability checks
+close ordinary-import and external-decoder bypasses. Explicit lazy traversal must check
+`LazyMessageView::allocation_accounted()` for **every selected root and child** before
+`decode_lazy_with_ctx`/`merge_lazy`: stock generated overrides can bypass the trait's
+default guard. Getters recreate contexts, so the selected complete probe must use raw
+fragments/elements with its original context. Owned decoding, validation/adoption,
+default caches, allocator metadata, stack and RSS remain outside this decoder claim.
+
+**Tested before main integration, configured unbounded/cache-off:** allocation controls
+passed 7/7, stock view controls 98/98, packed extenders 7/7, and the existing
+`pse-codegen:buffa_allocation` target passed its one wrapper control executing seven
+real generated controls, including stock-import refusal and accounted-external acceptance.
+The fixture compares default output byte-for-byte with the published 0.9.2 generator
+on those descriptors; it does not qualify every generator configuration. Source-pin
+controls passed 2/2 and `scripts/pse check pse-codegen --all-targets` passed, all with
+zero failures/build warnings and complete original capture/settlement. Main readiness
+passed after integration. Both changed supplier archives were independently compared
+with the cached published source. The clean checkout's 102 owned paths matched main
+before removal. Main regeneration passed all 14 targets; the combined
+`pse-ids`/`pse-compiler` native membership/Recipe selection passed 28/28 with zero
+failures/build warnings and complete capture/settlement. The actual generated decoder
+fixture also passed on main (one wrapper executing seven controls, zero build warnings).
+Full receiving-phase admission and activation remain open.
+
+The complete F03 envelope remains unresolved. The native graph and library enforcement
+prerequisite are now available; source-derived retained capacities and receiving-phase
+admission still require realization in the active Recipe-phase checkout.
 The selected source-derived traversal can use Buffa 0.9.2
 [`decode_lazy_with_ctx`/`merge_lazy`, fragments and raw elements](https://docs.rs/buffa/0.9.2/src/buffa/view.rs.html)
 with one shared decode context. Default subtree getters recreate allowances. The
@@ -637,6 +676,23 @@ complete violation/path and uniqueness scratch bounds; no fail-fast/sink substit
 Native adoption includes staging vectors overlapping final collections, original membership/
 receipt lifetimes and repeated formal restoration expansion. This source inspection establishes
 interfaces and missing realization work, not a measured memory bound or full cutover readiness.
+
+The actual borrowed view already receives complete validation through
+`decode_scientific_recipe_view` → `decode_view_root` → `wire.validate()` before native
+construction and `validate_projection()`. The maintained validator emits direct eager-view
+implementations; no temporary owned protobuf tree or duplicate validation pass is needed.
+See [borrowed crossing](../../crates/pse-contract-proto/src/support/borrowed.rs), the
+[maintained message emitter](../../vendor/protoc-gen-protovalidate-buffa/src/emit/mod.rs),
+and [repeated-rule lowering](../../vendor/protoc-gen-protovalidate-buffa/src/emit/repeated.rs).
+The receiving envelope must cover absent/default rule sites, complete violation vectors,
+path insertion/capacity overlap, a copied map key per descendant violation, formatted
+messages and allowed-list join temporaries. Three root uniqueness checks allocate reference
+HashSets in separate scopes; their scratch peak is the maximum, not the sum. The borrowed
+canonical map observes last-write-wins entries without allocation but has quadratic
+worst-case iteration. Current finite-CEL lowering uses integer comparisons/stack cells;
+future rules cannot silently inherit that profile or assumptions about nested validator
+error propagation. Native adapter staging vectors overlap final `Arc`/tree collections.
+These are source-grounded admission obligations, not established complete bounds.
 
 The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
 allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their

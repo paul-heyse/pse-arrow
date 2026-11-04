@@ -207,8 +207,16 @@ branch, source-publication shortcuts and their obsolete tests were deleted after
 the replacement capture controls passed. The immutable V2/V3 declarations and their
 wire refusal identity remain interpretable; that identity grants no current retry.
 Six targeted retry/refusal/legacy controls passed on main with zero failures/build
-warnings and complete original fixture/capture/settlement. The full predecessor
-service restart/upgrade must still be rerun against the selected pure target artifact.
+warnings and complete original fixture/capture/settlement. The selected frozen-v3
+service restart/upgrade now passes against the selected pure target artifact, using
+a genuinely admitted retained predecessor receipt directly. The fixture input accepts
+that explicit receipt or the original recorded-state route; receipt presence takes
+precedence and an empty explicit selection refuses. No synthetic deployment state is
+created. This is a newly owned frozen-schema fixture, not recovery of a historical
+deployment. The other two predecessor journeys were interrupted by filesystem
+exhaustion before accepted test results; they remain pending. The fixture preflight
+control passed but exposed two unnecessary qualifications, now removed; its final
+warning check remains pending storage recovery.
 G08 and DA-063 are not closed.
 
 **Tested, targeted on main, 2026-11-04:** `scripts/pse test pse-operations --lib

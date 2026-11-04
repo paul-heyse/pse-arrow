@@ -18,6 +18,12 @@ use std::{
 mod execution;
 pub use execution::{PreparedExecution, prepare_module, selected_module};
 
+/// Explicit immutable predecessor artifact, interpreted by the native fixture owner.
+/// Presence takes precedence over a recorded deployment state, including an empty value.
+pub const PREDECESSOR_MODULE_RECEIPT_ENV: &str = "PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_RECEIPT";
+/// Existing deployment state carrying its originally admitted predecessor artifact.
+pub const PREDECESSOR_MODULE_STATE_ENV: &str = "PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE";
+
 /// Original runner and fixture facts, published by the existing canonical fixture owner.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

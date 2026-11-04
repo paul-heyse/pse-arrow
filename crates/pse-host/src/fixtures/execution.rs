@@ -125,7 +125,7 @@ impl PreparedExecution {
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
         for &input in &demand {
-            if let Some(variable) = original_input_variable(input)
+            if let Some(variable) = original_input_variable(input, environment)
                 && environment
                     .get(OsStr::new(variable))
                     .is_none_or(|value| value.is_empty())
@@ -402,7 +402,7 @@ fn recorded_module_selected(environment: &Environment) -> bool {
         && environment.contains_key(OsStr::new("PSE_NATIVE_FIXTURE_MODULE_STATE"))
 }
 
-fn original_input_variable(input: Input) -> Option<&'static str> {
+fn original_input_variable(input: Input, environment: &Environment) -> Option<&'static str> {
     match input {
         Input::Server
         | Input::StudyModule
@@ -415,7 +415,13 @@ fn original_input_variable(input: Input) -> Option<&'static str> {
         Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),
-        Input::PredecessorModuleState => Some("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE"),
+        Input::PredecessorModuleState => Some(
+            if environment.contains_key(OsStr::new(PREDECESSOR_MODULE_RECEIPT_ENV)) {
+                PREDECESSOR_MODULE_RECEIPT_ENV
+            } else {
+                PREDECESSOR_MODULE_STATE_ENV
+            },
+        ),
         Input::ProducerFixtureReceipt => Some("PSE_PRODUCER_FIXTURE_RECEIPT"),
         Input::WorkerProducerReceipt => Some("PSE_WORKER_PRODUCER_RECEIPT"),
         Input::DeploymentArtifactObservations => Some("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS"),

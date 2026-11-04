@@ -231,24 +231,31 @@ present in the working tree, with acceptance boundaries that differ from that pa
   selector exercised operation/settings projection and pure Study identity controls before
   the latest session/inspection expansion. The full graph subsequently compiled for
   engineering generation, but the new native database and inspection controls have not run.
-- **Drafted, not integrated:** new Study and inspection RPC modules and their generated
-  inspection tests. These files are not linked into the current transport/test modules.
-  Expanded descriptor publication currently fails the [64i maintained CEL preflight](64i-engineering-contracts-and-validation.md#current-implementation-checkpoint--2026-11-04).
-  Their presence is not a usable full Study service or a passing generated-client test.
-- **Drafted, not integrated or run:** J06's three-phase generated Rust client test
-  `prepared_engineering_study_client_three_phase_original_owner_journey` and
-  `prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics`.
-  The keeper's explicit original NativeStudyWorker allocation/start-gate controls are
-  implemented in source but need compilation and tests. Fresh application/worker images,
-  explicit fixtures and actual submit → frontend retirement/replacement → recovery →
-  original-worker completion remain required. This Study worker is distinct from 64k's
-  water-property worker.
+- **Integrated, assembled client acceptance pending:** Study and inspection RPC modules
+  and their generated tests are linked. The maintained CEL preflight was corrected;
+  full publication now passes all 14 targets. This does not establish full Study client
+  behavior or scientific qualification.
+- **Integrated coordinator and linked three-phase client:** main `4bf4ff32b` contains
+  `pse-engineering-fixture qualify-study`, consuming exact-root source-built captures,
+  a prepared module and validated native allocation. One original foreground keeper
+  retains the database and gated NativeStudyWorker across submit, frontend replacement/
+  authenticated recovery, start acknowledgement and completion. Original native cancel
+  failures survive independent wait/settlement. Cleanup uses one atomic final disposition
+  after actual independent drain; cancellation acceptance is the final stop observation
+  after successful composition/drain, before filesystem preparation. Publication or cleanup
+  failure stays a failure; only successful accepted cleanup treats a later stop as late.
+  The keeper independently checks its own stop/failures before disposal. Nineteen targeted
+  coordinator/keeper controls and normal-bin compilation passed before integration with
+  zero failures/build warnings and complete capture/settlement. The assembled three-phase
+  journey remains unrun. Fresh main captures and actual original-worker completion are
+  required; this Study worker is distinct from 64k's water-property worker.
 
 Study and inspection RPC modules are linked in the current native service; their presence
-does not qualify the independent clients. The remaining unlinked population is the two
-J06 client modules. The three-phase Study client also needs a coordinator retaining one
-original keeper across submit, frontend replacement/recovery and original-worker completion;
-fresh per-invocation database fixtures would invalidate that journey.
+does not qualify the independent clients. The remaining unlinked population is the
+simulation/fit/horizon client module containing
+`prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics`.
+The three-phase Study client is linked and coordinated; its actual composed journey
+must retain the same keeper rather than use fresh per-invocation database fixtures.
 
 Remaining J work is complete generated-consumer adoption, latest native/session/provider
 controls, keeper preparation/lifecycle controls, both J06 client journeys and G08-backed

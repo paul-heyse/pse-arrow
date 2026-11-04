@@ -44,6 +44,27 @@ fn fixture_spec() -> Result<NativeServiceSpec, NativeServiceError> {
         state_parent: std::env::temp_dir(),
     })
 }
+
+// The fixture may select retained immutable bytes directly without synthesizing
+// a deployment state. Native artifact admission still validates the exact record.
+fn predecessor_module() -> Result<NativeModuleSource, NativeServiceError> {
+    if let Some(record) = std::env::var_os(pse_host::fixtures::PREDECESSOR_MODULE_RECEIPT_ENV) {
+        Ok(NativeModuleSource::Prepared(
+            pse_host::study_module::select(
+                PathBuf::from(record).as_path(),
+                pse_host::study_module::Variant::Production,
+            )?,
+        ))
+    } else {
+        Ok(NativeModuleSource::RecordedState(PathBuf::from(
+            std::env::var_os(pse_host::fixtures::PREDECESSOR_MODULE_STATE_ENV).ok_or(
+                NativeServiceError::Refused(
+                    "explicit predecessor receipt or recorded module state required",
+                ),
+            )?,
+        )))
+    }
+}
 fn fixture_with_schema(pre_epoch: bool) -> Result<NativeCanonicalService, NativeServiceError> {
     let spec = fixture_spec()?;
     let service = if pre_epoch {
@@ -485,10 +506,7 @@ async fn native_service_retained_nonempty_v2_reopens_then_migrates_with_original
 async fn native_service_original_v2_target_and_old_module_resume_after_restart() {
     use pse_operations::canonical::migration::SchemaMigrationRequest;
     let mut spec = fixture_spec().unwrap();
-    spec.module_source = NativeModuleSource::RecordedState(PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE")
-            .expect("explicit retained original module selector"),
-    ));
+    spec.module_source = predecessor_module().unwrap();
     let mut service = NativeCanonicalService::new_pre_epoch_fixture(spec).unwrap();
     let state = service.state().to_owned();
     let original = service
@@ -587,10 +605,7 @@ async fn native_service_retained_v3_old_module_upgrades_to_explicit_prepared_tar
 
 async fn retained_old_module_upgrade(schema_v3: bool) {
     let mut spec = fixture_spec().unwrap();
-    spec.module_source = NativeModuleSource::RecordedState(PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE")
-            .expect("explicit old module source state required"),
-    ));
+    spec.module_source = predecessor_module().unwrap();
     let target = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
         NativeModuleSource::Prepared(
             pse_host::study_module::select(

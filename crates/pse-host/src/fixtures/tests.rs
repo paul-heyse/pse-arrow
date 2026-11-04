@@ -135,6 +135,45 @@ fn explicit_scientific_input_remains_with_its_original_owner_without_helper_buil
 }
 
 #[test]
+fn explicit_predecessor_receipt_precedes_state_without_implicit_preparation() {
+    let directory = tempfile::tempdir().unwrap();
+    let destination = directory.path().join("must-not-be-created");
+    let mut requirement = requirement();
+    requirement.declaration.ownership = Ownership::PreparationOnly;
+    requirement.declaration.inputs = BTreeSet::from([Input::PredecessorModuleState]);
+    let state = OsString::from(PREDECESSOR_MODULE_STATE_ENV);
+    let receipt = OsString::from(PREDECESSOR_MODULE_RECEIPT_ENV);
+    for environment in [
+        BTreeMap::from([(state.clone(), "/recorded/state".into())]),
+        BTreeMap::from([(receipt.clone(), "/retained/module.json".into())]),
+    ] {
+        PreparedExecution::prepare(
+            directory.path(),
+            &environment,
+            &destination,
+            &[requirement.clone()],
+        )
+        .unwrap();
+        assert!(
+            !destination.exists(),
+            "the native test owner admits the original artifact"
+        );
+    }
+    let empty_explicit_receipt =
+        BTreeMap::from([(state, "/recorded/state".into()), (receipt, "".into())]);
+    assert!(matches!(
+        PreparedExecution::prepare(
+            directory.path(),
+            &empty_explicit_receipt,
+            &destination,
+            &[requirement]
+        ),
+        Err(FixtureError::Unprepared(Input::PredecessorModuleState))
+    ));
+    assert!(!destination.exists());
+}
+
+#[test]
 fn target_owned_recorded_module_state_is_not_replaced_by_a_prepared_module() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");

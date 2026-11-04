@@ -370,10 +370,12 @@ Main now publishes that graph through one shared output/configuration in `3865ba
 integrates the independently reviewed native membership prerequisite in `f3e298eea`.
 [65e](65e-scientific-portability-and-execution.md#native-membership-prerequisite-integration)
 owns its targeted evidence and limits. The prerequisite checkout was removed after exact
-content reconciliation. Three new isolated packages are active: Study lifecycle and
-keeper integration, actual physical-context scientific worker delivery, and the
-library-owned pre-growth decoder prerequisite. Their required changes must be reviewed
-and integrated on main before their quiescent checkouts retire.
+content reconciliation. Study lifecycle/keeper integration is now on main through
+`4bf4ff32b`; the independently reviewed library-owned pre-growth prerequisite is on main
+as `44708962e`. Their clean checkouts matched all owned files before quiescent removal;
+original invocation evidence remains outside them. The actual physical-context worker
+and the next source-derived Recipe receiving phases retain isolated active checkouts.
+Integration and final acceptance remain on main.
 
 Main `c9cfe6a8d` bounds shared native clock/settlement composition. The current
 [G08 checkpoint](64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
