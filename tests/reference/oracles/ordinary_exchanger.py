@@ -36,12 +36,13 @@ from pyomo.environ import (
     units,
     value,
 )
+from pyomo.core.expr.numeric_expr import NumericValue
 
 from .ordinary_thermo import SPECIES, configuration
 
 
-def solve_exchanger(*, arithmetic: bool = False, rating: bool = False) -> ConcreteModel:
-    """Solve the original design, then optionally its area-fixed rating question."""
+def build_exchanger(*, arithmetic: bool = False, rating: bool = False) -> ConcreteModel:
+    """Build the original fixed specification, without initialization or a solve."""
     if arithmetic and rating:
         raise ValueError("the selected rating case uses the logarithmic closure")
     model = ConcreteModel()
@@ -83,11 +84,56 @@ def solve_exchanger(*, arithmetic: bool = False, rating: bool = False) -> Concre
     exchanger.overall_heat_transfer_coefficient.fix(100.0)
     exchanger.area.set_value(1.0)
     exchanger.hot_side.properties_out[0].temperature.set_value(360.0)
-    exchanger.cold_side.properties_out[0].temperature.fix(331.6111111111111)
+    if rating:
+        exchanger.area.fix(1.0)
+        exchanger.cold_side.properties_out[0].temperature.set_value(330.0)
+    else:
+        exchanger.cold_side.properties_out[0].temperature.fix(331.6111111111111)
     exchanger.delta_temperature_in[0].set_value(65.0)
     exchanger.delta_temperature_out[0].set_value(30.0)
     if degrees_of_freedom(model) != 0:
         raise RuntimeError("the selected independent exchanger is not square")
+    return model
+
+
+def fixed_inputs(model: ConcreteModel, *, rating: bool) -> dict[str, NumericValue]:
+    """Select authored fixed-header roles from an untouched reference model."""
+    exchanger = model.fs.exchanger
+    result: dict[str, NumericValue] = {}
+    for name, side in (("hot", exchanger.hot_side), ("cold", exchanger.cold_side)):
+        state = side.properties_in[0]
+        prefix = f"exchanger.{name}"
+        result.update(
+            {
+                f"{prefix}.inlet.flow": state.flow_mol,
+                f"{prefix}.inlet.T": state.temperature,
+                f"{prefix}.inlet.pressure": state.pressure,
+                f"{prefix}.delta_pressure": side.deltaP[0],
+                **{
+                    f"{prefix}.inlet.z[{species}]": state.mole_frac_comp[species]
+                    for species in SPECIES
+                },
+            }
+        )
+    result["exchanger.coefficient"] = exchanger.overall_heat_transfer_coefficient[0]
+    result["exchanger.area" if rating else "exchanger.cold.outlet.T"] = (
+        exchanger.area if rating else exchanger.cold_side.properties_out[0].temperature
+    )
+    if len(result) != 14 or not all(
+        coordinate.is_fixed() for coordinate in result.values()
+    ):
+        raise RuntimeError(
+            "the original independent exchanger fixed population differs"
+        )
+    return result
+
+
+def solve_exchanger(*, arithmetic: bool = False, rating: bool = False) -> ConcreteModel:
+    """Solve the original design, then optionally its area-fixed rating question."""
+    if arithmetic and rating:
+        raise ValueError("the selected rating case uses the logarithmic closure")
+    model = build_exchanger(arithmetic=arithmetic)
+    exchanger = model.fs.exchanger
     solver = SolverFactory("ipopt")
     if not solver.available(exception_flag=True):
         raise RuntimeError("the selected reference requires Ipopt")
