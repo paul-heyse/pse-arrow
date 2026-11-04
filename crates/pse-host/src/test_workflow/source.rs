@@ -3,7 +3,7 @@
 //! Explicit source selection resolves before the pure Cargo declaration normalizer.
 use super::{
     WorkflowError,
-    execute::{Action, Input},
+    execute::Action,
 };
 use crate::{
     environment::Environment,
@@ -89,17 +89,7 @@ pub(super) fn resolve(
             let id = store
                 .resolve(&invocation, None)?
                 .ok_or_else(|| WorkflowError::Invalid("rerun invocation is absent".into()))?;
-            let directory = store.directory(&id)?;
-            let original: Input = directory
-                .evidence(crate::invocation::InvocationEvidence::WorkflowInput)?
-                .ok_or_else(|| {
-                    WorkflowError::Invalid("original performing test input is absent".into())
-                })?;
-            if original.action != Action::Test || original.invocation != id {
-                return Err(WorkflowError::Invalid(
-                    "rerun input is not the selected original test operation".into(),
-                ));
-            }
+            let original = crate::managed::workflow::retained_input(&store, &id, Action::Test)?;
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
             let historical: HistoricalReport = serde_json::from_slice(&captured_evidence.report)
                 .map_err(crate::discovery::DiscoveryError::from)?;

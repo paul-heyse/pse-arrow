@@ -244,13 +244,12 @@ fn publish<T: Serialize>(
     value: &T,
     limit: Option<u64>,
 ) -> Result<(), HostError> {
-    let mut temporary = tempfile::NamedTempFile::new_in(directory)?;
-    serde_json::to_writer(temporary.as_file_mut(), value)
+    publish_file(&directory.join(name), 0o600, |file| {
+    serde_json::to_writer(&mut *file, value)
         .map_err(|error| invalid(format!("evidence serialization failed: {error}")))?;
-    temporary.as_file_mut().write_all(b"\n")?;
+    file.write_all(b"\n")?;
     if limit.is_some_and(|limit| {
-        temporary
-            .as_file()
+        file
             .metadata()
             .map_or(true, |metadata| metadata.len() > limit)
     }) {
@@ -258,12 +257,33 @@ fn publish<T: Serialize>(
             "serialized evidence exceeds its declared storage bound",
         ));
     }
+    Ok(())
+    })
+}
+
+/// Publish exact already-encoded bytes with the same exclusive native publication
+/// used for original invocation records. The extent is checked before any output.
+pub(crate) fn publish_bytes(destination: &Path, bytes: &[u8], limit: Option<usize>, mode: u32) -> Result<(), HostError> {
+    if limit.is_some_and(|limit| bytes.len() > limit) {
+        return Err(invalid("encoded evidence exceeds its declared storage bound"));
+    }
+    publish_file(destination, mode, |file| Ok(file.write_all(bytes)?))
+}
+
+// Same-directory staging keeps the rename atomic. NOREPLACE preserves any existing
+// destination (including symlinks); a failed writer exposes no destination prefix.
+// rustix 1.1.5: https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html
+fn publish_file(destination: &Path, mode: u32, write: impl FnOnce(&mut File) -> Result<(), HostError>) -> Result<(), HostError> {
+    let directory = destination.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+    let mut temporary = tempfile::NamedTempFile::new_in(directory)?;
+    write(temporary.as_file_mut())?;
+    temporary.as_file().set_permissions(fs::Permissions::from_mode(mode))?;
     temporary.as_file().sync_all()?;
     rustix::fs::renameat_with(
         rustix::fs::CWD,
         temporary.path(),
         rustix::fs::CWD,
-        directory.join(name),
+        destination,
         rustix::fs::RenameFlags::NOREPLACE,
     )
     .map_err(std::io::Error::from)?;

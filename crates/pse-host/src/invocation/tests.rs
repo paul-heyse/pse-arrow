@@ -545,6 +545,36 @@ fn private_unpublished_creation_is_not_an_invocation_and_duplicate_ids_refuse() 
 }
 
 #[test]
+fn exact_byte_publication_is_bounded_atomic_and_exclusive() {
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("portable.pb");
+    assert!(publish_bytes(&destination, b"too large", Some(2), 0o600).is_err());
+    assert!(!destination.exists());
+    assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
+    let interrupted = publish_file(&destination, 0o600, |file| {
+        file.write_all(b"partial").unwrap();
+        // Before successful publication neither another reader nor an interrupted
+        // caller can mistake a prefix for the completed artifact.
+        assert!(!destination.exists());
+        Err(std::io::Error::other("original writer interrupted").into())
+    });
+    assert!(interrupted.is_err());
+    assert!(!destination.exists());
+    assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 0);
+    publish_bytes(&destination, b"complete", Some(8), 0o400).unwrap();
+    assert_eq!(fs::read(&destination).unwrap(), b"complete");
+    assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o400);
+    assert!(publish_bytes(&destination, b"replaced", Some(8), 0o600).is_err());
+    assert_eq!(fs::read(&destination).unwrap(), b"complete");
+    assert_eq!(fs::read_dir(scratch.path()).unwrap().count(), 1);
+    let link = scratch.path().join("linked.pb");
+    symlink(&destination, &link).unwrap();
+    assert!(publish_bytes(&link, b"replaced", Some(8), 0o600).is_err());
+    assert!(fs::symlink_metadata(link).unwrap().file_type().is_symlink());
+    assert_eq!(fs::read(destination).unwrap(), b"complete");
+}
+
+#[test]
 fn serialization_failure_never_publishes_partial_owner_evidence() {
     struct BrokenPayload;
     impl Serialize for BrokenPayload {

@@ -8,7 +8,7 @@ use protovalidate_buffa::Validate as _;
 use schemars::JsonSchema;
 use serde::Serialize;
 use sha2::{Digest as _, Sha256};
-use std::{fs::OpenOptions, io::Write as _, os::unix::fs::OpenOptionsExt as _, path::Path};
+use std::path::Path;
 
 pub(crate) const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
 
@@ -88,9 +88,7 @@ pub fn export(store: &InvocationStore, selector: &str, session: Option<&str>, ou
         let wire = contracts::encode_captured_workflow_evidence(&original).map_err(EvidenceError::from)?;
         (original.id, "CapturedWorkflowEvidence", wire.try_encode_to_vec().map_err(EvidenceError::from)?)
     };
-    let mut destination = OpenOptions::new().create_new(true).write(true).mode(0o600).open(output)?;
-    destination.write_all(&bytes)?;
-    destination.sync_all()?;
+    crate::invocation::publish_bytes(output, &bytes, Some(MAX_INPUT_BYTES), 0o600)?;
     Ok(Export { invocation, output: std::path::absolute(output)?.into(), message: format!("pse.developer.evidence.v1.{message}"), sha256: digest(&bytes), bytes: bytes.len() })
 }
 

@@ -10,12 +10,7 @@ use crate::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use std::{
-    fs::{self, OpenOptions},
-    io::Write as _,
-    os::unix::fs::OpenOptionsExt as _,
-    path::Path,
-};
+use std::path::Path;
 pub(super) const PROTOCOL: &str = "pse.test-workflow";
 const REPORT: &str = "report.json";
 const INVENTORY: &str = "inventory/inventory.json";
@@ -290,14 +285,7 @@ impl Report {
             observation.validate_inventory(&bytes)?;
         }
         let bytes = serde_json::to_vec(self).map_err(crate::discovery::DiscoveryError::from)?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o400)
-            .open(destination.join(REPORT))?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        fs::File::open(destination)?.sync_all()?;
+        crate::invocation::publish_bytes(&destination.join(REPORT), &bytes, None, 0o400)?;
         Ok(TerminalRecord {
             protocol: PROTOCOL.into(),
             version: 1,
@@ -590,6 +578,7 @@ mod observation_tests {
 
     #[test]
     fn native_report_publication_commits_original_inventory_and_refuses_same_shape_replacement() {
+        use std::fs;
         use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
         let scratch = tempfile::tempdir().unwrap();
         fs::set_permissions(scratch.path(), fs::Permissions::from_mode(0o700)).unwrap();

@@ -285,7 +285,7 @@ association passed. This does not close J01–J05 or qualify unexercised lifecyc
 **Tested, representative failed-workflow journey:** the existing
 `rerun_controlled_failure_probe` failed its single selected native test only under the
 explicit qualification environment flag. Native failure reading retained its exact
-compiler/test identity, original assertion detail and runner observation. Full inventory-bound
+compiler/test identity, original assertion detail and runner observation. Inventory-bound selection
 export and independent binary inspection succeeded. Native rerun selection recovered the
 original input, package/lib/features and exact identity, with admission still explicitly
 unavailable in the intent-only preview. Fresh native execution with the deliberate failure
@@ -308,6 +308,27 @@ file beyond the input limit. This is a read-only unavailable-interpretation rout
 production writer or a compatibility adoption path. A previously exported Proto family may
 therefore require raw inspection after the compiled metadata world changes; native original
 JSON report-version support is a separate interpretation promise.
+
+The retained rerun reader now authenticates original workflow-input bytes through the
+same original metadata commitment as the performing helper, replacing its weaker generic
+JSON read. Parsing a same-length replacement with the same invocation/action is insufficient.
+Report and portable artifact publication also share the native same-directory temporary
+file, file-sync, `rustix::fs::renameat_with(RenameFlags::NOREPLACE)` and directory-sync
+mechanism. An existing file or symlink is preserved, a failed writer exposes no destination
+prefix, and portable output is refused above its reader's bound before writing. The
+[pinned rustix API](https://docs.rs/rustix/1.1.5/rustix/fs/fn.renameat_with.html) characterizes
+the no-replacement operation; the [native publication owner](../../crates/pse-host/src/invocation.rs)
+composes staging and durability. Five selected native host controls passed with zero
+failures and compiler warnings for original-input tampering and these publication invariants.
+
+J03/F03 remains open: current portable selection evidence includes original report and
+inventory, without claiming that referenced runner, compiler, assertion or raw-stream files
+are included. The accepted next cutover uses report interpretation three with once-sealed,
+source-enumerated dependency commitments and original omissions; retries verify the same
+original identities. Full, selection and report scopes must be explicit. Later missing,
+mutated or expired files stay separate from original capture completeness, and legacy
+reports cannot acquire an original full-evidence commitment at read time. Provider,
+executable and live fixture custody remain with their native owners.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

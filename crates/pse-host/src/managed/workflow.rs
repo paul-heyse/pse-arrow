@@ -146,6 +146,16 @@ fn input(
     }
     Ok(input)
 }
+/// Read original retained input through its original metadata commitment. This is
+/// observation/selection data, not a fresh admission or a process-control capability.
+pub(crate) fn retained_input(store: &crate::invocation::InvocationStore, id: &CliInvocationId, action: Action) -> Result<Input, HostError> {
+    let metadata = store.metadata::<Metadata>(id)?;
+    if metadata.selection.command != action.command() {
+        return Err(host(invalid("retained workflow command differs from requested original action")));
+    }
+    let binding = metadata.selection.operation.workflow.ok_or_else(|| host(invalid("original workflow input binding is absent")))?;
+    input(&store.directory(id)?, &binding, id, &metadata.selection.command)
+}
 /// Internal entry: authenticate the actual original payload leader before any compilation.
 pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostError> {
     let environment = std::env::vars_os().collect();
@@ -516,6 +526,32 @@ mod tests {
             terminal: None,
             invalid: false,
         })
+    }
+    #[test]
+    fn retained_input_requires_original_binding_before_rerun_selection() {
+        use crate::{invocation::{InvocationStore, InvocationSpec}, managed::payload::PayloadPolicy, test_workflow::execute::Bounds};
+        let scratch = tempfile::tempdir().unwrap();
+        let environment = crate::environment::Environment::from([("XDG_STATE_HOME".into(), scratch.path().join("state").into_os_string())]);
+        let state = crate::paths::CheckoutState::from_paths(&scratch.path().join("checkout"), &scratch.path().join("common.git"), &environment).unwrap();
+        let store = InvocationStore::new(state);
+        let id = CliInvocationId::new();
+        let original = Input { version: 1, invocation: id.clone(), action: Action::Test,
+            request: crate::selection::Request { operation: crate::selection::Operation::Test, scope: crate::selection::Scope::DefaultMembers { features: crate::selection::Features::default() }, platform: None, filters: crate::selection::Filters::default(), ignored: crate::selection::IgnoredPolicy::Default },
+            profile: "alpha".into(), timings: false, policy: PayloadPolicy { startup: std::time::Duration::from_secs(1), write: std::time::Duration::from_secs(1), drain: std::time::Duration::from_secs(1) }, bounds: Bounds { record_bytes: 1024, grouping_capacity: 4, failure_records: 4 } };
+        let (binding, encoded) = encode_input(&original).unwrap();
+        let directory = store.begin(InvocationSpec { invocation_id: id.clone(), command: "test".into(), session: None, parent: None, operation: serde_json::json!({"workflow":binding}), control: PreparedGeneration { generation: "unit.original".into(), protocol: 1, manifest_digest: "a".repeat(64) }, environment_digest: "b".repeat(64), scientific: vec![] }).unwrap();
+        directory.publish_evidence(InvocationEvidence::WorkflowInput, &encoded).unwrap();
+        assert_eq!(retained_input(&store, &id, Action::Test).unwrap().profile, "alpha");
+        assert!(retained_input(&store, &id, Action::Check).is_err());
+        let path = directory.path().join("workflow-input.json");
+        let before = fs::read_to_string(&path).unwrap();
+        assert_eq!(before.matches("alpha").count(), 1);
+        let after = before.replace("alpha", "omega");
+        assert_eq!(before.len(), after.len());
+        fs::write(&path, after).unwrap();
+        let merely_parsed: Input = directory.evidence(InvocationEvidence::WorkflowInput).unwrap().unwrap();
+        assert_eq!(merely_parsed.profile, "omega", "syntactic correlation alone is weaker than the original commitment");
+        assert!(retained_input(&store, &id, Action::Test).unwrap_err().to_string().contains("byte identity differs"));
     }
     #[test]
     fn generic_observer_accepts_verb_owned_metadata_without_workflow_decoding() {
