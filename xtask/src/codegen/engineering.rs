@@ -2,20 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Projections of compiled source owners. No authored second wire schema.
 
-use super::contract_metadata::imports;
 use anyhow::{Context, Result, bail};
-use buffa::Message as _;
-use buffa_descriptor::generated::{
-    compiler::{CodeGeneratorRequest, CodeGeneratorResponse},
-    descriptor::FileDescriptorSet,
-};
+use super::{contract_metadata::imports, proto_projection::{ProjectionTarget, insert, producer, projection}};
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
 use pse_contract::boundary_projection::{ProjectionGraph, Service, TypeRef};
 use std::{
     collections::BTreeSet,
-    io::Write as _,
-    path::{Component, Path, PathBuf},
-    process::{Command, Stdio},
+    path::Path,
 };
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
@@ -26,20 +19,18 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let mut tree = projection(
         root,
         &graph,
-        "pse.scientific_worker.v1",
-        "scientific_worker.proto",
-        "crates/pse-runtime/src/generated/scientific-worker",
-        "crate::scientific_worker::generated::pb",
+        ProjectionTarget { package: "pse.scientific_worker.v1", file: "scientific_worker.proto",
+            destination: "crates/pse-runtime/src/generated/scientific-worker", rust_module: "crate::scientific_worker::generated::pb",
+            document_root: super::ENGINEERING_DOCUMENT_ROOT, generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection" },
         &imports,
     )?;
     let graph = engineering_graph()?;
     let mut engineering = projection(
         root,
         &graph,
-        "pse.engineering.v1",
-        "engineering.proto",
-        "crates/pse-runtime/src/generated/engineering",
-        "crate::host_operations::engineering::generated::pb",
+        ProjectionTarget { package: "pse.engineering.v1", file: "engineering.proto",
+            destination: "crates/pse-runtime/src/generated/engineering", rust_module: "crate::host_operations::engineering::generated::pb",
+            document_root: super::ENGINEERING_DOCUMENT_ROOT, generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection" },
         &imports,
     )?;
     let mut adapter_roots = BTreeSet::from([
@@ -114,10 +105,9 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let mut reference = projection(
         root,
         &reference_graph,
-        "pse.reference.v1",
-        "reference.proto",
-        "crates/pse-runtime/src/generated/reference-exchange",
-        "crate::reference_exchange::generated::pb",
+        ProjectionTarget { package: "pse.reference.v1", file: "reference.proto",
+            destination: "crates/pse-runtime/src/generated/reference-exchange", rust_module: "crate::reference_exchange::generated::pb",
+            document_root: super::ENGINEERING_DOCUMENT_ROOT, generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection" },
         &imports,
     )?;
     let reference_roots = ["ReferenceEnvelope", "ReferenceCaseContract"];
@@ -165,10 +155,10 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     tree.relationships.extend(reference.relationships);
     Ok(tree)
 }
-
 fn scientific_graph() -> Result<ProjectionGraph> {
     let mut graph = ProjectionGraph::of::<pse_runtime::scientific_worker::protocol::Request>()?;
     graph.register::<pse_runtime::scientific_worker::protocol::Response>()?;
+    graph.register::<pse_kernels::portable::ProviderRecord>()?;
     let service = Service::new("ScientificWorker").unary::<
         pse_runtime::scientific_worker::protocol::Request,
         pse_runtime::scientific_worker::protocol::Response,
@@ -197,121 +187,11 @@ fn reference_graph() -> Result<ProjectionGraph> {
     Ok(graph)
 }
 
-fn projection(
-    root: &Path,
-    graph: &ProjectionGraph,
-    package: &str,
-    file: &str,
-    destination: &str,
-    rust_module: &str,
-    imports: &FileDescriptorSet,
-) -> Result<GeneratedTree> {
-    let config = boundary_projection::default_config(&format!("{rust_module}::__buffa_fds"));
-    let output =
-        boundary_projection::generate_with_config(graph, package, file, &imports.file, &config)?;
-    for warning in &output.warnings {
-        eprintln!("{package}: {warning}");
-    }
-    let destination = PathBuf::from(destination);
-    let mut tree = GeneratedTree::empty(vec![destination.clone()]);
-    for (name, source) in output.sources {
-        insert(&mut tree, &destination, &name, source.as_bytes())?;
-    }
-    tree.files.insert(
-        destination.join("descriptor.bin"),
-        output.descriptor_bytes.clone(),
-    );
-    let descriptor = tempfile::NamedTempFile::new()?;
-    std::fs::write(descriptor.path(), &output.descriptor_bytes)?;
-    let preflight =
-        Command::new(root.join(".local/plan61-tools/bin/protoc-gen-protovalidate-buffa"))
-            .arg("--preflight")
-            .arg(descriptor.path())
-            .arg("--file")
-            .arg(file)
-            .output()?;
-    if !preflight.status.success() || preflight.stdout != b"pse-cel-preflight-v1\n" {
-        bail!(
-            "{package} CEL preflight refused: {}",
-            String::from_utf8_lossy(&preflight.stderr)
-        );
-    }
-    for (plugin, subdirectory, parameter) in [
-        (
-            "protoc-gen-connect-rust",
-            "services",
-            format!("extern_path=.={rust_module}"),
-        ),
-        (
-            "protoc-gen-protovalidate-buffa",
-            "validation",
-            format!("proto_module={rust_module}"),
-        ),
-    ] {
-        let request = CodeGeneratorRequest {
-            file_to_generate: vec![file.into()],
-            proto_file: output.descriptor_set.file.clone(),
-            parameter: Some(parameter),
-            ..Default::default()
-        };
-        let response = plugin_response(root, plugin, &request)?;
-        for generated in response.file {
-            if generated.insertion_point.is_some() {
-                bail!("{plugin} returned unsupported insertion point");
-            }
-            let name = generated.name.context("plugin output name absent")?;
-            insert(
-                &mut tree,
-                &destination.join(subdirectory),
-                &name,
-                generated
-                    .content
-                    .context("plugin output content absent")?
-                    .as_bytes(),
-            )?;
-        }
-    }
-    let docs = PathBuf::from(super::ENGINEERING_DOCUMENT_ROOT).join(package);
-    tree.files.insert(
-        docs.join("index.md"),
-        format!(
-            "<!-- @generated by pse-schema; do not edit -->\n{}",
-            output.documentation
-        )
-        .into_bytes(),
-    );
-    tree.roots.push(docs);
-    for definition in graph.definitions().values() {
-        for path in tree.files.keys() {
-            tree.relationships.push(provenance::SourceRelationship {
-                declaration_key: definition.name.clone(),
-                declaration_kind: "rust_projection".into(),
-                source_path: Some(definition.source.into()),
-                source_symbol: Some(definition.rust_type.into()),
-                source_role: "semantic_owner".into(),
-                source_identity: None,
-                generator_path: "xtask/src/codegen/engineering.rs".into(),
-                generator_symbol: "projection".into(),
-                output_path: path.to_string_lossy().into_owned(),
-                direction: Some(format!("{:?}", definition.direction)),
-                contract_sections: vec!["blueprint §4.7".into()],
-                basis: "declared".into(),
-            });
-        }
-    }
-    let sidecar = provenance::sidecar(&producer(package), &tree.relationships)?;
-    tree.roots.extend(sidecar.roots);
-    tree.files.extend(sidecar.files);
-    Ok(tree)
-}
-
-fn producer(package: &str) -> String {
-    package.replace(['.', '_'], "-")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use buffa::Message as _;
+    use buffa_descriptor::generated::descriptor::FileDescriptorSet;
     use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
     use std::sync::Arc;
 
@@ -419,54 +299,4 @@ mod tests {
             Some(Value::Message(_))
         ));
     }
-}
-
-fn plugin_response(
-    root: &Path,
-    name: &str,
-    request: &CodeGeneratorRequest,
-) -> Result<CodeGeneratorResponse> {
-    let mut child = Command::new(root.join(".local/plan61-tools/bin").join(name))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let bytes = request.encode_to_vec();
-    let mut stdin = child.stdin.take().context("plugin input unavailable")?;
-    // Drain output concurrently: a generated response can exceed pipe capacity.
-    let writer = std::thread::spawn(move || stdin.write_all(&bytes));
-    let output = child.wait_with_output()?;
-    writer
-        .join()
-        .map_err(|_| anyhow::anyhow!("plugin writer panicked"))??;
-    if !output.status.success() {
-        bail!("{name}: {}", String::from_utf8_lossy(&output.stderr));
-    }
-    let response = CodeGeneratorResponse::decode_from_slice(&output.stdout)?;
-    if let Some(error) = &response.error {
-        if !error.is_empty() {
-            bail!("{name}: {error}");
-        }
-    }
-    Ok(response)
-}
-
-fn insert(tree: &mut GeneratedTree, destination: &Path, name: &str, bytes: &[u8]) -> Result<()> {
-    let relative = Path::new(name);
-    if relative
-        .components()
-        .any(|part| !matches!(part, Component::Normal(_)))
-    {
-        bail!("unsafe generated output: {name}");
-    }
-    let path = destination.join(relative);
-    let bytes = if path.extension().is_some_and(|extension| extension == "rs") {
-        super::code_intelligence::qualify_generated_rust(std::str::from_utf8(bytes)?)?.into_bytes()
-    } else {
-        bytes.to_vec()
-    };
-    if tree.files.insert(path, bytes).is_some() {
-        bail!("duplicate generated output: {name}");
-    }
-    Ok(())
 }

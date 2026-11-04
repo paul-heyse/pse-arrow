@@ -7,8 +7,12 @@
 mod physical;
 
 mod code_intelligence;
-#[cfg(feature = "product-schemas")]
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
 mod contract_metadata;
+#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+mod proto_projection;
+#[cfg(feature = "host-contracts")]
+mod developer_evidence;
 #[cfg(feature = "product-schemas")]
 mod engineering;
 mod grpc_wire;
@@ -36,6 +40,11 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only == Some(Target::DeveloperEvidence) {
+        let tree = developer_evidence_tree(root)?;
+        validate_tree(&tree)?;
+        return if check { check_tree(root, &tree) } else { write_tree(root, &tree) };
+    }
     if only == Some(Target::Engineering) {
         let tree = engineering_tree(root)?;
         validate_tree(&tree)?;
@@ -58,7 +67,8 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     if only.is_none()
         && !(cfg!(feature = "physical-admission")
             && cfg!(feature = "product-schemas")
-            && cfg!(feature = "native-abi"))
+            && cfg!(feature = "native-abi")
+            && cfg!(feature = "host-contracts"))
     {
         bail!(
             "aggregate generation requires full-codegen; select an independent --only capability or run just codegen"
@@ -70,7 +80,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Surreal) => vec![Language::Surreal],
         Some(Target::Bindgen) => return native_abi(root, check),
         Some(
-            Target::Schemas | Target::Physical | Target::CodeIntelligence | Target::Engineering,
+            Target::Schemas | Target::Physical | Target::CodeIntelligence | Target::Engineering | Target::DeveloperEvidence,
         ) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
@@ -85,6 +95,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         let tree = engineering_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("engineering".into(), tree));
+        let tree = developer_evidence_tree(root)?;
+        validate_tree(&tree)?;
+        trees.push(("developer-evidence".into(), tree));
         stage_code_intelligence(root, code_intelligence::generate, |tree| {
             validate_tree(&tree)?;
             trees.push(("code-intelligence".into(), tree));
@@ -144,6 +157,11 @@ fn engineering_tree(root: &Path) -> Result<GeneratedTree> {
 fn engineering_tree(_: &Path) -> Result<GeneratedTree> {
     bail!("engineering projections require product-schemas")
 }
+
+#[cfg(feature = "host-contracts")]
+fn developer_evidence_tree(root: &Path) -> Result<GeneratedTree> { developer_evidence::generate(root) }
+#[cfg(not(feature = "host-contracts"))]
+fn developer_evidence_tree(_: &Path) -> Result<GeneratedTree> { bail!("developer evidence projections require host-contracts") }
 
 // Both selected and aggregate routes cross this effect boundary only after successful
 // code-intelligence preparation. Aggregate consumption only stages, before any writers.
@@ -306,6 +324,9 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
         if failures.is_empty() {
             if let Some(tree) = check_result(&mut failures, "engineering", engineering_tree(root)) {
                 trees.push(("engineering".into(), tree));
+            }
+            if let Some(tree) = check_result(&mut failures, "developer-evidence", developer_evidence_tree(root)) {
+                trees.push(("developer-evidence".into(), tree));
             }
             if let Some(tree) = check_result(
                 &mut failures,
@@ -565,6 +586,7 @@ fn inventory(root: &Path, tree: &GeneratedTree) -> Result<BTreeSet<PathBuf>> {
 
 /// The roots of other targets that lie inside one of `tree`'s roots.
 pub(super) const ENGINEERING_DOCUMENT_ROOT: &str = "docs/generated/engineering";
+pub(super) const DEVELOPER_EVIDENCE_DOCUMENT_ROOT: &str = "docs/generated/developer-evidence";
 
 fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
     Language::ALL
@@ -576,6 +598,7 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         .chain([
             PathBuf::from(provenance::ROOT),
             PathBuf::from(ENGINEERING_DOCUMENT_ROOT),
+            PathBuf::from(DEVELOPER_EVIDENCE_DOCUMENT_ROOT),
         ])
         .filter(|candidate| {
             !tree.roots.contains(candidate)

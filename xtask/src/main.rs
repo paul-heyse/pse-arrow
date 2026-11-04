@@ -356,6 +356,8 @@ struct ProducerIdentityArgs {
 /// Committed generators and the contract bootstrap phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum Target {
+    /// Native developer report/inventory observations and independent reader bundle.
+    DeveloperEvidence,
     /// Compiled engineering and prepared scientific-worker contract projections.
     Engineering,
     /// Code-intelligence contracts, validation and representation fixtures.

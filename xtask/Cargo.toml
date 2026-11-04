@@ -97,6 +97,7 @@ product-schemas = [
   "dep:pse-runtime",
   "dep:pse-model",
   "dep:pse-operations",
+  "dep:pse-kernels",
 ]
 package-fixtures = ["physical-admission", "product-schemas", "dep:parquet"]
 property-coolprop = [
@@ -107,6 +108,7 @@ property-coolprop = [
 
 [dependencies]
 pse-host = { workspace = true, optional = true }
+pse-kernels = { workspace = true, optional = true }
 pse-contract.workspace = true
 buffa.workspace = true
 buffa-descriptor.workspace = true

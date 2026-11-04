@@ -13441,6 +13441,7 @@ dependencies = [
  "pse-engine",
  "pse-host",
  "pse-ids",
+ "pse-kernels",
  "pse-model",
  "pse-operations",
  "pse-quantity",
