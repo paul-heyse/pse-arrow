@@ -65,6 +65,8 @@ pub mod source_read;
 pub mod status;
 pub mod stream_records;
 pub mod study_module;
+/// Original source-built Study qualification application inputs and native library selection.
+pub mod study_qualification;
 pub mod test_inventory;
 pub mod test_workflow;
 pub mod worktree;

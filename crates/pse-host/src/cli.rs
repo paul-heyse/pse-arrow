@@ -76,6 +76,8 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Run the fixed original Study coordinator in this application scope using prepared images.
+    QualifyStudy(crate::study_qualification::LaunchArgs),
     /// Find source, text, Rust entities and relationships through one typed query.
     Search(investigation::Search),
     /// Inspect a known source or an addressed search result without preparation.
@@ -254,6 +256,7 @@ impl Command {
             | Self::CargoTools { .. }
             | Self::DiagnosticTools { .. }
             | Self::Run { .. } => true,
+            Self::QualifyStudy(_) => true,
             Self::Env(options) => options.print || options.activation_data,
             _ => false,
         }
@@ -317,6 +320,7 @@ impl Command {
                 action: TelemetryAction::Stop(_) | TelemetryAction::RecoverConfiguration(_),
             } => GenerationIntent::ExistingControl,
             Self::Run { .. }
+            | Self::QualifyStudy(_)
             | Self::RunAll(_)
             | Self::Tests(_)
             | Self::Test(_)
@@ -838,6 +842,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
     match command {
         Command::Search(options) => investigation::search(options, selected, presentation),
         Command::Inspect(options) => investigation::inspect(*options, selected, presentation),
+        Command::QualifyStudy(args) => crate::study_qualification::launch(args, selected),
         Command::Propose(options) => investigation::propose(options, selected, presentation),
         Command::Fixture {
             action: FixtureAction::Prepare { fixture },

@@ -278,6 +278,106 @@ pub struct BuildCapture {
     pub incomplete: BTreeMap<CaptureFailureDomain, String>,
 }
 
+impl BuildCapture {
+    /// Read a completed capture manifest from its original private directory.
+    /// This checks file custody and extent, not correspondence to current working-source bytes.
+    /// # Errors
+    /// Unprotected, replaced, oversized or malformed input refuses without preparing anything.
+    pub fn read(path: &Path) -> Result<Self, crate::HostError> {
+        private_directory(
+            path.parent()
+                .ok_or_else(|| invalid("capture directory absent"))?,
+        )?;
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(
+                (rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32,
+            )
+            .open(path)?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o777 != 0o400
+            || metadata.nlink() != 1
+            || metadata.len() > 64 << 20
+        {
+            return Err(
+                invalid("capture manifest requires bounded protected original bytes").into(),
+            );
+        }
+        let before = crate::artifacts::descriptor_identity(&file)?;
+        let mut bytes = Vec::new();
+        (&file).take((64 << 20) + 1).read_to_end(&mut bytes)?;
+        if bytes.len() as u64 != metadata.len()
+            || crate::artifacts::descriptor_identity(&file)? != before
+        {
+            return Err(invalid("capture manifest changed during acquisition").into());
+        }
+        Ok(serde_json::from_slice(&bytes).map_err(CorrectnessError::from)?)
+    }
+
+    /// Select one original non-test binary in its captured Cargo root/source context.
+    /// The captured bytes are verified; a supplied manifest does not prove current source freshness.
+    /// # Errors
+    /// Incomplete capture, foreign root, missing features, ambiguous binaries or changed image.
+    pub fn require_binary(
+        &self,
+        root: &Path,
+        package: &str,
+        name: &str,
+        source: &str,
+        required_features: &[&str],
+    ) -> Result<Executable, CorrectnessError> {
+        if self.version != 1 || self.cargo_exit != 0 || !self.incomplete.is_empty() {
+            return Err(invalid("source build or original capture is incomplete"));
+        }
+        let mut selected = self.artifacts.iter().filter(|artifact| {
+            artifact.cargo.target.name == name
+                && !artifact.cargo.profile.test
+                && artifact
+                    .cargo
+                    .target
+                    .kind
+                    .iter()
+                    .any(|kind| kind.to_string() == "bin")
+        });
+        let artifact = selected
+            .next()
+            .ok_or_else(|| invalid("requested captured binary absent"))?;
+        if selected.next().is_some() {
+            return Err(invalid("capture must select exactly one requested binary"));
+        }
+        if artifact.cargo.target.src_path.as_std_path() != root.join(source)
+            || !required_features.iter().all(|required| {
+                artifact
+                    .cargo
+                    .features
+                    .iter()
+                    .any(|feature| feature == required)
+            })
+            || !self.resolution.units.iter().any(|unit| {
+                unit.root
+                    && unit.package_name == package
+                    && unit.package_id == artifact.cargo.package_id.repr
+                    && unit.target_name == name
+                    && unit.mode == "build"
+                    && unit.source_path == artifact.cargo.target.src_path.as_str()
+            })
+            || artifact
+                .cargo
+                .executable
+                .as_ref()
+                .is_none_or(|path| path.as_std_path() != artifact.executable.original)
+        {
+            return Err(invalid(
+                "captured image differs from its actual native source/build context",
+            ));
+        }
+        artifact.executable.verify()?;
+        Ok(artifact.executable.clone())
+    }
+}
+
 /// Independent capture domains; none establishes physical descendant settlement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

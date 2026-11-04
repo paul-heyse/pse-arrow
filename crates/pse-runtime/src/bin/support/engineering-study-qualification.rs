@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Compose three original native reports while the existing keeper retains its fixture.
 use super::{Error, Failures, FixtureDisposition, WorkerStart, signals, worker_allocation};
-use clap::Parser;
 use futures_util::FutureExt as _;
+pub(super) use pse_host::study_qualification::Args;
 use pse_host::{
     discovery::{BuildCapture, Executable},
     envelope::{CliInvocationId, Completeness, Settlement},
@@ -30,35 +30,6 @@ use std::{
 const FILTER: &str =
     "test(/^study::prepared_engineering_study_client_three_phase_original_owner_journey$/)";
 const FEATURES: &str = "engineering-service,native-study-tests,product-operators,solver-kinsol";
-
-#[derive(Debug, Parser)]
-#[command(
-    about = "Qualify the original Study through submit, frontend replacement and completion; prepare nothing implicitly",
-    long_about = "Run this coordination mode from the application shell, outside a native workload. The keeper uses the existing foreground boundary; the host owns frontend and test invocations. Inputs are completed source-built capture manifests, a prepared module and a validated scientific allocation."
-)]
-pub(super) struct Args {
-    #[arg(long)]
-    root: PathBuf,
-    /// Existing native BuildCapture containing keeper, frontend and pse-worker.
-    #[arg(long)]
-    runtime_build: PathBuf,
-    /// Existing native BuildCapture containing pse-canonical-service.
-    #[arg(long)]
-    canonical_build: PathBuf,
-    #[arg(long)]
-    module_receipt: PathBuf,
-    #[arg(long)]
-    worker_allocation: PathBuf,
-    /// Fresh absolute private diagnostic directory; original reports stay in the host store.
-    #[arg(long)]
-    work_directory: PathBuf,
-    #[arg(long, default_value_t = 120_000)]
-    startup_ms: u64,
-    #[arg(long, default_value_t = 600_000)]
-    phase_ms: u64,
-    #[arg(long, default_value_t = 90_000)]
-    shutdown_ms: u64,
-}
 
 #[derive(Debug)]
 pub(super) struct Failure {
@@ -362,62 +333,6 @@ fn read(path: &Path, maximum: usize) -> Result<Vec<u8>, Error> {
     }
     Ok(bytes)
 }
-fn image(
-    capture: &BuildCapture,
-    root: &Path,
-    package: &str,
-    name: &str,
-    source: &str,
-    required_features: &[&str],
-) -> Result<Executable, Error> {
-    if capture.version != 1 || capture.cargo_exit != 0 || !capture.incomplete.is_empty() {
-        return Err("source build or original capture is incomplete".into());
-    }
-    let selected = capture
-        .artifacts
-        .iter()
-        .filter(|artifact| {
-            artifact.cargo.target.name == name
-                && !artifact.cargo.profile.test
-                && artifact
-                    .cargo
-                    .target
-                    .kind
-                    .iter()
-                    .any(|kind| kind.to_string() == "bin")
-        })
-        .collect::<Vec<_>>();
-    let [artifact] = selected.as_slice() else {
-        return Err("capture must select exactly one requested binary".into());
-    };
-    if artifact.cargo.target.src_path.as_std_path() != root.join(source)
-        || !required_features.iter().all(|required| {
-            artifact
-                .cargo
-                .features
-                .iter()
-                .any(|feature| feature == required)
-        })
-        || !capture.resolution.units.iter().any(|unit| {
-            unit.root
-                && unit.package_name == package
-                && unit.package_id == artifact.cargo.package_id.repr
-                && unit.target_name == name
-                && unit.mode == "build"
-                && unit.source_path == artifact.cargo.target.src_path.as_str()
-        })
-        || artifact
-            .cargo
-            .executable
-            .as_ref()
-            .is_none_or(|path| path.as_std_path() != artifact.executable.original)
-    {
-        return Err("captured image differs from its actual native source/build context".into());
-    }
-    artifact.executable.verify()?;
-    Ok(artifact.executable.clone())
-}
-
 fn frontend_identity(
     ready: &EngineeringFrontendReady,
     root: &Path,
@@ -1051,34 +966,30 @@ pub(super) async fn run(mut args: Args) -> Result<(), Error> {
         pse_host::study_module::Variant::Production,
     )?;
     let _allocation = worker_allocation(&args.worker_allocation)?;
-    let runtime: BuildCapture = serde_json::from_slice(&read(&args.runtime_build, 64 << 20)?)?;
-    let canonical: BuildCapture = serde_json::from_slice(&read(&args.canonical_build, 64 << 20)?)?;
-    let keeper_image = image(
-        &runtime,
+    let runtime = BuildCapture::read(&args.runtime_build)?;
+    let canonical = BuildCapture::read(&args.canonical_build)?;
+    let keeper_image = runtime.require_binary(
         &args.root,
         "pse-runtime",
         "pse-engineering-fixture",
         "crates/pse-runtime/src/bin/pse-engineering-fixture.rs",
         &["native-study-tests", "product-reader"],
     )?;
-    let frontend_image = image(
-        &runtime,
+    let frontend_image = runtime.require_binary(
         &args.root,
         "pse-runtime",
         "pse-engineering",
         "crates/pse-runtime/src/bin/pse-engineering.rs",
         &["engineering-service", "product-reader", "solver-kinsol"],
     )?;
-    let worker_image = image(
-        &runtime,
+    let worker_image = runtime.require_binary(
         &args.root,
         "pse-runtime",
         "pse-worker",
         "crates/pse-runtime/src/bin/pse-worker.rs",
         &["product-operators", "solver-kinsol"],
     )?;
-    let canonical_image = image(
-        &canonical,
+    let canonical_image = canonical.require_binary(
         &args.root,
         "pse-operations",
         "pse-canonical-service",

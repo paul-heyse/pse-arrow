@@ -26,6 +26,121 @@ fn source(root: &Path) -> PathBuf {
     fs::set_permissions(&source, fs::Permissions::from_mode(0o700)).unwrap();
     source
 }
+
+fn application_capture(directory: &Path) -> BuildCapture {
+    let original = source(directory);
+    let executable = executable(&original, &directory.join("captured-tool")).unwrap();
+    let mut cargo = artifact(&original, "tool", "bin");
+    cargo.profile.test = false;
+    let mut resolution = resolution();
+    resolution.units.push(crate::correctness::CompilerUnit {
+        package_id: cargo.package_id.repr.clone(),
+        package_name: "alpha".into(),
+        target_name: "tool".into(),
+        target_kinds: vec!["bin".into()],
+        source_path: "/workspace/alpha/tool.rs".into(),
+        features: ["feature-a".into()].into(),
+        platform: None,
+        mode: "build".into(),
+        root: true,
+    });
+    BuildCapture {
+        version: 1,
+        resolution,
+        artifacts: vec![BuiltArtifact { cargo, executable }],
+        cargo_exit: 0,
+        incomplete: BTreeMap::new(),
+    }
+}
+
+#[test]
+fn captured_application_requires_complete_original_root_source_and_features() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let mut capture = application_capture(directory.path());
+    let require = |capture: &BuildCapture| {
+        capture.require_binary(
+            Path::new("/workspace/alpha"),
+            "alpha",
+            "tool",
+            "tool.rs",
+            &["feature-a"],
+        )
+    };
+    require(&capture).unwrap();
+    assert!(
+        capture
+            .require_binary(
+                Path::new("/other/alpha"),
+                "alpha",
+                "tool",
+                "tool.rs",
+                &["feature-a"]
+            )
+            .is_err()
+    );
+    assert!(
+        capture
+            .require_binary(
+                Path::new("/workspace/alpha"),
+                "foreign",
+                "tool",
+                "tool.rs",
+                &["feature-a"]
+            )
+            .is_err()
+    );
+    assert!(
+        capture
+            .require_binary(
+                Path::new("/workspace/alpha"),
+                "alpha",
+                "tool",
+                "tool.rs",
+                &["feature-b"]
+            )
+            .is_err()
+    );
+    capture.resolution.units[0].root = false;
+    assert!(require(&capture).is_err());
+    capture.resolution.units[0].root = true;
+    capture.artifacts[0].cargo.profile.test = true;
+    assert!(require(&capture).is_err());
+    capture.artifacts[0].cargo.profile.test = false;
+    capture.artifacts.push(capture.artifacts[0].clone());
+    assert!(require(&capture).is_err());
+    capture.artifacts.pop();
+    capture.cargo_exit = 1;
+    assert!(require(&capture).is_err());
+    capture.cargo_exit = 0;
+    fs::remove_file(&capture.artifacts[0].executable.original).unwrap();
+    require(&capture).unwrap(); // Capture provenance survives replacement of mutable Cargo output.
+}
+
+#[test]
+fn captured_application_manifest_refuses_unprotected_linked_or_oversized_inputs() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let capture = application_capture(directory.path());
+    let path = directory.path().join("build.json");
+    write_json(&path, &capture).unwrap();
+    BuildCapture::read(&path).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(BuildCapture::read(&path).is_err());
+    assert_eq!(fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+    let link = directory.path().join("linked.json");
+    fs::hard_link(&path, &link).unwrap();
+    assert!(BuildCapture::read(&path).is_err());
+    fs::remove_file(&link).unwrap();
+    std::os::unix::fs::symlink(&path, &link).unwrap();
+    assert!(BuildCapture::read(&link).is_err());
+    let large = directory.path().join("large.json");
+    let file = File::create(&large).unwrap();
+    file.set_len((64 << 20) + 1).unwrap();
+    fs::set_permissions(&large, fs::Permissions::from_mode(0o400)).unwrap();
+    assert!(BuildCapture::read(&large).is_err());
+}
 #[test]
 fn retained_executable_survives_original_replacement_and_detects_own_tampering() {
     let root = tempfile::tempdir().unwrap();
