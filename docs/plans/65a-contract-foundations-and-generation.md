@@ -157,6 +157,22 @@ normalization; the current pool never re-decodes old payloads as a substitute fo
 unavailable original interpretation. The pure checker preserves that availability
 boundary even when bytes are identical and a current policy exists.
 
+Execution investigation, 2026-11-04: complete A02 with typed native field-shape meaning from
+the existing `TypeRef`/`Scalar` owner, rather than only native field names and descriptor
+references. A wire-compatible change can alter unsigned/signed meaning, IEEE bits, nominal
+identity versus opaque bytes, ordered versus set membership, nested absence, or map key/value
+meaning. Required native distinctions must survive typed option publication and shared
+normalization/comparison. Reuse the existing structural vocabulary; do not add another IR or
+infer this meaning from Rust display names. The precise typed schema/version extension and
+matching descriptor/source policy controls remain bounded A02 design work before policy freeze.
+
+The selected registry policy must also separate retained full option facts from the semantic
+projection it compares. Documentation and structure presentation alone must not become physical
+incompatibility merely because their encoded option bytes differ. Use the native owner's
+metadata-purpose decisions for that normalization, preserving meaningful physical, collection,
+reference and storage-policy changes. Independently test both wire-compatible native meaning
+changes and presentation-only changes; unavailable interpretation still yields Unknown.
+
 The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
 and the independent host. It depends on pure `pse-contract`, the selected Buffa family
 and native error support; registry, Arrow, runtime and scientific libraries remain
@@ -329,7 +345,7 @@ All statuses are **planned**. Dependencies describe available products, not whol
 | Package | Status | Consumes → delivers | Migration, deletion and targeted acceptance |
 | --- | --- | --- | --- |
 | A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
-| A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking moved to independent pse-contract-proto; old implementation, synthetic source comments and action-effects sidecar removed. Source-selected coverage, unknown policy/schema and original-pool comparison controls pass. Common native crossing helpers and the first independent host consumer remain in progress with A05/G02/J02. |
+| A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking and native crossing helpers moved to independent pse-contract-proto; replaced implementation/comments/sidecar removed. Source-selected coverage, unknown policy/schema and original-pool controls pass. Native field-shape meaning, domain semantic normalization and independent host policy/readback remain in progress with A05/G02/J02. |
 | A03 | planned | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Replace direct full-byte runtime embedding and inconsistent override handling. Test nondefault feature changes against generated/reflected semantics, runtime compaction preserving typed options, full-source retention and immutable old-world readers. |
 | A04 | planned | A03 closed worlds → shared generation composition for all four initial boundary populations | Integrate Buffa, packaging, validation, Connect and selected external Prost generation. Remove repeated module/descriptor assembly and hand-kept plugin naming maps. Test warning/refusal propagation, orphan companions, duplicate filenames, excluded packages and exact import identity. |
 | A05 | planned | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Migrate host native request/fact families, engineering/worker/reference structural adapters, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps at implementation baseline; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
