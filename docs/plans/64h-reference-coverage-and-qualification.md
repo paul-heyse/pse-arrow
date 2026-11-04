@@ -179,8 +179,9 @@ quantity/unit and analytically meaningful numerical contexts before candidate/re
 values are read; native solver convergence does not supply comparison allowances.
 
 **Tested, scoped:** the earlier seven independent IDAES/Pyomo/Ipopt oracle controls above
-establish reference construction, not native agreement. The later 36-test native runtime
-selector includes `workflow::modeling::ordinary_reference::tests` and
+establish reference construction, not native agreement. The later
+[36-test native runtime selector](64i-engineering-contracts-and-validation.md#verification-and-handoff)
+includes `workflow::modeling::ordinary_reference::tests` and
 `reference_exchange::tests`: original source/extent/custody, numeric-context and selected
 scalar metadata/unknown-field/refusal controls passed with the then-linked runtime graph,
 zero failures against zero. This does not execute the five complete scientific comparisons

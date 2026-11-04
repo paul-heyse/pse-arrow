@@ -53,9 +53,9 @@ not design-only investigations. The initial authoring instruction was followed b
 authorization to implement the complete Proto scope and then the entire remaining Plan64
 scope. Earlier D–G closeout failures remain obligations of their existing owners.
 
-The baseline is `2550fa665` after scientific/capture integration at `480628c1e`, with the
-remaining capture/native-service tests and D–G checkpoint edits still in progress. Their
-closeout evidence remains owned by those companions; no new qualification is inferred here.
+The planning baseline was `2550fa665` after scientific/capture integration at `480628c1e`,
+while capture/native-service tests and D–G checkpoint edits were still in progress. Their
+closeout evidence remains owned by those companions; the current execution checkpoint is below.
 Core 3.4, heuristics 1.0, ProcessSimulator 1.5 and test-assessment 1.2 apply. The
 [briefing](../library_leverage/libraries/proto/briefing.md) and linked exact library contracts
 inform implementation, rather than treating general Proto capability as local eligibility.
@@ -315,8 +315,8 @@ its failures and unrun obligations remain open until corrected and verified. Cur
 Proto implementation checkpoints live in 64i/64j/64k. Complete that integrated scope
 first, then continue the existing A–H package owners and the finite scientific population.
 
-**Historical closeout, 2026-11-03 — stopped at the maintainer's request.** That implementation wave was
-partial and its fixes, tests and diagnostics stopped. The independent agent's
+**Historical closeout, 2026-11-03 — stopped at the maintainer's request.** That
+implementation wave was partial and its fixes, tests and diagnostics stopped. The independent agent's
 proto/extensibility plan additions retain their own scope; they were not implemented
 or qualified by this wave. The D/E/F/G package tables remain open, and their closeout
 sections own the detailed passing evidence, failures and next obligations:
@@ -342,8 +342,8 @@ passed ten targets before the later source-only corrections; that is not a final
 generated-output comparison or a clean-tree qualification. No comprehensive static
 or functional pass is claimed for this checkout.
 
-At that closeout, all task-owned build/test/debug sessions were terminal. Worktrees were reconciled and
-removed; the unused unintegrated Plan59 parser-provenance draft is preserved on its
+At that closeout, all task-owned build/test/debug sessions were terminal. Worktrees were
+reconciled and removed; the unused unintegrated Plan59 parser-provenance draft is preserved on its
 original branch at `3d7096c15`, rather than reintroducing retired production code.
 The shared sccache daemon was left running for other agents; it is not an active test
 or build. Resume the recorded failures and pending targeted checks before starting
