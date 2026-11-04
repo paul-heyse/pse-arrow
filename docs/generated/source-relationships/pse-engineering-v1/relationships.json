@@ -76172,22 +76172,6 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
-      "declaration_key": "ProjectAction::PreparationDiscovery",
-      "declaration_kind": "operation_effects",
-      "direction": "Input",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "generate",
-      "output_path": "crates/pse-runtime/src/generated/engineering/action-effects.json",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/host_operations/project.rs",
-      "source_role": "effect_owner",
-      "source_symbol": "ProjectAction::preparation_discovery_projection"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
       "declaration_key": "ProviderInspectionEntry",
       "declaration_kind": "rust_projection",
       "direction": "Output",

@@ -196,6 +196,22 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-contract/src/boundary_projection/array.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/standard.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/operation_effects.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-diagnostics/src/lib.rs",
           "kind": "file"
         },
@@ -240,18 +256,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-model/src/boundary_projection/quantity.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/boundary_projection/standard.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-model/src/diagnostic.rs",
           "kind": "file"
         },
@@ -277,10 +281,6 @@
         },
         {
           "path": "crates/pse-model/src/numerics.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/operation_effects.rs",
           "kind": "file"
         },
         {
@@ -716,6 +716,22 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-contract/src/boundary_projection/array.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/standard.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/operation_effects.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-diagnostics/src/lib.rs",
           "kind": "file"
         },
@@ -788,18 +804,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-model/src/boundary_projection/quantity.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/boundary_projection/standard.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-model/src/diagnostic.rs",
           "kind": "file"
         },
@@ -825,10 +829,6 @@
         },
         {
           "path": "crates/pse-model/src/numerics.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/operation_effects.rs",
           "kind": "file"
         },
         {

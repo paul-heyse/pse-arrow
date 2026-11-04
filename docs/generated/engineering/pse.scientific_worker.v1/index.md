@@ -3,6 +3,66 @@
 
 Generated from actual typed declarations. Registry and contextual scientific admission retain authority.
 
+## `Batch`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::Batch`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `handle` | 1 | `Named("Handle")` | `Output` | `[]` | `{}` |
+| `invocation` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `points` | 3 | `Repeated(Named("BatchOutcome"))` | `Output` | `[Length { min: 1, max: 4096 }]` | `{}` |
+
+## `BatchOutcome`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::BatchOutcome`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `result` | 2 | `Named("BatchResult")` | `Output` | `[]` | `{}` |
+
+## `BatchPoint`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::BatchPoint`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Input` | `[]` | `{}` |
+| `inputs` | 2 | `Repeated(Scalar(U64))` | `Input` | `[Length { min: 0, max: 64 }]` | `{}` |
+| `directions` | 3 | `Repeated(Scalar(U64))` | `Input` | `[Length { min: 0, max: 65536 }]` | `{}` |
+| `cotangents` | 4 | `Repeated(Scalar(U64))` | `Input` | `[Length { min: 0, max: 65536 }]` | `{}` |
+| `weights` | 5 | `Repeated(Scalar(U64))` | `Input` | `[Length { min: 0, max: 64 }]` | `{}` |
+
+## `BatchProduct`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::BatchProduct`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `values` | 1 | `Repeated(Scalar(F64Bits))` | `Output` | `[Length { min: 1, max: 65536 }]` | `{}` |
+| `jacobian` | 2 | `Repeated(Scalar(F64Bits))` | `Output` | `[Length { min: 0, max: 65536 }]` | `{}` |
+| `hessians` | 3 | `Repeated(Scalar(F64Bits))` | `Output` | `[Length { min: 0, max: 65536 }]` | `{}` |
+
+## `BatchResult`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::BatchResult`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Product (alternative tag 1).value` | 1 | `Named("BatchProduct")` | `Both` | `[]` | `{}` |
+| `Refused (alternative tag 2).value` | 1 | `Named("Failure")` | `Both` | `[]` | `{}` |
+
 ## `Demand`
 
 Rust owner: `pse_runtime::scientific_worker::protocol::Demand`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Both`.
@@ -31,6 +91,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `directions` | 4 | `Repeated(Scalar(F64Bits))` | `Input` | `[Length { min: 0, max: 65536 }]` | `{}` |
 | `cotangents` | 5 | `Repeated(Scalar(F64Bits))` | `Input` | `[Length { min: 0, max: 65536 }]` | `{}` |
 | `weights` | 6 | `Repeated(Scalar(F64Bits))` | `Input` | `[Length { min: 0, max: 64 }]` | `{}` |
+
+## `EvaluateBatch`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::EvaluateBatch`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `handle` | 1 | `Named("Handle")` | `Input` | `[Required]` | `{}` |
+| `invocation` | 2 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `points` | 3 | `Repeated(Named("BatchPoint"))` | `Input` | `[Length { min: 1, max: 4096 }]` | `{}` |
 
 ## `Failure`
 
@@ -96,6 +168,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `remaining_ns` | 10 | `Optional(Scalar(U64))` | `Input` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 | `result_limit` | 11 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 1048576 }]` | `{}` |
 
+## `Prepared`
+
+Rust owner: `pse_runtime::scientific_worker::protocol::Prepared`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `handle` | 1 | `Named("Handle")` | `Output` | `[]` | `{}` |
+| `batch_supported` | 2 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+
 ## `Request`
 
 Rust owner: `pse_runtime::scientific_worker::protocol::Request`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
@@ -109,6 +192,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Stop (alternative tag 3).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
 | `Close (alternative tag 4).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
 | `Shutdown` | 5 | `Named("unit alternative")` | `Input` | `[Required]` | `{}` |
+| `EvaluateBatch (alternative tag 6).value` | 1 | `Named("EvaluateBatch")` | `Both` | `[]` | `{}` |
 
 ## `Response`
 
@@ -118,11 +202,12 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `Prepared (alternative tag 1).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
+| `Prepared (alternative tag 1).value` | 1 | `Named("Prepared")` | `Both` | `[]` | `{}` |
 | `Values (alternative tag 2).value` | 1 | `Named("Values")` | `Both` | `[]` | `{}` |
 | `Failure (alternative tag 3).value` | 1 | `Named("Failure")` | `Both` | `[]` | `{}` |
 | `Closed (alternative tag 4).value` | 1 | `Named("Handle")` | `Both` | `[]` | `{}` |
 | `Shutdown` | 5 | `Named("unit alternative")` | `Output` | `[Required]` | `{}` |
+| `Batch (alternative tag 6).value` | 1 | `Named("Batch")` | `Both` | `[]` | `{}` |
 
 ## `Spec`
 
@@ -158,3 +243,4 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 ## Service `ScientificWorker`
 
 - `Exchange`: `Named("Request")` -> `Named("Response")`.
+  Owner effects: `NativeExecution`; read only: false; idempotent: false; destructive: false.

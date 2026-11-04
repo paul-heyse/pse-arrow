@@ -12,6 +12,806 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Batch",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Batch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchOutcome",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchOutcome"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchPoint",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchPoint"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchProduct",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchProduct"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "BatchResult",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::BatchResult"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "Demand",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -332,6 +1132,166 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "EvaluateBatch",
+      "declaration_kind": "rust_projection",
+      "direction": "Input",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::EvaluateBatch"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "Failure",
       "declaration_kind": "rust_projection",
       "direction": "Output",
@@ -966,6 +1926,166 @@
       "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_runtime::scientific_worker::protocol::Prepare"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/pse.scientific_worker.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/services/scientific_worker.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/pse.scientific_worker.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/scientific-worker/validation/scientific_worker.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "Prepared",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.scientific_worker.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::scientific_worker::protocol::Prepared"
     },
     {
       "basis": "declared",
