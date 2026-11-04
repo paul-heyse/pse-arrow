@@ -163,14 +163,19 @@ impl ContractWire {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive complete operation outcome; original receipt replay admits its use.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct InferenceWire {
-    operands: Vec<ContractWire>,
-    result: ContractWire,
-    selected: OperationSelection,
-    conversions: Vec<OperandConversion>,
-    operand_scales: Vec<u64>,
-    result_scale: u64,
+pub struct InferenceWire {
+    projection: { name: "PhysicalInferenceFacts", rust_path: crate::resolved::receipts::InferenceWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    operands: Vec<ContractWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    result: ContractWire => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    selected: OperationSelection => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    conversions: Vec<OperandConversion> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    operand_scales: Vec<u64> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    result_scale: u64 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+}
 }
 crate::quantity_passive_record! {
     callback:physical_contract_record_boundary;owner:resolved::receipts::ContractRecord;
@@ -194,13 +199,17 @@ impl ContractRecord {
         self.0.contract()
     }
 }
+pse_contract::projection_struct! {
 /// Opaque persisted ordinary boundary; decoding grants no admitted authority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContractBoundaryRecord {
-    source: ContractRecord,
-    target: ContractRecord,
-    scale_bits: u64,
+    projection: { name: "PhysicalContractBoundaryRecord", rust_path: crate::resolved::receipts::ContractBoundaryRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    source: ContractRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target: ContractRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    scale_bits: u64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+}
 }
 impl ContractBoundaryRecord {
     /// Capture the complete contracts and exact scale of an admitted boundary.
@@ -228,14 +237,18 @@ impl ContractBoundaryRecord {
     }
 }
 
+pse_contract::projection_struct! {
 /// Opaque persisted scientific output authorization, including its exact operation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OutputBoundaryRecord {
-    operation: pse_ids::SemanticId,
-    source: ContractRecord,
-    target: ContractRecord,
-    scale_bits: u64,
+    projection: { name: "PhysicalOutputBoundaryRecord", rust_path: crate::resolved::receipts::OutputBoundaryRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    operation: pse_ids::SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    source: ContractRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target: ContractRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    scale_bits: u64 => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+}
 }
 impl OutputBoundaryRecord {
     /// Capture one already admitted output authorization without re-admission.
@@ -269,9 +282,13 @@ impl OutputBoundaryRecord {
 // fields are private. This is the common record namespace consumed by lowering.
 pub use crate::unit::{CanonicalConversionRecord, RepresentationConversionRecord};
 
-/// Opaque persisted complete operation result, including selection and conversion scales.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct InferenceRecord(InferenceWire);
+crate::quantity_passive_record! {
+    callback:physical_inference_record_boundary;owner:resolved::receipts::InferenceRecord;
+    name:"PhysicalInferenceRecord";version:1;direction:Both;
+    /// Opaque persisted complete operation result, including selection and conversion scales.
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct InferenceRecord(InferenceWire)=>value:1,Native;
+}
 impl InferenceRecord {
     /// Complete owned extent of the concrete operation fields.
     pub fn retained_bytes(&self) -> usize {
@@ -444,17 +461,27 @@ impl InferenceWire {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive exact inference request/outcome association; not a current scientific grant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct Receipt {
-    request: pse_ids::ContentHash,
-    result: InferenceWire,
+pub struct Receipt {
+    projection: { name: "PhysicalInferenceReceipt", rust_path: crate::resolved::receipts::Receipt,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    request: pse_ids::ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    result: InferenceWire => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive original operation and complete output contracts.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct BoundaryWire {
-    operation: pse_ids::SemanticId,
-    source: ContractWire,
-    target: ContractWire,
-    scale_bits: u64,
+pub struct BoundaryWire {
+    projection: { name: "PhysicalOutputBoundaryFacts", rust_path: crate::resolved::receipts::BoundaryWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    operation: pse_ids::SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    source: ContractWire => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target: ContractWire => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    scale_bits: u64 => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+}
 }
 impl BoundaryWire {
     fn capture(v: &AdmittedOutputBoundary) -> Self {
@@ -478,17 +505,27 @@ impl BoundaryWire {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive exact boundary request/outcome association.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct BoundaryReceipt {
-    request: pse_ids::ContentHash,
-    result: BoundaryWire,
+pub struct BoundaryReceipt {
+    projection: { name: "PhysicalOutputBoundaryReceipt", rust_path: crate::resolved::receipts::BoundaryReceipt,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    request: pse_ids::ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    result: BoundaryWire => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Untrusted decoded operation data, with no public admitted-witness deserializer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReceiptStream {
-    version: u32,
-    entries: Vec<Receipt>,
-    boundaries: Vec<BoundaryReceipt>,
+    projection: { name: "PhysicalReceiptStream", rust_path: crate::resolved::receipts::ReceiptStream,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    version: u32 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 1 }] };
+    entries: Vec<Receipt> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    boundaries: Vec<BoundaryReceipt> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ReceiptStream {
     /// Owned extent of the concrete receipts and their complete physical contracts.
@@ -998,3 +1035,7 @@ impl SchemeRecord {
         self.0.restore()
     }
 }
+
+#[cfg(test)]
+#[path = "resolved_receipts_projection_tests.rs"]
+mod projection_tests;

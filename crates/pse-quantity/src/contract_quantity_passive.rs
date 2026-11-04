@@ -114,6 +114,7 @@ physical_qualified_factor_boundary!(passive_quantity_record);
 physical_formula_facts_boundary!(passive_quantity_record);
 bound_index_reference_boundary!(passive_quantity_record);
 physical_scheme_shape_boundary!(passive_quantity_alternatives);
+physical_inference_record_boundary!(passive_quantity_record);
 
 // The sole intrinsic document-view field is a typed link to the original record,
 // rather than a second declaration of Scheme alternatives or physical facts.

@@ -193,26 +193,48 @@ crate::closed_enum! {
         Partial => "partial",
     }
 }
+pse_contract::projection_tuple_enum! {
 /// Evidence of the physical rule selected for this node.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum OperationSelection {
+    projection: { name: "PhysicalOperationSelection", rust_path: crate::infer::OperationSelection,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// A closed built-in rule.
-    BuiltIn(BuiltInRule),
+    BuiltIn [rule: BuiltInRule => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
     /// A unique registered rule and its original operand order.
     Registered {
         /// Operation identity.
-        operation: OperationId,
+        operation: OperationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Original operand ordinal for each matched slot.
-        operand_permutation: Vec<u16>,
-    },
+        operand_permutation: Vec<u16> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
 }
+}
+pse_contract::projection_struct! {
 /// A selected conversion, with its original operand ordinal.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct OperandConversion {
+    projection: { name: "PhysicalOperandConversion", rust_path: crate::infer::OperandConversion,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Original operand position.
-    pub operand: u16,
+    pub operand: u16 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Explicit registered conversion.
-    pub conversion: ConversionId,
+    pub conversion: ConversionId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+impl pse_contract::boundary_projection::ProjectionType for BuiltInRule {
+    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+        use pse_contract::boundary_projection::{Direction, Shape};
+        let root = graph.declare::<Self>("PhysicalBuiltInRule", file!(), 1, Direction::Both, &[], &[], |_| {
+            Ok(Shape::StringEnum(Self::ALL.iter().map(|value| value.as_str().to_owned()).collect()))
+        })?;
+        graph.public_path::<Self>(&root, "crate::infer::BuiltInRule")?;
+        Ok(root)
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection for BuiltInRule {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> { Ok(()) }
 }
 /// The complete result and derivation dependencies.
 #[derive(Clone, Debug)]
