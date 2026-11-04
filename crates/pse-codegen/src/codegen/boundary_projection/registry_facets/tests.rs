@@ -238,3 +238,57 @@ fn canonical_publication_policy_uses_native_parser_and_inert_ast_normalization()
         assert!(original, "native source parser cause must survive option publication");
     }
 }
+
+#[test]
+fn acquired_native_references_preserve_nullability_and_empty_component_paths() {
+    let encoder = encoder();
+    let mut graph = ProjectionGraph::default();
+    for nullable in [false, true] {
+        let native = FieldContract::id().with_name("native_field").with_fk("authored.packages", "package_id");
+        let native = if nullable { native.optional() } else { native };
+        let reference = ReferenceContract::for_contract(&native).unwrap().unwrap();
+        let mut facets = native.field().metadata().iter().map(|(key, value)| (key.clone(), value.clone())).collect::<BTreeMap<_, _>>();
+        facets.insert(keys::KEY_REFERENCE.into(), reference.canonical().unwrap());
+        // Raw original IPC deliberately has the scalar convenience form, while
+        // the typed option has the native owner's normalized null policy.
+        facets.insert(super::super::REGISTRY_FIELD_SOURCE.into(), native.canonical_json().unwrap());
+        let selected = if nullable { field::<Option<pse_ids::SemanticId>>(&mut graph, &[]) } else { field::<pse_ids::SemanticId>(&mut graph, &[]) }.with_named_facets(facets);
+        let option = field_options(&selected, &graph, &encoder).unwrap().unwrap();
+        let mut wire = buffa_descriptor::generated::descriptor::FieldOptions::default();
+        encoder.attach(&mut wire, EXTENSION, option.clone()).unwrap();
+        let acquired = encoder.decode_extension(&wire, EXTENSION).unwrap().unwrap();
+        check_option(&acquired).unwrap();
+        assert_eq!(normalize_option(&option).unwrap(), normalize_option(&acquired).unwrap());
+        assert_eq!(enumeration(nested(&acquired, "reference").unwrap(), "null_policy", 2).unwrap(), if nullable { 2 } else { 1 });
+        let mut explicit = native.field().clone();
+        explicit.metadata_mut().remove(keys::FK_RELATION);
+        explicit.metadata_mut().remove(keys::FK_COLUMN);
+        let explicit = reference.annotate(explicit).unwrap();
+        assert_eq!(semantic_native_field(native.field()).unwrap(), semantic_native_field(&explicit).unwrap(), "convenience and correlated spelling denote one source-owned reference meaning");
+        let mut corrupted = selected.clone();
+        let mut wrong = reference;
+        wrong.null_policy = if nullable { ReferenceNullPolicy::Required } else { ReferenceNullPolicy::AllOrNone };
+        corrupted.named_facets.insert(keys::KEY_REFERENCE.into(), wrong.canonical().unwrap());
+        assert!(field_options(&corrupted, &graph, &encoder).is_err(), "a contradictory null policy is not equivalent spelling");
+    }
+}
+
+#[test]
+fn acquired_native_collection_references_keep_correlated_components() {
+    let reference = ReferenceContract { relation: "authored.components".into(),
+        columns: vec![pse_schema::model::ReferenceColumn { source: vec!["first".into()], target: "left".into() }, pse_schema::model::ReferenceColumn { source: vec!["second".into()], target: "right".into() }],
+        null_policy: ReferenceNullPolicy::AllOrNone };
+    let child = FieldContract::structure(vec![FieldContract::id().with_name("first").optional(), FieldContract::id().with_name("second").optional()])
+        .with_name("item").with_reference(&reference).unwrap();
+    let native = FieldContract::list(child).with_name("native_field");
+    let bytes = native_ipc::encode(native.field()).unwrap();
+    let acquired = native_ipc::decode(&bytes).unwrap();
+    assert_eq!(semantic_native_field(native.field()).unwrap(), semantic_native_field(&acquired).unwrap());
+    let arrow_schema::DataType::List(child) = acquired.data_type() else { panic!("list"); };
+    assert_eq!(native_reference(child).unwrap(), Some(reference.clone()));
+    let mut wrong = reference;
+    wrong.columns[1].target = "other".into();
+    let changed = wrong.annotate(child.as_ref().clone()).unwrap();
+    let changed = acquired.clone().with_data_type(arrow_schema::DataType::List(std::sync::Arc::new(changed)));
+    assert_ne!(semantic_native_field(&acquired).unwrap(), semantic_native_field(&changed).unwrap(), "changing either correlated target remains semantic");
+}

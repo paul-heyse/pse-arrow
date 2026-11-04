@@ -158,6 +158,15 @@ normalization; the current pool never re-decodes old payloads as a substitute fo
 unavailable original interpretation. The pure checker preserves that availability
 boundary even when bytes are identical and a current policy exists.
 
+Within one strictly checked pool, IPC-to-typed-fact consistency uses fallible encoding
+for known nested message facts: Buffa's in-memory equality distinguishes a constructed
+empty repeated list from its decoded absent spelling, while protobuf gives those lists
+the same meaning. Explicit optional presence remains observable. This local check is
+separate from cross-world, purpose-specific semantic comparison. Reference convenience
+and correlated forms normalize through the existing `ReferenceContract` owner and actual
+native nullability, recursively through the real native field tree; original IPC bytes
+remain retained, and changed null policy/component targets refuse agreement.
+
 Execution investigation, 2026-11-04: complete A02 with typed native field-shape meaning from
 the existing `TypeRef`/`Scalar` owner, rather than only native field names and descriptor
 references. A wire-compatible change can alter unsigned/signed meaning, IEEE bits, nominal

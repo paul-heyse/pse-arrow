@@ -498,7 +498,7 @@ pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCode
         let expected = lower_native_field(&field, &encoder)?;
         for descriptor in option.message_descriptor().fields() {
             if descriptor.name() == "native_field_ipc" { continue; }
-            if option.field_by_number(descriptor.number()) != expected.field_by_number(descriptor.number()) {
+            if !same_typed_fact(option.field_by_number(descriptor.number()), expected.field_by_number(descriptor.number()))? {
                 return Err(error(format!("native IPC field disagrees with typed registry fact {}", descriptor.name())));
             }
         }
@@ -508,6 +508,7 @@ pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCode
 
 fn lower_native_field(native: &arrow_schema::Field, encoder: &OptionEncoder) -> Result<DynamicMessage, ProjectionCodegenError> {
     let mut metadata = native.metadata().iter().map(|(key, value)| (key.clone(), value.clone())).collect::<std::collections::BTreeMap<_, _>>();
+    if let Some(reference) = native_reference(native)? { metadata.insert(keys::KEY_REFERENCE.into(), reference.canonical()?); }
     // Presentation was checked against the actual source graph before publication;
     // it has no additional registry-execution facts. Never infer a source graph
     // from an acquired schema or let this retained presentation grant admission.
@@ -515,6 +516,59 @@ fn lower_native_field(native: &arrow_schema::Field, encoder: &OptionEncoder) -> 
     let tag = metadata.get(keys::BOUNDARY_TAG).map(|tag| tag.parse::<u32>()).transpose().map_err(|_| error("native field has an invalid boundary number"))?.unwrap_or(1);
     let field = Field { name: native.name().clone(), tag, ty: TypeRef::Scalar(pse_contract::boundary_projection::Scalar::Bool), direction: pse_contract::boundary_projection::Direction::Both, rules: vec![], named_facets: metadata };
     lower_field_options(&field, &ProjectionGraph::default(), encoder)?.ok_or_else(|| error("native IPC field has no declared registry facets"))
+}
+
+fn native_reference(native: &arrow_schema::Field) -> Result<Option<ReferenceContract>, ProjectionCodegenError> {
+    let mut original = native.clone();
+    let normalized = original.metadata_mut().remove(keys::KEY_REFERENCE);
+    let contract = FieldContract::from_field(original);
+    if contract.checked_fk()?.is_some() {
+        let actual = ReferenceContract::for_contract(&contract)?;
+        if let Some(normalized) = normalized {
+            let declared = ReferenceContract::parse_metadata(&normalized, native.name())?;
+            if actual.as_ref() != Some(&declared) { return Err(error(format!("{}: resolved reference contradicts actual scalar native nullability or target", native.name()))); }
+        }
+        Ok(actual)
+    } else {
+        Ok(ReferenceContract::for_contract(&FieldContract::from_field(native.clone()))?)
+    }
+}
+
+fn semantic_native_field(native: &arrow_schema::Field) -> Result<arrow_schema::Field, ProjectionCodegenError> {
+    let mut failure = None;
+    let field = pse_columnar::native_field::map(native, &mut |native| {
+        match native_reference(native) {
+            Ok(Some(reference)) => match reference.canonical() {
+                Ok(reference) => {
+                    let mut native = native.clone();
+                    native.metadata_mut().remove(keys::FK_RELATION);
+                    native.metadata_mut().remove(keys::FK_COLUMN);
+                    native.metadata_mut().insert(keys::KEY_REFERENCE.into(), reference);
+                    native
+                },
+                Err(error) => { failure.get_or_insert_with(|| error.into()); native.clone() },
+            },
+            Ok(None) => native.clone(),
+            Err(error) => { failure.get_or_insert(error); native.clone() },
+        }
+    })?;
+    if let Some(error) = failure { return Err(error); }
+    Ok(pse_columnar::native_field::project(&field, pse_columnar::native_field::MetadataPurpose::ExecutionIdentity)?)
+}
+
+fn same_typed_fact(before: Option<&Value>, after: Option<&Value>) -> Result<bool, ProjectionCodegenError> {
+    // Known v2 root facts are singular. Nested repeated fields have protobuf list
+    // semantics: constructing an empty list and decoding its absent wire spelling
+    // are equivalent. DynamicMessage::PartialEq instead compares its stored map.
+    // Use fallible encoding only inside the identical, strictly checked pool/type;
+    // this is local consistency, never cross-world semantic compatibility.
+    match (before, after) {
+        (Some(Value::Message(before)), Some(Value::Message(after))) => {
+            if !std::sync::Arc::ptr_eq(before.pool(), after.pool()) || before.message_index() != after.message_index() { return Ok(false); }
+            Ok(before.try_encode_to_vec().map_err(pse_contract_proto::MetadataError::from)? == after.try_encode_to_vec().map_err(pse_contract_proto::MetadataError::from)?)
+        },
+        _ => Ok(before == after),
+    }
 }
 
 /// Normalization for native crossing + registry execution + canonical publication.
@@ -541,7 +595,7 @@ pub(super) fn normalize_option(option: &DynamicMessage) -> Result<Option<Vec<u8>
     }
     if let Some(Value::Bytes(carrier)) = value(option, "native_field_ipc") {
         let field = native_ipc::decode(carrier)?;
-        let field = pse_columnar::native_field::project(&field, pse_columnar::native_field::MetadataPurpose::ExecutionIdentity)?;
+        let field = semantic_native_field(&field)?;
         let canonical = pse_schema::model::field::render_field(&field)?;
         let field = descriptor.field_by_name("native_field_ipc").ok_or_else(|| error("known native IPC option field is absent"))?;
         normalized.try_set(field, Value::Bytes(canonical.into_bytes())).map_err(pse_contract_proto::MetadataError::from)?;
