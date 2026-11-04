@@ -4640,7 +4640,7 @@ impl NativeFrom<
     }
 }
 /// Encode the actual native `NativeRootInput` and validate outgoing local rules.
-pub fn encode_native_root_input(
+pub(crate) fn encode_native_root_input(
     native: crate::math::native_root_protocol::RootInput,
 ) -> Result<
     crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootInput,
@@ -4649,13 +4649,13 @@ pub fn encode_native_root_input(
     encode_root(native, "NativeRootInput")
 }
 /// Adopt known `NativeRootInput` meaning under this package's declared unknown-field policy.
-pub fn decode_native_root_input(
+pub(crate) fn decode_native_root_input(
     wire: crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootInput,
 ) -> Result<crate::math::native_root_protocol::RootInput, BoundaryProjectionError> {
     decode_root(wire, "NativeRootInput")
 }
 /// Encode the actual native `NativeRootHello` and validate outgoing local rules.
-pub fn encode_native_root_hello(
+pub(crate) fn encode_native_root_hello(
     native: crate::math::native_root_protocol::Hello,
 ) -> Result<
     crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootHello,
@@ -4664,13 +4664,13 @@ pub fn encode_native_root_hello(
     encode_root(native, "NativeRootHello")
 }
 /// Adopt known `NativeRootHello` meaning under this package's declared unknown-field policy.
-pub fn decode_native_root_hello(
+pub(crate) fn decode_native_root_hello(
     wire: crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootHello,
 ) -> Result<crate::math::native_root_protocol::Hello, BoundaryProjectionError> {
     decode_root(wire, "NativeRootHello")
 }
 /// Encode the actual native `NativeRootRequest` and validate outgoing local rules.
-pub fn encode_native_root_request(
+pub(crate) fn encode_native_root_request(
     native: crate::math::native_root_protocol::Request,
 ) -> Result<
     crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootRequest,
@@ -4679,13 +4679,13 @@ pub fn encode_native_root_request(
     encode_root(native, "NativeRootRequest")
 }
 /// Adopt known `NativeRootRequest` meaning under this package's declared unknown-field policy.
-pub fn decode_native_root_request(
+pub(crate) fn decode_native_root_request(
     wire: crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootRequest,
 ) -> Result<crate::math::native_root_protocol::Request, BoundaryProjectionError> {
     decode_root(wire, "NativeRootRequest")
 }
 /// Encode the actual native `NativeRootResponse` and validate outgoing local rules.
-pub fn encode_native_root_response(
+pub(crate) fn encode_native_root_response(
     native: crate::math::native_root_protocol::Response,
 ) -> Result<
     crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootResponse,
@@ -4694,7 +4694,7 @@ pub fn encode_native_root_response(
     encode_root(native, "NativeRootResponse")
 }
 /// Adopt known `NativeRootResponse` meaning under this package's declared unknown-field policy.
-pub fn decode_native_root_response(
+pub(crate) fn decode_native_root_response(
     wire: crate::math::native_root_generated::pb::pse::native_root::v2::NativeRootResponse,
 ) -> Result<crate::math::native_root_protocol::Response, BoundaryProjectionError> {
     decode_root(wire, "NativeRootResponse")

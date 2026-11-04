@@ -17,19 +17,20 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection",
     }, &imports)?;
     let roots = ["NativeRootInput", "NativeRootHello", "NativeRootRequest", "NativeRootResponse"];
-    let adapters = boundary_projection::native_adapters(&graph, &roots, "crate::math::native_root_generated::pb::pse::native_root::v2", "pse_runtime")?;
+    let adapters = boundary_projection::native_adapters_scoped(&graph, &roots, "crate::math::native_root_generated::pb::pse::native_root::v2", "pse_runtime", boundary_projection::AdapterVisibility::Crate)?;
     super::proto_projection::insert(&mut tree, destination, "native-adapters.rs", adapters.as_bytes())?;
     for name in roots {
         let owner = graph.definitions().get(name).context("native child protocol root missing from its source graph")?;
         tree.relationships.push(provenance::SourceRelationship {
             declaration_key: name.into(), declaration_kind: "native_projection_adapter".into(),
             source_path: Some(owner.source.into()), source_symbol: Some(owner.rust_type.into()), source_role: "typed_owner".into(), source_identity: None,
-            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(), generator_symbol: "native_adapters".into(),
+            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(), generator_symbol: "native_adapters_scoped".into(),
             output_path: destination.join("native-adapters.rs").to_string_lossy().into_owned(), direction: Some(owner.direction.as_str().into()),
             contract_sections: vec!["blueprint §4.7".into()], basis: "declared".into(),
         });
     }
     let sidecar = provenance::sidecar(&super::proto_projection::producer(package), &tree.relationships)?;
-    tree.roots.extend(sidecar.roots); tree.files.extend(sidecar.files);
+    // The common publisher already declares this producer's sidecar root.
+    tree.files.extend(sidecar.files);
     Ok(tree)
 }
