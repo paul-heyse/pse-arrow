@@ -16,7 +16,7 @@ use pse_operations::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
-const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v4";
+const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v5";
 const OBSERVATION_WORK_BYTES: usize = pse_buildinfo::identity::OBSERVATION_WORK_BYTES;
 /// Refusals preserve scientific reconstruction and storage failures distinctly.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -1092,7 +1092,7 @@ struct Envelope {
 }
 // Keep the compiler payload as opaque bytes. Nesting it as a JSON number array
 // would duplicate and expand the same semantic description at the transport boundary.
-const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v4\0";
+const ENVELOPE_MAGIC: &[u8] = b"pse-admitted-body-product-v5\0";
 // Framing metadata is bounded independently of the scientific recipe and storage wire blocks.
 const MAX_METADATA_BYTES: usize = 1024 * 1024;
 const MAX_PRODUCT_BYTES: usize = ENVELOPE_MAGIC.len()
@@ -1158,6 +1158,13 @@ fn split_frame(bytes: &[u8]) -> Result<(&[u8], &[u8]), PortableError> {
 }
 fn unpack(bytes: &[u8]) -> Result<(Envelope, &[u8]), PortableError> {
     let (metadata, payload) = split_frame(bytes)?;
+    #[derive(Deserialize)]
+    struct Header { interpretation: String }
+    let header: Header = serde_json::from_slice(metadata)
+        .map_err(|error| PortableError::Qualification(error.to_string()))?;
+    if header.interpretation != INTERPRETATION {
+        return Err(PortableError::Qualification("unsupported portable envelope interpretation".into()));
+    }
     let envelope = serde_json::from_slice(metadata)
         .map_err(|error| PortableError::Qualification(error.to_string()))?;
     Ok((envelope, payload))
@@ -2580,11 +2587,23 @@ mod portable_frame_tests {
         );
     }
     #[test]
-    fn portable_body_relative_envelope_refuses_historical_v3_frame() {
-        assert_eq!(INTERPRETATION, "pse.runtime.admitted-body-product.v4");
-        let mut historical = b"pse-admitted-body-product-v3\0".to_vec();
-        historical.extend_from_slice(&0u32.to_be_bytes());
-        assert!(split_frame(&historical).is_err());
+    fn portable_body_relative_envelope_refuses_historical_frames() {
+        assert_eq!(INTERPRETATION, "pse.runtime.admitted-body-product.v5");
+        for prefix in [b"pse-admitted-body-product-v3\0", b"pse-admitted-body-product-v4\0"] {
+            let mut historical = prefix.to_vec();
+            historical.extend_from_slice(&0u32.to_be_bytes());
+            assert!(matches!(split_frame(&historical), Err(PortableError::Qualification(reason))
+                if reason == "unsupported portable envelope framing"));
+        }
+    }
+    #[test]
+    fn portable_envelope_interpretation_refuses_before_decoding_old_descriptor_shape() {
+        let metadata = br#"{"interpretation":"pse.runtime.admitted-body-product.v4","spec":{"providers":{"shapes":[]}}}"#;
+        let mut bytes = ENVELOPE_MAGIC.to_vec();
+        bytes.extend_from_slice(&(metadata.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(metadata);
+        assert!(matches!(unpack(&bytes), Err(PortableError::Qualification(reason))
+            if reason == "unsupported portable envelope interpretation"));
     }
     #[test]
     fn portable_envelope_over_wire_block_preserves_hash_and_refuses_forged_extent() {

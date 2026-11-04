@@ -296,45 +296,52 @@ impl DerivativeRequirements {
 }
 pse_contract::projection_struct! {
 /// Complete scalar physical port.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Port {
     projection: { name: "KernelProviderPort", rust_path: crate::Port,
-        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Semantic port identity.
-    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Quantity, including basis, reference and scale.
-    pub quantity: QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub quantity: QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Actual representation unit.
-    pub unit: UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub unit: UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 pse_contract::projection_struct! {
 /// Immutable registration; a declaration alone is not an executable provider.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderSpec {
     projection: { name: "KernelProviderSpec", rust_path: crate::ProviderSpec,
-        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Explicit logical arrays over scalar ABI cells; empty for all-scalar signatures.
-    pub shapes: ProviderShapes => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub shapes: ProviderShapes => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Provenance of local partials, independent of their available order.
-    pub derivative_source: DerivativeSource => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub derivative_source: DerivativeSource => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Implementation identity.
-    pub id: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub id: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Algorithm and physical interpretation revision.
-    pub revision: ContentHash => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub revision: ContentHash => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Exact parameter-data identity.
-    pub data: ContentHash => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub data: ContentHash => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Ordered scalar inputs.
-    pub inputs: Vec<Port> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [INPUT_PORTS_RULE] };
+    pub inputs: Vec<Port> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [INPUT_PORTS_RULE] };
     /// Ordered outputs from one coherent state.
-    pub outputs: Vec<Port> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [OUTPUT_PORTS_RULE] };
+    pub outputs: Vec<Port> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [OUTPUT_PORTS_RULE] };
     /// Implemented partial derivative order.
-    pub derivatives: DerivativeOrder => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub derivatives: DerivativeOrder => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Proven smooth neighborhood on the selected branch, distinct from implemented partials.
-    pub smoothness: DerivativeOrder => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    pub smoothness: DerivativeOrder => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 impl ProviderSpec {
+    /// Owned descriptor heap, excluding inline fields held by the enclosing owner.
+    pub fn heap_bytes(&self) -> usize {
+        self.inputs.capacity().saturating_add(self.outputs.capacity())
+            .saturating_mul(size_of::<Port>()).saturating_add(self.shapes.retained_bytes())
+    }
     /// Check a demand-specific executable capability against its admitted mathematical meaning.
     /// Capability may narrow; all physical, data and implementation fields stay exact.
     /// # Errors

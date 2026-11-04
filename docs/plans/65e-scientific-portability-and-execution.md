@@ -202,7 +202,7 @@ consumers; the whole descriptor world must not become a blanket mathematical pre
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | E01 | in-progress | Actual native capabilities; agreed scientific contract from 65i I01; co-designed 65a metadata | Initial concrete portable consumers are reconciled above; complete source/spec/context/receipt classification and bind each operation's inputs, support/refusal and product-use semantics before selecting projections. Preserve physical/configuration versus value-only change controls; no universal catalogue. |
-| E02 | planned | E01; narrow working 65a/65b and receiving operation from 65i I02 | Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
+| E02 | in progress | E01; narrow working 65a/65b and receiving operation from 65i I02 | First remove kernel portable descriptor mirrors while retaining contextual receipt replay and truthful interpretation changes. Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
 | E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
 | E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Source cutover separates per-handle Stop/Close from explicit Shutdown and generation cancellation. Complete generated publication, active-stop/independent-session controls and process/I/O drain acceptance; migrate all selected clients/server/fixtures without confusing mutable handle invalidation with immutable math or descriptor lifetime. |
 | E05 | in progress | E04; ADR-0243 precedes kernel and binding activation | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
@@ -305,10 +305,62 @@ capability; `EvaluateBatch` and `Batch` retain the original handle, shared invoc
 and original ordered point IDs. Raw `Vec<u64>` input bits survive generated validation until
 native per-point admission. No transferable linearization proof is introduced.
 
-E05 remains in progress pending generated publication and complete targeted controls. Native
-value/guard parity, mixed valid/refused states, shape/ordering errors, all-invalid input,
-partial native failure and actual grouped transport remain required. The action-capable control
-establishes demand fidelity separately; it cannot substitute for the production scientific group.
+**Tested, targeted on 2026-11-04:** following main-checkout generated publication
+`28f1d32c0` and the test-only API/qualification correction `c3b03b891`, the original scoped
+`scripts/pse test pse-runtime --lib --features property-coolprop` selection completed nine
+controls with zero failures, pending tests or build warnings against the zero target. Actual
+water transport preserved mixed raw NaN/envelope/phase refusals beside independent IAPWS
+values, exact capability support/refusal, original point order, replay and duplicate-frame
+refusal with surviving preparation, and native process/admission settlement. Active grouped
+Stop waited for native return; malformed final-point shape, identity, absence and nonfinite
+cells never published the first point's otherwise valid partial result. Binary raw-bit,
+default-unsupported/no-scalar-fallback and the prior four E04 lifecycle controls also passed.
+Original capture and settlement were complete under cache-off execution and actual Arrow
+consuming-closure validation. Initial discovery failed on one unavailable test API and one
+unnecessary qualification; the correction retained native active/population and admission
+assertions. E05 remains in progress for remaining scientific populations, consumer adoption
+and complete-operation measurement; these controls do not establish speedup or assembled H.
+
+## E02 native portable descriptor cutover
+
+The first E02 slice replaces `PortWire`, `ShapeWire` and `SpecWire` in the kernel portable
+owner with the actual `Port`, `ProviderShape`, `ProviderShapes` and `ProviderSpec` declarations.
+`ProviderRecord` v2 contains the native descriptor directly. Existing Serde 1.0.229
+[`Serialize`/`Deserialize` derives](https://github.com/serde-rs/serde/blob/v1.0.229/README.md)
+encode those named fields without a second native correspondence layer;
+[`deny_unknown_fields`](https://serde.rs/container-attrs.html#deny_unknown_fields) refuses
+unknown struct meaning instead of silently discarding keys. This uses the existing bounded
+JSON recipe route during this narrow migration; it does not claim the remaining Buffa
+scientific-input cutover is complete. Passive bidirectional source projection describes
+untrusted reconstructible data. Only native contextual receipt replay and exact provider-key
+comparison issue `AdmittedProvider`; no decoder constructs a factory or executable admission.
+
+The representation change is explicit: shape arrays become native named shape fields, raw
+derivative ordinals become the native enum, ProviderRecord advances to v2, admitted recipes
+to `pse.admitted-body.v3`, and runtime product envelopes/framing to v5. Bounded readers check
+interpretation headers before decoding representation-specific fields, so unsupported
+retained interpretations report incompatibility rather than masquerading as the current shape.
+The existing exact-artifact framing algorithm, provider semantic key and native scientific
+identity remain unchanged; new representation bytes naturally have a new artifact hash.
+Qualified receipt indexing and original replay authority remain intact. Shared shape accounting
+charges vector capacities and nested allocations exactly once, including retained spare slots.
+
+**Tested, targeted on 2026-11-04:** scoped cache-off `scripts/pse test pse-kernels pse-compiler
+pse-runtime --lib` selected and completed nine controls with zero failures or pending tests
+against the zero target, with original capture/settlement and actual Arrow validation complete.
+They cover real provider receipt reconstruction and independent `x*x+1` execution/refusal,
+changed descriptor-key refusal despite qualified byte membership, decoder refusal to issue
+receipt authority, unknown-field refusal, native record Data/version/direction metadata,
+shape capacity accounting, provider-free direct replay, retired recipe/envelope interpretations,
+and large opaque envelope hashing/forged extent. The initial seven-control population passed;
+a new source-projection test's misplaced module caused one discovery build failure and was
+corrected before this full nine-control rerun. Root-owned generated publication remains.
+Remaining E02 includes compiler-owned Recipe/source/physical records, generated receiving adapters and
+complete dependency/context reconstruction. E03 then replaces private root `RootWire`,
+`SourceWire`, handshake/request/response and JSON framing on the existing bounded inherited
+channel, retaining provider-free admission, original image/build/registry checks, qualified
+recipe authority, original-coordinate screening and actual process custody. No kernel/ID owner
+acquires a Buffa dependency merely to encode this transitional descriptor representation.
 
 ## Verification, extension and decision handoff
 

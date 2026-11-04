@@ -3,117 +3,54 @@
 //! Opaque immutable provider descriptions. Native factories stay attempt-owned.
 use super::*;
 use serde::{Deserialize, Serialize};
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct PortWire {
-    id: SemanticId,
-    quantity: QuantityTypeId,
-    unit: UnitId,
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct ShapeWire {
-    id: SemanticId,
-    axes: Vec<SemanticId>,
-    coordinates: Vec<Vec<SemanticId>>,
-    cells: Vec<SemanticId>,
-}
-impl From<&ProviderShape> for ShapeWire {
-    fn from(v: &ProviderShape) -> Self {
-        Self {
-            id: v.id,
-            axes: v.axes.clone(),
-            coordinates: v.coordinates.clone(),
-            cells: v.cells.clone(),
-        }
-    }
-}
-impl ShapeWire {
-    fn restore(&self) -> ProviderShape {
-        ProviderShape {
-            id: self.id,
-            axes: self.axes.clone(),
-            coordinates: self.coordinates.clone(),
-            cells: self.cells.clone(),
-        }
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct SpecWire {
-    id: SemanticId,
-    revision: ContentHash,
-    data: ContentHash,
-    inputs: Vec<PortWire>,
-    outputs: Vec<PortWire>,
-    shapes: [Vec<ShapeWire>; 2],
-    derivative_source: DerivativeSource,
-    derivatives: u8,
-    smoothness: u8,
-}
+const VERSION: u32 = 2;
+pse_contract::projection_struct! {
 /// Untrusted decoded provider data; it contains no callback, factory or native handle.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderRecord {
-    version: u32,
-    key: ContentHash,
-    spec: SpecWire,
+    projection: { name: "KernelProviderRecord", rust_path: crate::portable::ProviderRecord,
+        version: VERSION, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Representation interpretation, independent of native provider semantic identity.
+    version: u32 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: VERSION as u64, max: VERSION as u64 }] };
+    /// Original native physical/implementation key, checked again during contextual replay.
+    key: ContentHash => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Required] };
+    /// The actual native descriptor; serialized data alone never supplies executable admission.
+    spec: ProviderSpec => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Required] };
+}
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_contract::boundary_projection::{ConstructionRole, Direction, ProjectionGraph, ProjectionRecord};
+
+    #[test]
+    fn portable_record_projects_untrusted_data_with_one_owned_interpretation() {
+        let graph = ProjectionGraph::of::<ProviderRecord>().unwrap();
+        let definition = &graph.definitions()["KernelProviderRecord"];
+        assert_eq!(definition.version, VERSION);
+        assert_eq!(<ProviderRecord as ProjectionRecord>::VERSION, VERSION);
+        assert_eq!(definition.direction, Direction::Both);
+        assert_eq!(definition.construction, ConstructionRole::Data);
+        for name in ["KernelProviderPort", "KernelProviderShape", "KernelProviderShapes", "KernelProviderSpec"] {
+            assert_eq!(graph.definitions()[name].direction, Direction::Both);
+        }
+    }
 }
 impl ProviderRecord {
     /// Complete retained provider descriptor fields, excluding attempt-local factories.
     pub fn retained_bytes(&self) -> usize {
-        size_of::<Self>()
-            + self.spec.inputs.capacity() * size_of::<PortWire>()
-            + self.spec.outputs.capacity() * size_of::<PortWire>()
-            + self
-                .spec
-                .shapes
-                .iter()
-                .map(|v| v.capacity() * size_of::<ShapeWire>())
-                .sum::<usize>()
-            + self
-                .spec
-                .shapes
-                .iter()
-                .flat_map(|v| v.iter())
-                .map(|v| {
-                    size_of::<ShapeWire>()
-                        + v.axes.capacity() * size_of::<SemanticId>()
-                        + v.cells.capacity() * size_of::<SemanticId>()
-                        + v.coordinates.capacity() * size_of::<Vec<SemanticId>>()
-                        + v.coordinates
-                            .iter()
-                            .map(|v| v.capacity() * size_of::<SemanticId>())
-                            .sum::<usize>()
-                })
-                .sum::<usize>()
+        size_of::<Self>().saturating_add(self.spec.heap_bytes())
     }
     /// Capture already admitted exact provider meaning, without worker construction.
     pub fn capture(value: &AdmittedProvider) -> Self {
-        let s = value.spec();
-        let ports = |values: &[Port]| {
-            values
-                .iter()
-                .map(|v| PortWire {
-                    id: v.id,
-                    quantity: v.quantity,
-                    unit: v.unit,
-                })
-                .collect()
-        };
         Self {
-            version: 1,
-            key: s.key().0,
-            spec: SpecWire {
-                id: s.id,
-                revision: s.revision,
-                data: s.data,
-                inputs: ports(&s.inputs),
-                outputs: ports(&s.outputs),
-                shapes: [
-                    s.shapes.inputs.iter().map(ShapeWire::from).collect(),
-                    s.shapes.outputs.iter().map(ShapeWire::from).collect(),
-                ],
-                derivative_source: s.derivative_source,
-                derivatives: s.derivatives as u8,
-                smoothness: s.smoothness as u8,
-            },
+            version: VERSION,
+            key: value.spec().key().0,
+            spec: value.spec().clone(),
         }
     }
     /// Restore inside the caller-qualified physical receipt session. Port admission is
@@ -121,49 +58,16 @@ impl ProviderRecord {
     pub fn restore(&self) -> Result<AdmittedProvider, ProviderError> {
         pse_quantity::resolved::receipts::require_record(self)
             .map_err(|e| ProviderError::Contract(e.to_string()))?;
-        if self.version != 1 {
+        if self.version != VERSION {
             return Err(ProviderError::Contract(
                 "unsupported provider record".into(),
             ));
         }
-        let order = |v| match v {
-            0 => Ok(DerivativeOrder::Value),
-            1 => Ok(DerivativeOrder::First),
-            2 => Ok(DerivativeOrder::Second),
-            _ => Err(ProviderError::Contract(
-                "invalid provider derivative receipt".into(),
-            )),
-        };
-        let ports = |values: &[PortWire]| {
-            values
-                .iter()
-                .map(|v| Port {
-                    id: v.id,
-                    quantity: v.quantity,
-                    unit: v.unit,
-                })
-                .collect()
-        };
-        let s = &self.spec;
-        let spec = ProviderSpec {
-            id: s.id,
-            revision: s.revision,
-            data: s.data,
-            inputs: ports(&s.inputs),
-            outputs: ports(&s.outputs),
-            shapes: ProviderShapes {
-                inputs: s.shapes[0].iter().map(ShapeWire::restore).collect(),
-                outputs: s.shapes[1].iter().map(ShapeWire::restore).collect(),
-            },
-            derivative_source: s.derivative_source,
-            derivatives: order(s.derivatives)?,
-            smoothness: order(s.smoothness)?,
-        };
-        if spec.key().0 != self.key {
+        if self.spec.key().0 != self.key {
             return Err(ProviderError::Contract(
                 "provider record identity differs".into(),
             ));
         }
-        Ok(AdmittedProvider(spec))
+        Ok(AdmittedProvider(self.spec.clone()))
     }
 }

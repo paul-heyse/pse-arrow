@@ -108,9 +108,16 @@ impl Recipe {
     }
     fn decode(payload: &[u8]) -> Result<Self, MathError> {
         check_payload(payload)?;
+        // Interpret the bounded header before decoding representation-specific native records.
+        // An older shape is incompatible data, not corruption of the current representation.
+        #[derive(Deserialize)]
+        struct Header { interpretation: String }
+        let header: Header = serde_json::from_slice(payload).map_err(contract)?;
+        if header.interpretation != INTERPRETATION {
+            return Err(contract("unsupported admitted recipe interpretation"));
+        }
         let value: Self = serde_json::from_slice(payload).map_err(contract)?;
-        if value.interpretation != INTERPRETATION
-            || value.physical != value.spec.physical
+        if value.physical != value.spec.physical
             || value.structure != value.spec.structure
         {
             return Err(contract(
@@ -125,6 +132,13 @@ impl Recipe {
         }
         Ok(value)
     }
+}
+#[test]
+#[cfg(test)]
+fn historical_recipe_interpretation_refuses_before_decoding_old_provider_shape() {
+    let historical = br#"{"interpretation":"pse.admitted-body.v2","providers":{"spec":{"shapes":[],"derivatives":0}}}"#;
+    assert!(matches!(Recipe::decode(historical), Err(MathError::Contract(reason))
+        if reason == "unsupported admitted recipe interpretation"));
 }
 /// Capture complete owner records transiently, then retain only the exact encoded allocation.
 pub(super) fn capture(
