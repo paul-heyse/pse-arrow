@@ -110,6 +110,41 @@ extension numbers/names deliberately, validate collisions against the imported w
 retain unknown options where forwarding is the declared operation. The exact option schema
 and allocation are published in A02 before dependent generator/consumer changes.
 
+**Core metadata mechanism.** The proto2 source
+`crates/pse-contract/proto/pse/contract/v1/metadata.proto` allocates
+`pse.contract.v1.message`, `.field` and `.method` at 51065 in the distinct
+`MessageOptions`, `FieldOptions` and `MethodOptions` extension namespaces.
+`MessageMetadata` carries metadata version, Rust type/declaration-file provenance,
+owner interpretation version, direction, construction role and optional original
+action effects. `FieldMetadata` carries version, native field correspondence and
+direction; `MethodMetadata` carries version and explicit method effects. The action's
+intent and the RPC's composed intent remain separate declarations. Unspecified enum
+zero is unavailable meaning. Interoperability version 1 does not imply that every
+native owner's interpretation is version 1.
+
+Compile these ordinary sources and their complete imports with Buf, then link the
+lossless Buffa `FileDescriptorSet` into a `DescriptorPool`. Use
+[`DynamicMessage`](https://docs.rs/buffa-descriptor/0.9.2/buffa_descriptor/struct.DynamicMessage.html)
+and fallible
+[`ReflectMessageMut::try_set`](https://docs.rs/buffa-descriptor/0.9.2/buffa_descriptor/reflect/trait.ReflectMessageMut.html#method.try_set)
+to create concrete typed option messages against that acquired schema. Checked
+extendee/type matching and Buffa's unknown-field extension storage preserve unrelated
+imported options; ordinary typed Prost re-encoding is excluded. Protobuf's
+[custom-option resolution rules](https://buf.build/docs/reference/protobuf-language-spec/#options)
+define the separate extendees. The v1 adapter checks known enum numbers, field tags,
+types and explicit presence before interpreting an imported lookalike as v1.
+
+One `pse-contract::metadata` checker consumes borrowed normalized facts, with no wire
+or product dependency. Generation and descriptor inspection use that checker for
+required metadata, versions, import/reference closure, extension allocation and effect
+coherence. Old/new comparison attributes role, direction, action/method effect and
+interpretation changes under a named policy independently of wire compatibility.
+Known owner/version associations come from the actual generation graph; offline readers
+must select the immutable interpretations they have available. A missing owner interpretation
+or external domain policy remains Unknown. Rust path/file moves remain provenance
+changes. Selected registry facets use their native typed validator; the initial named
+comparison policy conservatively rejects changes to validated domain facet values.
+
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
 extension allocated at 51066 in
@@ -150,11 +185,11 @@ and [protobuf message-valued custom options](https://protobuf.dev/programming-gu
 not display comments or an untyped metadata bag.
 
 Keep actual source relationships separate. An owner path/type association is not an exact Rust
-source span. Current generated `SourceCodeInfo` entries use placeholder spans and comments for
-owner/version/direction/facets; method effects appear in documentation and an action sidecar.
-Dynamic option inspection cannot recover data carried only there. After the typed options
-serve all selected machine consumers, remove comment parsing and duplicated machine-policy
-sidecars. Human documentation may render the same metadata without becoming another authority.
+source span. A02 replaces synthetic `SourceCodeInfo` owner/facet comments and the selected
+action-effects sidecar with typed options; it retains genuine available source information in
+imported schemas. Remove any replaced comment parsing and duplicated machine-policy sidecars
+with their consuming migration. Human documentation may render the same metadata without
+becoming another authority.
 
 ### Observation is not executable authority
 
@@ -296,8 +331,8 @@ separately; passing generation establishes neither scientific fidelity nor a per
 
 ## Technical sources
 
-Current source: [graph](../../crates/pse-model/src/boundary_projection.rs),
-[owner adoption](../../crates/pse-model/src/boundary_projection/access.rs),
+Current source: [graph](../../crates/pse-contract/src/boundary_projection.rs),
+[owner adoption](../../crates/pse-contract/src/boundary_projection/access.rs),
 [lowering](../../crates/pse-codegen/src/codegen/boundary_projection.rs),
 [orchestration](../../xtask/src/codegen/engineering.rs), and
 [host wire](../../crates/pse-host/src/semantic/wire.rs). These are implementation leads to
