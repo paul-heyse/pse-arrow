@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::fmt::Write;
 
 use pse_model::boundary_projection::{
-    Definition, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
+    ConstructionRole, Definition, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 
 use super::{error, protobuf_map_key, snake_case};
@@ -49,6 +49,31 @@ fn generate(
     for name in roots {
         select(graph, name, &mut selected)?;
     }
+    for name in &selected {
+        let owner = &graph.definitions()[name];
+        let mut closure = BTreeSet::new();
+        match &owner.shape {
+            Shape::Record(fields) => for field in fields {
+                select_type(graph, &field.ty, &mut closure)?;
+            },
+            Shape::Alternatives(alternatives) => for alternative in alternatives {
+                for field in &alternative.fields {
+                    select_type(graph, &field.ty, &mut closure)?;
+                }
+            },
+            Shape::StringEnum(_) => {},
+        }
+        if let Some(child) = closure.iter().find(|child|
+            graph.definitions()[*child].construction == ConstructionRole::ObservationOnly)
+        {
+            return Err(error(format!("{name} contains observation-only native owner {child}; expose passive snapshot fields instead of reconstructing or moving live custody")));
+        }
+        if owner.construction == ConstructionRole::ObservationOnly
+            && !matches!(owner.shape, Shape::Record(_))
+        {
+            return Err(error(format!("{name}: borrowed observation requires a record accessor")));
+        }
+    }
     let generator = Generator {
         wire_root,
         owner_crate,
@@ -64,6 +89,12 @@ fn generate(
         let wire = generator.wire(&[(*name).into()]);
         let method = snake_case(name);
         let visibility = if retained_wire { "pub(super)" } else { "pub" };
+        if definition.construction == ConstructionRole::ObservationOnly {
+            let _ = writeln!(out,
+                "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_model::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = native_into(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
+            );
+            continue;
+        }
         let _ = writeln!(
             out,
             "/// Encode the actual native `{name}` and validate outgoing local rules.\n{visibility} fn encode_{method}(native: {native}) -> Result<{wire}, BoundaryProjectionError> {{ encode_root(native, {name:?}) }}\n"
@@ -296,14 +327,23 @@ impl Generator<'_> {
                     .enumerate()
                     .map(|(index, _)| format!("field_{index},"))
                     .collect::<String>();
-                let layout =
-                    self.layout(&native, fields, owner.version, None, owner.checked_record);
-                let accessor = if owner.checked_record {
+                let observation = owner.construction == ConstructionRole::ObservationOnly;
+                let layout = if observation {
+                    let layout = fields.iter().map(|field| format!("({}, {:?})", field.tag, field.name)).collect::<Vec<_>>().join(",");
+                    format!("layout(<{native} as pse_model::boundary_projection::ProjectionObservationRecord>::VERSION, <{native} as pse_model::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT, {}, &[{layout}], path)?;", owner.version)
+                } else {
+                    self.layout(&native, fields, owner.version, None, owner.checked_record)
+                };
+                let accessor = if observation {
+                    "ProjectionObservationRecord"
+                } else if owner.checked_record {
                     "CheckedProjectionRecord"
                 } else {
                     "ProjectionRecord"
                 };
-                let extract = if owner.checked_record {
+                let extract = if observation {
+                    format!("pse_model::boundary_projection::{accessor}::observation_fields(self).map_err(|error| error.at(path))?")
+                } else if owner.checked_record {
                     format!(
                         "pse_model::boundary_projection::{accessor}::try_into_projection_fields(self).map_err(|error| error.at(path))?"
                     )
@@ -313,6 +353,12 @@ impl Generator<'_> {
                     )
                 };
                 let encode = self.fields_encode(fields, &message)?;
+                if observation {
+                    let _ = writeln!(out,
+                        "impl NativeInto<{wire}> for &{native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
+                    );
+                    return Ok(());
+                }
                 let decode = self.fields_decode(fields, &message)?;
                 let unknown = self.unknown_guard("wire", "path");
                 let _ = writeln!(

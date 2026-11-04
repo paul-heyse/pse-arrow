@@ -26,7 +26,7 @@ mod tuple;
 mod tuple_pair;
 pub use access::{
     Adapted, AdapterError, AdapterFailure, CheckedProjectionRecord, ProjectionAdapter,
-    ProjectionAlternative, ProjectionRecord, SharedAdapter, adapter_source_path,
+    ProjectionAlternative, ProjectionObservationRecord, ProjectionRecord, SharedAdapter, adapter_source_path,
     clone_adapter_field, validate_adapted,
 };
 pub use float_collections::NativeContainer;
@@ -238,6 +238,15 @@ pub enum Shape {
 }
 
 /// Source-owned stable projection declaration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConstructionRole {
+    /// Reconstructible data; any contextual admission remains with its native owner.
+    Data,
+    /// Borrowed observations of a live owner, with no inverse native construction.
+    ObservationOnly,
+}
+
+/// Source-owned stable projection declaration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Definition {
     /// Stable public message name, independent of its Rust module.
@@ -262,6 +271,8 @@ pub struct Definition {
     pub checked_record: bool,
     /// Intrinsic container facts supplied by the checked standard-container owner.
     pub native_container: Option<NativeContainer>,
+    /// Native construction policy, independent of public input/output direction.
+    pub construction: ConstructionRole,
 }
 
 /// One actual unary service boundary, resolved in the same descriptor world.
@@ -683,10 +694,37 @@ impl ProjectionGraph {
             shape: result?,
             checked_record: false,
             native_container: None,
+            construction: ConstructionRole::Data,
         };
         validate_definition(&definition, &self.definitions)?;
         self.definitions.insert(name.into(), definition);
         Ok(TypeRef::Named(name.into()))
+    }
+
+    /// Declare borrowed observation access at the actual native owner.
+    /// # Errors
+    /// The root must identify this exact record and cannot also use checked adoption.
+    pub fn observation_record<T: ProjectionObservationRecord>(
+        &mut self,
+        root: &TypeRef,
+    ) -> Result<(), ProjectionError> {
+        let TypeRef::Named(name) = root else {
+            return Err(ProjectionError::invalid("observation", "a named record is required"));
+        };
+        if self.building.get(name).is_some_and(|owner| *owner == std::any::type_name::<T>()) {
+            // Recursive registration completes the same outer declaration, which
+            // installs the role after its actual fields have been resolved.
+            return Ok(());
+        }
+        let owner = self.definitions.get_mut(name)
+            .ok_or_else(|| ProjectionError::invalid(name, "observation owner is unresolved"))?;
+        if owner.rust_type != std::any::type_name::<T>()
+            || !matches!(owner.shape, Shape::Record(_)) || owner.checked_record
+        {
+            return Err(ProjectionError::invalid(name, "observation access must identify its actual native record"));
+        }
+        owner.construction = ConstructionRole::ObservationOnly;
+        Ok(())
     }
 
     /// Attach the checked foreign-record access contract to its actual typed carrier.
@@ -714,6 +752,9 @@ impl ProjectionGraph {
                 name,
                 "checked access must identify its actual record carrier",
             ));
+        }
+        if owner.construction == ConstructionRole::ObservationOnly {
+            return Err(ProjectionError::invalid(name, "observation owner has no checked inverse adoption"));
         }
         owner.checked_record = true;
         Ok(())

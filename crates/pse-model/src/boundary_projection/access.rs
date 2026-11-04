@@ -248,6 +248,22 @@ pub trait ProjectionRecord: Sized {
     fn from_projection_fields(fields: Self::Fields) -> Result<Self, AdapterError>;
 }
 
+/// Borrow facts from an owner without consuming its custody or exposing an inverse
+/// constructor. Passive, independently decodable observations may separately use
+/// `ProjectionRecord`; implementing this trait never reconstructs the live owner.
+pub trait ProjectionObservationRecord {
+    /// Owner-declared interpretation version.
+    const VERSION: u32;
+    /// Exact snapshot field layout.
+    const FIELD_LAYOUT: &'static [(u32, &'static str)];
+    /// Passive snapshot fields, independent of the owner's live resources.
+    type Fields;
+    /// Capture observations while leaving native custody with the original owner.
+    /// # Errors
+    /// Missing or unavailable observations retain their original typed refusal.
+    fn observation_fields(&self) -> Result<Self::Fields, AdapterError>;
+}
+
 /// An actual alternative selected by its explicitly declared stable tag.
 pub trait ProjectionAlternative<const TAG: u32>: Sized {
     /// Interpretation version co-declared by the owner.

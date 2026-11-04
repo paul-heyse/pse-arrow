@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 
 mod duration;
 mod float_collections;
+mod observation;
 
 #[test]
 fn optional_text_byte_limits_keep_protobuf_presence_and_exact_byte_rules() {
