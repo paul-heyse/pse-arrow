@@ -25,8 +25,8 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
     };
 
     let store = pse_operations::testing::canonical_fixture_store().unwrap();
-    let (service, _spill) = super::tests::service_on(Some(store.clone()));
-    let source = super::tests::admitted(&service).await;
+    let (service, _spill) = tests::service_on(Some(store.clone()));
+    let source = tests::admitted(&service).await;
     let page = service
         .inspect_source(
             EngineeringInspectSource {
@@ -54,7 +54,7 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
                 output: StudyOutputDemand::Full {},
                 inputs: StudyInputs::Explicit(vec![StudyPoint {
                     operation: crate::workflow::OperationRequest::DeclaredCase(CaseOperation {
-                        case,
+                        case: case.into(),
                         route: ModelingAnalysisRoute::Steady,
                         settings: crate::math::settings::SolveSettings {
                             intent: pse_backend_native::solve::SolveIntent::Root,
@@ -134,7 +134,7 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
             .cancelled
     );
 
-    let (reader, _reader_spill) = super::tests::service_on(Some(store.clone()));
+    let (reader, _reader_spill) = tests::service_on(Some(store.clone()));
     let recovered = reader.submit_study(submitted.clone()).await.unwrap();
     assert_eq!(recovered.value.canonical.as_ref(), Some(&before));
     // Local retention names can be reused in a new frontend. Their current data must

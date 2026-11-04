@@ -335,10 +335,16 @@ joint-fitting numerical-context correction and versioned atomic-capture implemen
 are preserved. Later corrective edits also remain in the working tree. This does not
 establish completion of D–G or the finite scientific population.
 
-**Tested, partial:** selected compiler and fitting controls passed, as did the frozen-v3
+**Tested, historical partial checkpoint:** selected compiler and fitting controls passed, as did the frozen-v3
 migration journey. Steam equipment admission still fails; ordinary capture controls
 still have stack overflows, and the large-capture correction is not qualified. Every
 failure is against the zero-failure baseline, not an accepted allowance.
+
+Current joint execution has repaired the ordinary capture stack failures; the latest
+[G08 evidence](64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
+retains the unresolved 10,000-member timeout/drain result. Fresh captured-input steam cases
+now expose the [K05 physical-context and authored-operation gaps](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04).
+These current owners supersede the historical failure descriptions above.
 
 **Not run / deferred by explicit instruction:** Clippy (including keep-going workspace,
 native-feature and WASI coverage), hygiene, codegen comparison, additional regressions,

@@ -226,12 +226,23 @@ accounted-versus-RSS limitations remain explicit in their retained source record
 
 K01–K04 therefore contain implemented and targeted tested protocol, process and water-proxy
 slices, but their complete package acceptance and final generated-world reconciliation
-remain open. K05 is not complete: the selected three direct and three worker pump/turbine
-tests most recently failed during shared package admission on duplicate Water CAS identity,
-before equipment science executed. The source correction gives the water CAS one
-authoritative typed declaration and retains the wrong-CAS refusal. It has not been verified
-with a freshly captured scientific-input capsule and an equipment rerun. Earlier missing-data
-and predicate failures remain historical attempts, not evidence of a passing repair.
+remain open. K05 is not complete. A fresh scientific-input capsule now supplies both the
+captured physical package and the actual authored steam/oracle closure. The three direct
+equipment cases reach a nominal `VolumeFlow` mismatch for `flow/rho`; the three worker cases
+refuse the current hard-coded standard-registry profile before execution. The standalone
+document-ingress case also lacks its captured physical type declarations. Duplicate Water
+CAS is no longer the current failure. Complete the authored operation/type closure and carry
+actual unadmitted physical declarations through generated worker preparation, followed by
+native builder admission and exact descriptor/context checks. Do not restore a synthetic
+registry or weaken nominal physical meaning to pass these cases.
+
+The targeted `pse-runtime --lib` steam/inspection selection with `engineering-service,
+native-study-tests,product-reader,property-coolprop,solver-kinsol` completed nine controls:
+one passed and eight failed against zero failures. Seven failures are the scientific cases
+above; the inspection byte-reencoding assertion incorrectly assumed canonical protobuf map
+ordering and has been corrected to check wire and native meaning, pending its rerun. Original
+capture/native settlement completed. These results do not establish equipment execution,
+placement equivalence or benefit. Earlier missing-data/predicate failures remain historical.
 
 Joint execution at main `83485d6f6` consumes Plan65 E04/E05's current shared protocol:
 process-wide explicit Shutdown, handle-scoped Stop/Close and capability-declared EvaluateBatch.

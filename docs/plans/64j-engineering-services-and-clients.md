@@ -244,7 +244,13 @@ present in the working tree, with acceptance boundaries that differ from that pa
   original-worker completion remain required. This Study worker is distinct from 64k's
   water-property worker.
 
-Remaining J work is expanded generation and RPC linkage, latest native/session/provider
+Study and inspection RPC modules are linked in the current native service; their presence
+does not qualify the independent clients. The remaining unlinked population is the two
+J06 client modules. The three-phase Study client also needs a coordinator retaining one
+original keeper across submit, frontend replacement/recovery and original-worker completion;
+fresh per-invocation database fixtures would invalidate that journey.
+
+Remaining J work is complete generated-consumer adoption, latest native/session/provider
 controls, keeper preparation/lifecycle controls, both J06 client journeys and G08-backed
 protected readback, followed by remaining migration/deletion and enduring publication.
 Provider inspection's newly added closed-caller and pre-clone storage-bound controls are

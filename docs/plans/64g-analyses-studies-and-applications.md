@@ -167,11 +167,11 @@ capture and the three stack controls ran **4 tests: 1 passed, 3 failed**, invoca
 
 | Test / discriminator | Latest evidence and next obligation |
 | --- | --- |
-| `capture_all_unavailable_members_retain_the_named_parent_summary` | Ordinary execution still aborts with stack overflow after claim/finalization future boxing. A debugger child passed the same captured case, but did not yield an overflow stack; its wrapper failed after `bt` on normal exit. Compare actual launch environments and capture the failing stack; do not treat the debugger run as acceptance. |
-| `capture_opaque_public_ids_and_protection_tuple_keys_do_not_alias` | Ordinary execution still aborts with stack overflow. |
-| `capture_and_absent_protection_retirement_are_fenced_in_both_commit_orders` | Ordinary execution still aborts with stack overflow. Both commit-order acceptance obligations remain open. |
-| `capture_future_member_and_selector_metadata_commit_before_capture_force_complete_retry` | Broader batch failed during fixture initialization with an h2 body/connection error. Cause and actual future-match acceptance remain unresolved. |
-| `capture_native_10000_members_preserves_complete_bounded_pages_and_receipt` | Pre-optimization run hit the strict one-second module epoch timeout, then unresolved absent receipt/drain timeout. The optimized 10,000-member rerun never executed: its pending launcher was canceled before fixture creation, exit 143. |
+| `capture_all_unavailable_members_retain_the_named_parent_summary` | Passed after removing duplicated inline child-future storage from clock/settlement wrappers. Original ordinary execution now completes without the historical stack overflow. |
+| `capture_opaque_public_ids_and_protection_tuple_keys_do_not_alias` | Passed on the same ordinary targeted route, including opaque identities and protection tuples. |
+| `capture_and_absent_protection_retirement_are_fenced_in_both_commit_orders` | Passed both orders after the fixture sealed the failed Study and explicitly withdrew its real Study-retention obligation. The control first proves retirement is refused while that obligation exists, and verifies successful retirement after capture drain. No retention guard was relaxed. |
+| `capture_future_member_and_selector_metadata_commit_before_capture_force_complete_retry` | Passed with the actual native fixture; the historical h2 initialization failure is no longer the current acceptance result. |
+| `capture_native_10000_members_preserves_complete_bounded_pages_and_receipt` | The actual optimized 10,000-member rerun failed on the unchanged one-second module epoch limit, uncertain capture readback and canonical connection drain. The epoch trap does not establish when Rust host SQL stopped. Phase/rollback and long-host-SQL cancellation probes are now required before choosing an optimization or the existing authored-transaction alternative. |
 
 The preserved optimization keeps all captured arrays and bulk inserts inside one fixed
 host-SQL transaction block; only the typed request and bounded receipt/refusal cross
@@ -189,6 +189,15 @@ historical deployment or a full migration population. The legacy helper's latest
 fixture correction restores two original count-seal events; that final overlay needs
 a rerun. Obsolete Busy refusal/classifier/retry remnants still require retirement once
 replacement controls pass. G08 and DA-063 are not closed.
+
+The latest ordinary targeted selection completed 15 controls: 14 passed and the
+10,000-member control failed, against zero failures, using `scripts/pse test pse-operations
+--lib --features canonical-tests,canonical-maintenance,native-service`. It includes seven
+clock/settlement layout and lifecycle controls, the capture discriminators above, lost-ACK
+replay and two shared/sealed append regressions. No stack overflow recurred. Original runner
+capture and outer native settlement completed; the large case reported its canonical
+connection-drain failure. One compiler Send proof-depth warning remains under correction.
+This is targeted progress, not complete G08, migration or throughput qualification.
 
 Clippy, hygiene, final generated comparison and further regressions/campaigns were
 explicitly skipped; the

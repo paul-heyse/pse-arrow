@@ -8,6 +8,33 @@ use pse_backend_native::coolprop::{self, WaterRegime};
 use pse_model::generated::enums::ModelingDeclarationKind as DeclarationKind;
 use std::collections::BTreeSet;
 
+async fn steam_physical(runtime: &Runtime) -> PhysicalContext {
+    use pse_admission::authoring_driver::document::{
+        OwnedDocumentSet, load_package_documents_owned,
+    };
+    let token = pse_columnar::CancellationToken::new();
+    let pool = runtime.shared.pool();
+    let bundle = load_package_documents_owned(
+        &crate::scientific_inputs::package_documents("packages/reference/physical"),
+        runtime.registry(),
+        Default::default(),
+        &pool,
+        &token,
+        &runtime.validation_context(),
+    )
+    .unwrap();
+    let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token).unwrap();
+    // Provider units and caloric datum come from the same captured source closure
+    // as the authored equipment, rather than the synthetic standard registry.
+    let physical = runtime
+        .physical_from_documents(&documents, &token)
+        .await
+        .unwrap();
+    assert!(physical.package.is_some());
+    assert!(physical.documents.is_some());
+    physical
+}
+
 async fn steam_package(
     runtime: &Runtime,
     physical: PhysicalContext,
@@ -64,7 +91,7 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) {
     let child_observations = Arc::new(Mutex::new(Vec::new()));
     let runtime = fixture::runtime_with_workspace(128 << 20);
     let services = runtime.execution_services();
-    let physical = fixture::physical();
+    let physical = steam_physical(&runtime).await;
     let registrations: BTreeMap<_, _> = [WaterRegime::Liquid, WaterRegime::Vapor]
         .into_iter()
         .map(|regime| {
@@ -257,7 +284,7 @@ async fn document_ingress_uses_explicit_prepared_water_without_a_second_source_p
         OwnedDocumentSet, load_package_documents_owned,
     };
     let runtime = fixture::runtime();
-    let physical = fixture::physical();
+    let physical = steam_physical(&runtime).await;
     let provider = coolprop::registration(physical.quantities(), WaterRegime::Vapor).unwrap();
     let source = format!(
         "package water_point {{ fn pressure(T:Temperature,rho:Density)->Pressure external \"coolprop8-water-vapor\" revision \"{}\" data \"{}\" output 0 derivatives 2 source analytic smoothness 2; def Point {{ var result:Pressure; eq binding:result==pressure(500{{K}},{}{{mol/m^3}}); annotation start result(100000{{Pa}}); annotation nominal result(100000{{Pa}}); }} test point fixture {{ dof 0; route steady; procedure solve; }} {{ child root:Point=Point(); expect root.result==99967.9423{{Pa}} tolerance 0.02{{Pa}}; }} }}",

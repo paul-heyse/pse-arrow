@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Owned transport of source editing and nonexecuting selected-revision inspection.
 #[cfg(test)]
+#[path = "inspection_generated_tests.rs"]
+mod inspection_generated_tests;
+#[cfg(test)]
 #[path = "inspection_tests.rs"]
 mod inspection_tests;
 use pse_ids::SemanticId;

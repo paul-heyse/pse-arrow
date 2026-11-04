@@ -592,6 +592,37 @@ proposed ADR before implementation. Neither an artifact digest nor successful lo
 may mint this authority. The existing recipe leaf remains unchanged until a complete approved
 replacement and its original reconstruction/refusal controls are in place.
 
+### Native membership prerequisite integration
+
+Main `f3e298eea` integrates the bounded prerequisite. Data-only
+`NativeMembershipLimits`/`NativeMembershipCounts` expose Serde traversal extents;
+`RecordAuthority::from_authenticated_native_root` remains unsafe and builds its own sorted
+index from the borrowed native root. No caller-supplied index is accepted. Native membership
+queries reuse the same normalizer, while typed budget/profile failures retain their source
+through quantity, modeling, kernel and compiler restoration. Production JSON v3 remains the
+live route; the monomorphic binary canonical/private receivers are test-only. Their by-value
+reconstruction consumes the same Recipe that was indexed and retains original binary bytes
+separately from the active JSON leaf.
+
+**Tested, targeted before main integration:** `scripts/pse test pse-ids --lib -E
+'test(scientific_replay::)'` passed 18/18; `scripts/pse test pse-compiler --lib -E
+'test(scientific_recipe_native_) | test(scientific_recipe_owned_and_borrowed_) |
+test(scientific_recipe_source_graph_)'` passed 10/10, zero failures, pending records or build
+warnings. Conditions were configured unbounded placement, cache off, prepared compiler/solver
+and complete original capture/native settlement. Controls include the actual Recipe's full
+surviving-node DOM differential, scalar binary reconstruction, local digest/interpretation/
+context refusals, and component replay with two real inference operations and two declaration
+boundaries: positive complete drain and missing/extra/reordered streams. That component scope
+does not claim the scalar body consumed those operations. The independent implementation
+review closed two prerequisite defects: erased prepared-provider membership errors and moving
+vector-growth overlap. Counts now cover three times counted traversal slots and actual owned
+key capacities; they do not bound decoded roots, validation, adoption or complete RSS.
+
+The isolated checkout was retired after its committed 18-file content matched main exactly;
+its original evidence is retained outside the checkout. Provider population, nonempty
+mathematical-proof ordering, real canonical/private authentication and full receiving admission
+remain open. No production activation or complete F01–F03 acceptance follows.
+
 The initial F03 envelope remains unresolved. The complete native Recipe graph is now available;
 its generated wire profile, retained capacities and pre-admission bounds still require realization.
 The selected source-derived traversal can use Buffa 0.9.2

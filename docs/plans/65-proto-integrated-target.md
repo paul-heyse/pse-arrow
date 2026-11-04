@@ -366,9 +366,15 @@ retired with them; retained invocation stores and the full developer evidence ex
 the checkouts were preserved. Historical incomplete/unavailable custody records keep that
 meaning. Administrative cleanup does not close product lifecycle or qualification obligations.
 
-Continue from main with the actual Recipe graph and one shared generated output/configuration
-for publication and borrowed adapters. Complete the same-root receiving/indexing and original
-workspace admission/restoration obligations before activating the protobuf Recipe. A05/E02/E03,
+Main now publishes that graph through one shared output/configuration in `3865ba77c` and
+integrates the independently reviewed native membership prerequisite in `f3e298eea`.
+[65e](65e-scientific-portability-and-execution.md#native-membership-prerequisite-integration)
+owns its targeted evidence and limits. The prerequisite checkout was removed after exact
+content reconciliation; the separate Study lifecycle checkout remains active for its
+generated-client/keeper integration. Integration and final verification remain on main.
+
+Continue with actual canonical/private receiving integration and original workspace
+admission/restoration before activating the protobuf Recipe. A05/E02/E03,
 the remaining C/D/F/G/I/J populations and H assembled qualification retain their native owners;
 this handoff does not mark the Plan65 series complete.
 
