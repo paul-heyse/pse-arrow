@@ -76,80 +76,92 @@ impl RedactionPolicy {
         }
     }
 }
+pse_contract::projection_struct! {
 /// A source label resolved through the source's native span reader.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 pub struct LabelRecord {
+    projection: { name: "DiagnosticLabel", rust_path: crate::envelope::LabelRecord, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Label description, when supplied.
-    pub label: Option<String>,
+    pub label: Option<String> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Whether the native diagnostic marks the primary label.
-    pub primary: bool,
+    pub primary: bool => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original UTF-8 source byte offset.
-    pub byte_offset: usize,
+    pub byte_offset: usize => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original UTF-8 source byte extent.
-    pub byte_length: usize,
+    pub byte_length: usize => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Source-owned document name, including inherited related context.
-    pub source: Option<String>,
+    pub source: Option<String> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Zero-based source-reader line.
-    pub line: Option<usize>,
+    pub line: Option<usize> => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Zero-based source-reader column; its unit is retained explicitly.
-    pub column: Option<usize>,
+    pub column: Option<usize> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// miette's source-reader coordinate unit.
-    pub column_encoding: String,
+    pub column_encoding: String => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original inability to resolve the requested span.
-    pub unavailable: Option<String>,
+    pub unavailable: Option<String> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Source-owned authored location, without a product/model dependency.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 pub struct LocationRecord {
+    projection: { name: "DiagnosticLocation", rust_path: crate::envelope::LocationRecord, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Semantic source occurrence identity.
-    pub source: [u8; 16],
+    pub source: [u8; 16] => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Immutable revision when known.
-    pub revision: Option<[u8; 32]>,
+    pub revision: Option<[u8; 32]> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Actual source document identity when supplied.
-    pub document: Option<[u8; 16]>,
+    pub document: Option<[u8; 16]> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Source role when supplied.
-    pub occurrence_role: Option<String>,
+    pub occurrence_role: Option<String> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original role-local position.
-    pub occurrence_position: Option<u32>,
+    pub occurrence_position: Option<u32> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original authored path.
-    pub path: String,
+    pub path: String => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original display name.
-    pub name: Option<String>,
+    pub name: Option<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Inclusive UTF-8 byte offset.
-    pub start: Option<u32>,
+    pub start: Option<u32> => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exclusive UTF-8 byte offset.
-    pub end: Option<u32>,
+    pub end: Option<u32> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_enum! {
 /// Numbers never silently turn nonfinite observations into JSON null.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ObservationValue {
+    projection: { name: "DiagnosticObservation", rust_path: crate::envelope::ObservationValue, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Absent evidence.
-    Missing,
+    Missing => 1;
     /// Finite numerical value.
-    Number(f64),
+    Number(f64) => 2;
     /// Explicit IEEE nonfinite classification.
-    NonFinite(pse_diagnostics::NonFinite),
+    NonFinite(pse_diagnostics::NonFinite) => 3;
     /// Exact count.
-    Integer(i64),
+    Integer(i64) => 4;
     /// Checked predicate.
-    Boolean(bool),
+    Boolean(bool) => 5;
     /// Native text, redacted according to its source policy.
-    Text(String),
+    Text(String) => 6;
     /// Complete registered operand contracts.
-    Contracts(Vec<pse_diagnostics::OperandContract>),
+    Contracts(Vec<pse_diagnostics::OperandContract>) => 7;
 }
+}
+pse_contract::projection_struct! {
 /// Structured native attribution, separate from rendered text.
 #[derive(Clone, Debug, Default, Serialize, serde::Deserialize, JsonSchema)]
 pub struct FactsRecord {
+    projection: { name: "DiagnosticFacts", rust_path: crate::envelope::FactsRecord, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Original semantic sources, preserving order and occurrences.
-    pub sources: Vec<[u8; 16]>,
+    pub sources: Vec<[u8; 16]> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original authored locations.
-    pub locations: Vec<LocationRecord>,
+    pub locations: Vec<LocationRecord> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Registered rule spelling when supplied.
-    pub rule: Option<String>,
+    pub rule: Option<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Named native observations.
-    pub observations: BTreeMap<String, ObservationValue>,
+    pub observations: BTreeMap<String, ObservationValue> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl FactsRecord {
     fn capture(facts: DiagnosticFacts, policy: &RedactionPolicy) -> Self {
@@ -210,23 +222,29 @@ impl FactsRecord {
         }
     }
 }
+pse_contract::projection_struct! {
 /// Owner-supplied context and safe recovery advice for a classified refusal.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 pub struct RecoveryRecord {
+    projection: { name: "DiagnosticRecovery", rust_path: crate::envelope::RecoveryRecord, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// The owner-classified operation that failed.
-    pub operation: String,
+    pub operation: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Safe resolved operand, when known.
-    pub operand: Option<crate::investigation::NativePath>,
+    pub operand: Option<crate::investigation::NativePath> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Effective input's contributing provider, when known.
-    pub origin: Option<crate::investigation::config::InputOrigin>,
-    /// Internal selector identity consumed before public attribution; never serialized.
-    #[serde(skip)]
-    #[schemars(skip)]
-    pub selection: Option<Box<crate::investigation::SelectionContext>>,
+    pub origin: Option<crate::investigation::config::InputOrigin> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Cause independent of rendered text and raw operating-system numbers.
-    pub cause: RecoveryCause,
+    pub cause: RecoveryCause => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Advice only; never automatically executed.
-    pub next: Option<super::NextAction>,
+    pub next: Option<super::NextAction> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    @local {
+        /// Internal selector context; decoding public observations never restores it.
+        #[serde(skip)]
+        #[schemars(skip)]
+        pub selection: Option<Box<crate::investigation::SelectionContext>> = None => check:
+            |_: &Option<Box<crate::investigation::SelectionContext>>, _: &str| Ok::<(), pse_contract::boundary_projection::ValidationError>(());
+    }
+}
 }
 impl RecoveryRecord {
     /// Apply the original disclosure before downstream consumers can use a correction.
@@ -260,58 +278,64 @@ impl RecoveryRecord {
         self
     }
 }
+pse_contract::projection_enum! {
 /// Source and prepared-context causes retain their different premises.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RecoveryCause {
+    projection: { name: "DiagnosticRecoveryCause", rust_path: crate::envelope::RecoveryCause, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// An explicitly selected working root was absent before execution.
-    MissingRoot,
+    MissingRoot => 1;
     /// An observed source disappeared before acquisition finished.
-    SourceDisappeared,
+    SourceDisappeared => 2;
     /// Access was denied by the filesystem.
-    PermissionDenied,
+    PermissionDenied => 3;
     /// The observed source changed during acquisition.
-    SourceChanged,
+    SourceChanged => 4;
     /// Another native filesystem failure, without guessing its domain meaning.
-    InputOutput,
+    InputOutput => 5;
     /// Prepared-world owner supplied its specific reason.
-    Native(crate::semantic::FailureReason),
+    Native(crate::semantic::FailureReason) => 6;
+}
 }
 
+pse_contract::projection_struct! {
 /// Owned versioned projection. Independent relationships preserve every occurrence.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 pub struct ErrorRecord {
+    projection: { name: "ErrorRecord", rust_path: crate::envelope::ErrorRecord, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Diagnostic record version.
-    pub version: u32,
+    pub version: u32 => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Native message after source-aware redaction.
-    pub message: String,
+    pub message: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Registered semantic code or external diagnostic's original code.
-    pub code: Option<String>,
+    pub code: Option<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Native registered failure class, when known.
-    pub class: Option<String>,
+    pub class: Option<String> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Severity from the native protocol.
-    pub severity: Option<String>,
+    pub severity: Option<String> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Native actionable help.
-    pub help: Option<String>,
+    pub help: Option<String> => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Native URL, serialized with standard JSON escaping.
-    pub url: Option<String>,
+    pub url: Option<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Native structured attribution.
-    pub facts: FactsRecord,
+    pub facts: FactsRecord => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Ordered typed diagnostic children, without deduplication.
-    pub children: Vec<ErrorRecord>,
+    pub children: Vec<ErrorRecord> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Ordinary std::error causes, independently of diagnostic delegation.
-    pub causes: Vec<String>,
+    pub causes: Vec<String> => { tag: 10, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// miette diagnostic_source delegation, independently of ordinary sources.
-    pub diagnostic_source: Option<Box<ErrorRecord>>,
+    pub diagnostic_source: Option<Box<ErrorRecord>> => { tag: 11, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Related diagnostics, with inherited source context.
-    pub related: Vec<ErrorRecord>,
+    pub related: Vec<ErrorRecord> => { tag: 12, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Resolved original labels.
-    pub labels: Vec<LabelRecord>,
+    pub labels: Vec<LabelRecord> => { tag: 13, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Parser's structured ErrorKind/context rather than only its rendered string.
-    pub parser_context: BTreeMap<String, String>,
+    pub parser_context: BTreeMap<String, String> => { tag: 14, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Optional recovery facts from the owner that knows the failed operation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery: Option<Box<RecoveryRecord>>,
+    pub recovery: Option<Box<RecoveryRecord>> => { tag: 15, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl ErrorRecord {
     /// Capture a typed native diagnostic without flattening its aggregate structure.

@@ -621,28 +621,31 @@ pub struct FailureContext {
     /// Original operand where known.
     pub operand: Option<crate::investigation::NativePath>,
 }
+pse_contract::projection_enum! {
 /// Context meaning supplied by its actual native owner.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FailureReason {
+    projection: { name: "FailureReason", rust_path: crate::semantic::FailureReason, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Prepared tool is absent.
-    ToolUnavailable,
+    ToolUnavailable => 1;
     /// Selected session is absent or drained.
-    SessionUnavailable,
+    SessionUnavailable => 2;
     /// Prepared configuration changed.
-    ConfigurationChanged,
+    ConfigurationChanged => 3;
     /// Original source changed.
-    SourceChanged,
+    SourceChanged => 4;
     /// File is outside the prepared world.
-    OutsidePreparedWorld,
+    OutsidePreparedWorld => 5;
     /// File has no active module.
-    InactiveSource,
+    InactiveSource => 6;
     /// No precise original mapping exists.
-    OriginalMappingUnavailable,
+    OriginalMappingUnavailable => 7;
     /// Selected fact is unsupported.
-    UnsupportedFact,
+    UnsupportedFact => 8;
     /// Native provider failed.
-    ProviderFailed,
+    ProviderFailed => 9;
+}
 }
 /// Distinguish explicit preparation, unsupported capability, cancellation and revision invalidation.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]

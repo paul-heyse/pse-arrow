@@ -276,7 +276,7 @@ async fn perform(
                 },
             )
             .await?;
-        report.inventory = Some("inventory/inventory.json".into());
+        report.record_inventory(destination)?;
         report.fixture_requirements = listed.requirements.clone();
         report.selected_tests = Some(listed.inventory.selected_tests_iter().count());
         report.required_capture_complete &= listed.inventory.required_capture_complete;

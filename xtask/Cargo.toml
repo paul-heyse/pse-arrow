@@ -45,7 +45,8 @@ force-validate = [
 native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = []
 native-abi = ["dep:bindgen"]
-full-codegen = ["package-fixtures", "native-abi", "evidence-tools"]
+full-codegen = ["package-fixtures", "native-abi", "evidence-tools", "host-contracts"]
+host-contracts = ["dep:pse-host"]
 evidence-tools = [
   "dep:pse-operations",
   "dep:pse-engine",
@@ -105,6 +106,7 @@ property-coolprop = [
 ]
 
 [dependencies]
+pse-host = { workspace = true, optional = true }
 pse-contract.workspace = true
 buffa.workspace = true
 buffa-descriptor.workspace = true

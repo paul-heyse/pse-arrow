@@ -475,6 +475,11 @@ pub(crate) async fn validate_report(
             )));
         }
         facts.validate_against(&terminal).map_err(host)?;
+        facts.require_current().map_err(host)?;
+        if facts.inventory.is_some() {
+            let bytes = crate::test_inventory::read_original_inventory(&parent)?;
+            facts.validate_inventory(&bytes).map_err(host)?;
+        }
         Ok(Validated {
             terminal,
             path,
@@ -699,7 +704,7 @@ mod tests {
         let parent = directory.path().join("workflow");
         fs::DirBuilder::new().mode(0o700).create(&parent).unwrap();
         let path = parent.join("report.json");
-        let original = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"tests_succeeded","required_capture_complete":true,"failures":[]})).unwrap();
+        let original = serde_json::to_vec(&serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"tests_succeeded","required_capture_complete":true,"failures":[]})).unwrap();
         fs::write(&path, &original).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
         let record = terminal(&id, &original);
@@ -717,7 +722,7 @@ mod tests {
             &HostError::Ownership("original fixture prerequisite unavailable".into()),
             &crate::envelope::RedactionPolicy::from_environment(),
         );
-        let failed = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"failed","required_capture_complete":true,"failures":[failure]})).unwrap();
+        let failed = serde_json::to_vec(&serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"failed","required_capture_complete":true,"failures":[failure]})).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, &failed).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
@@ -737,6 +742,27 @@ mod tests {
                 .message
                 .contains("original fixture prerequisite unavailable")
         );
+        let inventory_parent = parent.join("inventory");
+        fs::DirBuilder::new().mode(0o700).create(&inventory_parent).unwrap();
+        let inventory = inventory_parent.join("inventory.json");
+        let original_inventory = br#"{"member":"first"}"#;
+        let replacement_inventory = br#"{"member":"other"}"#;
+        assert_eq!(original_inventory.len(), replacement_inventory.len());
+        fs::write(&inventory, original_inventory).unwrap();
+        fs::set_permissions(&inventory, fs::Permissions::from_mode(0o400)).unwrap();
+        let inventory_sha = Sha256::digest(original_inventory).iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        let bound = serde_json::to_vec(&serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"tests_succeeded","required_capture_complete":true,"failures":[],"inventory":"inventory/inventory.json","inventory_content":{"sha256":inventory_sha,"bytes":original_inventory.len()}})).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, &bound).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let bound_terminal = terminal(&id, &bound);
+        assert!(validate_report(directory.clone(), observed(&id, &bound_terminal), Some(0)).await.is_ok());
+        fs::set_permissions(&inventory, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&inventory, replacement_inventory).unwrap();
+        fs::set_permissions(&inventory, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(validate_report(directory.clone(), observed(&id, &bound_terminal), Some(0)).await.is_err());
+        fs::remove_file(&inventory).unwrap();
+        assert!(validate_report(directory.clone(), observed(&id, &bound_terminal), Some(0)).await.is_err());
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&path, b"{\"status\":\"tampered\"}").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();

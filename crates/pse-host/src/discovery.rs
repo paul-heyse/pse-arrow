@@ -70,17 +70,20 @@ fn invalid(message: impl Into<String>) -> DiscoveryError {
     DiscoveryError::Invalid(message.into())
 }
 
+pse_contract::projection_struct! {
 /// Exact identity of one observed test, including its independent build context.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 pub struct TestIdentity {
+    projection: { name: "TestIdentity", rust_path: crate::discovery::TestIdentity, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Selection context; the same binary/test in incompatible feature contexts is distinct.
-    pub group: usize,
+    pub group: usize => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Opaque Cargo package ID.
-    pub package_id: String,
+    pub package_id: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Nextest's stable binary ID.
-    pub binary_id: String,
+    pub binary_id: String => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exact harness test ID.
-    pub test_name: String,
+    pub test_name: String => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 
 /// Captured same-build artifact and actual nextest test population.

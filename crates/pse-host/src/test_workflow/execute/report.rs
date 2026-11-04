@@ -18,19 +18,23 @@ use std::{
 };
 pub(super) const PROTOCOL: &str = "pse.test-workflow";
 const REPORT: &str = "report.json";
+const INVENTORY: &str = "inventory/inventory.json";
 
+pse_contract::projection_enum! {
 /// Exact operation; a list is never interpreted as a successful test execution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Action {
+    projection: { name: "WorkflowAction", rust_path: crate::test_workflow::execute::Action, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Source build/list only.
-    List,
+    List => 1;
     /// Reconcile actual selected test execution.
-    Test,
+    Test => 2;
     /// Reconcile actual compiler check execution.
-    Check,
+    Check => 3;
     /// Reconcile native rustdoc diagnostics over the selected authored library.
-    Rustdoc,
+    Rustdoc => 4;
+}
 }
 impl Action {
     /// One authoritative public command identity across transport and native dispatch.
@@ -86,24 +90,27 @@ pub struct Input {
     /// Existing parser/view bounds.
     pub bounds: Bounds,
 }
+pse_contract::projection_enum! {
 /// Helper reconciliation, independent of original managed physical settlement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
+    projection: { name: "WorkflowOutcome", rust_path: crate::test_workflow::execute::Outcome, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Complete actual source/list population, without a workload pass.
-    Listed,
+    Listed => 1;
     /// Complete successful Cargo check observations.
-    CheckSucceeded,
+    CheckSucceeded => 2;
     /// Nonempty fully reconciled test execution.
-    TestsSucceeded,
+    TestsSucceeded => 3;
     /// Known native compiler/test/setup/runner failure.
-    Failed,
+    Failed => 4;
     /// No selected tests; never a test pass.
-    ZeroMatch,
+    ZeroMatch => 5;
     /// Actual prerequisite owner did not grant readiness.
-    Pending,
+    Pending => 6;
     /// Required observation/capture/terminal information is incomplete.
-    Incomplete,
+    Incomplete => 7;
+}
 }
 impl Outcome {
     /// Successful command semantics for this exact action, never transport or child0 alone.
@@ -217,6 +224,8 @@ pub struct Report {
     pub admission: Vec<crate::correctness::Resolution>,
     /// Actual immutable inventory reference.
     pub inventory: Option<String>,
+    /// Original inventory bytes committed by this report's interpretation.
+    pub inventory_content: Option<InventoryContent>,
     /// Count of actual matching captured tests.
     pub selected_tests: Option<usize>,
     /// Original declarations under admitted compiler contexts; passive, never readiness.
@@ -239,13 +248,14 @@ pub struct Report {
 impl Report {
     pub(super) fn new(input: &Input) -> Self {
         Self {
-            version: 1,
+            version: 2,
             invocation: input.invocation.clone(),
             action: input.action,
             outcome: Outcome::Incomplete,
             selection: None,
             admission: Vec::new(),
             inventory: None,
+            inventory_content: None,
             selected_tests: None,
             fixture_requirements: Vec::new(),
             pending: Vec::new(),
@@ -263,9 +273,22 @@ impl Report {
         ));
         self.causes.push(error);
     }
+    /// Record the native discovery owner's exact private inventory before using it.
+    pub(super) fn record_inventory(&mut self, destination: &Path) -> Result<(), WorkflowError> {
+        let bytes = crate::test_inventory::read_original_inventory(destination)?;
+        self.inventory = Some(INVENTORY.into());
+        self.inventory_content = Some(InventoryContent::of(&bytes));
+        Ok(())
+    }
     /// Publish the complete report before emitting a terminal reference. Source failure leaves
     /// original evidence in place; this neither emits stdout nor claims physical settlement.
     pub fn publish(&self, destination: &Path) -> Result<TerminalRecord, WorkflowError> {
+        let observation = ReportObservation::of(self);
+        observation.require_current()?;
+        if self.inventory.is_some() {
+            let bytes = crate::test_inventory::read_original_inventory(destination)?;
+            observation.validate_inventory(&bytes)?;
+        }
         let bytes = serde_json::to_vec(self).map_err(crate::discovery::DiscoveryError::from)?;
         let mut file = OpenOptions::new()
             .write(true)
@@ -293,52 +316,107 @@ impl Report {
         })
     }
 }
+impl pse_contract::boundary_projection::ProjectionType for Report {
+    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+        use pse_contract::boundary_projection::{Direction, Field, Shape};
+        let root = graph.declare::<Self>("NativeWorkflowReport", file!(), 1, Direction::Output, &[], &[], |graph| {
+            Ok(Shape::Record(vec![Field::of::<ReportObservation>(graph, "observation", 1, Direction::Output, vec![])?]))
+        })?;
+        graph.public_path::<Self>(&root, "crate::test_workflow::execute::Report")?;
+        graph.observation_record::<Self>(&root)?;
+        Ok(root)
+    }
+}
+impl pse_contract::boundary_projection::ProjectionObservationRecord for Report {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "observation")];
+    type Fields = (ReportObservation,);
+    fn observation_fields(&self) -> Result<Self::Fields, pse_contract::boundary_projection::AdapterError> { Ok((ReportObservation::of(self),)) }
+}
+impl pse_contract::boundary_projection::ValidateProjection for Report {
+    fn validate_at(&self, path: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        self.failures.validate_at(&pse_contract::boundary_projection::field_path(path, "observation.failures"))?;
+        self.inventory_content.validate_at(&pse_contract::boundary_projection::field_path(path, "observation.inventory_content"))
+    }
+}
+pse_contract::projection_struct! {
 /// Exact durable original report address, not arbitrary filesystem authority.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReportReference {
+    projection: { name: "WorkflowReportReference", rust_path: crate::test_workflow::execute::ReportReference, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Fixed relative report file.
-    pub path: String,
+    pub path: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original exact byte identity.
-    pub sha256: String,
+    pub sha256: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original complete byte count.
-    pub bytes: u64,
+    pub bytes: u64 => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Exact original inventory content, distinct from its one source-owned file path.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct InventoryContent {
+    projection: { name: "InventoryContent", rust_path: crate::test_workflow::execute::InventoryContent, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
+    /// SHA-256 of the complete original bytes, not their re-encoding.
+    pub sha256: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Extent of those same original bytes.
+    pub bytes: u64 => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
+}
+impl InventoryContent {
+    fn of(bytes: &[u8]) -> Self {
+        Self { sha256: Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect(), bytes: bytes.len() as u64 }
+    }
+}
+pse_contract::projection_struct! {
 /// Independently decodable facts recorded by an original performing report.
 ///
 /// This is an observation, not `Report`, a test verdict, fixture readiness or a
 /// physical-settlement capability. Additional report fields remain with their owners.
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ReportObservation {
+    projection: { name: "WorkflowReportObservation", rust_path: crate::test_workflow::execute::ReportObservation, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Original report interpretation, not this reader's policy version.
-    pub version: u32,
+    pub version: u32 => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 2 }] };
     /// Original performing invocation.
-    pub invocation: CliInvocationId,
+    pub invocation: CliInvocationId => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original action; listing and compiler success remain distinct from tests.
-    pub action: Action,
+    pub action: Action => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original owner's reconciliation, never a newly issued verdict.
-    pub outcome: Outcome,
+    pub outcome: Outcome => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original immutable inventory association, absent for some failed operations.
     #[serde(default)]
-    pub inventory: Option<String>,
+    pub inventory: Option<String> => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Actual captured test count when the performing owner established it.
     #[serde(default)]
-    pub selected_tests: Option<usize>,
+    pub selected_tests: Option<usize> => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original required capture completeness, independent of physical drain.
-    pub required_capture_complete: bool,
+    pub required_capture_complete: bool => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original typed diagnostic observations.
-    pub failures: Vec<ErrorRecord>,
+    pub failures: Vec<ErrorRecord> => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Absent only for legacy interpretation or a report without inventory.
+    #[serde(default)]
+    pub inventory_content: Option<InventoryContent> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl ReportObservation {
+    /// Borrow the performing owner's public recorded facts; custody stays in `Report`.
+    pub fn of(report: &Report) -> Self {
+        Self { version: report.version, invocation: report.invocation.clone(), action: report.action,
+            outcome: report.outcome, inventory: report.inventory.clone(), selected_tests: report.selected_tests,
+            required_capture_complete: report.required_capture_complete, failures: report.failures.clone(),
+            inventory_content: report.inventory_content.clone() }
+    }
     /// Check recorded facts against the original terminal without granting authority.
     ///
     /// The caller separately authenticates the terminal, report bytes and original
     /// custody. Successful matching alone does not establish current execution eligibility.
     pub fn validate_against(&self, terminal: &TerminalRecord) -> Result<(), WorkflowError> {
         terminal.validate(&self.invocation, self.action)?;
-        if self.version != 1
-            || self.version != terminal.version
-            || self.invocation != terminal.invocation
+        self.validate_interpretation()?;
+        if self.invocation != terminal.invocation
             || self.action != terminal.action
             || self.outcome != terminal.outcome
             || self.required_capture_complete != terminal.required_capture_complete
@@ -349,26 +427,58 @@ impl ReportObservation {
         }
         Ok(())
     }
+    fn validate_interpretation(&self) -> Result<(), WorkflowError> {
+        let valid = match self.version {
+            1 => self.inventory_content.is_none(),
+            2 => self.inventory.is_some() == self.inventory_content.is_some(),
+            _ => false,
+        };
+        if !valid || self.inventory.as_deref().is_some_and(|path| path != INVENTORY) {
+            return Err(WorkflowError::Invalid("unsupported report interpretation or missing original inventory commitment".into()));
+        }
+        Ok(())
+    }
+    /// Current producers cannot publish legacy or partially bound inventory evidence.
+    pub fn require_current(&self) -> Result<(), WorkflowError> {
+        self.validate_interpretation()?;
+        if self.version != 2 { return Err(WorkflowError::Invalid("current performer requires report interpretation 2".into())); }
+        Ok(())
+    }
+    /// Reconcile original inventory bytes; legacy path-only reports cannot supply a commitment.
+    pub fn validate_inventory(&self, bytes: &[u8]) -> Result<(), WorkflowError> {
+        self.validate_interpretation()?;
+        if self.version == 1 {
+            return Err(WorkflowError::Invalid("legacy report interpretation 1 has no original inventory commitment; inventory adoption and exact rerun are unavailable".into()));
+        }
+        let expected = self.inventory_content.as_ref().ok_or_else(|| WorkflowError::Invalid("original report has no inventory commitment".into()))?;
+        if &InventoryContent::of(bytes) != expected {
+            return Err(WorkflowError::Invalid("original inventory bytes differ from the report commitment".into()));
+        }
+        Ok(())
+    }
 }
+pse_contract::projection_struct! {
 /// Exactly one final JSONL frame. Root validates this original helper transport separately
 /// from raw capture, original native payload identity and physical descendant settlement.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TerminalRecord {
+    projection: { name: "WorkflowTerminalRecord", rust_path: crate::test_workflow::execute::TerminalRecord, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Exact performing protocol.
-    pub protocol: String,
+    pub protocol: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Supported wire version.
-    pub version: u32,
+    pub version: u32 => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 1 }] };
     /// Original invoking owner.
-    pub invocation: CliInvocationId,
+    pub invocation: CliInvocationId => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Exact expected operation.
-    pub action: Action,
+    pub action: Action => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Helper reconciliation, never a manager capability.
-    pub outcome: Outcome,
+    pub outcome: Outcome => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Already durable original report.
-    pub report: ReportReference,
+    pub report: ReportReference => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Inner required raw observation completeness.
-    pub required_capture_complete: bool,
+    pub required_capture_complete: bool => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl TerminalRecord {
     /// Check wire/correlation/fixed-address facts without constructing native verdict objects.
@@ -428,6 +538,77 @@ impl TerminalRecord {
 #[cfg(test)]
 mod observation_tests {
     use super::*;
+
+    fn current_report() -> Report {
+        Report { version: 2, invocation: CliInvocationId::new(), action: Action::Test,
+            outcome: Outcome::Failed, selection: None, admission: vec![], inventory: None, inventory_content: None,
+            selected_tests: Some(2), fixture_requirements: vec![], pending: vec![], phases: vec![], observations: vec![],
+            required_capture_complete: false, failures: vec![], causes: vec![] }
+    }
+
+    #[test]
+    fn native_report_projection_borrows_complete_diagnostics_without_verdict_construction() {
+        use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionObservationRecord, Shape};
+        let graph = ProjectionGraph::of::<Report>().unwrap();
+        assert_eq!(graph.definitions()["NativeWorkflowReport"].construction, ConstructionRole::ObservationOnly);
+        let Shape::Record(fields) = &graph.definitions()["ErrorRecord"].shape else { panic!("record expected") };
+        assert_eq!(fields.len(), 15);
+        assert!(fields.iter().any(|field| field.name == "diagnostic_source"));
+        assert!(fields.iter().any(|field| field.name == "recovery"));
+        assert!(graph.definitions().values().any(|owner| owner.rust_type == std::any::type_name::<pse_diagnostics::NonFinite>()));
+        let mut report = current_report();
+        report.failure(WorkflowError::Invalid("original native failure".into()));
+        let child = report.failures[0].clone();
+        report.failures[0].children.push(child.clone());
+        report.failures[0].diagnostic_source = Some(Box::new(child.clone()));
+        report.failures[0].related.push(child);
+        let expected = serde_json::to_value(&report.failures).unwrap();
+        let (observation,) = report.observation_fields().unwrap();
+        assert_eq!(serde_json::to_value(&observation.failures).unwrap(), expected);
+        assert!(!observation.required_capture_complete);
+        assert_eq!(report.causes.len(), 1, "the performing owner retains original native causes");
+        assert_eq!(report.observations.len(), 0);
+    }
+
+    #[test]
+    fn native_report_publication_commits_original_inventory_and_refuses_same_shape_replacement() {
+        use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
+        let scratch = tempfile::tempdir().unwrap();
+        fs::set_permissions(scratch.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        fs::DirBuilder::new().mode(0o700).create(scratch.path().join("inventory")).unwrap();
+        let path = scratch.path().join(INVENTORY);
+        let original = br#"{"test":"first"}"#;
+        let changed = br#"{"test":"other"}"#;
+        assert_eq!(original.len(), changed.len());
+        fs::write(&path, original).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let mut report = current_report();
+        report.record_inventory(scratch.path()).unwrap();
+        let terminal = report.publish(scratch.path()).unwrap();
+        assert_eq!(terminal.version, 1, "terminal transport interpretation is independent");
+        let observation: ReportObservation = serde_json::from_slice(&fs::read(scratch.path().join(REPORT)).unwrap()).unwrap();
+        assert_eq!(observation.version, 2);
+        observation.validate_against(&terminal).unwrap();
+        observation.validate_inventory(original).unwrap();
+        assert!(observation.validate_inventory(changed).is_err());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, changed).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(report.publish(scratch.path()).unwrap_err().to_string().contains("inventory bytes"));
+        fs::remove_file(&path).unwrap();
+        assert!(report.publish(scratch.path()).is_err());
+    }
+
+    #[test]
+    fn legacy_report_facts_remain_readable_without_fabricating_inventory_commitment() {
+        let (legacy, terminal) = original();
+        legacy.validate_against(&terminal).unwrap();
+        assert!(legacy.require_current().is_err());
+        assert!(legacy.validate_inventory(b"original").unwrap_err().to_string().contains("legacy"));
+        let mut current = legacy;
+        current.version = 2;
+        assert!(current.validate_against(&terminal).is_err(), "current inventory requires its original content commitment");
+    }
 
     fn original() -> (ReportObservation, TerminalRecord) {
         let invocation = CliInvocationId::new();

@@ -4,7 +4,7 @@
 mod diagnostic;
 mod presentation;
 mod validation;
-pub use diagnostic::{ErrorRecord, RecoveryCause, RecoveryRecord, RedactionPolicy};
+pub use diagnostic::{ErrorRecord, FactsRecord, LabelRecord, LocationRecord, ObservationValue, RecoveryCause, RecoveryRecord, RedactionPolicy};
 pub use presentation::{OutputFormat, Presentation, PresentationError, schema, write};
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -144,6 +144,30 @@ impl TryFrom<String> for CliInvocationId {
     type Error = uuid::Error;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Ok(Self(uuid::Uuid::parse_str(&value)?.to_string()))
+    }
+}
+
+impl pse_contract::boundary_projection::ProjectionType for CliInvocationId {
+    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+        use pse_contract::boundary_projection::{Direction, Field, Shape};
+        let root = graph.declare::<Self>("CliInvocationId", file!(), 1, Direction::Output, &[], &[], |graph| {
+            Ok(Shape::Record(vec![Field::of::<String>(graph, "value", 1, Direction::Output, vec![])?]))
+        })?;
+        graph.public_path::<Self>(&root, "crate::envelope::CliInvocationId")?;
+        Ok(root)
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection for CliInvocationId {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> { Ok(()) }
+}
+impl pse_contract::boundary_projection::ProjectionRecord for CliInvocationId {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields { (self.0,) }
+    fn from_projection_fields((value,): Self::Fields) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Self::try_from(value).map_err(|error| pse_contract::boundary_projection::AdapterError::refused("value", pse_contract::boundary_projection::AdapterFailure::InvalidValue, error.to_string()))
     }
 }
 
@@ -306,24 +330,27 @@ pub struct ArtifactReference {
     /// Content identity, when verified.
     pub digest: Option<String>,
 }
+pse_contract::projection_enum! {
 /// A typed follow-up without manufacturing an executable shell string.
 #[derive(Clone, Debug, Serialize, serde::Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum NextAction {
+    projection: { name: "NextAction", rust_path: crate::envelope::NextAction, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Another CLI query, with literal argument boundaries.
     Command {
         /// Literal command vector including its executable name; never shell source.
-        argv: Vec<String>,
+        argv: Vec<String> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
         /// Why the action may be useful.
-        reason: String,
-    },
+        reason: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    } => 1;
     /// Read already retained evidence.
     ReadArtifact {
         /// Artifact location.
-        location: String,
+        location: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
         /// Why the evidence is useful.
-        reason: String,
-    },
+        reason: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    } => 2;
+}
 }
 /// Explicit omission metadata; presentation never changes mandatory evidence.
 #[derive(Clone, Debug, Default, Serialize, serde::Deserialize, JsonSchema)]

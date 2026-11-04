@@ -723,17 +723,20 @@ impl Default for QueryPresentation {
     }
 }
 
+pse_contract::projection_enum! {
 /// Ordinary paths are readable strings; exceptional Unix bytes remain exact.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum NativePath {
+    projection: { name: "NativePath", rust_path: crate::investigation::NativePath, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Ordinary UTF-8 path.
-    Utf8(String),
+    Utf8(String) => 1;
     /// Exact Unix-native path bytes.
     Raw {
         /// Raw path bytes, not lossy replacement text.
-        unix: Vec<u8>,
-    },
+        unix: Vec<u8> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    } => 2;
+}
 }
 mod native_paths {
     use super::NativePath;

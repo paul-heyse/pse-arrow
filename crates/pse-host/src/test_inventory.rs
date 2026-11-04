@@ -294,6 +294,13 @@ pub(crate) fn read_private(path: &Path) -> Result<Vec<u8>, HostError> {
     file.read_to_end(&mut bytes)?;
     Ok(bytes)
 }
+/// One custody rule for publication, current live validation and retained adoption.
+pub(crate) fn read_original_inventory(workflow: &Path) -> Result<Vec<u8>, HostError> {
+    checked_parent(workflow)?;
+    let inventory = workflow.join("inventory");
+    checked_parent(&inventory)?;
+    read_private(&inventory.join("inventory.json"))
+}
 /// Open original private evidence once so ranged consumers retain the checked descriptor.
 pub(crate) fn open_private(path: &Path) -> Result<fs::File, HostError> {
     let file = OpenOptions::new()
@@ -452,8 +459,53 @@ pub(crate) struct CapturedEvidence {
     pub id: CliInvocationId,
     pub report: Vec<u8>,
     pub inventory: Inventory,
+    /// Complete original bytes, retained independently of the native parsed inventory.
+    pub inventory_bytes: Vec<u8>,
     pub inventory_sha256: String,
     pub observation: crate::test_workflow::execute::ReportObservation,
+    /// Original report commitment and terminal facts; never a new performing result.
+    pub terminal: crate::test_workflow::execute::TerminalRecord,
+}
+impl pse_contract::boundary_projection::ProjectionType for CapturedEvidence {
+    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+        use pse_contract::boundary_projection::{Direction, Field, Shape};
+        let root = graph.declare::<Self>("CapturedWorkflowEvidence", file!(), 1, Direction::Output, &[], &[], |graph| {
+            Ok(Shape::Record(vec![
+                Field::of::<CliInvocationId>(graph, "invocation", 1, Direction::Output, vec![])?,
+                Field::of::<Vec<u8>>(graph, "report_original", 2, Direction::Output, vec![])?,
+                Field::of::<Vec<u8>>(graph, "inventory_original", 3, Direction::Output, vec![])?,
+                Field::of::<String>(graph, "inventory_sha256", 4, Direction::Output, vec![])?,
+                Field::of::<crate::test_workflow::execute::ReportObservation>(graph, "report_observation", 5, Direction::Output, vec![])?,
+                Field::of::<crate::test_workflow::execute::TerminalRecord>(graph, "terminal", 6, Direction::Output, vec![])?,
+                Field::of::<Vec<crate::discovery::TestIdentity>>(graph, "selected_tests", 7, Direction::Output, vec![])?,
+            ]))
+        })?;
+        graph.public_path::<Self>(&root, "crate::test_inventory::CapturedEvidence")?;
+        graph.observation_record::<Self>(&root)?;
+        Ok(root)
+    }
+}
+impl pse_contract::boundary_projection::ProjectionObservationRecord for CapturedEvidence {
+    const VERSION: u32 = 1;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "invocation"), (2, "report_original"), (3, "inventory_original"), (4, "inventory_sha256"), (5, "report_observation"), (6, "terminal"), (7, "selected_tests")];
+    type Fields = (CliInvocationId, Vec<u8>, Vec<u8>, String, crate::test_workflow::execute::ReportObservation, crate::test_workflow::execute::TerminalRecord, Vec<crate::discovery::TestIdentity>);
+    fn observation_fields(&self) -> Result<Self::Fields, pse_contract::boundary_projection::AdapterError> {
+        Ok((self.id.clone(), self.report.clone(), self.inventory_bytes.clone(), self.inventory_sha256.clone(),
+            self.observation.clone(), self.terminal.clone(), self.inventory.selected_tests_iter().collect()))
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection for CapturedEvidence {
+    fn validate_at(&self, path: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        self.observation.validate_at(&pse_contract::boundary_projection::field_path(path, "report_observation"))?;
+        self.terminal.validate_at(&pse_contract::boundary_projection::field_path(path, "terminal"))
+    }
+}
+
+/// Source-built developer contract world; it does not acquire evidence or run a workflow.
+pub fn developer_evidence_projection() -> Result<pse_contract::boundary_projection::ProjectionGraph, pse_contract::boundary_projection::ProjectionError> {
+    let mut graph = pse_contract::boundary_projection::ProjectionGraph::of::<crate::test_workflow::execute::Report>()?;
+    graph.register::<CapturedEvidence>()?;
+    Ok(graph)
 }
 /// Read evidence as data, without treating decoded fields as native pass capabilities.
 pub(crate) fn captured(
@@ -462,7 +514,7 @@ pub(crate) fn captured(
     session: Option<&str>,
 ) -> Result<CapturedEvidence, HostError> {
     let CapturedReport {
-        id, report, parent, observation, ..
+        id, report, parent, observation, original,
     } = captured_report(store, selector, session)?;
     if observation.inventory.as_deref() != Some("inventory/inventory.json")
     {
@@ -470,9 +522,9 @@ pub(crate) fn captured(
             "original report has no supported inventory association",
         ));
     }
-    let parent = parent.join("inventory");
-    checked_parent(&parent)?;
-    let bytes = read_private(&parent.join("inventory.json"))?;
+    let bytes = read_original_inventory(&parent)?;
+    observation.validate_inventory(&bytes)
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
     let sha = digest(&bytes);
     let inventory: Inventory = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
     if !inventory.capture_complete() {
@@ -484,8 +536,10 @@ pub(crate) fn captured(
         id,
         report,
         inventory,
+        inventory_bytes: bytes,
         inventory_sha256: sha,
         observation,
+        terminal: original.payload.workflow.ok_or_else(|| invalid("original workflow terminal disappeared"))?.terminal,
     })
 }
 
@@ -764,5 +818,20 @@ mod tests {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         fs::set_permissions(&original, fs::Permissions::from_mode(0o666)).unwrap();
         assert!(read_private(&original).is_err());
+    }
+
+    #[test]
+    fn developer_evidence_source_world_separates_sealed_owners_and_passive_facts() {
+        use pse_contract::boundary_projection::{ConstructionRole, Shape};
+        let graph = developer_evidence_projection().unwrap();
+        for name in ["NativeWorkflowReport", "CapturedWorkflowEvidence"] {
+            assert_eq!(graph.definitions()[name].construction, ConstructionRole::ObservationOnly);
+        }
+        for name in ["WorkflowReportObservation", "ErrorRecord", "TestIdentity", "InventoryContent", "WorkflowTerminalRecord"] {
+            assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+        }
+        let Shape::Record(fields) = &graph.definitions()["CapturedWorkflowEvidence"].shape else { panic!("record expected") };
+        assert_eq!(fields.iter().map(|field| field.name.as_str()).collect::<Vec<_>>(), ["invocation", "report_original", "inventory_original", "inventory_sha256", "report_observation", "terminal", "selected_tests"]);
+        assert!(!graph.definitions().values().any(|owner| owner.rust_type.contains("GroupObservation") || owner.rust_type.contains("TerminalResult")));
     }
 }

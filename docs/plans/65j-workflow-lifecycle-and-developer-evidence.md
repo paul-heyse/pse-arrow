@@ -123,7 +123,7 @@ migrated, retained, or explicitly reported incompatible.
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze. |
-| J02 | planned | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Deliver complete native report/inventory publication and independent readback using Buffa pool/dynamic inspection and one-way generated observations. Preserve original file/digest checks. Test foreign/malformed/oversized/missing-dependency evidence; delete replaced observation mappers/readers. |
+| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Native v2 report publication now commits original inventory content and shared live/retained/rerun reconciliation; source-built observation roots retain complete original bytes and diagnostics. Generated bundle publication, independent readback and foreign/malformed/oversized/missing-dependency controls remain. |
 | J03 | planned | J02; native failed-test rerun and current listing | Bind exact rerun to original input/report/inventory and reconcile present listing. Test changed package/features/identity, absent evidence and stale binaries. Delete client-side command reconstruction; historical success never becomes present evidence. |
 | J04 | planned | J02/J03; existing invocation/raw/fixture custody and interpretation policy | Integrate family retention, interruption and cleanup. Test report without inventory, unavailable old policy, corrupt raw capture, active reader and failed release. Preserve fixture lifetime, capture completeness and native settlement separately; delete replaced reference/cleanup translations. |
 | J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete list/check/rustdoc/test and exact rerun across assertion failure, passing expected-refusal test, zero match, setup failure, incomplete capture and interruption. Migrate every selected reader and remove replaced maps/fixtures; supply actual limits and population to H. |
@@ -178,6 +178,47 @@ route kept its actual user-systemd scope anchor alive through child settlement. 
 the report-fact slice, not complete developer workflow qualification. Working A/B observation
 projection, independent descriptor reading, explicit retained-dependency outcomes and complete
 J01–J05 population integration remain required. This checkpoint closes no package.
+
+### Native one-way source and inventory commitment — 2026-11-04
+
+**Implemented:** actual host diagnostic, action, outcome, invocation and test-identity
+owners now declare their projection fields alongside their native definitions. The
+complete `ErrorRecord` tree retains diagnostic children, ordinary causes, delegated
+diagnostic sources, related occurrences, labels, parser context, recovery and typed
+numerical/operand observations. Recovery's internal selection context remains private
+and cannot be recreated by decoding its public observations. Existing diagnostic scalar
+owners supply their source declarations; no diagnostic DTO or JSON bag replaces them.
+
+`Report` and retained `CapturedEvidence` expose borrowed `ProjectionObservationRecord`
+accessors with observation-only construction roles. Passive data shapes remain separately
+decodable. The retained root includes complete original report/inventory bytes, original
+terminal association, digest, report facts and exact selected native test identities.
+No generic inverse constructs a report, captured-evidence owner, native test verdict or
+physical-settlement capability.
+
+Current native reports use interpretation 2; terminal protocol interpretation remains 1.
+The report keeps the original inventory path once and commits `inventory_content`
+(SHA-256 and byte extent). Discovery records the actual original private bytes; publication
+reconciles those bytes before serializing the authoritative report. Live validation,
+retained inventory reads and native rerun share that same observation-owned content check
+and private-file/directory reader. A different same-shape inventory cannot inherit the
+original report association. Missing current commitments or original inventory refuse.
+
+Legacy interpretation 1 still supports original report/failure observation with its
+original bytes and terminal. Its path-only inventory reference has no original content
+commitment: inventory adoption and exact rerun explicitly report that dependency as
+unavailable. A reader never substitutes its newly computed digest for a legacy commitment.
+Current performers cannot publish legacy reports. This is a retained interpretation,
+not a second production workflow or store.
+
+**Tested, narrow native scope:** nine selected host unit controls passed against zero
+failures using `scripts/pse test pse-host --lib` with the report-observation tests,
+original-report custody validation, retained incomplete report, source-world construction
+roles and private evidence reader selectors. The controls include complete recursive
+failure preservation, original publication binding, same-length inventory replacement,
+missing inventory, and legacy report readability without inventory eligibility. Compilation
+completed without warnings. Generated transport publication/readback and the remaining
+J02–J05 population obligations are still required; this checkpoint closes no package.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

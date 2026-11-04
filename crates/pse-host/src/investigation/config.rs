@@ -23,13 +23,16 @@ struct Configuration {
     queries: BTreeMap<String, Map<String, Value>>,
     scopes: BTreeMap<String, Map<String, Value>>,
 }
+pse_contract::projection_struct! {
 /// The provider that supplied an effective value, before typed extraction loses its tag.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct InputOrigin {
+    projection: { name: "InputOrigin", rust_path: crate::investigation::config::InputOrigin, version: 1, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Configuration layer identity, distinct from a selected saved-scope name.
-    pub provider: String,
+    pub provider: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original contributing file, preserving native path bytes.
-    pub source: Option<NativePath>,
+    pub source: Option<NativePath> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 /// Explain effective values and the actual contributing configuration sources.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
