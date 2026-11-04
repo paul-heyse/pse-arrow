@@ -27,7 +27,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         pse_runtime::scientific_worker::protocol::Request,
         pse_runtime::scientific_worker::protocol::Response,
     >(&mut graph, "Exchange")?
-    .effects(pse_runtime::scientific_worker::protocol::EXCHANGE_EFFECTS);
+    .effects(pse_runtime::scientific_worker::protocol::EXCHANGE_EFFECTS)?;
     graph.service(service)?;
     let mut tree = projection(
         root,
