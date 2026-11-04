@@ -54,10 +54,10 @@ pub mod observation;
 /// Live detail contracts and collectors shared by runtime and tooling.
 pub mod observation_detail;
 pub use inspection_documents::{ResourceConsumer, TableName};
-pub mod peak;
 /// Source-generated engineering crossings over the actual native semantic owners.
 #[cfg(feature = "engineering-service")]
 pub mod engineering_projection;
+pub mod peak;
 /// Native preparation discovery and physical-page custody through shared crossings.
 #[cfg(feature = "engineering-service")]
 pub mod preparation_projection;
@@ -88,3 +88,6 @@ pub mod workflow;
 #[cfg(test)]
 #[path = "../../../tests/fixtures/scientific-inputs.rs"]
 mod scientific_inputs;
+
+#[cfg(all(test, feature = "engineering-service"))]
+mod result_metadata_projection_tests;

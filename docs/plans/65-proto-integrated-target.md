@@ -310,9 +310,11 @@ comparison controls 4/4, scientific native controls 5/5 and real worker controls
 companion retains its exact command, source snapshot, exclusions and conditions. These results
 do not close the complete scientific population or H qualification.
 
-The next main-branch publication includes typed options across engineering, scientific-worker
-and reference worlds, all selected native facet keys, and genuine native batch framing. It
-removes synthetic machine-policy comments and the redundant action-effects sidecar. The shared
+The combined main-branch publication includes typed options across engineering, scientific-worker,
+reference, native-child and developer-evidence worlds, all selected native facet keys, and genuine
+native batch framing. Full `just codegen` published all 13 targets; two developer count-accessor
+warnings remain with the active native-count rename. It removes synthetic machine-policy
+comments and the redundant action-effects sidecar. The shared
 lossless descriptor adapter has moved from product-dependent codegen into `pse-contract-proto`;
 consumer-local source/domain policies and the pure semantic checker retain their authority.
 The nine selected actual worker/batch controls passed on main with zero failures or build
@@ -320,6 +322,13 @@ warnings and complete original capture/settlement. The first selection failed di
 test-only nonexistent method and qualification warning; the corrected assertion requires both
 native admission counters to be present and zero. This targeted delivery leaves the broader
 portable, storage, reporting, domain-extension and H obligations open.
+
+The first retained-result native/Proto value slice passed
+`scripts/pse test pse-runtime --lib --features engineering-service -E 'test(result_metadata_projection_tests)'`
+on main: three selected controls, zero failures and zero build warnings, configured unbounded
+placement/cache off, original capture and native settlement complete. This verifies exact
+values, presence and strict adoption through the generated mappings and existing native storage
+codecs; it does not establish protected publication/recovery or complete C/F delivery.
 
 ## Verification boundary
 
