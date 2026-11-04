@@ -4,25 +4,35 @@
 use super::*;
 use crate::portable::RefinementWire;
 use serde::{Deserialize, Serialize};
+pse_contract::projection_struct! {
+/// Passive complete original reference anchor, including exact canonical magnitudes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AnchorRecord {
-    member: SemanticId,
-    values: [NodeIx; 2],
-    temperature: pse_quantity::unit::MagnitudeRecord,
-    pressure: pse_quantity::unit::MagnitudeRecord,
+pub struct AnchorRecord {
+    projection: { name: "ModelingOperationAnchorRecord", rust_path: crate::resolved::operation_records::AnchorRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    member: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    values: [NodeIx; 2] => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    temperature: pse_quantity::unit::MagnitudeRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    pressure: pse_quantity::unit::MagnitudeRecord => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive complete reference translation; physical restoration stays receipt-qualified.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct TranslationRecord {
-    source: pse_quantity::QuantityTypeId,
-    target: pse_quantity::QuantityTypeId,
-    source_anchor: DeclarationId,
-    target_anchor: DeclarationId,
-    component_kind: DeclarationId,
-    state: [NodeIx; 2],
-    provenance: Vec<SemanticId>,
-    anchors: Vec<AnchorRecord>,
+pub struct TranslationRecord {
+    projection: { name: "ModelingOperationTranslationRecord", rust_path: crate::resolved::operation_records::TranslationRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    source: pse_quantity::QuantityTypeId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    source_anchor: DeclarationId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    target_anchor: DeclarationId => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    component_kind: DeclarationId => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    state: [NodeIx; 2] => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    provenance: Vec<SemanticId> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    anchors: Vec<AnchorRecord> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl TranslationRecord {
     fn capture(value: &Translation) -> Self {
@@ -76,40 +86,70 @@ impl TranslationRecord {
         })
     }
 }
+pse_contract::projection_tuple_enum! {
+/// Passive original physical-operation attribution, not a physical admission constructor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) enum OperationRecord {
+pub enum OperationRecord {
+    projection: { name: "ModelingPhysicalOperationRecord", rust_path: crate::resolved::operation_records::OperationRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original coordinate-slot attribution.
     Coordinate {
-        map: DeclarationId,
-        slot: DeclarationId,
-    },
+        /// Original physical map declaration.
+        map: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original coordinate slot.
+        slot: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 1;
+    /// Original reduced-law attribution.
     ReducedLaw {
-        map: DeclarationId,
-        reconstruction: DeclarationId,
-    },
+        /// Original physical map declaration.
+        map: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original reconstruction declaration.
+        reconstruction: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
+    /// Original reconstruction and reference attribution.
     Reconstruction {
-        map: DeclarationId,
-        reconstruction: DeclarationId,
-        reference: DeclarationId,
-    },
+        /// Original physical map declaration.
+        map: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original reconstruction declaration.
+        reconstruction: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original reference declaration.
+        reference: DeclarationId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
+    /// Original response potential attribution.
     Response {
-        potential: DeclarationId,
-    },
-    ReferenceTranslation(TranslationRecord),
+        /// Original potential declaration.
+        potential: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 4;
+    /// Complete original reference translation.
+    ReferenceTranslation [/// Complete passive translation data.
+        translation: TranslationRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 5;
+    /// Complete original reference-anchor mean attribution.
     ReferenceAnchorMean {
-        translation: TranslationRecord,
-        source: bool,
-        coefficient: pse_quantity::QuantityTypeId,
-    },
+        /// Complete passive translation data.
+        translation: TranslationRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Whether the original source side was selected.
+        source: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original coefficient quantity.
+        coefficient: pse_quantity::QuantityTypeId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 6;
+    /// Complete original directed transfer attribution.
     Transfer {
-        source: Option<RefinementWire>,
-        result: RefinementWire,
-        factor: i8,
-        exchange: Option<DeclarationId>,
-    },
+        /// Original optional source refinement.
+        source: Option<RefinementWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original result refinement.
+        result: RefinementWire => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Exact original signed orientation factor.
+        factor: i8 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original optional exchange declaration.
+        exchange: Option<DeclarationId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 7;
+    /// Original transfer-magnitude attribution.
     TransferMagnitude {
-        source: RefinementWire,
-    },
+        /// Original source refinement.
+        source: RefinementWire => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 8;
+}
 }
 impl OperationRecord {
     pub(crate) fn capture(value: &OperationMeaning) -> Self {

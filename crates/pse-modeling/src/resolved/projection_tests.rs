@@ -50,3 +50,27 @@ fn physical_evidence_record_projection_does_not_restore_scientific_or_live_conte
     let graph = ProjectionGraph::of::<PhysicalEvidenceRecord>().unwrap();
     assert_eq!(graph.definitions()["ModelingPhysicalEvidenceRecord"].construction, ConstructionRole::Data);
 }
+
+#[test]
+fn physical_operation_record_projection_keeps_original_transfer_orientation_and_scope_data() {
+    use operation_records::OperationRecord;
+    use pse_contract::boundary_projection::{Scalar, TypeRef};
+    let declaration = DeclarationId::from(SemanticId::from_bytes([54; 16]));
+    let value = OperationRecord::Transfer {
+        source: None,
+        result: crate::portable::RefinementWire::Coordinate { map: declaration, slot: declaration },
+        factor: -1, exchange: None,
+    };
+    let expected = format!("{{\"Transfer\":{{\"source\":null,\"result\":{{\"Coordinate\":{{\"map\":\"{}\",\"slot\":\"{}\"}}}},\"factor\":-1,\"exchange\":null}}}}", declaration.as_id(), declaration.as_id());
+    assert_eq!(serde_json::to_vec(&value).unwrap(), expected.as_bytes());
+    let fields = <OperationRecord as ProjectionAlternative<7>>::into_projection_alternative(value).unwrap();
+    let restored = <OperationRecord as ProjectionAlternative<7>>::from_projection_alternative(fields);
+    assert_eq!(serde_json::to_vec(&restored).unwrap(), expected.as_bytes());
+    let graph = ProjectionGraph::of::<OperationRecord>().unwrap();
+    let Shape::Alternatives(variants) = &graph.definitions()["ModelingPhysicalOperationRecord"].shape else { panic!("actual physical-operation record variants") };
+    assert_eq!(variants.len(), 8);
+    assert_eq!(variants[6].fields[2].ty, TypeRef::Scalar(Scalar::I8));
+    for name in ["ModelingPhysicalOperationRecord", "ModelingOperationTranslationRecord", "ModelingOperationAnchorRecord", "PhysicalCanonicalMagnitudeRecord"] {
+        assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+    }
+}

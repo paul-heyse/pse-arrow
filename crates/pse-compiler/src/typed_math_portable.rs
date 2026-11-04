@@ -317,6 +317,14 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
     ];
     assert!(SelectedRegion::combine(std::slice::from_ref(&region), &ports, &context).is_ok());
     let record = SupportRecord::capture(&region.support).unwrap();
+    use pse_contract::boundary_projection::{ConstructionRole, ProjectionGraph, ProjectionRecord};
+    let original_record = serde_json::to_vec(&record).unwrap();
+    let record = SupportRecord::from_projection_fields(record.into_projection_fields()).unwrap();
+    assert_eq!(serde_json::to_vec(&record).unwrap(), original_record);
+    let graph = ProjectionGraph::of::<SupportRecord>().unwrap();
+    for name in ["ModelingSupportRecord", "ModelingSupportNodeRecord", "ModelingBodyInputRecord", "ModelingDerivedRelationship", "PhysicalOutputBoundaryRecord"] {
+        assert_eq!(graph.definitions()[name].construction, ConstructionRole::Data);
+    }
     let (_, stream) =
         pse_quantity::resolved::receipts::capture(|| Ok::<_, pse_quantity::QuantityError>(()))
             .unwrap();

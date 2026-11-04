@@ -6,7 +6,7 @@ use super::functions::{ArgumentLayout, FunctionEnvelope, FunctionExternal, Selec
 use super::support::record::BodyInputRecord;
 use super::*;
 use crate::expression::admission::PhysicalAdmissionRecord;
-use crate::portable::{NodeWire, ReadsWire, TypeRecord, ValueRecord};
+use crate::portable::{ReadsWire, TypeRecord, ValueRecord};
 use pse_quantity::resolved::receipts::{ContractRecord, OutputBoundaryRecord};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -65,21 +65,21 @@ struct FoldRecord {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EvidenceRecord {
-    node: NodeWire,
+    node: pse_model::applicability::Node,
     predicates: Vec<PredicateIx>,
     inputs: Vec<NodeIx>,
 }
 impl EvidenceRecord {
     fn capture(value: &EvidenceUse) -> Self {
         Self {
-            node: NodeWire::capture(&value.node),
+            node: value.node.clone(),
             predicates: value.predicates.clone(),
             inputs: value.inputs.clone(),
         }
     }
     fn restore(&self) -> EvidenceUse {
         EvidenceUse {
-            node: self.node.restore(),
+            node: self.node.clone(),
             predicates: self.predicates.clone(),
             inputs: self.inputs.clone(),
         }

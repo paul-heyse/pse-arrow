@@ -849,96 +849,20 @@ impl TypeWire {
     }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-enum RegionWire {
-    Predicate(usize),
-    Unrestricted,
-    Unknown,
-    Union(Vec<NodeWire>),
-}
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) struct NodeWire {
-    claim: pse_model::applicability::Claim,
-    region: RegionWire,
-    dependencies: Vec<NodeWire>,
-    inputs: Vec<(String, usize, SemanticId)>,
-    permissions: Vec<pse_model::applicability::Permission>,
-}
-impl NodeWire {
-    pub(crate) fn retained_bytes(&self) -> usize {
-        size_of::<Self>()
-            + (self.claim.owner_lineage.capacity()
-                + self.claim.records.capacity()
-                + self.claim.dependencies.capacity())
-                * size_of::<SemanticId>()
-            + self.claim.reason.as_ref().map_or(0, String::capacity)
-            + self.dependencies.capacity() * size_of::<NodeWire>()
-            + self
-                .dependencies
-                .iter()
-                .map(Self::retained_bytes)
-                .sum::<usize>()
-            + match &self.region {
-                RegionWire::Union(v) => {
-                    v.capacity() * size_of::<NodeWire>()
-                        + v.iter().map(Self::retained_bytes).sum::<usize>()
-                }
-                _ => 0,
-            }
-            + self
-                .inputs
-                .iter()
-                .map(|(n, _, _)| size_of::<(String, usize, SemanticId)>() + n.capacity())
-                .sum::<usize>()
-            + self
-                .permissions
-                .iter()
-                .map(|p| {
-                    size_of::<pse_model::applicability::Permission>()
-                        + p.targets.capacity() * size_of::<SemanticId>()
-                })
-                .sum::<usize>()
-    }
-    pub(crate) fn capture(v: &pse_model::applicability::Node) -> Self {
-        use pse_model::applicability::Region as R;
-        Self {
-            claim: v.claim.clone(),
-            region: match &v.region {
-                R::Predicate(v) => RegionWire::Predicate(*v),
-                R::Unrestricted => RegionWire::Unrestricted,
-                R::Unknown => RegionWire::Unknown,
-                R::Union(v) => RegionWire::Union(v.iter().map(Self::capture).collect()),
-            },
-            dependencies: v.dependencies.iter().map(Self::capture).collect(),
-            inputs: v.inputs.clone(),
-            permissions: v.permissions.clone(),
-        }
-    }
-    pub(crate) fn restore(&self) -> pse_model::applicability::Node {
-        use pse_model::applicability::Region as R;
-        pse_model::applicability::Node {
-            claim: self.claim.clone(),
-            region: match &self.region {
-                RegionWire::Predicate(v) => R::Predicate(*v),
-                RegionWire::Unrestricted => R::Unrestricted,
-                RegionWire::Unknown => R::Unknown,
-                RegionWire::Union(v) => R::Union(v.iter().map(Self::restore).collect()),
-            },
-            dependencies: self.dependencies.iter().map(Self::restore).collect(),
-            inputs: self.inputs.clone(),
-            permissions: self.permissions.clone(),
-        }
-    }
-}
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct UseWire {
-    node: NodeWire,
+    node: pse_model::applicability::Node,
     predicates: Vec<Predicate>,
     inputs: Vec<Expr>,
 }
+pse_contract::projection_struct! {
+/// Passive complete original envelope read attribution; decoding performs no read.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) struct ReadsWire {
-    sets: Vec<SemanticId>,
-    variables: Vec<u32>,
+pub struct ReadsWire {
+    projection: { name: "ModelingEnvelopeReadFacts", rust_path: crate::portable::ReadsWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    sets: Vec<SemanticId> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    variables: Vec<u32> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl From<&crate::envelope::Reads> for ReadsWire {
     fn from(v: &crate::envelope::Reads) -> Self {
@@ -1213,7 +1137,7 @@ impl FunctionRecord {
                 .applicability_uses
                 .iter()
                 .map(|v| UseWire {
-                    node: NodeWire::capture(&v.node),
+                    node: v.node.clone(),
                     predicates: v.predicates.clone(),
                     inputs: v.inputs.clone(),
                 })
@@ -1265,7 +1189,7 @@ impl FunctionRecord {
                 .uses
                 .iter()
                 .map(|v| crate::applicability::Use {
-                    node: v.node.restore(),
+                    node: v.node.clone(),
                     predicates: v.predicates.clone(),
                     inputs: v.inputs.clone(),
                 })

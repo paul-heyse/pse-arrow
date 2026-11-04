@@ -9,11 +9,16 @@ use pse_quantity::resolved::receipts::{
 };
 use serde::{Deserialize, Serialize};
 
+pse_contract::projection_struct! {
+/// Passive complete body-input authorization data; restoration checks its original role.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(in crate::resolved) struct BodyInputRecord {
-    relationship: crate::derived::Relationship,
-    boundary: OutputBoundaryRecord,
+pub struct BodyInputRecord {
+    projection: { name: "ModelingBodyInputRecord", rust_path: crate::resolved::support_records::BodyInputRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    relationship: crate::derived::Relationship => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    boundary: OutputBoundaryRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl BodyInputRecord {
     pub(in crate::resolved) fn capture(value: &BodyInputSupport) -> Self {
@@ -44,59 +49,83 @@ impl BodyInputRecord {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive complete selected call support, including any original body-input permission.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CallRecord {
-    function: usize,
-    nominal_result: ContractRecord,
-    wrt: Vec<usize>,
-    inputs: Vec<ContractBoundaryRecord>,
-    body_result: Option<BodyInputRecord>,
-    partial: Option<InferenceRecord>,
+pub struct CallRecord {
+    projection: { name: "ModelingSupportCallRecord", rust_path: crate::resolved::support_records::CallRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    function: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    nominal_result: ContractRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    wrt: Vec<usize> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    inputs: Vec<ContractBoundaryRecord> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    body_result: Option<BodyInputRecord> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    partial: Option<InferenceRecord> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive complete lower/upper boundary and difference admissions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RangeRecord {
-    lower: ContractBoundaryRecord,
-    upper: ContractBoundaryRecord,
-    lower_difference: InferenceRecord,
-    upper_difference: InferenceRecord,
+pub struct RangeRecord {
+    projection: { name: "ModelingSupportRangeRecord", rust_path: crate::resolved::support_records::RangeRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    lower: ContractBoundaryRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    upper: ContractBoundaryRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    lower_difference: InferenceRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    upper_difference: InferenceRecord => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive complete support associated with one original resolved node slot.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct NodeRecord {
-    slot: usize,
-    ty: TypeRecord,
-    contract: ContractRecord,
-    operation: Option<InferenceRecord>,
-    literal: Option<CanonicalConversionRecord>,
-    boundary: Option<ContractBoundaryRecord>,
-    call: Option<CallRecord>,
-    range: Option<RangeRecord>,
-    exponent: Option<pse_quantity::Ratio>,
+pub struct NodeRecord {
+    projection: { name: "ModelingSupportNodeRecord", rust_path: crate::resolved::support_records::NodeRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    slot: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    ty: TypeRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    contract: ContractRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    operation: Option<InferenceRecord> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    literal: Option<CanonicalConversionRecord> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    boundary: Option<ContractBoundaryRecord> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    call: Option<CallRecord> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    range: Option<RangeRecord> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    exponent: Option<pse_quantity::Ratio> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive retained physical support for boolean-to-number lowering.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct BooleanRecord {
-    contract: ContractRecord,
-    conversion: CanonicalConversionRecord,
-    literal: InferenceRecord,
-    conditional: InferenceRecord,
+pub struct BooleanRecord {
+    projection: { name: "ModelingSupportBooleanRecord", rust_path: crate::resolved::support_records::BooleanRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    contract: ContractRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    conversion: CanonicalConversionRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    literal: InferenceRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    conditional: InferenceRecord => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Complete opaque support record. It is meaningful only inside a caller-qualified
 /// immutable recipe session and joined to the exact reconstructed typed graph.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SupportRecord {
-    identity: ContentHash,
-    syntax: ContentHash,
-    nodes: Vec<NodeRecord>,
-    outputs: Vec<ContractBoundaryRecord>,
-    inputs: Vec<(usize, ContractRecord)>,
-    premises: PhysicalEvidenceRecord,
-    boolean: Option<BooleanRecord>,
-    reduction: Option<InferenceRecord>,
-    reduction_output: Option<ContractBoundaryRecord>,
+    projection: { name: "ModelingSupportRecord", rust_path: crate::resolved::SupportRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    syntax: ContentHash => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    nodes: Vec<NodeRecord> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    outputs: Vec<ContractBoundaryRecord> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    inputs: Vec<(usize, ContractRecord)> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    premises: PhysicalEvidenceRecord => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    boolean: Option<BooleanRecord> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    reduction: Option<InferenceRecord> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    reduction_output: Option<ContractBoundaryRecord> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 fn refusal(error: impl std::fmt::Display) -> crate::ModelingError {
     invalid(SemanticId::NIL, error.to_string())

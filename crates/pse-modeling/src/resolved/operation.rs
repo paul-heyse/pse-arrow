@@ -7,7 +7,7 @@ use super::*;
 #[path = "operation_record.rs"]
 mod record;
 use crate::PhysicalOperation as OriginalOperation;
-pub(crate) use record::OperationRecord;
+pub use record::{AnchorRecord, OperationRecord, TranslationRecord};
 
 /// Rewritten source expressions supplied by the actual contextual-operation producer.
 #[derive(Debug)]

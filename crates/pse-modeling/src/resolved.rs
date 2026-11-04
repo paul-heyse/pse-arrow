@@ -34,6 +34,14 @@ pub use support::{
     BodyInputSupport, BooleanSupport, CallSupport, LiteralSupport, NodeSupport, OutputSupport,
     PhysicalEvidence, PhysicalEvidenceRecord, PhysicalSupport, RangeSupport, SupportRecord,
 };
+/// Passive complete support record types, with private fields and no independent admission.
+pub mod support_records {
+    pub use super::support::record::{BodyInputRecord, BooleanRecord, CallRecord, NodeRecord, RangeRecord};
+}
+/// Passive complete physical-operation records, separate from admitted physical witnesses.
+pub mod operation_records {
+    pub use super::operation::{AnchorRecord, OperationRecord, TranslationRecord};
+}
 pub(crate) use support::{FunctionSupportRequest, InferredView};
 
 macro_rules! indexes {

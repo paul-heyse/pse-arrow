@@ -136,31 +136,41 @@ pub struct Observation {
     pub admitted: bool => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
+pse_contract::projection_tuple_enum! {
 /// A claim plan uses library-evaluated predicate results, not a second numeric engine.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Region {
+    projection: { name: "ApplicabilityRegion", rust_path: crate::applicability::Region, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Index into the mathematical program's boolean predicate outputs.
-    Predicate(usize),
+    Predicate [/// Original program predicate output index.
+        predicate: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
     /// A declaration explicitly states unrestricted evidence.
-    Unrestricted,
+    Unrestricted => 2;
     /// Missing evidence or a declared unknown reason.
-    Unknown,
+    Unknown => 3;
     /// Only a declaration can combine alternatives into one evidence union.
-    Union(Vec<Node>),
+    Union [/// Original declared evidence alternatives in native order.
+        alternatives: Vec<Node> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 4;
 }
+}
+pse_contract::projection_struct! {
 /// Required dependencies are intersections, never implicit fit unions.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Node {
+    projection: { name: "ApplicabilityNode", rust_path: crate::applicability::Node, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Attribution of this instantiated claim.
-    pub claim: Claim,
+    pub claim: Claim => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Its declaration-owned evidence form.
-    pub region: Region,
+    pub region: Region => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Independently required evidence.
-    pub dependencies: Vec<Node>,
+    pub dependencies: Vec<Node> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Indices of actual numerical argument values to retain as observations.
-    pub inputs: Vec<(String, usize, SemanticId)>,
+    pub inputs: Vec<(String, usize, SemanticId)> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact permissions visible in the application's consumer scope.
-    pub permissions: Vec<Permission>,
+    pub permissions: Vec<Permission> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// Full demand-time observation set, including refusals.
 #[derive(Clone, Debug, PartialEq)]
