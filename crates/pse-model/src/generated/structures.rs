@@ -94,6 +94,925 @@ impl PartialEq for LocalValidity {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl pse_contract::boundary_projection::ProjectionType for LocalValidity {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "LocalValidity",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                1u32,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    bool,
+                                >(
+                                    graph,
+                                    "certified",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::Bool,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "certified",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"certified\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::enums::WithheldReason>,
+                                >(
+                                    graph,
+                                    "reason",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "WithheldReason".into(),
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "reason",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"WithheldReason\"},\"name\":\"reason\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            ("pse.domain.parameter".into(), "WithheldReason".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<String>,
+                                >(
+                                    graph,
+                                    "detail",
+                                    3u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::String,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "detail",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"detail\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    bool,
+                                >(
+                                    graph,
+                                    "conditional",
+                                    4u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::Bool,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "conditional",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\"},\"name\":\"conditional\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<bool>,
+                                >(
+                                    graph,
+                                    "licq",
+                                    5u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::Bool,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "licq",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"licq\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<bool>,
+                                >(
+                                    graph,
+                                    "strict_complementarity",
+                                    6u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::Bool,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "strict_complementarity",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"strict_complementarity\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<bool>,
+                                >(
+                                    graph,
+                                    "second_order",
+                                    7u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::Bool,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "second_order",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\"},\"name\":\"second_order\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<i64>,
+                                >(
+                                    graph,
+                                    "weakly_active",
+                                    8u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![
+                                        pse_contract::boundary_projection::LocalRule::SignedRange {
+                                            min: 0i64,
+                                            max: 4294967295i64,
+                                        },
+                                    ],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::I64,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "weakly_active",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.semantic.integer_range\":\"[0,4294967295]\"},\"name\":\"weakly_active\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "8".into()),
+                                            (
+                                                "pse.semantic.integer_range".into(),
+                                                "[0,4294967295]".into(),
+                                            ),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "condition_1norm",
+                                    9u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "condition_1norm",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\"},\"name\":\"condition_1norm\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "residual",
+                                    10u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "residual",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\"},\"name\":\"residual\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<i64>,
+                                >(
+                                    graph,
+                                    "root_rank",
+                                    11u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![
+                                        pse_contract::boundary_projection::LocalRule::SignedRange {
+                                            min: 0i64,
+                                            max: 4294967295i64,
+                                        },
+                                    ],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::I64,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "root_rank",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Int64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.semantic.integer_range\":\"[0,4294967295]\"},\"name\":\"root_rank\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "11".into()),
+                                            (
+                                                "pse.semantic.integer_range".into(),
+                                                "[0,4294967295]".into(),
+                                            ),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "root_rank_cutoff",
+                                    12u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "root_rank_cutoff",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\"},\"name\":\"root_rank_cutoff\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "12".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "root_rank_relative_cutoff",
+                                    13u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "root_rank_relative_cutoff",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\"},\"name\":\"root_rank_relative_cutoff\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "13".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "root_backward_error",
+                                    14u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "root_backward_error",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\"},\"name\":\"root_backward_error\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "14".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "root_backward_error_limit",
+                                    15u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "root_backward_error_limit",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"15\"},\"name\":\"root_backward_error_limit\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "15".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<String>,
+                                >(
+                                    graph,
+                                    "root_neighborhood",
+                                    16u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::String,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "root_neighborhood",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"16\"},\"name\":\"root_neighborhood\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "16".into()),
+                                        ]),
+                                    )
+                            },
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord for LocalValidity {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "certified"),
+        (2u32, "reason"),
+        (3u32, "detail"),
+        (4u32, "conditional"),
+        (5u32, "licq"),
+        (6u32, "strict_complementarity"),
+        (7u32, "second_order"),
+        (8u32, "weakly_active"),
+        (9u32, "condition_1norm"),
+        (10u32, "residual"),
+        (11u32, "root_rank"),
+        (12u32, "root_rank_cutoff"),
+        (13u32, "root_rank_relative_cutoff"),
+        (14u32, "root_backward_error"),
+        (15u32, "root_backward_error_limit"),
+        (16u32, "root_neighborhood"),
+    ];
+    type Fields = (
+        bool,
+        Option<crate::generated::enums::WithheldReason>,
+        Option<String>,
+        bool,
+        Option<bool>,
+        Option<bool>,
+        Option<bool>,
+        Option<i64>,
+        Option<f64>,
+        Option<f64>,
+        Option<i64>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<String>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#certified,
+            self.r#reason,
+            self.r#detail,
+            self.r#conditional,
+            self.r#licq,
+            self.r#strict_complementarity,
+            self.r#second_order,
+            self.r#weakly_active,
+            self.r#condition_1norm,
+            self.r#residual,
+            self.r#root_rank,
+            self.r#root_rank_cutoff,
+            self.r#root_rank_relative_cutoff,
+            self.r#root_backward_error,
+            self.r#root_backward_error_limit,
+            self.r#root_neighborhood,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#certified,
+            r#reason,
+            r#detail,
+            r#conditional,
+            r#licq,
+            r#strict_complementarity,
+            r#second_order,
+            r#weakly_active,
+            r#condition_1norm,
+            r#residual,
+            r#root_rank,
+            r#root_rank_cutoff,
+            r#root_rank_relative_cutoff,
+            r#root_backward_error,
+            r#root_backward_error_limit,
+            r#root_neighborhood,
+        ): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#certified,
+            r#reason,
+            r#detail,
+            r#conditional,
+            r#licq,
+            r#strict_complementarity,
+            r#second_order,
+            r#weakly_active,
+            r#condition_1norm,
+            r#residual,
+            r#root_rank,
+            r#root_rank_cutoff,
+            r#root_rank_relative_cutoff,
+            r#root_backward_error,
+            r#root_backward_error_limit,
+            r#root_neighborhood,
+        })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection for LocalValidity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::enums::WithheldReason,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            bool,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            bool,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            bool,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || true
+        || <Option<
+            i64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || true
+        || <Option<
+            i64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#certified,
+                &pse_contract::boundary_projection::field_path(path, "certified"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#reason,
+                &pse_contract::boundary_projection::field_path(path, "reason"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#detail,
+                &pse_contract::boundary_projection::field_path(path, "detail"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#conditional,
+                &pse_contract::boundary_projection::field_path(path, "conditional"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#licq,
+                &pse_contract::boundary_projection::field_path(path, "licq"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#strict_complementarity,
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "strict_complementarity",
+                ),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#second_order,
+                &pse_contract::boundary_projection::field_path(path, "second_order"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#weakly_active,
+                &pse_contract::boundary_projection::field_path(path, "weakly_active"),
+                &[
+                    pse_contract::boundary_projection::LocalRule::SignedRange {
+                        min: 0i64,
+                        max: 4294967295i64,
+                    },
+                ],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#condition_1norm,
+                &pse_contract::boundary_projection::field_path(path, "condition_1norm"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#residual,
+                &pse_contract::boundary_projection::field_path(path, "residual"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#root_rank,
+                &pse_contract::boundary_projection::field_path(path, "root_rank"),
+                &[
+                    pse_contract::boundary_projection::LocalRule::SignedRange {
+                        min: 0i64,
+                        max: 4294967295i64,
+                    },
+                ],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#root_rank_cutoff,
+                &pse_contract::boundary_projection::field_path(path, "root_rank_cutoff"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#root_rank_relative_cutoff,
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "root_rank_relative_cutoff",
+                ),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#root_backward_error,
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "root_backward_error",
+                ),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#root_backward_error_limit,
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "root_backward_error_limit",
+                ),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#root_neighborhood,
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "root_neighborhood",
+                ),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

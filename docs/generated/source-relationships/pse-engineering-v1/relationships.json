@@ -25884,6 +25884,358 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateQualifier",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateQualifier"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "CandidateRefusal",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::CandidateRefusal"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "CandidateUse",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -32150,6 +32502,182 @@
       "source_path": "crates/pse-model/src/generated/identities.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::identities::DeclarationId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "DerivedQuantity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::DerivedQuantity"
     },
     {
       "basis": "declared",
@@ -54854,6 +55382,182 @@
       "source_path": "crates/pse-runtime/src/workflow/study_variants.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_runtime::workflow::study_variants::LazyStudyDefinition"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "LocalValidity",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-schema/src/catalog/native_math.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::structures::LocalValidity"
     },
     {
       "basis": "declared",
@@ -90188,6 +90892,566 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificProductScope",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::ProductScope"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "ScipSettings",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -104038,6 +105302,182 @@
       "source_path": "crates/pse-schema/src/catalog/modeling.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::structures::VersionRequirement"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WithheldReason",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/enums.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::enums::WithheldReason"
     }
   ],
   "schema_version": 1

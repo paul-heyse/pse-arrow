@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 //! Projections of compiled source owners. No authored second wire schema.
 
+use super::{
+    contract_metadata::imports,
+    proto_projection::{ProjectionTarget, insert, producer, projection},
+};
 use anyhow::{Context, Result, bail};
-use super::{contract_metadata::imports, proto_projection::{ProjectionTarget, insert, producer, projection}};
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
 use pse_contract::boundary_projection::{ProjectionGraph, Service, TypeRef};
-use std::{
-    collections::BTreeSet,
-    path::Path,
-};
+use std::{collections::BTreeSet, path::Path};
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     super::code_intelligence::prepared_plugins(root, &root.join(".local/plan61-tools/bin"))?;
@@ -19,18 +19,30 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let mut tree = projection(
         root,
         &graph,
-        ProjectionTarget { package: "pse.scientific_worker.v1", file: "scientific_worker.proto",
-            destination: "crates/pse-runtime/src/generated/scientific-worker", rust_module: "crate::scientific_worker::generated::pb",
-            document_root: super::ENGINEERING_DOCUMENT_ROOT, generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection" },
+        ProjectionTarget {
+            package: "pse.scientific_worker.v1",
+            file: "scientific_worker.proto",
+            destination: "crates/pse-runtime/src/generated/scientific-worker",
+            rust_module: "crate::scientific_worker::generated::pb",
+            document_root: super::ENGINEERING_DOCUMENT_ROOT,
+            generator_path: "xtask/src/codegen/proto_projection.rs",
+            generator_symbol: "projection",
+        },
         &imports,
     )?;
     let graph = engineering_graph()?;
     let mut engineering = projection(
         root,
         &graph,
-        ProjectionTarget { package: "pse.engineering.v1", file: "engineering.proto",
-            destination: "crates/pse-runtime/src/generated/engineering", rust_module: "crate::host_operations::engineering::generated::pb",
-            document_root: super::ENGINEERING_DOCUMENT_ROOT, generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection" },
+        ProjectionTarget {
+            package: "pse.engineering.v1",
+            file: "engineering.proto",
+            destination: "crates/pse-runtime/src/generated/engineering",
+            rust_module: "crate::host_operations::engineering::generated::pb",
+            document_root: super::ENGINEERING_DOCUMENT_ROOT,
+            generator_path: "xtask/src/codegen/proto_projection.rs",
+            generator_symbol: "projection",
+        },
         &imports,
     )?;
     let mut adapter_roots = BTreeSet::from([
@@ -48,6 +60,8 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "CanonicalResultOutputMetadata",
         "CanonicalResultSetDescriptor",
         "CanonicalProtectedResultSnapshot",
+        "ScientificPermissionSnapshot",
+        "ScientificProductPermissionSnapshot",
     ]);
     for service in graph.services().values() {
         for method in &service.methods {
@@ -110,9 +124,15 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let mut reference = projection(
         root,
         &reference_graph,
-        ProjectionTarget { package: "pse.reference.v1", file: "reference.proto",
-            destination: "crates/pse-runtime/src/generated/reference-exchange", rust_module: "crate::reference_exchange::generated::pb",
-            document_root: super::ENGINEERING_DOCUMENT_ROOT, generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection" },
+        ProjectionTarget {
+            package: "pse.reference.v1",
+            file: "reference.proto",
+            destination: "crates/pse-runtime/src/generated/reference-exchange",
+            rust_module: "crate::reference_exchange::generated::pb",
+            document_root: super::ENGINEERING_DOCUMENT_ROOT,
+            generator_path: "xtask/src/codegen/proto_projection.rs",
+            generator_symbol: "projection",
+        },
         &imports,
     )?;
     let reference_roots = ["ReferenceEnvelope", "ReferenceCaseContract"];
@@ -210,12 +230,23 @@ mod tests {
         let graph = engineering_graph().unwrap();
         let definition = &graph.definitions()["CanonicalProtectedResultSnapshot"];
         assert_eq!(definition.construction, ConstructionRole::ObservationOnly);
-        let Shape::Record(fields) = &definition.shape else { panic!("snapshot must be a record") };
-        assert_eq!(fields.iter().map(|field| field.name.as_str()).collect::<Vec<_>>(),
-            ["run", "attempt", "manifest", "sets"]);
+        let Shape::Record(fields) = &definition.shape else {
+            panic!("snapshot must be a record")
+        };
+        assert_eq!(
+            fields
+                .iter()
+                .map(|field| field.name.as_str())
+                .collect::<Vec<_>>(),
+            ["run", "attempt", "manifest", "sets"]
+        );
         let adapters = boundary_projection::native_adapters(
-            &graph, &["CanonicalProtectedResultSnapshot"], "crate::pb", "pse_runtime",
-        ).unwrap();
+            &graph,
+            &["CanonicalProtectedResultSnapshot"],
+            "crate::pb",
+            "pse_runtime",
+        )
+        .unwrap();
         assert!(adapters.contains("fn encode_canonical_protected_result_snapshot"));
         assert!(!adapters.contains("fn decode_canonical_protected_result_snapshot"));
         assert!(!adapters.contains("ReadOwner"));

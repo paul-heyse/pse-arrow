@@ -395,6 +395,17 @@ report, inventory, JUnit and portable payload digests remained unchanged. This d
 the bounded failed-original/full-inspection/new-outcome journey; it does not reproduce the
 original runtime environment or qualify interruption, expiry or every J05 population case.
 
+**Tested, targeted on main:** `scripts/pse test pse-host --lib -E
+'test(retained_input_requires_original_binding_before_rerun_selection) |
+test(input_dependency_uses_authenticated_snapshot_instead_of_rehashing_replacement_path)'`
+passed 2/2, zero failures/pending/build warnings, configured unbounded mode and cache off;
+original capture and native settlement completed. Independent review found that the former
+post-execution reread could accept whitespace replacement under the JSON-value binding while
+misattributing full-file bytes. Startup now retains the accepted full-file identity, including
+the producer newline. Both publication and retained selection refuse whitespace-only
+replacement against that original identity; exact restoration preserves the sealed promise.
+The reviewer resolved the defect in source; this targeted pass supplies execution evidence.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and

@@ -55,8 +55,12 @@ projection; they do not require a new contract type for every concept.
 Native step selection now uses the same unique-match operation for public step lookup and
 derived point-product permission. Duplicate governing step facts remain readable raw evidence,
 but cannot issue permission based on their order, including two individually accepted copies.
-Local validity remains visible when governing permission is unavailable. Generated records and
-independent readback are still future A/B/F/G integration; this native change does not close I03.
+Local validity remains visible when governing permission is unavailable. The subsequent
+completion-owner observation projections and independent readback are implemented and narrowly
+tested on main; [65f's checkpoint](65f-diagnostics-and-result-delivery.md#execution-checkpoint--2026-11-04)
+owns the exact command and limits. Task/step/point facts, coverage, qualifiers and local validity
+are projected without an inverse permission constructor. Whole completion, selected-attempt
+and complete scientific consumer integration remain required; this does not close I03.
 
 **Tested, targeted:** the native `scripts/pse test pse-runtime --lib --features solver-diffsol`
 selection covering `ambiguous_original_step_never_grants_product_permission`,
@@ -194,7 +198,7 @@ registry or storage projection. H01 retains final assembled-population reconcili
 | --- | --- | --- | --- |
 | I01 | in-progress | Actual native semantic owners and coordinator decision scope; no completed-Plan64 or new-crate barrier | First operation/product owner agreement is recorded above; complete the selected population and A01/A02 metadata co-design with supported dynamic/product and independent refusal/use cases. Buffa options expose native meaning without defining physics. |
 | I02 | planned | I01 agreed meanings; narrow working A/B generation/adoption and existing native operation | Deliver authored source → admission/preparation → native execution → typed observation. Use generated `Validate` only for selected local rules and `DynamicMessage::from_options` for inspection. Preserve native route/procedure and physical guards. Migrate the selected producers/readers together and remove superseded mechanical interpretation. |
-| I03 | planned | I01 product-use design; narrow working I02/A/B and F/G readback | Project completion-owned task/step/point, local validity, coverage, qualifiers and selected-attempt facts through portable/native selectors and independent reading. Generated reflection is observational; no decoded permission issues new authority. Independently test raw versus scientific access, ambiguity and historical/current interpretation; delete replaced client-derived permission conjunctions. |
+| I03 | in-progress | I01 product-use design; narrow working I02/A/B and F/G readback | Completion-owned permission/local-validity observations and independent readback are narrowly delivered. Complete task/step/point, coverage, qualifier and selected-attempt facts through portable/native selectors and actual consumers. Generated reflection is observational; no decoded permission issues new authority. Independently test raw versus scientific access, ambiguity and historical/current interpretation; delete replaced client-derived permission conjunctions. |
 | I04 | planned | I01 consumed-dependency agreement and I02/I03 real products | Implement differential change controls at compiler/admission/artifact/projection/state owners. A Debug-only or unconsumed metadata change must not rebuild unchanged math; correlation/datum or derivative changes must invalidate/readmit affected science. Reuse existing dependency machinery, remove replaced blanket world-key invalidation and duplicate semantic-key derivation where present. |
 | I05 | planned | Working I02–I04 slices and ready E/F/G consumers | Complete the scientific population declared in I01 across supported post64 steady/dynamic/fitting/study/analysis operations and explicit unsupported combinations. Buffa generated adapters/typed options carry one meaning; native reconstruction and governing product selectors enforce it. Remove replaced mode/client-specific interpretation and obsolete fixtures with all migrated consumers. |
 | I06 | planned | I02–I05 functional scope; H01 agreed acceptance scenarios, not H02 qualification results | Establish extension locality and scientific product-use journeys with independent physical/semantic expectations; hand actual population and limits to H. Publish enduring contracts and delete remaining replaced selected routes. Measurements, if claimed, cover complete preparation/use/readback rather than wire-only timing. |

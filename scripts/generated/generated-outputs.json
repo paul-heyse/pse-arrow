@@ -140,6 +140,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/src/test_workflow/execute/report.rs",
           "kind": "file"
         },
@@ -544,6 +548,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/completion.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/fitting/input_declarations.rs",
           "kind": "file"
         },
@@ -920,6 +928,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-host/src/test_workflow/execute/evidence.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-host/src/test_workflow/execute/report.rs",
           "kind": "file"
         },
@@ -1205,6 +1217,10 @@
         },
         {
           "path": "crates/pse-runtime/src/workflow/bindings.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/completion.rs",
           "kind": "file"
         },
         {

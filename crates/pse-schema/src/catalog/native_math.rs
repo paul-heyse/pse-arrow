@@ -13,6 +13,47 @@ use crate::{
     },
 };
 use arrow_schema::DataType as D;
+
+#[cfg(test)]
+mod boundary_tests {
+    #[test]
+    fn local_validity_wire_presentation_preserves_native_scientific_and_encoding_identity() {
+        use crate::model::{
+            FieldContract,
+            field_facets::{BOUNDARY_SHAPE, BOUNDARY_TAG},
+        };
+        let registry = crate::catalog::assemble().unwrap();
+        let relation = registry.relation("runtime.local_validity").unwrap();
+        let mut native = relation.clone();
+        let mut presentation_fields = 0;
+        for column in &mut native.columns {
+            let field =
+                pse_columnar::native_field::map(&column.clone().into_field(), &mut |field| {
+                    let mut field = field.clone();
+                    for key in [BOUNDARY_SHAPE, BOUNDARY_TAG] {
+                        presentation_fields +=
+                            usize::from(field.metadata_mut().remove(key).is_some());
+                    }
+                    field
+                })
+                .unwrap();
+            *column = FieldContract::from_field(field);
+        }
+        assert!(
+            presentation_fields >= 17,
+            "the shared record and all sixteen fields carry source presentation"
+        );
+        assert_eq!(
+            crate::fingerprint::semantic_relation(&registry, relation).unwrap(),
+            crate::fingerprint::semantic_relation(&registry, &native).unwrap(),
+        );
+        assert_eq!(
+            crate::fingerprint::encoding_relation(&registry, relation).unwrap(),
+            crate::fingerprint::encoding_relation(&registry, &native).unwrap(),
+        );
+    }
+}
+
 fn text() -> T {
     T::native(D::Utf8)
 }
@@ -2061,24 +2102,46 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
         ],
     ));
     let validity = record(vec![
-        ("certified", flag()),
-        ("reason", T::enumeration("WithheldReason").optional()),
-        ("detail", text().optional()),
-        ("conditional", flag()),
-        ("licq", flag().optional()),
-        ("strict_complementarity", flag().optional()),
-        ("second_order", flag().optional()),
-        ("weakly_active", ordinal().optional()),
-        ("condition_1norm", real().optional()),
-        ("residual", real().optional()),
-        ("root_rank", ordinal().optional()),
-        ("root_rank_cutoff", real().optional()),
-        ("root_rank_relative_cutoff", real().optional()),
-        ("root_backward_error", real().optional()),
-        ("root_backward_error_limit", real().optional()),
-        ("root_neighborhood", text().optional()),
+        ("certified", flag().with_boundary_tag(1)),
+        (
+            "reason",
+            T::enumeration("WithheldReason")
+                .optional()
+                .with_boundary_tag(2),
+        ),
+        ("detail", text().optional().with_boundary_tag(3)),
+        ("conditional", flag().with_boundary_tag(4)),
+        ("licq", flag().optional().with_boundary_tag(5)),
+        (
+            "strict_complementarity",
+            flag().optional().with_boundary_tag(6),
+        ),
+        ("second_order", flag().optional().with_boundary_tag(7)),
+        ("weakly_active", ordinal().optional().with_boundary_tag(8)),
+        ("condition_1norm", real().optional().with_boundary_tag(9)),
+        ("residual", real().optional().with_boundary_tag(10)),
+        ("root_rank", ordinal().optional().with_boundary_tag(11)),
+        ("root_rank_cutoff", real().optional().with_boundary_tag(12)),
+        (
+            "root_rank_relative_cutoff",
+            real().optional().with_boundary_tag(13),
+        ),
+        (
+            "root_backward_error",
+            real().optional().with_boundary_tag(14),
+        ),
+        (
+            "root_backward_error_limit",
+            real().optional().with_boundary_tag(15),
+        ),
+        ("root_neighborhood", text().optional().with_boundary_tag(16)),
     ])
-    .named("LocalValidity");
+    .named("LocalValidity")
+    .with_boundary_shape(crate::model::BoundaryShape::native(
+        file!(),
+        1,
+        pse_contract::BoundaryDirection::Both,
+    ));
     relation(
         b,
         N::Runtime,

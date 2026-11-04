@@ -549,6 +549,20 @@ proposed ADR before implementation. Neither an artifact digest nor successful lo
 may mint this authority. The existing recipe leaf remains unchanged until a complete approved
 replacement and its original reconstruction/refusal controls are in place.
 
+The initial F03 envelope remains unresolved pending the complete actual Recipe graph.
+The selected source-derived traversal can use Buffa 0.9.2
+[`decode_lazy_with_ctx`/`merge_lazy`, fragments and raw elements](https://docs.rs/buffa/0.9.2/src/buffa/view.rs.html)
+with one shared decode context. Default subtree getters recreate allowances. The
+[decode limits](https://docs.rs/buffa/0.9.2/src/buffa/message.rs.html) do not bound packed-scalar
+allocation, eager oneof/map subtrees, spare capacity or reallocation overlap. Some retained
+capacities lack public accessors; a qualified source-profile bound or small library-owned
+accounting interfaces must precede allocation, rather than infer admission from post-decode
+length. Reuse actual descriptor naming and the maintained validator's selected rules for
+complete violation/path and uniqueness scratch bounds; no fail-fast/sink substitution exists.
+Native adoption includes staging vectors overlapping final collections, original membership/
+receipt lifetimes and repeated formal restoration expansion. This source inspection establishes
+interfaces and missing realization work, not a measured memory bound or full cutover readiness.
+
 The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
 allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their
 variant counterparts expose elements, entries and completion without requiring a value DOM.

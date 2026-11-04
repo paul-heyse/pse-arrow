@@ -1973,6 +1973,30 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `domain` | 2 | `Named("DomainId")` | `Output` | `[]` | `{}` |
 | `kind` | 3 | `Named("EntityKindId")` | `Output` | `[]` | `{}` |
 
+## `CandidateQualifier`
+
+Rust owner: `pse_model::generated::enums::CandidateQualifier`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["accepted_incumbent_feasible", "accepted_incumbent_within_gap", "closure_allowed", "applicability_unknown_allowed", "applicability_extrapolation_allowed", "accuracy_estimated", "accuracy_empirical", "engineering_canonical_fallback"]`.
+
+## `CandidateRefusal`
+
+Rust owner: `pse_model::generated::enums::CandidateRefusal`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["no_candidate", "validation_failed", "infeasible", "unqualified", "native_outcome", "model_checks", "closure_unavailable", "closure_unclosed", "applicability_unavailable", "applicability_denied", "endpoint_unavailable", "coverage_unavailable", "bound_unavailable", "gap_exceeded", "least_infeasible", "relaxed_incumbent", "incumbent_refused", "feasibility_unavailable", "accuracy_unresolved", "accuracy_violated"]`.
+
 ## `CandidateUse`
 
 Rust owner: `pse_model::generated::enums::CandidateUse`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -2500,6 +2524,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
+## `DerivedQuantity`
+
+Rust owner: `pse_model::generated::enums::DerivedQuantity`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["parametric_sensitivity", "reduced_hessian", "parameter_covariance", "wald_interval", "profile_interval", "propagated_covariance"]`.
 
 ## `DiagnosticNonfiniteObservation`
 
@@ -4112,6 +4148,31 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `variants` | 1 | `Named("StudyVariants")` | `Both` | `[]` | `{}` |
 | `output` | 2 | `Named("StudyOutputDemand")` | `Both` | `[]` | `{}` |
+
+## `LocalValidity`
+
+Rust owner: `pse_model::generated::structures::LocalValidity`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `certified` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `reason` | 2 | `Optional(Named("WithheldReason"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "WithheldReason"}` |
+| `detail` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
+| `conditional` | 4 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4"}` |
+| `licq` | 5 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5"}` |
+| `strict_complementarity` | 6 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6"}` |
+| `second_order` | 7 | `Optional(Scalar(Bool))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7"}` |
+| `weakly_active` | 8 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 4294967295 }]` | `{"pse.domain.boundary.tag": "8", "pse.semantic.integer_range": "[0,4294967295]"}` |
+| `condition_1norm` | 9 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9"}` |
+| `residual` | 10 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10"}` |
+| `root_rank` | 11 | `Optional(Scalar(I64))` | `Both` | `[SignedRange { min: 0, max: 4294967295 }]` | `{"pse.domain.boundary.tag": "11", "pse.semantic.integer_range": "[0,4294967295]"}` |
+| `root_rank_cutoff` | 12 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12"}` |
+| `root_rank_relative_cutoff` | 13 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13"}` |
+| `root_backward_error` | 14 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14"}` |
+| `root_backward_error_limit` | 15 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "15"}` |
+| `root_neighborhood` | 16 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "16"}` |
 
 ## `MathAssemblyLimits`
 
@@ -6684,6 +6745,51 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `coordinate_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
 | `value` | 2 | `Named("ExtensionQuantityValue")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.quantity_value"}` |
 
+## `ScientificPermissionSnapshot`
+
+Rust owner: `pse_runtime::workflow::completion::ScientificPermission`. Source: `crates/pse-runtime/src/workflow/completion.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `reference_point` | 1 | `Optional(Scalar(SemanticId))` | `Output` | `[]` | `{}` |
+| `step` | 2 | `Optional(Scalar(I64))` | `Output` | `[]` | `{}` |
+| `requested` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `observed` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `report_succeeded` | 5 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
+| `decision` | 6 | `Named("CandidateUse")` | `Output` | `[]` | `{}` |
+| `refusals` | 7 | `Repeated(Named("CandidateRefusal"))` | `Output` | `[]` | `{}` |
+| `qualifiers` | 8 | `Repeated(Named("CandidateQualifier"))` | `Output` | `[]` | `{}` |
+
+## `ScientificProductPermissionSnapshot`
+
+Rust owner: `pse_runtime::workflow::completion::ProductPermission`. Source: `crates/pse-runtime/src/workflow/completion.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `scope` | 1 | `Named("ScientificProductScope")` | `Output` | `[]` | `{}` |
+| `quantity` | 2 | `Named("DerivedQuantity")` | `Output` | `[]` | `{}` |
+| `validity` | 3 | `Named("LocalValidity")` | `Output` | `[]` | `{}` |
+| `qualifiers` | 4 | `Repeated(Named("CandidateQualifier"))` | `Output` | `[]` | `{}` |
+| `decision` | 5 | `Named("CandidateUse")` | `Output` | `[]` | `{}` |
+
+## `ScientificProductScope`
+
+Rust owner: `pse_runtime::workflow::completion::ProductScope`. Source: `crates/pse-runtime/src/workflow/completion.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Task` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Step (alternative tag 2).step` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
+| `Point (alternative tag 3).step` | 1 | `Optional(Scalar(I64))` | `Both` | `[]` | `{}` |
+| `Point (alternative tag 3).member` | 2 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `Point (alternative tag 3).point` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+
 ## `ScipSettings`
 
 Rust owner: `pse_backend_native::execution::scip::Settings`. Source: `crates/pse-backend-native/src/execution/scip/declarations.rs`. Interpretation version: 1. Direction: `Both`.
@@ -7721,6 +7827,18 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `major` | 2 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
 | `minor` | 3 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "3", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
 | `patch` | 4 | `Scalar(I64)` | `Both` | `[SignedRange { min: 0, max: 9223372036854775807 }]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.integer_range": "[0,9223372036854775807]"}` |
+
+## `WithheldReason`
+
+Rust owner: `pse_model::generated::enums::WithheldReason`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+Allowed canonical members: `["not_feasible", "structural_unavailable", "neighborhood_unavailable", "no_candidate", "no_local_analysis", "multipliers_unrecovered", "complementarity_failed", "not_stationary", "analysis_unavailable", "licq_failed", "weakly_active", "second_order_failed", "backsolve_failed", "rank_deficient", "nonunit_importance", "responses_unavailable", "parameter_at_bound", "upstream_withheld"]`.
 
 ## Service `EngineeringService`
 

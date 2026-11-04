@@ -36,26 +36,31 @@ pub struct Completion {
     pub lineage: Vec<run_lineage::Row>,
 }
 
+pse_contract::projection_struct! {
 /// One completion-owned original scope, with evidence and reasons retained together.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ScientificPermission {
+    projection: { name: "ScientificPermissionSnapshot", rust_path: crate::workflow::ScientificPermission,
+        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
+        reserved_tags: [], reserved_names: [] };
     /// Actual producer-owned original point, absent when no candidate was retained.
-    pub reference_point: Option<pse_ids::SemanticId>,
+    pub reference_point: Option<pse_ids::SemanticId> => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Absent for the complete request; otherwise the original independent step.
-    pub step: Option<i64>,
+    pub step: Option<i64> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Required original observations in this scope.
-    pub requested: usize,
+    pub requested: usize => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Actually retained original observations.
-    pub observed: usize,
+    pub observed: usize => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Whether the original requested report succeeded.
-    pub report_succeeded: bool,
+    pub report_succeeded: bool => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Result permission; seed evidence remains on the original assessments.
-    pub decision: CandidateUse,
+    pub decision: CandidateUse => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original refusal reasons, including incomplete coverage and report failure.
-    pub refusals: Vec<CandidateRefusal>,
+    pub refusals: Vec<CandidateRefusal> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original applicability/incumbent qualifiers, without strengthening.
-    pub qualifiers: Vec<CandidateQualifier>,
+    pub qualifiers: Vec<CandidateQualifier> => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl ScientificPermission {
     /// This exact scope supplies scientific result permission.
@@ -118,6 +123,7 @@ impl ScientificPermission {
         }
     }
 }
+pse_contract::projection_enum! {
 /// Original semantic scope of a product, inside its enclosing run/attempt.
 /// Transport ranges and scientific quantity names cannot substitute for this identity.
 #[derive(
@@ -125,22 +131,26 @@ impl ScientificPermission {
 )]
 #[serde(tag = "scope", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProductScope {
+    projection: { name: "ScientificProductScope", rust_path: crate::workflow::ProductScope,
+        version: 1, direction: pse_contract::BoundaryDirection::Both,
+        reserved_tags: [], reserved_names: [] };
     /// A whole task product, such as a fit's selected covariance.
-    Task,
+    Task => 1;
     /// A product of one independently requested original step.
     Step {
         /// Original independent step, never a selected row ordinal.
-        step: i64,
-    },
+        step: i64 => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+    } => 2;
     /// A product at an exact original point, optionally in an independent step/member.
     Point {
         /// Original independent step, or task scope when absent.
-        step: Option<i64>,
+        step: Option<i64> => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
         /// Original solution member when the producer supplies a member binding.
-        member: Option<pse_ids::SemanticId>,
+        member: Option<pse_ids::SemanticId> => { tag: 2, direction: pse_contract::BoundaryDirection::Both, rules: [] };
         /// Actual producer-owned retained point identity.
-        point: pse_ids::SemanticId,
-    },
+        point: pse_ids::SemanticId => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+    } => 3;
+}
 }
 impl ProductScope {
     fn governing<'a>(&self, completion: &'a Completion) -> Option<&'a ScientificPermission> {
@@ -170,20 +180,25 @@ impl ProductScope {
         }
     }
 }
+pse_contract::projection_struct! {
 /// Local validity remains meaningful even when original permission withholds a product.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProductPermission {
+    projection: { name: "ScientificProductPermissionSnapshot", rust_path: crate::workflow::ProductPermission,
+        version: 1, direction: pse_contract::BoundaryDirection::Output, construction: ObservationOnly,
+        reserved_tags: [], reserved_names: [] };
     /// Exact original product scope; never inferred from quantity or transport layout.
-    pub scope: ProductScope,
+    pub scope: ProductScope => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Existing registry-owned derived scientific quantity.
-    pub quantity: DerivedQuantity,
+    pub quantity: DerivedQuantity => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// The independent mathematical assessment.
-    pub validity: pse_model::generated::structures::LocalValidity,
+    pub validity: pse_model::generated::structures::LocalValidity => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Governing original and accepted derived-work limitations, without strengthening.
-    pub qualifiers: Vec<CandidateQualifier>,
+    pub qualifiers: Vec<CandidateQualifier> => { tag: 4, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// The completed scientific product decision.
-    pub decision: CandidateUse,
+    pub decision: CandidateUse => { tag: 5, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+}
 }
 impl ProductPermission {
     fn retain_qualifiers(&mut self, qualifiers: impl IntoIterator<Item = CandidateQualifier>) {
@@ -281,8 +296,7 @@ impl Completion {
             CandidateUse::Unusable
         };
         ProductPermission {
-            qualifiers: governing
-                .map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
+            qualifiers: governing.map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
             scope,
             quantity,
             validity,
@@ -1206,6 +1220,144 @@ mod tests {
         assert_eq!(product.decision, CandidateUse::QualifiedUnclosed);
     }
 
+    #[cfg(feature = "engineering-service")]
+    #[test]
+    fn scientific_snapshots_preserve_governing_scope_and_independent_local_validity() {
+        use buffa::Message as _;
+        use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+        use pse_contract::boundary_projection::ConstructionRole;
+        use std::sync::Arc;
+
+        fn child(message: &DynamicMessage, tag: u32) -> &DynamicMessage {
+            let Some(Value::Message(child)) = message.field_by_number(tag) else {
+                panic!("expected message at independently specified tag {tag}");
+            };
+            child
+        }
+        fn inspect(name: &str, bytes: &[u8]) -> DynamicMessage {
+            let pool = Arc::new(
+                DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+                    .unwrap(),
+            );
+            let message = pool.message_index(name).unwrap();
+            DynamicMessage::decode(pool, message, bytes).unwrap()
+        }
+        let graph = crate::host_operations::engineering_contract::projection().unwrap();
+        for name in [
+            "ScientificPermissionSnapshot",
+            "ScientificProductPermissionSnapshot",
+        ] {
+            assert_eq!(
+                graph.definitions()[name].construction,
+                ConstructionRole::ObservationOnly
+            );
+        }
+        let point = SemanticId::from_bytes([91; 16]);
+        let mut original = assessment(true);
+        original.usability = CandidateUse::QualifiedUnclosed;
+        original.qualifiers = vec![CandidateQualifier::ClosureAllowed];
+        let mut qualified = ScientificPermission::assess(Some(7), true, 1, 1, &[original]);
+        qualified.reference_point = Some(point);
+        let mut incomplete =
+            ScientificPermission::assess(Some(7), false, 2, 1, &[assessment(true)]);
+        incomplete.reference_point = Some(point);
+        for (permission, expected_decision, permitted) in [
+            (Some(qualified), "qualified_unclosed", true),
+            (Some(incomplete), "unusable", false),
+            (None, "unusable", false),
+        ] {
+            let completion = Completion {
+                step_permissions: permission.into_iter().collect(),
+                ..Default::default()
+            };
+            let mut validity = super::super::local_analysis::record(Ok(&()), None, false);
+            validity.condition_1norm = Some(-0.0);
+            validity.root_neighborhood = Some("original:neighborhood".into());
+            let scope = ProductScope::Point {
+                step: Some(7),
+                member: None,
+                point,
+            };
+            let product = completion.derive_permission(
+                scope.clone(),
+                DerivedQuantity::ParametricSensitivity,
+                validity,
+            );
+            assert_eq!(product.permits_result(), permitted);
+            assert!(
+                product.validity.certified,
+                "local success cannot replace original permission"
+            );
+            assert_eq!(
+                serde_json::to_value(&scope).unwrap(),
+                serde_json::json!({
+                    "scope": "point", "step": 7, "member": null, "point": point,
+                })
+            );
+            let native = serde_json::to_value(&product).unwrap();
+            assert_eq!(native["decision"], expected_decision);
+            assert_eq!(native["validity"]["certified"], true);
+            let bytes =
+                crate::engineering_projection::encode_scientific_product_permission_snapshot(
+                    &product,
+                )
+                .unwrap()
+                .encode_to_vec();
+            let independent = inspect(
+                "pse.engineering.v1.ScientificProductPermissionSnapshot",
+                &bytes,
+            );
+            let point_scope = child(child(&independent, 1), 3);
+            assert_eq!(point_scope.field_by_number(1), Some(&Value::I64(7)));
+            assert_eq!(point_scope.field_by_number(2), None);
+            assert_eq!(
+                point_scope.field_by_number(3),
+                Some(&Value::Bytes(vec![91; 16]))
+            );
+            assert_eq!(
+                child(&independent, 2).field_by_number(1),
+                Some(&Value::String("parametric_sensitivity".into()))
+            );
+            let local = child(&independent, 3);
+            assert_eq!(local.field_by_number(1), Some(&Value::Bool(true)));
+            assert_eq!(
+                local.field_by_number(9),
+                Some(&Value::U64((-0.0f64).to_bits()))
+            );
+            assert_eq!(
+                local.field_by_number(16),
+                Some(&Value::String("original:neighborhood".into()))
+            );
+            assert_eq!(
+                child(&independent, 5).field_by_number(1),
+                Some(&Value::String(expected_decision.into()))
+            );
+            if let Some(permission) = completion.step_permissions.first() {
+                let bytes = crate::engineering_projection::encode_scientific_permission_snapshot(
+                    permission,
+                )
+                .unwrap()
+                .encode_to_vec();
+                let independent =
+                    inspect("pse.engineering.v1.ScientificPermissionSnapshot", &bytes);
+                assert_eq!(
+                    independent.field_by_number(1),
+                    Some(&Value::Bytes(vec![91; 16]))
+                );
+                assert_eq!(independent.field_by_number(2), Some(&Value::I64(7)));
+                assert_eq!(
+                    independent.field_by_number(3),
+                    Some(&Value::U64(if permitted { 1 } else { 2 }))
+                );
+                assert_eq!(independent.field_by_number(4), Some(&Value::U64(1)));
+                assert_eq!(
+                    child(&independent, 6).field_by_number(1),
+                    Some(&Value::String(expected_decision.into()))
+                );
+            }
+        }
+    }
+
     #[test]
     fn product_permission_retains_original_and_accepted_pin_qualifiers() {
         let completion = Completion {
@@ -1312,7 +1464,11 @@ mod tests {
         ] {
             let completion = Completion {
                 permission: Some(ScientificPermission::assess(
-                    None, true, 1, 1, &[assessment(true)],
+                    None,
+                    true,
+                    1,
+                    1,
+                    &[assessment(true)],
                 )),
                 step_permissions: original,
                 ..Default::default()

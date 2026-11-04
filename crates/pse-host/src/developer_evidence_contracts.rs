@@ -15,10 +15,12 @@ mod validation;
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use pse_contract_proto::support::*;
 #[path = "generated/developer-evidence/native-adapters.rs"]
+#[rustfmt::skip]
 mod adapters;
 pub(crate) use adapters::*;
 
 #[path = "generated/developer-evidence/native-policy.rs"]
+#[rustfmt::skip]
 /// Source-derived coverage; acquired descriptors cannot nominate their own native authority.
 pub mod source_policy;
 
@@ -28,7 +30,9 @@ pub const DESCRIPTORS: &[u8] = include_bytes!("generated/developer-evidence/desc
 /// Native source coverage, independent of the acquired descriptor's surviving options.
 pub(crate) struct Policy;
 impl pse_contract::metadata::InterpretationPolicy for Policy {
-    fn name(&self) -> &str { "pse.developer.evidence.v1/native" }
+    fn name(&self) -> &str {
+        "pse.developer.evidence.v1/native"
+    }
     fn supports_interpretation(&self, subject: &str, version: u32) -> bool {
         source_policy::INTERPRETATIONS.contains(&(subject, version))
     }

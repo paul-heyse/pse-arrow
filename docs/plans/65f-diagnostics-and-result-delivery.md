@@ -21,11 +21,11 @@ results in Arrow/native forms suited to their access paths; Proto carries select
 typed failures, progress interpretation and protected references.
 
 The [coordinator](65-proto-integrated-target.md) owns combined decisions and overall completion;
-F01–F06 below own this companion's work. The assumed execution baseline is completed Plan64,
-including its full results/scientific consumers. Inspected source at
+F01–F06 below own this companion's work. Execution proceeds alongside unfinished Plan64;
+each consumer needs its actual native prerequisite, rather than whole-Plan64 completion. Inspected source at
 `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb` and supplied dirty reference additions establish
 **Interface-checked** mechanisms only. No reporting, publication, science or overhead campaign
-ran during authoring; all target behavior remains **Proposed**.
+ran during authoring; the execution checkpoint below distinguishes subsequent delivery.
 
 `pse-diagnostics::observation` already holds bounded copied facts, coverage and retention;
 runtime `diagnostic_documents` and `modeling::diagnostic_source_map` preserve source chains,
@@ -34,6 +34,35 @@ scientific fields and protected products. Canonical result blocks own Arrow payl
 publication. Perfetto and OTLP already have standard external protocols. These mechanisms
 can be replaced by a better complete realization, but their required distinctions survive.
 Blueprint §23, §19 and §20 describe the existing meaning and publication contracts.
+
+## Execution checkpoint — 2026-11-04
+
+Actual `ScientificPermission` and `ProductPermission` now declare one-way observation
+projections at their native completion owner. They retain original task/step/point,
+requested/observed coverage, original outcome, refusal/qualifier facts and independent
+`LocalValidity`. The latter's shared registry record carries explicit wire tags; these
+presentation facets preserve its native semantic and encoding identities. Generated adapters
+borrow the original facts, validate outgoing local rules, and expose no inverse constructor
+for either permission snapshot. Whole-completion, selected-attempt, service/CLI population
+and the remaining diagnostic categories are still required.
+
+**Tested, targeted on main:** `scripts/pse test pse-runtime --lib --features
+canonical-tests,engineering-service -E 'test(scientific_snapshots_preserve_governing_scope) |
+test(result_metadata_projection_tests) |
+test(canonical_durable_constant_completion_reopens_exact_manifest)'` passed 6/6, zero
+failures/pending/build warnings, configured unbounded mode, cache off and prepared compiler/KLU.
+Original capture and fixture/native settlement completed. The new control independently
+decodes actual completion-derived facts through Buffa `DescriptorPool`/`DynamicMessage`, with
+literal tags and expected decisions: qualified-unclosed remains qualified, failed or missing
+original scope cannot be promoted by certified local mathematics, and point identity and
+signed-zero bits survive. The schema control
+`scripts/pse test pse-schema --lib -E 'test(local_validity_wire_presentation_preserves_native)'`
+passed 1/1 with zero failures/pending/build warnings. These targeted results close no package.
+Buffa's independent read interface is characterized in its
+[pinned dynamic decoder source](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs).
+Developer full-evidence delivery and its remaining lifecycle population are owned by
+[65j](65j-workflow-lifecycle-and-developer-evidence.md); protected scientific reads by
+[65c](65c-storage-projections-and-history.md).
 
 ## Selected contract and presentation design
 
@@ -134,7 +163,7 @@ using the required Tokio tracing configuration. It is not a completion or cancel
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
-| F01 | planned | Completed Plan64 baseline; I01/J01 semantic design; 65a metadata and 65b policy identities | Define diagnostic/observation/outcome/result-description products across native diagnostics, runtime documents, producer facts, scientific product-use scope/coverage/selection and developer action/inventory/fixture/assertion/capture/settlement. Preserve every selected distinction with exhaustive mappings and independent records. |
+| F01 | in-progress | Actual native consumer readiness; I01/J01 semantic design; 65a metadata and 65b policy identities | Completion-owned permission/local-validity and developer evidence observation slices are delivered; complete diagnostic/observation/outcome/result-description products across native diagnostics, runtime documents, producer facts, scientific product-use scope/coverage/selection and developer action/inventory/fixture/assertion/capture/settlement. Preserve every selected distinction with exhaustive mappings and independent records. |
 | F02 | planned | F01; 65a generated adapters and 65b violations | Migrate native-to-CLI and local error projections to typed details and category-preserving sources. Recognized malformed, unknown, absent, multi-cause, rule/compiler/evaluator failures and oversized details must differ. Delete replaced string classification and duplicate field maps; keep native rendering where consumed. |
 | F03 | planned | F01/F02; narrow C scientific or J developer retention contract according to family | Deliver full evidence with bounded details and protected readback. Exercise omitted selectors, unknown counts, missing spans, expired locators, failed publication, report without inventory and forbidden verdict reconstruction. No summary implies complete retained evidence. Remove replaced inline blobs/readers together. |
 | F04 | planned | F01 selected metadata; 65d original-operation streaming/custody | Migrate existing post-64 progress and result-inspection producers/clients. Selection reaches producer; selected/full/empty output, continuation, partial final failure and backing-buffer release retain original semantics. Compare useful native/Arrow products rather than force a single format. Delete duplicate projection/extent passes only when equivalent protection moves. |

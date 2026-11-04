@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded generated scientific interchange. This codec never constructs reference answers.
-use pse_contract_proto::support::*;
 use crate::projection_diagnostics::ProjectionDiagnosticError;
-use pse_model::{reference_exchange as native};
-use pse_contract::{boundary_projection::{AdapterError, AdapterFailure, ValidateProjection as _}};
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection as _};
+use pse_contract_proto::support::*;
+use pse_model::reference_exchange as native;
 
 mod case_contract;
 /// Source-generated messages and validators, with the complete imported descriptor world.
@@ -17,6 +17,7 @@ const MAXIMUM_BYTES: usize = 16 << 20;
 const UNKNOWN_FIELDS: usize = 256;
 const RECURSION: u32 = 32;
 #[path = "generated/reference-exchange/native-adapters.rs"]
+#[rustfmt::skip]
 mod native_projection;
 
 /// Structural exchange refusal; physical comparison remains a separate operation.

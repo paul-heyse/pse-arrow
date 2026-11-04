@@ -8,6 +8,7 @@ use pse_contract_proto::support::*;
 
 #[cfg(all(unix, feature = "solver-kinsol"))]
 #[path = "../generated/native-root/native-adapters.rs"]
+#[rustfmt::skip]
 mod native_projection;
 #[cfg(all(unix, feature = "solver-kinsol"))]
 pub(crate) use native_projection::*;

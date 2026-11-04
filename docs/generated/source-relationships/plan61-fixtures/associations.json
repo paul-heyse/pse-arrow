@@ -8,7 +8,7 @@
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "b1ee6515cf117adac10f6cfd7dac0d903cbccac5dbed86f076cec99c88889587",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "3e79458d074761776b76f499a01a8fc6568817a54d6562b81e6aaafdbfbac623",
+    "xtask/Cargo.toml": "f5cc854149c9c4baaa5a3ebc1ef56608d8a5f4ce7282fd78b33a8ca519ce5657",
     "xtask/src/codegen/code_intelligence.rs": "3ad101cab78ca36ddfe7380b1e3e343e33796c4baed0bd7237661c5000361f65",
     "xtask/src/codegen/code_intelligence/associations.rs": "75b8f68ae52e489a443ae03d720f8c78a52ff47774720446224f7771bef1e534"
   },

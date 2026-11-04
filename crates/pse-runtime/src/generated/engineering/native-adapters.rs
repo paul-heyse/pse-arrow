@@ -20981,6 +20981,72 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier,
+> for pse_model::generated::enums::CandidateQualifier {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier,
+        AdapterError,
+    > {
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier,
+> for pse_model::generated::enums::CandidateQualifier {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateRefusal,
+> for pse_model::generated::enums::CandidateRefusal {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateRefusal,
+        AdapterError,
+    > {
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateRefusal {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateRefusal,
+> for pse_model::generated::enums::CandidateRefusal {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateRefusal,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
+impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateUse,
 > for pse_model::generated::enums::CandidateUse {
     fn into_wire(
@@ -24484,6 +24550,39 @@ impl NativeFrom<
                 fields,
             )
             .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::DerivedQuantity,
+> for pse_model::generated::enums::DerivedQuantity {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::DerivedQuantity,
+        AdapterError,
+    > {
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::DerivedQuantity {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::DerivedQuantity,
+> for pse_model::generated::enums::DerivedQuantity {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::DerivedQuantity,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
     }
 }
 impl NativeInto<
@@ -38506,6 +38605,348 @@ impl NativeFrom<
                 required(wire.output.into_option(), &child_path(path, "output"))?,
                 &child_path(path, "output"),
             )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::LocalValidity,
+> for pse_model::generated::structures::LocalValidity {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::LocalValidity,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::generated::structures::LocalValidity as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::structures::LocalValidity as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "certified"),
+                (2, "reason"),
+                (3, "detail"),
+                (4, "conditional"),
+                (5, "licq"),
+                (6, "strict_complementarity"),
+                (7, "second_order"),
+                (8, "weakly_active"),
+                (9, "condition_1norm"),
+                (10, "residual"),
+                (11, "root_rank"),
+                (12, "root_rank_cutoff"),
+                (13, "root_rank_relative_cutoff"),
+                (14, "root_backward_error"),
+                (15, "root_backward_error_limit"),
+                (16, "root_neighborhood"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+            field_11,
+            field_12,
+            field_13,
+            field_14,
+            field_15,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::LocalValidity {
+            certified: native_into::<_, bool>(field_0, &child_path(path, "certified"))?,
+            reason: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason,
+                        >(value, &child_path(path, "reason"))?,
+                    )
+                })
+                .transpose()?
+                .into(),
+            detail: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, String>(value, &child_path(path, "detail"))?)
+                })
+                .transpose()?,
+            conditional: native_into::<
+                _,
+                bool,
+            >(field_3, &child_path(path, "conditional"))?,
+            licq: field_4
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, bool>(value, &child_path(path, "licq"))?)
+                })
+                .transpose()?,
+            strict_complementarity: field_5
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            bool,
+                        >(value, &child_path(path, "strict_complementarity"))?,
+                    )
+                })
+                .transpose()?,
+            second_order: field_6
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, bool>(value, &child_path(path, "second_order"))?)
+                })
+                .transpose()?,
+            weakly_active: field_7
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, i64>(value, &child_path(path, "weakly_active"))?)
+                })
+                .transpose()?,
+            condition_1norm: field_8
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "condition_1norm"))?,
+                    )
+                })
+                .transpose()?,
+            residual: field_9
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, u64>(value, &child_path(path, "residual"))?)
+                })
+                .transpose()?,
+            root_rank: field_10
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, i64>(value, &child_path(path, "root_rank"))?)
+                })
+                .transpose()?,
+            root_rank_cutoff: field_11
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_rank_cutoff"))?,
+                    )
+                })
+                .transpose()?,
+            root_rank_relative_cutoff: field_12
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_rank_relative_cutoff"))?,
+                    )
+                })
+                .transpose()?,
+            root_backward_error: field_13
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_backward_error"))?,
+                    )
+                })
+                .transpose()?,
+            root_backward_error_limit: field_14
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_backward_error_limit"))?,
+                    )
+                })
+                .transpose()?,
+            root_neighborhood: field_15
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "root_neighborhood"))?,
+                    )
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::LocalValidity,
+> for pse_model::generated::structures::LocalValidity {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::LocalValidity,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::generated::structures::LocalValidity as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::structures::LocalValidity as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "certified"),
+                (2, "reason"),
+                (3, "detail"),
+                (4, "conditional"),
+                (5, "licq"),
+                (6, "strict_complementarity"),
+                (7, "second_order"),
+                (8, "weakly_active"),
+                (9, "condition_1norm"),
+                (10, "residual"),
+                (11, "root_rank"),
+                (12, "root_rank_cutoff"),
+                (13, "root_rank_relative_cutoff"),
+                (14, "root_backward_error"),
+                (15, "root_backward_error_limit"),
+                (16, "root_neighborhood"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, bool>(wire.certified, &child_path(path, "certified"))?,
+            wire
+                .reason
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason,
+                        >(value, &child_path(path, "reason"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .detail
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, String>(value, &child_path(path, "detail"))?)
+                })
+                .transpose()?,
+            native_from::<_, bool>(wire.conditional, &child_path(path, "conditional"))?,
+            wire
+                .licq
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, bool>(value, &child_path(path, "licq"))?)
+                })
+                .transpose()?,
+            wire
+                .strict_complementarity
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            bool,
+                        >(value, &child_path(path, "strict_complementarity"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .second_order
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, bool>(value, &child_path(path, "second_order"))?)
+                })
+                .transpose()?,
+            wire
+                .weakly_active
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, i64>(value, &child_path(path, "weakly_active"))?)
+                })
+                .transpose()?,
+            wire
+                .condition_1norm
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "condition_1norm"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .residual
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, u64>(value, &child_path(path, "residual"))?)
+                })
+                .transpose()?,
+            wire
+                .root_rank
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_from::<_, i64>(value, &child_path(path, "root_rank"))?)
+                })
+                .transpose()?,
+            wire
+                .root_rank_cutoff
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_rank_cutoff"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .root_rank_relative_cutoff
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_rank_relative_cutoff"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .root_backward_error
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_backward_error"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .root_backward_error_limit
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "root_backward_error_limit"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .root_neighborhood
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            String,
+                        >(value, &child_path(path, "root_neighborhood"))?,
+                    )
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -61581,6 +62022,413 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot,
+> for &crate::workflow::ScientificPermission {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::ScientificPermission as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <crate::workflow::ScientificPermission as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "reference_point"),
+                (2, "step"),
+                (3, "requested"),
+                (4, "observed"),
+                (5, "report_succeeded"),
+                (6, "decision"),
+                (7, "refusals"),
+                (8, "qualifiers"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionObservationRecord::observation_fields(
+                self,
+            )
+            .map_err(|error| error.at(path))?;
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot {
+            reference_point: field_0
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
+            step: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(native_into::<_, i64>(value, &child_path(path, "step"))?)
+                })
+                .transpose()?,
+            requested: native_into::<_, u64>(field_2, &child_path(path, "requested"))?,
+            observed: native_into::<_, u64>(field_3, &child_path(path, "observed"))?,
+            report_succeeded: native_into::<
+                _,
+                bool,
+            >(field_4, &child_path(path, "report_succeeded"))?,
+            decision: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateUse,
+                >(field_5, &child_path(path, "decision"))?,
+            ),
+            refusals: {
+                let current_path = &child_path(path, "refusals");
+                items(field_6)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateRefusal,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            qualifiers: {
+                let current_path = &child_path(path, "qualifiers");
+                items(field_7)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductPermissionSnapshot,
+> for &crate::workflow::ProductPermission {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductPermissionSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::ProductPermission as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <crate::workflow::ProductPermission as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "scope"),
+                (2, "quantity"),
+                (3, "validity"),
+                (4, "qualifiers"),
+                (5, "decision"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionObservationRecord::observation_fields(
+                self,
+            )
+            .map_err(|error| error.at(path))?;
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductPermissionSnapshot {
+            scope: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope,
+                >(field_0, &child_path(path, "scope"))?,
+            ),
+            quantity: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::DerivedQuantity,
+                >(field_1, &child_path(path, "quantity"))?,
+            ),
+            validity: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::LocalValidity,
+                >(field_2, &child_path(path, "validity"))?,
+            ),
+            qualifiers: {
+                let current_path = &child_path(path, "qualifiers");
+                items(field_3)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        Ok(
+                            native_into::<
+                                _,
+                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateQualifier,
+                            >(value, &format!("{path}[{index}]", path = current_path))?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            decision: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CandidateUse,
+                >(field_4, &child_path(path, "decision"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope,
+> for crate::workflow::ProductScope {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope {
+                    kind: Some(
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Task(
+                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::scientific_product_scope::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "step")],
+            path,
+        )?;
+        let value = match <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Step");
+                let path = alternative_path.as_str();
+                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope {
+                    kind: Some(
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Step(
+                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::scientific_product_scope::Alternative2 {
+                                step: native_into::<
+                                    _,
+                                    i64,
+                                >(field_0, &child_path(path, "step"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "step"), (2, "member"), (3, "point")],
+            path,
+        )?;
+        let value = match <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok((field_0, field_1, field_2)) => {
+                let alternative_path = child_path(path, "Point");
+                let path = alternative_path.as_str();
+                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope {
+                    kind: Some(
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Point(
+                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::scientific_product_scope::Alternative3 {
+                                step: field_0
+                                    .map(|value| -> Result<_, AdapterError> {
+                                        Ok(native_into::<_, i64>(value, &child_path(path, "step"))?)
+                                    })
+                                    .transpose()?,
+                                member: field_1
+                                    .map(|value| -> Result<_, AdapterError> {
+                                        Ok(
+                                            pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                                value,
+                                            ),
+                                        )
+                                    })
+                                    .transpose()?,
+                                point: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                                    field_2,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope,
+> for crate::workflow::ProductScope {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Task(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Task");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Step(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Step");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "step")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<_, i64>(wire.step, &child_path(path, "step"))?,
+                );
+                Ok(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Point(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Point");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "step"), (2, "member"), (3, "point")],
+                    path,
+                )?;
+                let fields = (
+                    wire
+                        .step
+                        .map(|value| -> Result<_, AdapterError> {
+                            Ok(native_from::<_, i64>(value, &child_path(path, "step"))?)
+                        })
+                        .transpose()?,
+                    wire
+                        .member
+                        .map(|value| -> Result<_, AdapterError> {
+                            Ok(
+                                pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                                    value,
+                                    &child_path(path, "member"),
+                                )?,
+                            )
+                        })
+                        .transpose()?,
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        wire.point,
+                        &child_path(path, "point"),
+                    )?,
+                );
+                Ok(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScipSettings,
 > for pse_backend_native::execution::ScipSettings {
     fn into_wire(
@@ -71722,6 +72570,39 @@ impl NativeFrom<
             .map_err(|error| error.at(path))
     }
 }
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason,
+> for pse_model::generated::enums::WithheldReason {
+    fn into_wire(
+        self,
+        _: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason,
+        AdapterError,
+    > {
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason {
+            value: self.as_str().into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason,
+> for pse_model::generated::enums::WithheldReason {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::WithheldReason,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        wire.value
+            .parse::<Self>()
+            .map_err(|_| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "unknown canonical source vocabulary member",
+            ))
+    }
+}
 /// Observe `CanonicalProtectedResultSnapshot` without consuming native custody or constructing native authority.
 pub fn encode_canonical_protected_result_snapshot(
     native: &pse_operations::canonical_results::ResultRead,
@@ -72528,6 +73409,42 @@ pub fn decode_provider_inspection_page(
     wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
 ) -> Result<crate::workflow::ProviderInspectionPage, BoundaryProjectionError> {
     decode_root(wire, "ProviderInspectionPage")
+}
+/// Observe `ScientificPermissionSnapshot` without consuming native custody or constructing native authority.
+pub fn encode_scientific_permission_snapshot(
+    native: &crate::workflow::ScientificPermission,
+) -> Result<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot,
+    BoundaryProjectionError,
+> {
+    pse_contract::boundary_projection::ValidateProjection::validate_projection(native)
+        .map_err(BoundaryProjectionError::OutgoingNative)?;
+    let wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot = native_into(
+            native,
+            "ScientificPermissionSnapshot",
+        )
+        .map_err(BoundaryProjectionError::OutgoingAdoption)?;
+    protovalidate_buffa::Validate::validate(&wire)
+        .map_err(BoundaryProjectionError::OutgoingWire)?;
+    Ok(wire)
+}
+/// Observe `ScientificProductPermissionSnapshot` without consuming native custody or constructing native authority.
+pub fn encode_scientific_product_permission_snapshot(
+    native: &crate::workflow::ProductPermission,
+) -> Result<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductPermissionSnapshot,
+    BoundaryProjectionError,
+> {
+    pse_contract::boundary_projection::ValidateProjection::validate_projection(native)
+        .map_err(BoundaryProjectionError::OutgoingNative)?;
+    let wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductPermissionSnapshot = native_into(
+            native,
+            "ScientificProductPermissionSnapshot",
+        )
+        .map_err(BoundaryProjectionError::OutgoingAdoption)?;
+    protovalidate_buffa::Validate::validate(&wire)
+        .map_err(BoundaryProjectionError::OutgoingWire)?;
+    Ok(wire)
 }
 /// Encode the actual native `StructuralValue` and validate outgoing local rules.
 pub fn encode_structural_value(

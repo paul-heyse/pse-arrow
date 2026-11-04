@@ -332,7 +332,11 @@ Native value/semantic controls and the actual constant-completion protected read
 main; 65c owns their conditions and complete-population obligations. A03 now references the
 five byte-identical descriptor sidecars instead of repeating escaped Rust literals; effective
 feature handling and full/runtime world separation remain open. Complete C/F delivery,
-scientific recipe cutover, developer dependency closure and H qualification remain in progress.
+scientific recipe cutover and H qualification remain in progress. The interpretation-three
+developer dependency closure is integrated on main, including the correction retaining exact
+authenticated startup input bytes across execution; 65j owns its tests and remaining lifecycle
+population. Completion-owned permission observations and their independent readback are
+integrated as the narrow F/I slice, with exact conditions and limits in 65f.
 
 ## Verification boundary
 

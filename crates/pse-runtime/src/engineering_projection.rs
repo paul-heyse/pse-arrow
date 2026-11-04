@@ -6,5 +6,6 @@ use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use pse_contract_proto::support::*;
 
 #[path = "generated/engineering/native-adapters.rs"]
+#[rustfmt::skip]
 mod generated;
 pub use generated::*;

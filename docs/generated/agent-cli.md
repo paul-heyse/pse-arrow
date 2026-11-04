@@ -5502,8 +5502,15 @@ Options:
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
 
-      --report-only
-          Export a report without requiring an original v2 inventory commitment
+      --scope <SCOPE>
+          Full original dependencies, inventory selection, or report-only facts
+
+          Possible values:
+          - report:    Original report and manager-recorded observations only
+          - selection: Original report and complete inventory association, without raw dependencies
+          - full:      Original dependency account and all originally committed file bytes
+
+          [default: full]
 
   -h, --help
           Print help (see a summary with '-h')
