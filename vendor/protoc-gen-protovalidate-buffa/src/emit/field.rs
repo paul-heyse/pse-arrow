@@ -4,6 +4,7 @@
 use anyhow::Result;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use super::integer_bounds;
 
 use crate::scan::{
     BoolStandard, BytesStandard, DoubleStandard, EnumStandard, FieldKind, FieldValidator,
@@ -665,7 +666,7 @@ fn emit_optional_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         emit_cmp(
                             &mut out,
                             "gte",
@@ -683,7 +684,7 @@ fn emit_optional_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         emit_cmp(
                             &mut out,
                             "lte",
@@ -714,7 +715,7 @@ fn emit_optional_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         emit_cmp(
                             &mut out,
                             "gte",
@@ -732,7 +733,7 @@ fn emit_optional_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         emit_cmp(
                             &mut out,
                             "lte",
@@ -763,7 +764,7 @@ fn emit_optional_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         emit_cmp(
                             &mut out,
                             "gte",
@@ -781,7 +782,7 @@ fn emit_optional_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         emit_cmp(
                             &mut out,
                             "lte",
@@ -812,7 +813,7 @@ fn emit_optional_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         emit_cmp(
                             &mut out,
                             "gte",
@@ -830,7 +831,7 @@ fn emit_optional_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         emit_cmp(
                             &mut out,
                             "lte",
@@ -1185,13 +1186,13 @@ fn emit_int32_on(val: &syn::Ident, name_lit: &str, n: &Int32Standard) -> Vec<Tok
     if let Some(lower) = n.gt {
         out.push(quote! { if #val <= #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int32","gt"), rule_id: ::std::borrow::Cow::Borrowed("int32.gt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be > {} (got {})", #lower, #val)), for_key: false }); } });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         out.push(quote! { if #val < #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int32","gte"), rule_id: ::std::borrow::Cow::Borrowed("int32.gte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be >= {} (got {})", #lower, #val)), for_key: false }); } });
     }
     if let Some(upper) = n.lt {
         out.push(quote! { if #val >= #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int32","lt"), rule_id: ::std::borrow::Cow::Borrowed("int32.lt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be < {} (got {})", #upper, #val)), for_key: false }); } });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         out.push(quote! { if #val > #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int32","lte"), rule_id: ::std::borrow::Cow::Borrowed("int32.lte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be <= {} (got {})", #upper, #val)), for_key: false }); } });
     }
     out
@@ -1207,13 +1208,13 @@ fn emit_int64_on(val: &syn::Ident, name_lit: &str, n: &Int64Standard) -> Vec<Tok
     if let Some(lower) = n.gt {
         out.push(quote! { if #val <= #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int64","gt"), rule_id: ::std::borrow::Cow::Borrowed("int64.gt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be > {} (got {})", #lower, #val)), for_key: false }); } });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         out.push(quote! { if #val < #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int64","gte"), rule_id: ::std::borrow::Cow::Borrowed("int64.gte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be >= {} (got {})", #lower, #val)), for_key: false }); } });
     }
     if let Some(upper) = n.lt {
         out.push(quote! { if #val >= #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int32","lt"), rule_id: ::std::borrow::Cow::Borrowed("int64.lt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be < {} (got {})", #upper, #val)), for_key: false }); } });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         out.push(quote! { if #val > #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("int64","lte"), rule_id: ::std::borrow::Cow::Borrowed("int64.lte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be <= {} (got {})", #upper, #val)), for_key: false }); } });
     }
     out
@@ -1233,13 +1234,13 @@ fn emit_uint32_on(val: &syn::Ident, name_lit: &str, n: &Uint32Standard) -> Vec<T
     if let Some(lower) = n.gt {
         out.push(quote! { if #val <= #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint32","gt"), rule_id: ::std::borrow::Cow::Borrowed("uint32.gt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be > {} (got {})", #lower, #val)), for_key: false }); } });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         out.push(quote! { if #val < #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint32","gte"), rule_id: ::std::borrow::Cow::Borrowed("uint32.gte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be >= {} (got {})", #lower, #val)), for_key: false }); } });
     }
     if let Some(upper) = n.lt {
         out.push(quote! { if #val >= #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint32","lt"), rule_id: ::std::borrow::Cow::Borrowed("uint32.lt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be < {} (got {})", #upper, #val)), for_key: false }); } });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         out.push(quote! { if #val > #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint32","lte"), rule_id: ::std::borrow::Cow::Borrowed("uint32.lte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be <= {} (got {})", #upper, #val)), for_key: false }); } });
     }
     out
@@ -1259,13 +1260,13 @@ fn emit_uint64_on(val: &syn::Ident, name_lit: &str, n: &Uint64Standard) -> Vec<T
     if let Some(lower) = n.gt {
         out.push(quote! { if #val <= #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint64","gt"), rule_id: ::std::borrow::Cow::Borrowed("uint64.gt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be > {} (got {})", #lower, #val)), for_key: false }); } });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         out.push(quote! { if #val < #lower { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint64","gte"), rule_id: ::std::borrow::Cow::Borrowed("uint64.gte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be >= {} (got {})", #lower, #val)), for_key: false }); } });
     }
     if let Some(upper) = n.lt {
         out.push(quote! { if #val >= #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint64","lt"), rule_id: ::std::borrow::Cow::Borrowed("uint64.lt"), message: ::std::borrow::Cow::Owned(::std::format!("value must be < {} (got {})", #upper, #val)), for_key: false }); } });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         out.push(quote! { if #val > #upper { violations.push(::protovalidate_buffa::Violation { field: ::protovalidate_buffa::field_path!(#name_lit), rule: ::protovalidate_buffa::field_path!("uint64","lte"), rule_id: ::std::borrow::Cow::Borrowed("uint64.lte"), message: ::std::borrow::Cow::Owned(::std::format!("value must be <= {} (got {})", #upper, #val)), for_key: false }); } });
     }
     out
@@ -2331,6 +2332,7 @@ fn emit_num_i32_like(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2343,6 +2345,7 @@ fn emit_num_i32_like(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2389,7 +2392,7 @@ fn emit_num_i32_like(
             }
         });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2431,7 +2434,7 @@ fn emit_num_i32_like(
             }
         });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2529,6 +2532,7 @@ fn emit_int64(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2541,6 +2545,7 @@ fn emit_int64(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2581,7 +2586,7 @@ fn emit_int64(
             }
         });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2617,7 +2622,7 @@ fn emit_int64(
             }
         });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2706,6 +2711,7 @@ fn emit_uint32(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2718,6 +2724,7 @@ fn emit_uint32(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2758,7 +2765,7 @@ fn emit_uint32(
             }
         });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2794,7 +2801,7 @@ fn emit_uint32(
             }
         });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2883,6 +2890,7 @@ fn emit_uint64(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2895,6 +2903,7 @@ fn emit_uint64(
             &quote! { #upper },
             &quote! { self.#accessor },
             upper < lower,
+            integer_bounds::discharged(lower, upper),
         ));
         return out;
     }
@@ -2935,7 +2944,7 @@ fn emit_uint64(
             }
         });
     }
-    if let Some(lower) = n.gte {
+    if let Some(lower) = n.gte.filter(integer_bounds::lower) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -2971,7 +2980,7 @@ fn emit_uint64(
             }
         });
     }
-    if let Some(upper) = n.lte {
+    if let Some(upper) = n.lte.filter(integer_bounds::upper) {
         let field = fp();
         let rule = rule_path_scalar(
             fam.family,
@@ -3717,7 +3726,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         push_cmp(
                             &mut out,
                             "gte",
@@ -3735,7 +3744,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         push_cmp(
                             &mut out,
                             "lte",
@@ -3766,7 +3775,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         push_cmp(
                             &mut out,
                             "gte",
@@ -3784,7 +3793,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         push_cmp(
                             &mut out,
                             "lte",
@@ -3815,7 +3824,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         push_cmp(
                             &mut out,
                             "gte",
@@ -3833,7 +3842,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         push_cmp(
                             &mut out,
                             "lte",
@@ -3864,7 +3873,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v <= #lo },
                         );
                     }
-                    if let Some(lo) = n.gte {
+                    if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                         push_cmp(
                             &mut out,
                             "gte",
@@ -3882,7 +3891,7 @@ pub(crate) fn emit_wrapper_inner(
                             quote! { #v >= #hi },
                         );
                     }
-                    if let Some(hi) = n.lte {
+                    if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                         push_cmp(
                             &mut out,
                             "lte",
@@ -4218,6 +4227,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4230,6 +4240,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4251,7 +4262,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push_cmp(
                         &mut out,
                         "gte",
@@ -4269,7 +4280,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push_cmp(
                         &mut out,
                         "lte",
@@ -4341,6 +4352,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4353,6 +4365,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4374,7 +4387,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push_cmp(
                         &mut out,
                         "gte",
@@ -4392,7 +4405,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push_cmp(
                         &mut out,
                         "lte",
@@ -4464,6 +4477,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4476,6 +4490,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4497,7 +4512,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push_cmp(
                         &mut out,
                         "gte",
@@ -4515,7 +4530,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push_cmp(
                         &mut out,
                         "lte",
@@ -4587,6 +4602,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4599,6 +4615,7 @@ pub(crate) fn emit_numeric_checks_on(
                         &quote! { #hi },
                         &value,
                         hi < lo,
+            integer_bounds::discharged(lo, hi),
                     ));
                     return out;
                 }
@@ -4620,7 +4637,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push_cmp(
                         &mut out,
                         "gte",
@@ -4638,7 +4655,7 @@ pub(crate) fn emit_numeric_checks_on(
                         quote! { #v >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push_cmp(
                         &mut out,
                         "lte",
@@ -5170,7 +5187,11 @@ fn range_check(
     upper: &TokenStream,
     val: &TokenStream,
     is_exclusive: bool,
+    discharged: (bool, bool),
 ) -> TokenStream {
+    if inclusive_bounds && !is_exclusive && discharged == (true, true) {
+        return TokenStream::new();
+    }
     let (lo_name, lo_num, rule_id_base) = if inclusive_bounds {
         ("gte", INNER_GTE, format!("{}.gte_lte", fam.family))
     } else {
@@ -5195,7 +5216,13 @@ fn range_check(
             quote! { (#val) >= (#upper) && (#val) <= (#lower) }
         }
     } else if inclusive_bounds {
-        quote! { (#val) < (#lower) || (#val) > (#upper) }
+        // Preserve the combined rule's original category/path when one bound
+        // is established intrinsically; only its impossible comparison vanishes.
+        match discharged {
+            (true, false) => quote! { (#val) > (#upper) },
+            (false, true) => quote! { (#val) < (#lower) },
+            _ => quote! { (#val) < (#lower) || (#val) > (#upper) },
+        }
     } else {
         quote! { (#val) <= (#lower) || (#val) >= (#upper) }
     };
@@ -5208,6 +5235,40 @@ fn range_check(
                 for_key: false,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod integer_extrema_tests {
+    use super::*;
+
+    fn rules(lower: Option<i64>, upper: Option<i64>) -> Int64Standard {
+        Int64Standard { r#const: None, lt: None, lte: upper, gt: None, gte: lower,
+            in_set: vec![], not_in: vec![] }
+    }
+    fn render(rules: &Int64Standard) -> String {
+        emit_int64(&format_ident!("actual"), "actual", 1,
+            NumFamily { family: "int64", outer_number: 4, scalar_ty: "Int64" }, rules)
+            .into_iter().collect::<TokenStream>().to_string()
+    }
+
+    #[test]
+    fn integer_extrema_discharge_preserves_strict_and_combined_failure_meaning() {
+        assert!(render(&rules(Some(i64::MIN), Some(i64::MAX))).is_empty());
+        assert!(render(&rules(Some(i64::MIN), None)).is_empty());
+        assert!(render(&rules(None, Some(i64::MAX))).is_empty());
+        let bounded = render(&rules(Some(0), Some(i64::MAX)));
+        assert!(bounded.contains("int64.gte_lte"), "combined violations retain their declared category");
+        assert!(bounded.contains("< (0i64)"));
+        assert!(!bounded.contains("9223372036854775807"));
+        let mut strict = rules(None, None);
+        strict.gt = Some(i64::MIN); strict.lt = Some(i64::MAX);
+        let strict = render(&strict);
+        assert!(strict.contains("int64.gt_lt"));
+        assert!(strict.contains("9223372036854775807"), "strict endpoints are real exclusions");
+        assert!(render(&rules(Some(i64::MAX), Some(i64::MIN))).contains("int64.gte_lte_exclusive"));
+        let value = format_ident!("item");
+        assert!(emit_int64_on(&value, "items", &rules(Some(i64::MIN), Some(i64::MAX))).is_empty());
     }
 }
 

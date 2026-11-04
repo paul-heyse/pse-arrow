@@ -4,6 +4,7 @@
 use anyhow::Result;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use super::integer_bounds;
 
 use crate::scan::{FieldKind, MapStandard, RepeatedStandard};
 
@@ -153,7 +154,7 @@ fn emit_map_kv_checks(
                         quote! { *#elem_ident <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push(
                         &mut out,
                         family,
@@ -177,7 +178,7 @@ fn emit_map_kv_checks(
                         quote! { *#elem_ident >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push(
                         &mut out,
                         family,
@@ -223,7 +224,7 @@ fn emit_map_kv_checks(
                         quote! { *#elem_ident <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push(
                         &mut out,
                         family,
@@ -247,7 +248,7 @@ fn emit_map_kv_checks(
                         quote! { *#elem_ident >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push(
                         &mut out,
                         family,
@@ -498,7 +499,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push(
                         &mut out,
                         family,
@@ -522,7 +523,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push(
                         &mut out,
                         family,
@@ -568,7 +569,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push(
                         &mut out,
                         family,
@@ -592,7 +593,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push(
                         &mut out,
                         family,
@@ -637,7 +638,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push(
                         &mut out,
                         family,
@@ -661,7 +662,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push(
                         &mut out,
                         family,
@@ -706,7 +707,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident <= #lo },
                     );
                 }
-                if let Some(lo) = n.gte {
+                if let Some(lo) = n.gte.filter(integer_bounds::lower) {
                     push(
                         &mut out,
                         family,
@@ -730,7 +731,7 @@ fn emit_repeated_items_checks(
                         quote! { *#elem_ident >= #hi },
                     );
                 }
-                if let Some(hi) = n.lte {
+                if let Some(hi) = n.lte.filter(integer_bounds::upper) {
                     push(
                         &mut out,
                         family,
@@ -1193,7 +1194,7 @@ pub fn emit_repeated(
     let mut out: Vec<TokenStream> = Vec::new();
     let fp = || repeated_field_path(name_lit, field_number, element_type_variant);
 
-    if let Some(min) = spec.min_items {
+    if let Some(min) = spec.min_items.filter(integer_bounds::lower) {
         let min_usize = usize::try_from(min).expect("proto length bound fits in usize");
         let field = fp();
         let rule = repeated_rule_path("min_items", 1);
@@ -1212,7 +1213,7 @@ pub fn emit_repeated(
         });
     }
 
-    if let Some(max) = spec.max_items {
+    if let Some(max) = spec.max_items.filter(integer_bounds::upper) {
         let max_usize = usize::try_from(max).expect("proto length bound fits in usize");
         let field = fp();
         let rule = repeated_rule_path("max_items", 2);
@@ -1905,7 +1906,7 @@ pub fn emit_map(
     let mut out: Vec<TokenStream> = Vec::new();
     let fp = || map_field_path(name_lit, field_number);
 
-    if let Some(min) = spec.min_pairs {
+    if let Some(min) = spec.min_pairs.filter(integer_bounds::lower) {
         let min_usize = usize::try_from(min).expect("proto length bound fits in usize");
         let field = fp();
         let rule = map_rule_path("min_pairs", 1);
@@ -1924,7 +1925,7 @@ pub fn emit_map(
         });
     }
 
-    if let Some(max) = spec.max_pairs {
+    if let Some(max) = spec.max_pairs.filter(integer_bounds::upper) {
         let max_usize = usize::try_from(max).expect("proto length bound fits in usize");
         let field = fp();
         let rule = map_rule_path("max_pairs", 2);
@@ -2472,7 +2473,7 @@ fn emit_scalar_checks(
                         }
                     });
                 }
-                if let Some(lower) = n.gte {
+                if let Some(lower) = n.gte.filter(integer_bounds::lower) {
                     out.push(quote! {
                         if *#elem_ident < #lower {
                             violations.push(::protovalidate_buffa::Violation {
@@ -2502,7 +2503,7 @@ fn emit_scalar_checks(
                         }
                     });
                 }
-                if let Some(upper) = n.lte {
+                if let Some(upper) = n.lte.filter(integer_bounds::upper) {
                     out.push(quote! {
                         if *#elem_ident > #upper {
                             violations.push(::protovalidate_buffa::Violation {
@@ -2536,7 +2537,7 @@ fn emit_scalar_checks(
                         }
                     });
                 }
-                if let Some(lower) = n.gte {
+                if let Some(lower) = n.gte.filter(integer_bounds::lower) {
                     out.push(quote! {
                         if *#elem_ident < #lower {
                             violations.push(::protovalidate_buffa::Violation {

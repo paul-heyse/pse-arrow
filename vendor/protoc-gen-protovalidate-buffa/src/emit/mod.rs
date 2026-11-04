@@ -28,6 +28,7 @@ impl Default for Options {
 pub mod cel;
 pub mod cel_compile;
 pub mod field;
+mod integer_bounds;
 pub mod oneof;
 pub mod repeated;
 

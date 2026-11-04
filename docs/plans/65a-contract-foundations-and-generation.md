@@ -209,6 +209,15 @@ owned and borrowed types. Native adapters and descriptor qualification follow th
 same source lowering. Explicit source public paths make native field access independent
 of the generator consumer module's location.
 
+Maintained validation emission discharges only comparisons established by the
+actual Rust integer domain; declared descriptor rules, strict endpoints, combined
+failure categories and violation paths remain intact. Preparing a patched plugin
+requires an explicit locked source reinstall before generation. A04 still needs the
+existing tool/provenance owner to bind that prepared binary to the actual vendor
+source and locked build: a matching version and filesystem path alone do not
+establish that correspondence. This extends existing preparation rather than adding
+a separate preparation framework.
+
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
 extension allocated at 51066 in
