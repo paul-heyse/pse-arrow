@@ -17,9 +17,9 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         rust_module: "crate::developer_evidence_contracts::pb", document_root: super::DEVELOPER_EVIDENCE_DOCUMENT_ROOT,
         generator_path: "xtask/src/codegen/proto_projection.rs", generator_symbol: "projection",
     }, &imports)?;
-    let roots = ["NativeWorkflowReport", "CapturedWorkflowReport", "CapturedWorkflowEvidence", "WorkflowReportObservation", "WorkflowTerminalRecord", "TestIdentity"];
-    let adapters = boundary_projection::native_adapters(&graph, &roots,
-        "crate::developer_evidence_contracts::pb::pse::developer::evidence::v1", "pse_host")?;
+    let roots = ["CapturedWorkflowReport", "CapturedWorkflowEvidence"];
+    let adapters = boundary_projection::native_adapters_scoped(&graph, &roots,
+        "crate::developer_evidence_contracts::pb::pse::developer::evidence::v1", "pse_host", boundary_projection::AdapterVisibility::Crate)?;
     super::proto_projection::insert(&mut tree, destination, "native-adapters.rs", adapters.as_bytes())?;
     for name in roots {
         let owner = graph.definitions().get(name).context("developer observation root missing from its native graph")?;
@@ -32,7 +32,9 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         });
     }
     let sidecar = provenance::sidecar(&super::proto_projection::producer(package), &tree.relationships)?;
-    tree.roots.extend(sidecar.roots); tree.files.extend(sidecar.files);
+    // The shared publisher already owns this exact provenance root. Refresh only
+    // its contents after adding native adapter relationships.
+    tree.files.extend(sidecar.files);
     Ok(tree)
 }
 
@@ -45,16 +47,19 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let tree = generate(root).unwrap();
         super::super::validate_tree(&tree).unwrap();
+        assert_eq!(tree.roots.iter().filter(|root| root.as_path() == Path::new("docs/generated/source-relationships/pse-developer-evidence-v1")).count(), 1);
         let directory = Path::new("crates/pse-host/src/generated/developer-evidence");
         let policy = std::str::from_utf8(&tree.files[&directory.join("native-policy.rs")]).unwrap();
         assert!(policy.contains("INTERPRETATIONS"));
         assert!(policy.contains("CapturedWorkflowEvidence"));
         let adapters = std::str::from_utf8(&tree.files[&directory.join("native-adapters.rs")]).unwrap();
-        for root in ["native_workflow_report", "captured_workflow_report", "captured_workflow_evidence"] {
-            assert!(adapters.contains(&format!("fn encode_{root}")));
+        for root in ["captured_workflow_report", "captured_workflow_evidence"] {
+            assert!(adapters.contains(&format!("pub(crate) fn encode_{root}")));
             assert!(!adapters.contains(&format!("fn decode_{root}")));
         }
-        assert!(adapters.contains("fn decode_workflow_report_observation"));
+        assert!(adapters.contains("NativeFrom<"));
+        assert!(adapters.contains("unknown_fields(&wire.__buffa_unknown_fields"));
+        assert!(!adapters.contains("fn decode_workflow_report_observation"));
         assert!(tree.files.contains_key(&directory.join("descriptor.bin")));
         assert!(tree.files.contains_key(&directory.join("validation/mod.rs")));
     }

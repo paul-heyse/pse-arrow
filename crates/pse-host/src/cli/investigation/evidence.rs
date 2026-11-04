@@ -29,6 +29,18 @@ pub(super) enum Action {
     Schema(schema::Args),
     /// Explain selected binary, JSON or textproto payloads without invoking an RPC.
     Payload(crate::schema::payload::Args),
+    /// Export source-generated observations from original private workflow evidence.
+    DeveloperEvidence {
+        #[arg(long)]
+        from_result: String,
+        #[arg(long)]
+        session: Option<String>,
+        #[arg(long)]
+        output: PathBuf,
+        /// Export a report without requiring an original v2 inventory commitment.
+        #[arg(long)]
+        report_only: bool,
+    },
     /// Read written declarations or document headings without semantic preparation.
     Outline(source::Outline),
     /// Read a known declaration, literal item, position or exact original range.
@@ -259,6 +271,12 @@ pub(super) fn inspect(
                     crate::schema::payload::inspect(&args)?,
                 ))
                 .map_err(Into::into)
+        }
+        Action::DeveloperEvidence { from_result, session, output: destination, report_only } => {
+            let store = super::super::invocation_store(selected)?;
+            let session = crate::invocation::select_session(session, &std::env::vars_os().collect())?;
+            let payload = crate::developer_evidence::export(&store, &from_result, session.as_deref(), &root.join(destination), report_only)?;
+            output.emit(Envelope::response("inspect developer-evidence", "exported original native observations", payload)).map_err(Into::into)
         }
         Action::Outline(options) => source::outline(options, selected, output),
         Action::Declaration(options) => source::declaration(options, selected, output),

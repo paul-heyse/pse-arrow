@@ -123,7 +123,7 @@ migrated, retained, or explicitly reported incompatible.
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | J01 | in-progress | P01; current test and scientific evidence owners | Shared passive report-observation contract and original terminal matching are implemented in source; remaining population/construction/closure agreement and working generated delivery remain. Compare list/check/test/rustdoc, expected refusal, setup failure, zero match and incomplete capture before A/B interfaces freeze. |
-| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Native v2 report publication now commits original inventory content and shared live/retained/rerun reconciliation; source-built observation roots retain complete original bytes and diagnostics. Generated bundle publication, independent readback and foreign/malformed/oversized/missing-dependency controls remain. |
+| J02 | in-progress | J01; working narrow A/B records/options/decode policy; narrow G02 inspector | Native v2 publication commits original inventory content; source-built one-way roots retain complete bytes and diagnostics. First generated bundle, independent binary readback and foreign/malformed/oversized/missing-import controls are implemented and narrowly tested. Full lifecycle/population delivery, intentional-failure-to-exact-rerun journey and retained raw-artifact protection remain. |
 | J03 | planned | J02; native failed-test rerun and current listing | Bind exact rerun to original input/report/inventory and reconcile present listing. Test changed package/features/identity, absent evidence and stale binaries. Delete client-side command reconstruction; historical success never becomes present evidence. |
 | J04 | planned | J02/J03; existing invocation/raw/fixture custody and interpretation policy | Integrate family retention, interruption and cleanup. Test report without inventory, unavailable old policy, corrupt raw capture, active reader and failed release. Preserve fixture lifetime, capture completeness and native settlement separately; delete replaced reference/cleanup translations. |
 | J05 | planned | J02–J04 full population; narrow F02 presentation and G02 reading | Complete list/check/rustdoc/test and exact rerun across assertion failure, passing expected-refusal test, zero match, setup failure, incomplete capture and interruption. Migrate every selected reader and remove replaced maps/fixtures; supply actual limits and population to H. |
@@ -238,6 +238,49 @@ prepared and the maintainer's unbounded environment activated before admission; 
 checks candidate descriptors, validators, immutable source policy and encode-only root
 source. Committed generated output, compiled independent readback and J04 retained raw
 artifact protection remain separate obligations.
+
+The first transport route exports original captured evidence through
+`inspect developer-evidence --from-result … --output …`; report-only export also
+supports legacy and pre-inventory failure reports. Destinations are exclusively
+created. `inspect payload` consumes the generated descriptor and binary artifact,
+using Buffa's maintained validator, the shared typed metadata checker and independently
+generated native source coverage. The compiled reader additionally requires the complete
+known descriptor content: surviving metadata cannot authorize decoding changed tags,
+primitive kinds or nested shapes through a different compiled schema.
+
+The reader reconciles the terminal's exact original report extent/digest, complete passive
+report facts, and the original v2 inventory commitment and native selected population.
+Finite Buffa `DecodeOptions` bound binary input, recursion and materialized elements;
+an exceeded limit refuses without truncating original evidence. Manager facts remain
+recorded-at-read source observations, separately attributed from the original helper
+commitment. Content consistency of a portable artifact does not authenticate its producer,
+grant exact rerun, reconstruct native verdicts or establish current physical settlement.
+Native `byte_length` count names preserve the original JSON `bytes` spelling while
+avoiding a collision with Buffa's owned-view raw-byte accessor. Strict adapter-wrapper
+visibility is selected independently of unknown-field refusal.
+
+The implementation uses Buffa 0.9.2 `Message`/`DecodeOptions`, generated
+`protovalidate_buffa::Validate`, and the shared strict `support::decode_root` for passive
+native children; sealed roots have only borrowed encoders. The [pinned Buffa guide](https://github.com/anthropics/buffa/blob/v0.9.2/docs/guide.md)
+characterizes decoding/reflection, while the [shared descriptor checker](../../crates/pse-contract-proto/src/check.rs),
+[crossing implementation](../../crates/pse-contract-proto/src/support.rs) and
+[native developer publisher](../../xtask/src/codegen/developer_evidence.rs) define the
+actual selected policy and generated delivery. No hand-authored wire DTO or second
+metadata interpretation is introduced.
+
+**Tested, first compiled delivery:** twelve selected host controls passed against zero
+failures, including the existing real selected-test workflow, source-owned report
+reconciliation and retained legacy export. The real population control rejects changed
+selected identities/completeness, missing inventory and a same-length inventory replacement
+even with a newly calculated observer digest. A subsequent seven-control readback/export
+selection passed with zero compiler warnings, covering unknown wire fields, malformed and
+oversized input, missing imports, foreign families and known-metadata wire-shape drift.
+The strict-visibility generator control and complete developer publisher control each
+passed. Commands used the native `scripts/pse test` library/binary selectors, actual user
+scopes, approved unbounded activation and cache-off mode. The first CLI journey exported
+a real retained twelve-test invocation, then independently read the binary artifact through
+`inspect payload --encoding binary`; generated validation and original report/inventory
+association passed. This does not close J01–J05 or qualify unexercised lifecycle populations.
 
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.

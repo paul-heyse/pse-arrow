@@ -330,7 +330,7 @@ mod tests {
             report: ReportReference {
                 path: "report.json".into(),
                 sha256: sha.clone(),
-                bytes: bytes.len() as u64,
+                byte_length: bytes.len() as u64,
             },
             required_capture_complete: false,
         };
@@ -364,6 +364,18 @@ mod tests {
         let original = crate::test_inventory::frozen(&store, &reference).unwrap();
         assert_eq!(original.context["required_capture_complete"], false);
         assert!(!frozen_incompleteness(&original).is_empty());
+        let exported = scratch.path().join("original-report.pb");
+        let receipt = crate::developer_evidence::export(&store, id.as_str(), None, &exported, true).unwrap();
+        let descriptors = <buffa_descriptor::generated::descriptor::FileDescriptorSet as buffa::Message>::decode_from_slice(crate::developer_evidence_contracts::DESCRIPTORS).unwrap();
+        let payload = std::fs::read(&exported).unwrap();
+        let readback = crate::developer_evidence::inspect(&descriptors, &receipt.message, &payload).unwrap();
+        assert_eq!(readback.invocation, id);
+        assert_eq!(readback.report_version, 1);
+        assert!(readback.inventory_sha256.is_none());
+        assert!(crate::developer_evidence::export(&store, id.as_str(), None, &exported, true).is_err());
+        assert_eq!(std::fs::read(&exported).unwrap(), payload, "export never replaces an existing destination");
+        assert!(crate::developer_evidence::export(&store, id.as_str(), None, &scratch.path().join("unsupported-inventory.pb"), false).is_err());
+        assert!(!scratch.path().join("unsupported-inventory.pb").exists());
         std::fs::set_permissions(&report_path, std::fs::Permissions::from_mode(0o600)).unwrap();
         std::fs::write(&report_path, b"changed original").unwrap();
         assert!(crate::test_inventory::frozen(&store, &reference).is_err());

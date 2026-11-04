@@ -310,7 +310,7 @@ impl Report {
                     .iter()
                     .map(|byte| format!("{byte:02x}"))
                     .collect(),
-                bytes: bytes.len() as u64,
+                byte_length: bytes.len() as u64,
             },
             required_capture_complete: self.required_capture_complete,
         })
@@ -350,8 +350,18 @@ pub struct ReportReference {
     /// Original exact byte identity.
     pub sha256: String => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original complete byte count.
-    pub bytes: u64 => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    #[serde(rename = "bytes")]
+    pub byte_length: u64 => { tag: 3, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
+}
+impl ReportReference {
+    /// Shared content commitment check for streamed live reads and complete retained bytes.
+    pub(crate) fn validate_content(&self, byte_length: u64, sha256: &str) -> Result<(), WorkflowError> {
+        if byte_length != self.byte_length || sha256 != self.sha256 {
+            return Err(WorkflowError::Invalid("original report content differs from its terminal extent or digest".into()));
+        }
+        Ok(())
+    }
 }
 pse_contract::projection_struct! {
 /// Exact original inventory content, distinct from its one source-owned file path.
@@ -362,12 +372,13 @@ pub struct InventoryContent {
     /// SHA-256 of the complete original bytes, not their re-encoding.
     pub sha256: String => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Extent of those same original bytes.
-    pub bytes: u64 => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    #[serde(rename = "bytes")]
+    pub byte_length: u64 => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
 }
 impl InventoryContent {
     fn of(bytes: &[u8]) -> Self {
-        Self { sha256: Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect(), bytes: bytes.len() as u64 }
+        Self { sha256: Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect(), byte_length: bytes.len() as u64 }
     }
 }
 pse_contract::projection_struct! {
@@ -456,6 +467,13 @@ impl ReportObservation {
         }
         Ok(())
     }
+    /// Reconcile an observed count with the actual native listing population, when known.
+    pub(crate) fn validate_selected_population(&self, inventory: &crate::discovery::Inventory) -> Result<(), WorkflowError> {
+        if self.selected_tests.is_some_and(|count| count != inventory.selected_tests_iter().count()) {
+            return Err(WorkflowError::Invalid("original report selected count differs from native inventory".into()));
+        }
+        Ok(())
+    }
 }
 pse_contract::projection_struct! {
 /// Exactly one final JSONL frame. Root validates this original helper transport separately
@@ -492,7 +510,7 @@ impl TerminalRecord {
             || &self.invocation != invocation
             || self.action != action
             || self.report.path != REPORT
-            || self.report.bytes == 0
+            || self.report.byte_length == 0
             || self.report.sha256.len() != 64
             || !self
                 .report
@@ -621,7 +639,7 @@ mod observation_tests {
         let terminal = TerminalRecord {
             protocol: PROTOCOL.into(), version: 1, invocation, action: Action::Test,
             outcome: Outcome::Failed,
-            report: ReportReference { path: REPORT.into(), sha256: "a".repeat(64), bytes: 1 },
+            report: ReportReference { path: REPORT.into(), sha256: "a".repeat(64), byte_length: 1 },
             required_capture_complete: true,
         };
         (observation, terminal)

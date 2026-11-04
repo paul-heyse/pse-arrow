@@ -35,6 +35,9 @@ pub enum SchemaError {
     /// Original structured input failure.
     #[error("schema JSON: {0}")]
     Json(#[from] serde_json::Error),
+    /// Original developer evidence checker failure, without rendered cause erasure.
+    #[error(transparent)]
+    DeveloperEvidence(Box<crate::developer_evidence::EvidenceError>),
     /// Original external tool refusal.
     #[error("schema tool: {0}")]
     Tool(String),
@@ -206,6 +209,7 @@ impl Bundle {
     /// Compiled decoders/validators require this exact compiled schema world.
     pub fn compiled_world(&self) -> bool {
         self.original == crate::code_intelligence_contracts::DESCRIPTORS
+            || self.original == crate::developer_evidence_contracts::DESCRIPTORS
     }
     /// All declaration observations in deterministic descriptor-address order.
     pub fn declarations(&self) -> &[Declaration] {

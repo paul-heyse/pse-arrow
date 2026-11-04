@@ -190,7 +190,7 @@ fn terminal_correlation_action_and_complete_capture_are_required() {
     terminal.write(&mut frame).unwrap();
     assert_eq!(frame.iter().filter(|byte| **byte == b'\n').count(), 1);
     let raw = fs::read(root.path().join("report.json")).unwrap();
-    assert_eq!(terminal.report.bytes, raw.len() as u64);
+    assert_eq!(terminal.report.byte_length, raw.len() as u64);
     use sha2::Digest as _;
     assert_eq!(
         terminal.report.sha256,
@@ -397,6 +397,41 @@ async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
     let terminal = report.publish(&destination).unwrap();
     terminal.validate(&input.invocation, Action::Test).unwrap();
     assert_eq!(terminal.helper_exit(), 0);
+    // Exercise the real source-built population; no second runner, inventory or verdict.
+    let report_original = fs::read(destination.join("report.json")).unwrap();
+    let inventory_original = fs::read(destination.join("inventory/inventory.json")).unwrap();
+    let captured = crate::test_inventory::CapturedEvidence {
+        id: input.invocation.clone(), report: report_original,
+        observation: super::super::ReportObservation::of(&report), terminal,
+        inventory_sha256: crate::source_read::source_digest(std::str::from_utf8(&inventory_original).unwrap()),
+        inventory_bytes: inventory_original, inventory, manager_settlement: None, native_lifetime_pending: None,
+    };
+    let wire = crate::developer_evidence_contracts::encode_captured_workflow_evidence(&captured).unwrap();
+    let descriptors = <buffa_descriptor::generated::descriptor::FileDescriptorSet as buffa::Message>::decode_from_slice(crate::developer_evidence_contracts::DESCRIPTORS).unwrap();
+    let read = |wire: &crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence| {
+        crate::developer_evidence::inspect(&descriptors, "pse.developer.evidence.v1.CapturedWorkflowEvidence", &buffa::Message::encode_to_vec(wire))
+    };
+    let readback = read(&wire).unwrap();
+    assert_eq!(readback.selected_tests, Some(1));
+    assert_eq!(readback.selected_population_complete, Some(true));
+    assert_eq!(readback.report_version, 2);
+    assert!(readback.recorded_manager_settlement.is_none(), "this direct native test has no recorded manager owner");
+    let mut changed = wire.clone();
+    changed.selected_tests.clear();
+    assert!(read(&changed).is_err());
+    let mut changed = wire.clone();
+    changed.selected_population_complete = Some(false);
+    assert!(read(&changed).is_err());
+    let mut changed = wire.clone();
+    let marker = b"\"nextest_version\":\"";
+    let offset = changed.inventory_original.windows(marker.len()).position(|part| part == marker).unwrap() + marker.len();
+    changed.inventory_original[offset] = if changed.inventory_original[offset] == b'x' { b'y' } else { b'x' };
+    assert_eq!(changed.inventory_original.len(), wire.inventory_original.len());
+    changed.inventory_sha256 = crate::source_read::source_digest(std::str::from_utf8(&changed.inventory_original).unwrap());
+    assert!(read(&changed).is_err(), "a new observed digest cannot replace the original report commitment");
+    let mut changed = wire;
+    changed.inventory_original.clear();
+    assert!(read(&changed).is_err());
 }
 
 #[tokio::test]

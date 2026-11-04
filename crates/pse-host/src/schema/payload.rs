@@ -187,6 +187,8 @@ pub struct Report {
     pub representation: String,
     /// Semantic validation coverage.
     pub validation: Validation,
+    /// Original-byte association checks for captured native evidence roots only.
+    pub developer_evidence: Option<crate::developer_evidence::Readback>,
     /// Bounded interpreted fields.
     pub preview: Preview,
     /// Original successful text-parser warnings, if any.
@@ -223,6 +225,9 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
     } else {
         (input.clone(), String::new())
     };
+    let developer_evidence = if matches!(args.message.as_str(), "pse.developer.evidence.v1.CapturedWorkflowReport" | "pse.developer.evidence.v1.CapturedWorkflowEvidence") && !matches!(args.encoding, Encoding::Json) {
+        Some(crate::developer_evidence::inspect(&bundle.set, &args.message, &wire).map_err(|error| SchemaError::DeveloperEvidence(Box::new(error)))?)
+    } else { None };
     let static_value = if bundle.compiled_world() {
         compiled(&args.message, &wire, args.encoding, args.depth, args.limit)?
     } else {
@@ -251,7 +256,7 @@ pub fn inspect(args: &Args) -> Result<Report, SchemaError> {
         descriptor: bundle.path.clone().into(), descriptor_sha256: bundle.digest.clone(),
         input: input_path.into(), payload_sha256: Sha256::digest(&input).iter().map(|byte| format!("{byte:02x}")).collect(), payload_bytes: input.len(),
         original_base64: args.original.then(|| STANDARD.encode(&input)), message: args.message.clone(), encoding: args.encoding,
-        representation: representation.into(), validation, preview, parser_diagnostics,
+        representation: representation.into(), validation, developer_evidence, preview, parser_diagnostics,
         limitations: vec!["Successful decoding does not establish semantic validity. Re-encoding does not preserve original byte identity or wire ordering.".into(), "Presence follows protobuf semantics; implicit scalar default and absence may be indistinguishable. Display limits do not limit decode coverage.".into(), "Any resolves only within the selected descriptor closure; nested payload bytes remain bytes. Original path/digest does not guarantee future availability; --original includes exact input.".into()],
     })
 }
@@ -263,6 +268,17 @@ fn compiled(
     depth: usize,
     limit: usize,
 ) -> Result<Option<(Preview, Validation)>, SchemaError> {
+    if name.starts_with("pse.developer.evidence.v1.") {
+        use crate::developer_evidence_contracts::pb::pse::developer::evidence::v1 as pb;
+        return match name {
+            "pse.developer.evidence.v1.CapturedWorkflowReport" => Some(static_preview::<pb::CapturedWorkflowReport>(input, encoding, depth, limit)),
+            "pse.developer.evidence.v1.CapturedWorkflowEvidence" => Some(static_preview::<pb::CapturedWorkflowEvidence>(input, encoding, depth, limit)),
+            "pse.developer.evidence.v1.NativeWorkflowReport" => Some(static_preview::<pb::NativeWorkflowReport>(input, encoding, depth, limit)),
+            "pse.developer.evidence.v1.WorkflowReportObservation" => Some(static_preview::<pb::WorkflowReportObservation>(input, encoding, depth, limit)),
+            "pse.developer.evidence.v1.WorkflowTerminalRecord" => Some(static_preview::<pb::WorkflowTerminalRecord>(input, encoding, depth, limit)),
+            _ => None,
+        }.transpose();
+    }
     use crate::code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb;
     macro_rules! dispatch { ($($ty:ident),+ $(,)?) => { match name { $(concat!("pse.code_intelligence.v1.", stringify!($ty)) => Some(static_preview::<pb::$ty>(input, encoding, depth, limit)),)+ _ => None }.transpose() }; }
     dispatch!(

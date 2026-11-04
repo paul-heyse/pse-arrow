@@ -542,6 +542,8 @@ pub(crate) fn captured(
             "original inventory lacks complete supported discovery capture",
         ));
     }
+    observation.validate_selected_population(&inventory)
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
     Ok(CapturedEvidence {
         id,
         report,
@@ -622,11 +624,8 @@ pub(crate) fn captured_report(
     let parent = directory.path().join("workflow");
     checked_parent(&parent)?;
     let report = read_private(&parent.join("report.json"))?;
-    if report.len() as u64 != workflow.terminal.report.bytes
-        || digest(&report) != workflow.terminal.report.sha256
-    {
-        return Err(invalid("original report bytes changed"));
-    }
+    workflow.terminal.report.validate_content(report.len() as u64, &digest(&report))
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
     let observation: crate::test_workflow::execute::ReportObservation =
         serde_json::from_slice(&report).map_err(io::Error::other)?;
     observation.validate_against(&workflow.terminal)

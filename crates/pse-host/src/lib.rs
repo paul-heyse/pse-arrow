@@ -24,6 +24,10 @@ pub mod code_intelligence_contracts;
 pub mod compiler_investigation;
 pub mod correctness;
 pub mod dependency;
+/// Independently inspectable observations of original native workflow evidence.
+pub mod developer_evidence;
+/// Source-generated observation wire types and validators.
+pub mod developer_evidence_contracts;
 pub mod diagnostic_tools;
 pub mod discovery;
 pub mod doctor;
@@ -102,6 +106,9 @@ pub enum HostError {
     /// Explicit descriptor/payload interpretation preserves the schema owner's failure.
     #[error(transparent)]
     Schema(#[from] schema::SchemaError),
+    /// Source-generated developer observations preserve their original refusal.
+    #[error(transparent)]
+    DeveloperEvidence(Box<developer_evidence::EvidenceError>),
     /// Source-change reach preserves native Git and graph/map failures.
     #[error(transparent)]
     Affected(#[from] affected::AffectedError),
@@ -167,6 +174,10 @@ pub enum HostError {
     SourceOwnership(#[from] ownership::OwnershipError),
 }
 
+impl From<developer_evidence::EvidenceError> for HostError {
+    fn from(error: developer_evidence::EvidenceError) -> Self { Self::DeveloperEvidence(Box::new(error)) }
+}
+
 pse_diagnostics::impl_diagnostic! {
     HostError,
     code(this) { Some(match this {
@@ -181,6 +192,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Probe(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Api(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Schema(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
+        Self::DeveloperEvidence(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Affected(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
         Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,

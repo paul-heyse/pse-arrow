@@ -446,7 +446,7 @@ pub(crate) async fn validate_report(
         if !metadata.is_file()
             || metadata.uid() != rustix::process::geteuid().as_raw()
             || metadata.mode() & 0o022 != 0
-            || metadata.len() != terminal.report.bytes
+            || metadata.len() != terminal.report.byte_length
         {
             return Err(host(invalid(
                 "workflow report file identity/extent differs from original terminal",
@@ -469,11 +469,7 @@ pub(crate) async fn validate_report(
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>();
-        if input.bytes != terminal.report.bytes || sha != terminal.report.sha256 {
-            return Err(host(invalid(
-                "durable workflow report differs from original terminal digest",
-            )));
-        }
+        terminal.report.validate_content(input.bytes, &sha).map_err(host)?;
         facts.validate_against(&terminal).map_err(host)?;
         facts.require_current().map_err(host)?;
         if facts.inventory.is_some() {
@@ -580,7 +576,7 @@ mod tests {
             report: ReportReference {
                 path: "report.json".into(),
                 sha256: digest(bytes),
-                bytes: bytes.len() as u64,
+                byte_length: bytes.len() as u64,
             },
             required_capture_complete: true,
         }
