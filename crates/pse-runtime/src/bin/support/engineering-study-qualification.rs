@@ -98,6 +98,49 @@ impl std::fmt::Display for NativeWaitFailure {
 }
 impl std::error::Error for NativeWaitFailure {}
 
+#[derive(Debug)]
+struct NativeCancelFailure {
+    invocation: CliInvocationId,
+    status: std::process::ExitStatus,
+    observation: pse_host::envelope::Envelope<serde_json::Value>,
+}
+impl std::fmt::Display for NativeCancelFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "original native cancel {} exited {} with {:?} and {:?} settlement",
+            self.invocation, self.status, self.observation.outcome, self.observation.settlement
+        )?;
+        for failure in &self.observation.failures {
+            write!(formatter, "; {}", failure.message)?;
+        }
+        Ok(())
+    }
+}
+impl std::error::Error for NativeCancelFailure {}
+
+fn cancelled_original(
+    id: &CliInvocationId,
+    status: std::process::ExitStatus,
+    observation: pse_host::envelope::Envelope<serde_json::Value>,
+) -> Result<(), Error> {
+    if !status.success()
+        || observation.command != "cancel"
+        || observation.payload.get("original_invocation") != Some(&serde_json::to_value(id)?)
+        || observation.exit_code() != 0
+        || observation.settlement != Settlement::Complete
+        || observation.observation.completeness != Completeness::Complete
+        || !observation.failures.is_empty()
+    {
+        return Err(Box::new(NativeCancelFailure {
+            invocation: id.clone(),
+            status,
+            observation,
+        }));
+    }
+    Ok(())
+}
+
 fn settled_original(
     id: &CliInvocationId,
     observed: &pse_host::envelope::Envelope<serde_json::Value>,
@@ -139,13 +182,47 @@ impl Phase {
 
 // The sequence owns only composition. Each implementation retains its performing
 // owners even if a step fails after dispatch or loses its acknowledgement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FixtureDisposition {
+    Preserve,
+    Dispose,
+}
+async fn settle_after_cancel(
+    cancelled: Result<(), Error>,
+    wait: impl Future<Output = Result<(), Error>>,
+) -> (bool, Vec<Error>) {
+    let mut failures = cancelled.err().into_iter().collect::<Vec<_>>();
+    match wait.await {
+        Ok(()) => (true, failures),
+        Err(error) => {
+            failures.push(error);
+            (false, failures)
+        }
+    }
+}
+fn request_keeper_finish(
+    finish: &Path,
+    dispose: &Path,
+    disposition: FixtureDisposition,
+) -> Vec<Error> {
+    let mut failures = Vec::new();
+    if disposition == FixtureDisposition::Dispose
+        && let Err(error) = super::publish_worker_started(dispose)
+    {
+        failures.push(error);
+    }
+    if let Err(error) = super::publish_worker_started(finish) {
+        failures.push(error);
+    }
+    failures
+}
 trait Driver {
     async fn keeper(&mut self) -> Result<(), Error>;
     async fn frontend(&mut self, replacement: bool) -> Result<(), Error>;
     async fn phase(&mut self, phase: Phase) -> Result<(), Error>;
     async fn gate(&mut self) -> Result<(), Error>;
     async fn retire_frontends_and_tests(&mut self) -> Result<(), Error>;
-    async fn finish_keeper(&mut self) -> Result<(), Error>;
+    async fn finish_keeper(&mut self, disposition: FixtureDisposition) -> Result<(), Error>;
 }
 fn checkpoint(stop: &CancelSource) -> Result<(), Error> {
     if stop.token().is_cancelled() {
@@ -196,7 +273,16 @@ async fn execute(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), Er
     let frontends = AssertUnwindSafe(driver.retire_frontends_and_tests())
         .catch_unwind()
         .await;
-    let keeper = AssertUnwindSafe(driver.finish_keeper())
+    let disposition = if primary.is_none()
+        && panic.is_none()
+        && matches!(&frontends, Ok(Ok(())))
+        && !stop.token().is_cancelled()
+    {
+        FixtureDisposition::Dispose
+    } else {
+        FixtureDisposition::Preserve
+    };
+    let keeper = AssertUnwindSafe(driver.finish_keeper(disposition))
         .catch_unwind()
         .await;
     let mut causes = Vec::new();
@@ -372,7 +458,7 @@ impl Native {
         arguments: Vec<OsString>,
         timeout: Duration,
         require_success: bool,
-    ) -> Result<serde_json::Value, Error> {
+    ) -> Result<(std::process::ExitStatus, serde_json::Value), Error> {
         self.serial = self
             .serial
             .checked_add(1)
@@ -405,7 +491,7 @@ impl Native {
             )
             .into());
         }
-        Ok(value)
+        Ok((status, value))
     }
     async fn await_file(&mut self, path: &Path) -> Result<Vec<u8>, Error> {
         let deadline = Instant::now()
@@ -479,7 +565,7 @@ impl Native {
         timeout: Duration,
     ) -> Result<(), Error> {
         let seconds = timeout.as_secs().saturating_add(1).to_string();
-        let observed = self
+        let (_, observed) = self
             .cli(
                 vec![
                     "wait".into(),
@@ -781,7 +867,7 @@ impl Driver for Native {
             };
             let timeout = Duration::from_millis(self.args.shutdown_ms);
             let seconds = timeout.as_secs().saturating_add(1).to_string();
-            if let Err(error) = self
+            let cancelled = self
                 .cli(
                     vec![
                         "cancel".into(),
@@ -795,13 +881,13 @@ impl Driver for Native {
                     false,
                 )
                 .await
-            {
-                failures.push(error);
-            }
-            match self.wait_original(&id, timeout).await {
-                Ok(()) => self.managed[index].settled = true,
-                Err(error) => failures.push(error),
-            }
+                .and_then(|(status, value)| {
+                    cancelled_original(&id, status, serde_json::from_value(value)?)
+                });
+            let (settled, causes) =
+                settle_after_cancel(cancelled, self.wait_original(&id, timeout)).await;
+            self.managed[index].settled = settled;
+            failures.extend(causes);
         }
         self.cleaning = false;
         if failures.is_empty() {
@@ -810,7 +896,7 @@ impl Driver for Native {
             Err(Box::new(Failures(failures)))
         }
     }
-    async fn finish_keeper(&mut self) -> Result<(), Error> {
+    async fn finish_keeper(&mut self, disposition: FixtureDisposition) -> Result<(), Error> {
         let Some(child) = self.keeper.as_mut() else {
             return Ok(());
         };
@@ -821,16 +907,20 @@ impl Driver for Native {
                 Err(format!("keeper exited {status}; original fixture/logs retained").into())
             };
         }
-        let mut failures = Vec::new();
-        if self.completed
+        let disposition = if disposition == FixtureDisposition::Dispose
+            && !self.stop.token().is_cancelled()
+            && self.completed
             && self.managed.iter().all(|owner| owner.settled)
-            && let Err(error) = super::publish_worker_started(&self.path("dispose.json"))
         {
-            failures.push(error);
-        }
-        if let Err(error) = super::publish_worker_started(&self.path("finish.json")) {
-            failures.push(error);
-        }
+            FixtureDisposition::Dispose
+        } else {
+            FixtureDisposition::Preserve
+        };
+        let mut failures = request_keeper_finish(
+            &self.path("finish.json"),
+            &self.path("dispose.json"),
+            disposition,
+        );
         let child = self.keeper.as_mut().ok_or("keeper owner missing")?;
         match tokio::time::timeout(Duration::from_millis(self.args.shutdown_ms), child.wait()).await
         {
@@ -958,6 +1048,9 @@ mod tests {
         stop_at: Option<&'static str>,
         panic_at: Option<&'static str>,
         stop: CancelSource,
+        retirement_failure_after_complete: bool,
+        request_directory: Option<PathBuf>,
+        dispositions: Vec<FixtureDisposition>,
     }
     impl Probe {
         fn enter(&mut self, name: &'static str) -> Result<(), Error> {
@@ -990,10 +1083,27 @@ mod tests {
             self.enter("gate")
         }
         async fn retire_frontends_and_tests(&mut self) -> Result<(), Error> {
-            self.enter("retire")
+            self.enter("retire")?;
+            if self.retirement_failure_after_complete
+                && self.calls.iter().any(|call| call == "complete")
+            {
+                return Err("original final retirement failure after completion".into());
+            }
+            Ok(())
         }
-        async fn finish_keeper(&mut self) -> Result<(), Error> {
+        async fn finish_keeper(&mut self, disposition: FixtureDisposition) -> Result<(), Error> {
+            self.dispositions.push(disposition);
             self.enter("finish")?;
+            if let Some(directory) = &self.request_directory {
+                let failures = request_keeper_finish(
+                    &directory.join("finish.json"),
+                    &directory.join("dispose.json"),
+                    disposition,
+                );
+                if !failures.is_empty() {
+                    return Err(Box::new(Failures(failures)));
+                }
+            }
             if self.cleanup_failure {
                 return Err("independent keeper release failure".into());
             }
@@ -1019,6 +1129,101 @@ mod tests {
                 "retire",
                 "finish"
             ]
+        );
+        assert_eq!(driver.dispositions, [FixtureDisposition::Dispose]);
+    }
+    #[tokio::test]
+    async fn successful_wait_does_not_erase_cancel_status_or_native_failure() {
+        use pse_host::envelope::{CommandOutcome, Envelope, ErrorRecord, RedactionPolicy};
+        for (command, native_failure) in [("false", true), ("true", true), ("false", false)] {
+            let status = std::process::Command::new(command).status().unwrap();
+            let id = CliInvocationId::new();
+            let mut observed = Envelope::response(
+                "cancel",
+                "original cancellation refusal",
+                serde_json::json!({"original_invocation":id}),
+            );
+            observed.settlement = Settlement::Complete;
+            if native_failure {
+                observed.outcome = CommandOutcome::Failure;
+                observed.failures.push(ErrorRecord::from_typed(
+                    &pse_host::HostError::Ownership("original cancellation cleanup failed".into()),
+                    &RedactionPolicy::from_environment(),
+                ));
+            }
+            let waited = std::cell::Cell::new(false);
+            let (settled, failures) =
+                settle_after_cancel(cancelled_original(&id, status, observed), async {
+                    waited.set(true);
+                    Ok(())
+                })
+                .await;
+            assert!(waited.get(), "independent wait must still be attempted");
+            assert!(
+                settled,
+                "only the wait result supplies this control's drain verdict"
+            );
+            assert_eq!(failures.len(), 1);
+            let retained = failures[0].downcast_ref::<NativeCancelFailure>().unwrap();
+            assert_eq!(retained.status.success(), command == "true");
+            assert_eq!(
+                retained.observation.failures.len(),
+                usize::from(native_failure)
+            );
+            if native_failure {
+                assert!(
+                    failures[0]
+                        .to_string()
+                        .contains("original cancellation cleanup failed")
+                );
+            }
+        }
+    }
+    #[tokio::test]
+    async fn stop_or_retirement_failure_after_complete_finishes_without_disposal_grant() {
+        for interrupted in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let mut driver = Probe {
+                stop_at: interrupted.then_some("complete"),
+                retirement_failure_after_complete: !interrupted,
+                request_directory: Some(directory.path().to_owned()),
+                ..Default::default()
+            };
+            let stop = driver.stop.clone();
+            let error = execute(&mut driver, &stop).await.unwrap_err();
+            assert_eq!(
+                error.downcast_ref::<Failure>().unwrap().interrupted,
+                interrupted
+            );
+            assert!(driver.calls.iter().any(|call| call == "complete"));
+            assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
+            assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
+            assert!(super::super::start_requested(&directory.path().join("finish.json")).unwrap());
+            assert!(
+                !directory.path().join("dispose.json").exists(),
+                "stopped fixture receives no disposal authority on failure or stop"
+            );
+            if !interrupted {
+                assert!(
+                    error
+                        .to_string()
+                        .contains("original final retirement failure after completion")
+                );
+            }
+        }
+    }
+    #[test]
+    fn failed_disposal_request_still_publishes_independent_normal_finish() {
+        let directory = tempfile::tempdir().unwrap();
+        let dispose = directory.path().join("dispose.json");
+        let finish = directory.path().join("finish.json");
+        std::fs::write(&dispose, b"existing conflicting request").unwrap();
+        let failures = request_keeper_finish(&finish, &dispose, FixtureDisposition::Dispose);
+        assert_eq!(failures.len(), 1);
+        assert!(super::super::start_requested(&finish).unwrap());
+        assert_eq!(
+            std::fs::read(&dispose).unwrap(),
+            b"existing conflicting request"
         );
     }
     #[tokio::test]
