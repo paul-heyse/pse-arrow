@@ -1,5 +1,12 @@
 # Codebase opportunities for library leverage
 
+**Focused follow-up, 2026-11-03:** the [codebase-wide Proto inquiry](../libraries/proto/briefing.md)
+refreshes CBO-195, CBO-042, CBO-066, CBO-110, CBO-094 and CBO-008 at source
+`f55951cfe995a689f9b75185b8e89cb362021616`. Their primary pages identify the new evidence
+and limits. No IDs are added, retired or closed; this does not refresh unrelated occurrences
+or alter the whole-account baseline below. Additional matches are explicitly conditional
+in [Proto applicability](../libraries/proto/applicability.md).
+
 **Account state: whole-codebase refresh and fresh discovery, 2026-11-02.** This page is the entry point to the living
 account of where library capabilities could improve how pse-arrow fulfils its responsibilities. The
 [codebase audit skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/leverage-codebase-audit/SKILL.md)

@@ -1,5 +1,9 @@
 # Library applicability assessments
 
+The [codebase-wide Proto account](proto/README.md) now contains seven thematic discovery
+briefings, focused applicability and an integrated proposed target. Its 2026-11-03 baseline
+and evidence limits are separate from the older whole-collection assessment below.
+
 ## Library-led briefings
 
 The optional [discovery skill](../../../.codex/skills/leverage-library-discovery/SKILL.md)
@@ -11,9 +15,10 @@ applicability assessments below. A shortlist does not establish fit or authorize
 The [pilot evidence account](../pilot-evidence.md) records the generated reference/API scope,
 retention and limits separately from those research judgments.
 
-The [Proto ecosystem briefing](proto/briefing.md) explores schema intelligence, validation,
-generation, engineering interfaces and reference exchange across Plan64. It uses
-representative source reads and selected library contracts, without a Proto reference census.
+The [Proto ecosystem briefing](proto/briefing.md) routes codebase-wide discovery across
+generation, representation, SurrealDB storage, runtime, mathematics/solvers, diagnostics/results
+and independent tooling. It includes newly supplied reference additions and focused
+applicability/comparative research, without a Proto reference census or product qualification.
 
 Reusable technical types can be researched without a current match. Contextual applicability
 still connects them to a concrete opportunity. Follow the

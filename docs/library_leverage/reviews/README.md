@@ -1,5 +1,10 @@
 # Comparative library leverage reviews
 
+The [codebase-wide Proto comparative review](proto/README.md), researched 2026-11-03,
+develops a local target with extension seams across contracts, storage, runtime, science,
+diagnostics/results and tooling. Its focused baseline and proposed recommendations are
+separate from the historical reassessment below; neither accepts implementation scope.
+
 **Account state: reassessed comparative review, 2026-10-27.** This pass reconsidered all
 original `CBO-001`–`CBO-052` across nine group pages, retired CBO-032 on its corrected premise,
 and added CBO-053. The [codebase account](../codebase/README.md) therefore has 52 current

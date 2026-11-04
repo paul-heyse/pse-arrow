@@ -198,6 +198,15 @@ With the Python reader gone, the premise that every relation must have a uniform
 
 ## CBO-042 — Document wire envelopes after the foreign reader retired
 
+**Focused Proto refresh, 2026-11-03:** at source `f55951cfe995a689f9b75185b8e89cb362021616`,
+engineering contracts and independent scientific reference exchange introduce actual
+generated wire consumers. The historical foreign-reader retirement no longer supports a
+blanket argument against public document envelopes. Current projection, reference-exchange
+and native-adapter owners distinguish original message retention from known native adoption.
+See [applicability](../libraries/proto/applicability.md) for conditional fits and retained
+Serde/native authoring cases. This narrows the opportunity's premise without claiming that
+every document should migrate or that the new consumers are qualified by this source read.
+
 - **Current evidence basis (2026-11-02).** Retained, narrowed to existing Rust documents and persisted/public wires. Reopened `Versioned<T,N>` and the document generator; their strict-header/directional-schema mechanisms are unchanged. Plans61–63 add proto-authored local RPC while preserving Serde/Schemars presentation, so Rust-only consumption no longer implies one universal encoding would be appropriate. Persistence/compatibility must be established per wire before simplifying the old four-way table; its counts retain October 30 provenance.
 
 - **Operation and consumers.** Boundary-document versioning and schema publication for the CLI, host and schemas under `docs/generated/schema` (497 files).

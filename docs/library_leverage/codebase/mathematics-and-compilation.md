@@ -192,26 +192,39 @@ CBO-022). The prediction and retained-size accounting that surrounds all of thes
 
 ## CBO-110 — Parallel wire hierarchies with hand capture and restore
 
-**Refresh — retained, Interface-checked representative projection.** Runtime `project_preparation_wire.rs` still mirrors structural `Value`/`Fact`/formulation shapes with explicit serde tags and hand `From` conversions in both directions; number/coordinate payloads explicitly carry bits. This is a concrete mechanical projection with a stable external contract. It does not establish that all portable receipt restore logic is mechanical: qualification, ordinal rebinding and trust checks must remain independently understood. The old aggregate line count and all capture/restore bodies were not recounted or reread.
+**Focused Proto refresh, 2026-11-03:** at `f55951cfe995a689f9b75185b8e89cb362021616`,
+private native-child reconstruction still uses framed Serde documents while generated
+scientific-worker/reference contracts provide another concrete route. The
+[math/solver briefing](../libraries/proto/briefings/math-solvers-and-scientific-workers.md)
+assesses owner-derived exchange for reconstructible source/configuration and explicitly
+retains library-native numerical objects. Availability of a codec is not evidence of an
+admissible reusable mathematical artifact. This retains the occurrence and refines its
+comparison candidates; no solve, portable-artifact test or performance campaign ran.
+
+**Current disposition — retained with a narrowed footprint.** The earlier
+`project_preparation_wire.rs` example was removed by the inspected implementation. Actual
+preparation projection owners and generated adapters replace that mechanical mirror; it is
+no longer evidence of current duplication. Remaining portable capture/restore and private
+native-child reconstruction must be judged separately. No old aggregate line count is renewed.
 
 - **Operation and consumers.** Durable restoration of resolved values, types, contracts, graphs and provider
   specifications, and the public serialized form of preparation bindings. Consumers are portable recipes, replay and
   the project preparation boundary.
-- **Current mechanism.**
+- **Inherited portable mechanism (2026-11-02; not a fresh body-complete audit).**
   - About 4k lines of wire mirrors with `capture` and `restore` pairs: `ValueWire` in `portable.rs`,
     `resolved/{records,support_record,operation_record}.rs`, `pse-quantity/resolved_receipts.rs` (`ContractWire`),
     `pse-kernels/portable.rs` and `typed_math_portable.rs` (`SpecWire`). Payloads are JSON via serde with a
     byte-counting writer preflight. `unit.rs` shows the same shape for conversion plans.
-  - In the runtime, `project_preparation_wire.rs` replicates `pse_modeling` structural `Value` shapes as
-    `PreparationStructuralValue`, `PreparationFact` and `PreparationFormulation` with hand `From` in both directions
-    and explicit serde tags; the module calls it "mechanical".
+  - The removed preparation mirror is historical. Current `pse-runtime::preparation_projection`,
+    model boundary owners and generated native adapters supply the replacement comparison.
 - **Why it matters.** Each new `Value` variant requires edits in two directions, and a new field in a scientific type
   means several independent edits. These types will keep changing as the physical semantics grow. A derive or serde
   remote definition could carry the mechanical translation. The identity-framing half of the same declaration is
   [CBO-039](authoring-and-identity.md#cbo-039).
 - **Patterns.** LOP-02, LOP-X007, LOP-06.
-- **Evidence.** Heads of the listed wire files; `project_preparation_wire.rs` first 110 of 270 lines. Claims rest
-  partly on structure. (Interface-checked.)
+- **Evidence.** Inherited heads of the listed portable wire files; current preparation
+  projection and generated-adapter orchestration, plus `math/native_child.rs` reconstruction.
+  The old 110-of-270-line preparation-mirror observation is superseded, not current evidence.
 - **Footprint.** Unread: full `capture` and `restore` bodies, and consumers in `pse-runtime/src/math`; the owning
   `Value` for the runtime wire.
 - **Preservation constraints.** Stable tags at the public boundary, `deny_unknown_fields`, float bits, schema
@@ -221,7 +234,7 @@ CBO-022). The prediction and retained-size accounting that surrounds all of thes
   validation on restore), and the preparation wire may deliberately decouple tags from internal enums. The main
   consumer of the portable recipes is the unconsumed durable tier ([CBO-099](modeling-and-preparation-workflows.md#cbo-099)),
   which lowers the near-term cost of leaving it. A local derive is real maintenance and may be the actual answer.
-- **Status.** Current mechanism.
+- **Status.** Retained for residual portable correspondence; preparation-mirror manifestation replaced.
 - **Research questions.** Would a small local derive, or a serde-driven canonical form, serve both wire and frame? Would
   a binary validated format replace JSON for recipes? What else consumes the JSON payload besides restoration?
 

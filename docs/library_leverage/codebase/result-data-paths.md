@@ -297,6 +297,13 @@ not a new test result or a check of present upstream releases.
 
 ## CBO-008 — Seeds, progress and receipts as JSON payloads beside typed relations
 
+**Focused Proto refresh, 2026-11-03:** source `f55951cfe995a689f9b75185b8e89cb362021616`
+retains durable JSON completion records. Generated exact-bit scientific exchange offers a
+credible binary-metadata alternative, while Arrow remains a competing bulk-data route.
+The [diagnostics/results briefing](../libraries/proto/briefings/diagnostics-and-results.md)
+examines typed progress and complete retained evidence without erasing loss, fencing or
+acknowledgement semantics. This supersedes no earlier measurement: none was made here.
+
 - **Operation and consumers.** Record warm-start seeds, run progress and completion as retained, replayable data. Consumers are
   continuation, progress readers, observers, permission reads, replay and the reproducer.
 - **Current mechanism.**

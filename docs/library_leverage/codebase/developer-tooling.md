@@ -172,6 +172,16 @@ Neighbouring concerns: the SurrealQL program carried as Rust strings is [CBO-046
 
 ## CBO-195 — Native evidence is mapped field by field across the local protocol
 
+**Focused Proto refresh, 2026-11-03:** inspected source `f55951cfe995a689f9b75185b8e89cb362021616`.
+Engineering/scientific boundaries now have owner-derived projection graphs and generated
+adapters, providing a concrete comparison for the remaining host mappings. This does not
+make every native fact a mechanically adoptable wire field: contextual guards and opaque
+provider documents remain counterevidence to wholesale generation. The
+[Proto applicability account](../libraries/proto/applicability.md) and
+[integrated review](../reviews/proto/README.md) investigate this existing occurrence;
+they do not close it or change Plan64 status. Older mapping counts/test-body observations
+below retain their original date. No RPC or compiler journey ran in this refresh.
+
 - **Operation and consumers.** Semantic helpers, session clients and CLI answers exchange guarded native facts, requests, failures and checked previews under the host-local protobuf protocol.
 - **Current mechanism (2026-11-02).** `semantic/wire.rs`, `wire/{graph,investigation}.rs` hand-map native Rust structures to generated owned messages and back. The family pairs `*_to_pb`/`*_from_pb`, enumerates variants, converts native path bytes and checked widths, enforces required presence, and preserves original provider documents as opaque JSON only where their semantics belong to that provider. Adding an observation shape touches the native model, proto declaration, mapping and independently meaningful tests. Generated eager views/reflection exist, but these paths visibly construct owned protocol values.
 - **Potential value and patterns.** Separate domain/wire models are legitimate. Research concerns deriving their mechanical correspondence or projecting a useful shared subset without an extra tree/copy and without duplicating contextual admission. LOP-02, LOP-06, LOP-X007. No throughput or allocation benefit is measured.

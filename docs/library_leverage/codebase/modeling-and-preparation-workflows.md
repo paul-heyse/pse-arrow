@@ -379,6 +379,14 @@ production consumers need confirmation (CBO-099).
 
 ## CBO-094 — One requested operation in several serialized request languages
 
+**Focused Proto refresh, 2026-11-03:** source `f55951cfe995a689f9b75185b8e89cb362021616`
+adds owner-derived engineering contracts and local service dispatch over native workflows.
+Compare shared native handlers plus generated clients against continued independent request
+interpretation; do not add another workflow interpreter to obtain interoperability. See
+[runtime](../libraries/proto/briefings/runtime-and-local-services.md) and
+[applicability](../libraries/proto/applicability.md). This source inspection updates candidate
+mechanisms, not completion or qualification of the whole occurrence.
+
 **Refresh — retained with distinct authorities.** `OriginalCaseInputs` still captures the actual preparation inputs; its descriptive replay constructor is separate from the executable replay predicate, which explicitly refuses retained implicit capabilities. The source comment confirms that decoding bindings grants no runtime capability. Mechanical shared projections and byte accounting are worth investigating, but intent, descriptive history and executable reconstruction must not be collapsed because their shapes overlap. No complete field-coverage audit was performed.
 
 - **Operation and consumers.** Durable studies, scientific replay, reproducers and review tooling.

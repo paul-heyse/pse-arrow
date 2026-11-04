@@ -119,6 +119,15 @@ census. No service, test or probe ran; mechanisms are *Interface-checked*, prosp
 
 ## CBO-066 — Query responses pass through five representations behind a hand-kept preflight
 
+**Focused Proto refresh, 2026-11-03:** source `f55951cfe995a689f9b75185b8e89cb362021616`
+and the supplied 3.3 capability guide inform the [storage briefing](../libraries/proto/briefings/surrealdb-storage-and-projections.md).
+Native value codecs, source-derived mappings and original-payload retention are separate
+options. An ordinary `encode_proto`/`decode_proto` route does not replace cumulative
+pre-allocation admission, statement completion or exact value conversion. Existing canonical
+placement and mappings are comparison baselines, not prohibitions on a better proposed
+target; no competing database survey or v4 adoption was undertaken. Earlier quantitative
+observations below retain their own baseline; no transport execution or measurement ran.
+
 - **Operation and consumers.** Every metadata and inline-payload read, through `ResponseLimits`,
   `MetadataResponse` profiles and `retained_bytes` charging by selection and result owners.
 - **Current mechanism.**
