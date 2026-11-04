@@ -64,7 +64,10 @@ async fn selected(
                 return value.value.into_option().unwrap();
             }
             pb::engineering_source_outcome::Kind::Failed(value) => {
-                panic!("original source refusal: {:?}", value.value)
+                panic!(
+                    "original source operation {operation} refusal: {:?}",
+                    value.value
+                )
             }
             pb::engineering_source_outcome::Kind::Pending(_) => {}
         }
@@ -128,7 +131,7 @@ fn source(operation: String) -> pb::EngineeringAdmitSource {
     }
 }
 fn square(parameter: i32) -> Vec<u8> {
-    format!("package local {{ case square {{ param p:Scalar={parameter}; var x:Scalar; eq root:x*x==p; annotation start x(2); }} }}").into_bytes()
+    format!("package local {{ case square {{ param p:Scalar={parameter}; var x:Scalar; eq root:x*x==p; annotation start x(2); annotation engineering_scale x(kind=magnitude,value=sqrt(p)); }} }}").into_bytes()
 }
 fn package_id() -> Vec<u8> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -304,7 +307,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         &original.local_revision,
         "models/retained.pse",
         Kind::Add(Box::new(Alternative1 {
-            value: b"package local { param retained:Scalar=3; }".to_vec(),
+            value: b"package retained { param retained:Scalar=3; }".to_vec(),
             ..Default::default()
         })),
     )
@@ -452,7 +455,55 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         native_discovery.resident.len()
             <= pse_runtime::workflow::PreparationDiscoveryReport::MAX_RESIDENT_ROWS
     );
-    assert!(native_discovery.durable.is_none());
+    assert_eq!(
+        native_discovery.physical,
+        pse_ids::ContentHash::from_bytes(removed.physical_context.clone().try_into().unwrap())
+            .to_hex()
+    );
+    let durable = native_discovery.durable.expect(
+        "the explicitly canonical source retains its original rooted publication selection",
+    );
+    assert!(
+        durable.rows.is_empty() && durable.next.is_none(),
+        "this exact newly edited source has no prior rooted preparation publication"
+    );
+    assert_eq!(
+        native_discovery.durable_eligibility,
+        pse_runtime::workflow::PreparationEligibility::Unchecked,
+        "original durable presence grants no receiving scientific qualification"
+    );
+    let final_file_request =
+        pse_runtime::preparation_projection::encode_original_source_file_request(
+            pse_runtime::workflow::OriginalSourceFileRequest {
+                parent: removed.local_revision.clone(),
+                package: pse_ids::SemanticId::from_bytes(package_id().try_into().unwrap()),
+                path: "models/root.pse".into(),
+                maximum_bytes: 1 << 20,
+            },
+        )
+        .unwrap();
+    let final_file = client
+        .generated()
+        .read_source_file(pb::EngineeringReadSourceFile {
+            source_operation: removed_operation.clone(),
+            request: final_file_request.into(),
+            ..Default::default()
+        })
+        .await
+        .unwrap()
+        .into_owned();
+    let final_file =
+        pse_runtime::preparation_projection::decode_original_source_file(final_file).unwrap();
+    assert_eq!(final_file.local_revision, removed.local_revision);
+    assert_eq!(
+        final_file.body,
+        square(16),
+        "the exact source after inspected replacement and unrelated-file removal must retain p=16"
+    );
+    assert_eq!(
+        final_file.original_hash,
+        pse_ids::encoding_checksum(&square(16)).content_hash()
+    );
     let prepared = client
         .generated()
         .prepare_case(pb::EngineeringPrepareCase {
@@ -562,6 +613,17 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
     .unwrap();
     let batch = stream.next().unwrap().unwrap();
     assert_eq!(batch.num_rows(), 1);
+    let expected_run =
+        pse_model::generated::identities::RunId::from_bytes(key.run.as_slice().try_into().unwrap());
+    assert_eq!(
+        <pse_model::generated::identities::RunId as pse_relations::columnar::ArrowValue>::read(
+            batch.column_by_name("run_id").unwrap().as_ref(),
+            0,
+        )
+        .unwrap(),
+        expected_run,
+        "the selected variable belongs to the exact original caller-issued run"
+    );
     let values = batch
         .column_by_name("value")
         .unwrap()
@@ -574,10 +636,157 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .as_any()
         .downcast_ref::<datafusion::arrow::array::BooleanArray>()
         .unwrap();
-    let expected = if parameters.value(0) { 16.0 } else { 4.0 };
+    let parameter = parameters.value(0);
+    let expected = if parameter { 16.0 } else { 4.0 };
+    let actual = if datafusion::arrow::array::Array::is_null(values, 0) {
+        None
+    } else {
+        Some(values.value(0))
+    };
+    let tolerances = batch
+        .column_by_name("tolerance")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<datafusion::arrow::array::Float64Array>()
+        .unwrap();
+    let native_tolerance = if datafusion::arrow::array::Array::is_null(tolerances, 0) {
+        None
+    } else {
+        Some(tolerances.value(0))
+    };
+    let matches_original_source = if parameter {
+        actual.map(f64::to_bits) == Some(16.0f64.to_bits())
+    } else {
+        use pse_model::generated::enums::{EngineeringScaleKind, NumericalSource, NumericalTarget};
+        use pse_relations::columnar::ArrowValue as _;
+        let symbol =
+            pse_ids::SemanticId::read(batch.column_by_name("symbol_id").unwrap().as_ref(), 0)
+                .unwrap();
+        let step = i64::read(batch.column_by_name("step").unwrap().as_ref(), 0).unwrap();
+        let quantity = Option::<pse_ids::SemanticId>::read(
+            batch.column_by_name("quantity_id").unwrap().as_ref(),
+            0,
+        )
+        .unwrap();
+        let unit = Option::<pse_ids::SemanticId>::read(
+            batch.column_by_name("unit_id").unwrap().as_ref(),
+            0,
+        )
+        .unwrap();
+        let published = reconnected
+            .generated()
+            .read_result(pb::EngineeringReadResult {
+                operation: key.operation.clone(),
+                run: key.run.clone(),
+                attempt: key.attempt.clone(),
+                relation: "runtime.resolved_numerics".into(),
+                start: 0,
+                end: 16,
+                maximum_bytes: 1 << 20,
+                ..Default::default()
+            })
+            .await
+            .unwrap()
+            .into_owned();
+        let policy = datafusion::arrow::ipc::reader::StreamReader::try_new(
+            std::io::Cursor::new(published.ipc),
+            None,
+        )
+        .unwrap();
+        let mut coordinate_budget = None;
+        for page in policy {
+            let page = page.unwrap();
+            for row in 0..page.num_rows() {
+                let field = |name| page.column_by_name(name).unwrap().as_ref();
+                assert_eq!(
+                    pse_model::generated::identities::RunId::read(field("run_id"), row).unwrap(),
+                    expected_run,
+                    "the frozen numerical target belongs to the same exact original run"
+                );
+                if pse_ids::SemanticId::read(field("target_id"), row).unwrap() != symbol
+                    || i64::read(field("step"), row).unwrap() != step
+                    || NumericalTarget::read(field("target_kind"), row).unwrap()
+                        != NumericalTarget::Variable
+                {
+                    continue;
+                }
+                assert!(
+                    coordinate_budget.is_none(),
+                    "one original variable target must govern this coordinate"
+                );
+                assert_eq!(
+                    Some(pse_ids::SemanticId::read(field("quantity_id"), row).unwrap()),
+                    quantity
+                );
+                assert_eq!(
+                    Some(pse_ids::SemanticId::read(field("unit_id"), row).unwrap()),
+                    unit
+                );
+                let nominal = f64::read(field("nominal"), row).unwrap();
+                let scale = f64::read(field("coordinate_scale"), row).unwrap();
+                let absolute = f64::read(field("absolute"), row).unwrap();
+                let relative = f64::read(field("relative"), row).unwrap();
+                let budget = f64::read(field("budget"), row).unwrap();
+                assert!(nominal.is_finite() && nominal > 0.0 && scale.is_finite() && scale > 0.0);
+                assert!(budget.is_finite() && budget > 0.0);
+                assert_eq!(budget.to_bits(), (absolute + relative * nominal).to_bits());
+                let engineering = Option::<pse_model::numerics::EngineeringContext>::read(
+                    field("engineering"),
+                    row,
+                )
+                .unwrap()
+                .expect(
+                    "the authored characteristic supplies the original engineering interpretation",
+                );
+                assert!(
+                    !engineering.canonical_fallback,
+                    "canonical magnitude fallback is not meaningful output-error evidence"
+                );
+                assert_eq!(engineering.source, NumericalSource::Case);
+                assert_eq!(
+                    engineering.scale_kind,
+                    Some(EngineeringScaleKind::Magnitude)
+                );
+                assert!(engineering.scale_id.is_some());
+                let characteristic = engineering
+                    .characteristic
+                    .expect("authored input-derived characteristic");
+                assert_eq!(characteristic.to_bits(), 16.0f64.sqrt().to_bits());
+                assert_eq!(
+                    engineering.relative_fraction.to_bits(),
+                    pse_model::numerics::NumericalPolicy::default()
+                        .engineering_relative_fraction
+                        .to_bits()
+                );
+                assert_eq!(
+                    engineering.budget.to_bits(),
+                    (engineering.relative_fraction * characteristic).to_bits()
+                );
+                assert_eq!(absolute.to_bits(), engineering.budget.to_bits());
+                assert_eq!(relative.to_bits(), 0.0f64.to_bits());
+                assert_eq!(native_tolerance.map(f64::to_bits), Some(budget.to_bits()));
+                coordinate_budget = Some(budget);
+            }
+        }
+        let budget = coordinate_budget
+            .expect("same original symbol/step must have its frozen numerical target");
+        // Independent exact positive-root identity, in x's original quantity/unit.
+        // A native convergence or engineering allowance alone does not guarantee this error.
+        actual.is_some_and(|value| {
+            value.is_finite()
+                && value > 0.0
+                && (value * value - 16.0).abs() / (value + 16.0f64.sqrt()) <= budget
+                && (value * value - 9.0).abs() / (value + 9.0f64.sqrt()) > budget
+                && (value * value - 4.0).abs() / (value + 4.0f64.sqrt()) > budget
+        })
+    };
     assert!(
-        (values.value(0) - expected).abs() < 1e-8,
-        "the original edited source must govern the native numerical product"
+        matches_original_source,
+        "the original edited source must govern the native numerical product: actual={actual:?}, expected={expected}, parameter={parameter}, source_member={}, symbol={:?}, step={:?}, native_tolerance={:?}",
+        if parameter { "p" } else { "x" },
+        batch.column_by_name("symbol_id"),
+        batch.column_by_name("step"),
+        batch.column_by_name("tolerance"),
     );
     assert!(stream.next().is_none());
     let cancelled = reconnected

@@ -208,8 +208,15 @@ retained native tasks own work independently of a dropped transport waiter. Stat
 cancellation, progress and selected Arrow IPC reads address original run identities.
 
 Focused local controls cover source retention, unknown ingress, outgoing validation,
-multibyte byte bounds, pending cancellation, progress and shutdown. Canonical lost-ACK
-retirement and the separately managed service/client journey are still being verified.
+multibyte byte bounds, pending cancellation, progress and shutdown. The separately managed
+service/client journey now exercises original source revisions, exact parent changes,
+lost-submit-ACK reconnect, original run/attempt matching and protected Arrow readback.
+Its numerical assertion reads the original run's resolved variable and engineering
+contexts: the authored characteristic magnitude and shared relative fraction establish
+the coordinate error budget. The square fixture's analytical positive-root error is
+compared with that budget; native convergence is not an output-error certificate.
+The prepared frontend and its original canonical fixture owner both completed orderly
+shutdown. These results cover the declared algebraic slice; full Study acceptance remains open.
 Independent review identified self-referencing dependency/shutdown, preparation-name reuse,
 same-PID executable replacement, ephemeral result-attempt matching and aggregate ingress
 accounting gaps. Corrections and focused controls remain in this implementation slice;
@@ -229,6 +236,15 @@ applicable native/powerset checks once functional scope is complete. Scientific 
 remain 64h-owned; Python checks are selected only for affected independent reference consumers.
 Report actual commands, modes, scope, zero failure baseline, results and exclusions. Selected
 API/source reasoning and round trips cannot establish physical or operational qualification.
+
+**Tested, 2026-11-03:** the prepared external-service target passed two tests, zero failures
+against the zero baseline, using `scripts/pse-env --native=compiler,klu --
+scripts/cargo-bin/cargo-pse-correctness nextest run -p pse-runtime --test engineering_service
+--features engineering-service,property-coolprop,solver-kinsol,product-reader,native-study-tests,force-validate
+--locked --no-fail-fast` in an original native application scope with the explicitly prepared
+`PSE_ENGINEERING_ENDPOINT`. This includes the source-derived numerical budget assertion,
+same-run identity checks, stale/replaced endpoint refusal and reconnect controls. It does
+not qualify the pending full Study API, all operation families, cohort products or D–G scope.
 
 Completion requires a usable independent generated client, all selected consumer migrations
 and deletions, truthful original outcomes/permissions, authenticated reconnect, proven custody
