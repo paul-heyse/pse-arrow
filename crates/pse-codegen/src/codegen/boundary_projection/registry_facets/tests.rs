@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::*;
-use pse_contract::boundary_projection::{Direction, projection_struct};
+use pse_contract::{projection_struct, boundary_projection::Direction};
 use std::collections::BTreeMap;
 
 fn encoder() -> OptionEncoder { OptionEncoder::new(&super::super::tests::imports()).unwrap() }
