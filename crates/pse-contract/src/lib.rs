@@ -4,6 +4,7 @@
 //! Pure source-owned boundary contracts, without product or wire dependencies.
 pub mod boundary_projection;
 pub mod operation_effects;
+pub mod metadata;
 /// Crossing direction of an owner-derived boundary declaration.
 #[derive(Clone,Copy,Debug,PartialEq,Eq,PartialOrd,Ord,Hash,serde::Serialize,serde::Deserialize,strum::EnumString,strum::Display)]
 #[serde(rename_all="snake_case")]
