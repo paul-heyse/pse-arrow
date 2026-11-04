@@ -2781,6 +2781,22 @@
         "blueprint §4.7"
       ],
       "declaration_key": "NativeWorkflowReport",
+      "declaration_kind": "native_projection_adapters",
+      "direction": "output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "typed_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::Report"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "NativeWorkflowReport",
       "declaration_kind": "rust_projection",
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
@@ -3213,6 +3229,22 @@
         "blueprint §4.7"
       ],
       "declaration_key": "TestIdentity",
+      "declaration_kind": "native_projection_adapters",
+      "direction": "output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/discovery.rs",
+      "source_role": "typed_owner",
+      "source_symbol": "pse_host::discovery::TestIdentity"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "TestIdentity",
       "declaration_kind": "rust_projection",
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
@@ -3645,6 +3677,22 @@
         "blueprint §4.7"
       ],
       "declaration_key": "WorkflowReportObservation",
+      "declaration_kind": "native_projection_adapters",
+      "direction": "output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "typed_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::ReportObservation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowReportObservation",
       "declaration_kind": "rust_projection",
       "direction": "Output",
       "generator_path": "xtask/src/codegen/proto_projection.rs",
@@ -3926,6 +3974,22 @@
       "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_host::test_workflow::execute::report::ReportReference"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "WorkflowTerminalRecord",
+      "declaration_kind": "native_projection_adapters",
+      "direction": "output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters",
+      "output_path": "crates/pse-host/src/generated/developer-evidence/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-host/src/test_workflow/execute/report.rs",
+      "source_role": "typed_owner",
+      "source_symbol": "pse_host::test_workflow::execute::report::TerminalRecord"
     },
     {
       "basis": "declared",
