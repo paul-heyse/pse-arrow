@@ -8,7 +8,7 @@ tier: design
 purpose: target
 scope: ADR-0244 shared descriptor adapter and generator/host dependency direction
 verdict: accept
-doc_role: design-review
+doc_role: review
 doc_owner: docs/plans/65a-contract-foundations-and-generation.md
 doc_topics: [design, proto, code-intelligence]
 ---
