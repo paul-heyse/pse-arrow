@@ -41,6 +41,9 @@ pub(super) fn render(
         // Present malformed annotations must not disappear through convenience defaults.
         column.checked_role()?;
         column.checked_extension()?;
+        column.identity_contract()?;
+        column.canonical_contract()?;
+        column.expression_source_contract()?;
         let ty = super::semantic::model_type(ty)?;
         if TaggedAlternative::from_field(column.field())?.is_some()
             && BoundaryShape::from_field(column.field())?.is_none()

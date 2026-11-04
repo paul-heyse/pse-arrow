@@ -3,7 +3,7 @@
 
 //! The modeling source grammar inventory, declared at exact native field paths.
 use crate::model::{
-    ExpressionGrammar as G, FieldContract, expression::AnnotationSyntax, field_facets as F,
+    ExpressionGrammar as G, ExpressionOrdinal as O, FieldContract, expression::AnnotationSyntax, field_facets as F,
 };
 use arrow_schema::DataType;
 
@@ -261,46 +261,46 @@ fn grammar(path: &str) -> Option<G> {
     })
 }
 
-fn role(path: &str) -> (&str, &str) {
+fn role(path: &str) -> (&str, O) {
     match path {
         "scope.fixture.modes.events.guard" | "scope.fixture.modes.events.tolerance" => {
-            (path, "flatten")
+            (path, O::Flatten)
         }
         "scope.fixture.modes.events.reset.target" => (
             "scope.fixture.modes.{0}.events.{1}.reset.{2}.target",
-            "zero",
+            O::Zero,
         ),
         "scope.fixture.modes.events.reset.expression" => (
             "scope.fixture.modes.{0}.events.{1}.reset.{2}.expression",
-            "zero",
+            O::Zero,
         ),
         "scope.fixture.integration.schedules.target" => {
-            ("scope.fixture.integration.schedules.{0}.target", "zero")
+            ("scope.fixture.integration.schedules.{0}.target", O::Zero)
         }
         "scope.fixture.integration.schedules.times" => {
-            ("scope.fixture.integration.schedules.{0}.times", "list")
+            ("scope.fixture.integration.schedules.{0}.times", O::List)
         }
         "scope.fixture.integration.schedules.values" => {
-            ("scope.fixture.integration.schedules.{0}.values", "list")
+            ("scope.fixture.integration.schedules.{0}.values", O::List)
         }
         "scope.fixture.integration.schedules.lower" => {
-            ("scope.fixture.integration.schedules.{0}.lower", "zero")
+            ("scope.fixture.integration.schedules.{0}.lower", O::Zero)
         }
         "scope.fixture.integration.schedules.upper" => {
-            ("scope.fixture.integration.schedules.{0}.upper", "zero")
+            ("scope.fixture.integration.schedules.{0}.upper", O::Zero)
         }
-        "scope.fixture.diagnostics.members" => ("scope.fixture.diagnostics.{0}.members", "list"),
+        "scope.fixture.diagnostics.members" => ("scope.fixture.diagnostics.{0}.members", O::List),
         "state_specification.coordinates.indices.domain" => {
-            ("state_specification.coordinates.{0}.indices.domain", "list")
+            ("state_specification.coordinates.{0}.indices.domain", O::List)
         }
         "state_specification.reconstructions.indices.domain" => (
             "state_specification.reconstructions.{0}.indices.domain",
-            "list",
+            O::List,
         ),
         "state_specification.transports.indices.domain" => {
-            ("state_specification.transports.{0}.indices.domain", "list")
+            ("state_specification.transports.{0}.indices.domain", O::List)
         }
-        _ => (path, "list"),
+        _ => (path, O::List),
     }
 }
 
@@ -353,7 +353,7 @@ pub(super) fn apply(field: FieldContract, path: &str) -> FieldContract {
                 .insert(F::EXPRESSION_ROLE.into(), role.into());
             native
                 .metadata_mut()
-                .insert(F::EXPRESSION_ORDINAL.into(), ordinal.into());
+                .insert(F::EXPRESSION_ORDINAL.into(), ordinal.as_str().into());
         }
     }
     if path == "annotation" {

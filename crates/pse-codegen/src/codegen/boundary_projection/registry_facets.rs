@@ -8,7 +8,8 @@ use buffa_descriptor::{DynamicMessage, Value};
 use pse_contract::boundary_projection::{Field, ProjectionGraph, Shape, TypeRef};
 use pse_schema::{SchemaError, model::{
     CollectionContract, CollectionOrder, ColumnRole, ExtensionUse, ExpressionGrammar,
-    BoundaryShape, FieldContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative,
+    BoundaryShape, CanonicalFieldContract, CanonicalKeyKind, ExpressionBinder, ExpressionOrdinal,
+    ExpressionSourceContract, FieldContract, IdentityContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative,
     field_facets as keys,
 }};
 
@@ -34,6 +35,8 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaErr
         ("GraphEndpoint", &["GRAPH_ENDPOINT_UNSPECIFIED", "GRAPH_ENDPOINT_INCOMING", "GRAPH_ENDPOINT_OUTGOING"][..]),
         ("CollectionOrder", &["COLLECTION_ORDER_UNSPECIFIED", "COLLECTION_ORDER_SEQUENCE", "COLLECTION_ORDER_UNORDERED"][..]),
         ("ReferenceNullPolicy", &["REFERENCE_NULL_POLICY_UNSPECIFIED", "REFERENCE_NULL_POLICY_REQUIRED", "REFERENCE_NULL_POLICY_ALL_OR_NONE"][..]),
+        ("ExpressionOrdinal", &["EXPRESSION_ORDINAL_UNSPECIFIED", "EXPRESSION_ORDINAL_LIST", "EXPRESSION_ORDINAL_ZERO", "EXPRESSION_ORDINAL_FLATTEN"][..]),
+        ("ExpressionBinder", &["EXPRESSION_BINDER_UNSPECIFIED", "EXPRESSION_BINDER_DOMAIN_BEFORE_NAME"][..]),
     ] {
         let full_name = format!("pse.schema.v1.{name}");
         let enumeration = pool.enum_by_name(&full_name).ok_or_else(|| error(format!("{full_name}: missing native vocabulary")))?;
@@ -41,7 +44,34 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaErr
             return Err(error(format!("{full_name}: schema/native vocabulary correspondence changed")));
         }
     }
+    let keys = pool.enum_by_name("pse.schema.v1.CanonicalKeyKind").ok_or_else(|| error("missing canonical key vocabulary"))?;
+    if keys.values().len() != CanonicalKeyKind::ALL.len() + 1
+        || keys.value_by_name("CANONICAL_KEY_KIND_UNSPECIFIED").is_none_or(|value| value.number() != 0)
+    { return Err(error("canonical key schema/native vocabulary correspondence changed")); }
+    for kind in CanonicalKeyKind::ALL { canonical_number(pool, *kind)?; }
     Ok(())
+}
+
+fn canonical_number(pool: &buffa_descriptor::DescriptorPool, kind: CanonicalKeyKind) -> Result<i32, SchemaError> {
+    let expected = match kind {
+        CanonicalKeyKind::Problem => 1, CanonicalKeyKind::Revision => 2, CanonicalKeyKind::Run => 3,
+        CanonicalKeyKind::Attempt => 4, CanonicalKeyKind::Study => 5, CanonicalKeyKind::StudyPoint => 6,
+        CanonicalKeyKind::Operation => 7, CanonicalKeyKind::Artifact => 8, CanonicalKeyKind::FileInstance => 9,
+        CanonicalKeyKind::Project => 10, CanonicalKeyKind::ProjectBranch => 11, CanonicalKeyKind::ProjectDraft => 12,
+        CanonicalKeyKind::DraftVersion => 13, CanonicalKeyKind::ProjectSavepoint => 14, CanonicalKeyKind::ProjectBookmark => 15,
+        CanonicalKeyKind::ProjectAncestry => 16, CanonicalKeyKind::DraftDiagnostic => 17, CanonicalKeyKind::ProjectContext => 18,
+        CanonicalKeyKind::ContextAncestry => 19, CanonicalKeyKind::ResearchReference => 20, CanonicalKeyKind::ResearchDataset => 21,
+        CanonicalKeyKind::ResearchSelection => 22, CanonicalKeyKind::ResearchPublication => 23, CanonicalKeyKind::ProjectImport => 24,
+        CanonicalKeyKind::Product => 25, CanonicalKeyKind::BodyContent => 26, CanonicalKeyKind::SelectionReceipt => 27,
+        CanonicalKeyKind::ProductAssociation => 28, CanonicalKeyKind::ProductDescriptor => 29, CanonicalKeyKind::Analysis => 30,
+        CanonicalKeyKind::AnalysisNode => 31, CanonicalKeyKind::MaintenanceOperation => 32, CanonicalKeyKind::MaintenanceActivation => 33,
+        CanonicalKeyKind::InlinePayload => 34, CanonicalKeyKind::FileOwner => 35, CanonicalKeyKind::FileBorrower => 36,
+        CanonicalKeyKind::ManifestTicket => 37,
+    };
+    let name = format!("CANONICAL_KEY_KIND_{}", kind.as_str().to_ascii_uppercase());
+    pool.enum_by_name("pse.schema.v1.CanonicalKeyKind").and_then(|enumeration| enumeration.value_by_name(&name))
+        .filter(|value| value.number() == expected).map(|value| value.number())
+        .ok_or_else(|| error(format!("{name}: missing native canonical key correspondence")))
 }
 
 fn message(encoder: &OptionEncoder, name: &str, fields: &[(&str, Value)]) -> Result<Value, SchemaError> {
@@ -78,6 +108,25 @@ pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &Op
     let get = |key: &str| field.named_facets.get(key).map(String::as_str);
     let mut fields = vec![("metadata_version", Value::U32(1))];
     if let Some(text) = get(keys::BOUNDARY_SHAPE) { check_shape(field, graph, text)?; }
+    if let Some(identity) = IdentityContract::parse_metadata(get(keys::IDENTITY), get(keys::IDENTITY_OWNER), path)? {
+        fields.push(("identity", message(encoder, "IdentityContract", &[
+            ("entity_name", Value::String(identity.name.into())),
+            ("owns_identity", Value::Bool(identity.owns_identity)),
+        ])?));
+    }
+    if let Some(canonical) = CanonicalFieldContract::parse_metadata(get(keys::CANONICAL_KEY), get(keys::CANONICAL_READONLY), get(keys::CANONICAL_RECORD_KEY), path)? {
+        let mut values = vec![("record_key", Value::Bool(canonical.record_key))];
+        if let Some(kind) = canonical.key { values.push(("key_kind", Value::EnumNumber(canonical_number(&encoder.pool(), kind)?))); }
+        if let Some(readonly) = canonical.readonly { values.push(("readonly", Value::Bool(readonly))); }
+        fields.push(("canonical", message(encoder, "CanonicalFieldContract", &values)?));
+    }
+    if let Some(expression) = ExpressionSourceContract::parse_metadata(get(keys::EXPRESSION_ROLE), get(keys::EXPRESSION_ORDINAL), get(keys::EXPRESSION_BINDER), path)? {
+        let mut values = Vec::new();
+        if let Some(role) = expression.role { values.push(("role_path_template", Value::String(role.into()))); }
+        if let Some(ordinal) = expression.ordinal { values.push(("ordinal", Value::EnumNumber(match ordinal { ExpressionOrdinal::List => 1, ExpressionOrdinal::Zero => 2, ExpressionOrdinal::Flatten => 3 }))); }
+        if let Some(ExpressionBinder::DomainBeforeName) = expression.binder { values.push(("binder", Value::EnumNumber(1))); }
+        fields.push(("expression_source", message(encoder, "ExpressionSourceContract", &values)?));
+    }
     if let Some(name) = get(keys::EXTENSION) {
         fields.push(("extension", extension(ExtensionUse::parse_metadata(name, get(keys::PARAMETER), path)?, encoder)?));
     } else if get(keys::PARAMETER).is_some() {
@@ -161,7 +210,9 @@ pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &Op
             keys::BOUNDARY_SHAPE | keys::EXTENSION | keys::PARAMETER | keys::ROLE | keys::DOC | keys::STRUCTURE
             | keys::QUANTITY | keys::TRANSFER_CONTEXT | keys::FK_RELATION | keys::FK_COLUMN
             | keys::GRAPH_ENDPOINT | keys::KEY_REFERENCE | keys::KEY_COLLECTION
-            | keys::KEY_INTEGER_RANGE | keys::KEY_TAGGED_ALTERNATIVE => {}
+            | keys::KEY_INTEGER_RANGE | keys::KEY_TAGGED_ALTERNATIVE | keys::IDENTITY | keys::IDENTITY_OWNER
+            | keys::CANONICAL_KEY | keys::CANONICAL_READONLY | keys::CANONICAL_RECORD_KEY
+            | keys::EXPRESSION_ROLE | keys::EXPRESSION_ORDINAL | keys::EXPRESSION_BINDER => {}
             _ => return Err(invalid(key, "selected facet has no typed protobuf interpretation; add its owner policy before publication")),
         }
     }
@@ -235,9 +286,39 @@ fn closed(message: &DynamicMessage, name: &str, fields: &[&str]) -> Result<(), S
 /// Reading an option does not admit Arrow storage, resolve quantities or run a catalog.
 pub(super) fn check_option(option: &DynamicMessage) -> Result<(), SchemaError> {
     vocabularies(option.pool())?;
-    closed(option, "RegistryFieldFacets", &["metadata_version", "extension", "role", "documentation", "structure_name", "quantity", "transfer_context_version", "reference", "graph_endpoint", "collection", "integer_range", "tagged_alternative"])?;
+    closed(option, "RegistryFieldFacets", &["metadata_version", "extension", "role", "documentation", "structure_name", "quantity", "transfer_context_version", "reference", "graph_endpoint", "collection", "integer_range", "tagged_alternative", "identity", "canonical", "expression_source"])?;
     if required(option, "metadata_version")? != &Value::U32(1) { return Err(error("unknown registry metadata version")); }
     if value(option, "role").is_some() { enumeration(option, "role", 6)?; }
+    if value(option, "identity").is_some() {
+        let identity = nested(option, "identity")?;
+        closed(identity, "IdentityContract", &["entity_name", "owns_identity"])?;
+        let name = text(identity, "entity_name")?;
+        let owner = match required(identity, "owns_identity")? {
+            Value::Bool(true) => Some("true"), Value::Bool(false) => None,
+            _ => return Err(error("identity ownership is not bool")),
+        };
+        IdentityContract::parse_metadata(Some(&name), owner, "typed registry identity")?;
+    }
+    if value(option, "canonical").is_some() {
+        let canonical = nested(option, "canonical")?;
+        closed(canonical, "CanonicalFieldContract", &["key_kind", "readonly", "record_key"])?;
+        let key = value(canonical, "key_kind").map(|value| {
+            let Value::EnumNumber(number) = value else { return Err(error("canonical key is not an enum")); };
+            CanonicalKeyKind::ALL.iter().copied().find(|kind| canonical_number(option.pool(), *kind).is_ok_and(|value| value == *number))
+                .ok_or_else(|| error("unknown native canonical key kind"))
+        }).transpose()?;
+        let readonly = match value(canonical, "readonly") { None => None, Some(Value::Bool(true)) => Some("true"), Some(Value::Bool(false)) => Some("false"), _ => return Err(error("canonical readonly is not bool")) };
+        let record_key = match required(canonical, "record_key")? { Value::Bool(true) => Some("true"), Value::Bool(false) => None, _ => return Err(error("canonical record-key declaration is not bool")) };
+        if CanonicalFieldContract::parse_metadata(key.map(CanonicalKeyKind::as_str), readonly, record_key, "typed registry canonical policy")?.is_none() { return Err(error("empty canonical source policy")); }
+    }
+    if value(option, "expression_source").is_some() {
+        let expression = nested(option, "expression_source")?;
+        closed(expression, "ExpressionSourceContract", &["role_path_template", "ordinal", "binder"])?;
+        let role = value(expression, "role_path_template").map(|_| text(expression, "role_path_template")).transpose()?;
+        let ordinal = value(expression, "ordinal").map(|_| enumeration(expression, "ordinal", 3)).transpose()?.map(|value| match value { 1 => ExpressionOrdinal::List, 2 => ExpressionOrdinal::Zero, _ => ExpressionOrdinal::Flatten });
+        let binder = value(expression, "binder").map(|_| enumeration(expression, "binder", 1)).transpose()?.map(|_| ExpressionBinder::DomainBeforeName);
+        if ExpressionSourceContract::parse_metadata(role.as_deref(), ordinal.map(ExpressionOrdinal::as_str), binder.map(ExpressionBinder::as_str), "typed registry expression source")?.is_none() { return Err(error("empty expression source policy")); }
+    }
     for name in ["documentation", "structure_name"] { if value(option, name).is_some() { text(option, name)?; } }
     if value(option, "extension").is_some() {
         let extension = nested(option, "extension")?;

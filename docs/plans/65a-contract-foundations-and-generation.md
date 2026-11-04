@@ -157,6 +157,16 @@ enumeration, ordinal target relation, expression grammar, or parameter-free exte
 Every enum spelling/number must match its native owner. A quantity name remains an
 unresolved reference; this annotation does not manufacture physical quantity semantics.
 
+Identity annotations carry the native source identity name and explicit ownership
+declaration separately; ordinary carriers do not acquire catalog ownership. Canonical
+field annotations carry the closed native opaque-key kind, optional explicit mutability
+and record-key declaration, without minting a database record or execution authority.
+Expression source annotations retain the owner-authored path template and closed
+list/zero/flatten ordinal and domain-before-name binder policies. The native source
+builders and option readers share these owner parsers and vocabularies. The schema's
+enum allocations are checked against the native correspondence; a selected key that
+acquires a new native meaning requires an explicit typed interpretation update.
+
 The existing source-derived metadata map is an internal carrier. The domain lowerer
 uses shared `pse-schema` canonical parsers, also used by native field admission, for
 structured annotations; it neither invents a second JSON interpretation nor rebuilds

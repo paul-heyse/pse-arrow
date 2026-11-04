@@ -3,6 +3,31 @@
 
 //! Native canonical storage meaning. Opaque lookup keys never become scientific identities.
 
+/// Exact field-level source policy, separate from a database record or live authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CanonicalFieldContract {
+    /// Declared opaque key domain, when this occurrence carries one.
+    pub key: Option<CanonicalKeyKind>,
+    /// Explicit mutation policy; absence is distinct from an explicit mutable field.
+    pub readonly: Option<bool>,
+    /// Source declaration that this field projects the canonical record key.
+    pub record_key: bool,
+}
+
+impl CanonicalFieldContract {
+    /// Parse source facets without admitting or operating a database record.
+    /// # Errors
+    /// Unknown key kinds or noncanonical boolean markers refuse at the source path.
+    pub fn parse_metadata(key: Option<&str>, readonly: Option<&str>, record_key: Option<&str>, path: &str) -> Result<Option<Self>, crate::SchemaError> {
+        if key.is_none() && readonly.is_none() && record_key.is_none() { return Ok(None); }
+        let invalid = || crate::checks::invalid(path, "unknown canonical key kind or noncanonical field-policy marker");
+        let key = key.map(|value| CanonicalKeyKind::parse(value).ok_or_else(invalid)).transpose()?;
+        let readonly = readonly.map(|value| match value { "true" => Ok(true), "false" => Ok(false), _ => Err(invalid()) }).transpose()?;
+        let record_key = match record_key { None => false, Some("true") => true, _ => return Err(invalid()) };
+        Ok(Some(Self { key, readonly, record_key }))
+    }
+}
+
 /// Canonical row lifetime, independent of backup membership.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CanonicalRetention {

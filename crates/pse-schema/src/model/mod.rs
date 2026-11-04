@@ -39,7 +39,7 @@ pub mod tagged_alternative;
 
 pub use boundary::BoundaryRecord;
 pub use boundary_shape::BoundaryShape;
-pub use canonical::{CanonicalBackup, CanonicalKeyKind, CanonicalRelation, CanonicalRetention};
+pub use canonical::{CanonicalBackup, CanonicalFieldContract, CanonicalKeyKind, CanonicalRelation, CanonicalRetention};
 pub use field::ROW_KEY_ENCODING;
 
 pub use crate::model::algorithm::{
@@ -68,9 +68,9 @@ pub use crate::model::relation::{
 pub use pse_ids::source_path::ExpressionPathSegmentKind;
 
 pub use collection::{CollectionContract, CollectionOrder};
-pub use expression::ExpressionGrammar;
+pub use expression::{ExpressionBinder, ExpressionGrammar, ExpressionOrdinal, ExpressionSourceContract};
 pub use field::FieldContract;
-pub use identity::{IdentityBase, IdentityDecl, IdentityOwner, IdentitySource, IdentitySpec};
+pub use identity::{IdentityBase, IdentityContract, IdentityDecl, IdentityOwner, IdentitySource, IdentitySpec};
 pub use integer_range::IntegerRange;
 pub use reference::{ReferenceColumn, ReferenceContract, ReferenceNullPolicy};
 pub use result_selection::ResultSelectionRole;

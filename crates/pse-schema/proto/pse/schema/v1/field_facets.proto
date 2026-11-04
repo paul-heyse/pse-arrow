@@ -18,6 +18,81 @@ message RegistryFieldFacets {
   optional CollectionContract collection = 10;
   optional IntegerRange integer_range = 11;
   optional TaggedAlternative tagged_alternative = 12;
+  optional IdentityContract identity = 13;
+  optional CanonicalFieldContract canonical = 14;
+  optional ExpressionSourceContract expression_source = 15;
+}
+
+message CanonicalFieldContract {
+  optional CanonicalKeyKind key_kind = 1;
+  optional bool readonly = 2;
+  optional bool record_key = 3;
+}
+
+enum CanonicalKeyKind {
+  CANONICAL_KEY_KIND_UNSPECIFIED = 0;
+  CANONICAL_KEY_KIND_PROBLEM = 1;
+  CANONICAL_KEY_KIND_REVISION = 2;
+  CANONICAL_KEY_KIND_RUN = 3;
+  CANONICAL_KEY_KIND_ATTEMPT = 4;
+  CANONICAL_KEY_KIND_STUDY = 5;
+  CANONICAL_KEY_KIND_STUDY_POINT = 6;
+  CANONICAL_KEY_KIND_OPERATION = 7;
+  CANONICAL_KEY_KIND_ARTIFACT = 8;
+  CANONICAL_KEY_KIND_FILE_INSTANCE = 9;
+  CANONICAL_KEY_KIND_PROJECT = 10;
+  CANONICAL_KEY_KIND_PROJECT_BRANCH = 11;
+  CANONICAL_KEY_KIND_PROJECT_DRAFT = 12;
+  CANONICAL_KEY_KIND_DRAFT_VERSION = 13;
+  CANONICAL_KEY_KIND_PROJECT_SAVEPOINT = 14;
+  CANONICAL_KEY_KIND_PROJECT_BOOKMARK = 15;
+  CANONICAL_KEY_KIND_PROJECT_ANCESTRY = 16;
+  CANONICAL_KEY_KIND_DRAFT_DIAGNOSTIC = 17;
+  CANONICAL_KEY_KIND_PROJECT_CONTEXT = 18;
+  CANONICAL_KEY_KIND_CONTEXT_ANCESTRY = 19;
+  CANONICAL_KEY_KIND_RESEARCH_REFERENCE = 20;
+  CANONICAL_KEY_KIND_RESEARCH_DATASET = 21;
+  CANONICAL_KEY_KIND_RESEARCH_SELECTION = 22;
+  CANONICAL_KEY_KIND_RESEARCH_PUBLICATION = 23;
+  CANONICAL_KEY_KIND_PROJECT_IMPORT = 24;
+  CANONICAL_KEY_KIND_PRODUCT = 25;
+  CANONICAL_KEY_KIND_BODY_CONTENT = 26;
+  CANONICAL_KEY_KIND_SELECTION_RECEIPT = 27;
+  CANONICAL_KEY_KIND_PRODUCT_ASSOCIATION = 28;
+  CANONICAL_KEY_KIND_PRODUCT_DESCRIPTOR = 29;
+  CANONICAL_KEY_KIND_ANALYSIS = 30;
+  CANONICAL_KEY_KIND_ANALYSIS_NODE = 31;
+  CANONICAL_KEY_KIND_MAINTENANCE_OPERATION = 32;
+  CANONICAL_KEY_KIND_MAINTENANCE_ACTIVATION = 33;
+  CANONICAL_KEY_KIND_INLINE_PAYLOAD = 34;
+  CANONICAL_KEY_KIND_FILE_OWNER = 35;
+  CANONICAL_KEY_KIND_FILE_BORROWER = 36;
+  CANONICAL_KEY_KIND_MANIFEST_TICKET = 37;
+}
+
+message ExpressionSourceContract {
+  // Owner-declared source-path template, including its local binder placeholders.
+  optional string role_path_template = 1;
+  optional ExpressionOrdinal ordinal = 2;
+  optional ExpressionBinder binder = 3;
+}
+
+enum ExpressionOrdinal {
+  EXPRESSION_ORDINAL_UNSPECIFIED = 0;
+  EXPRESSION_ORDINAL_LIST = 1;
+  EXPRESSION_ORDINAL_ZERO = 2;
+  EXPRESSION_ORDINAL_FLATTEN = 3;
+}
+
+enum ExpressionBinder {
+  EXPRESSION_BINDER_UNSPECIFIED = 0;
+  EXPRESSION_BINDER_DOMAIN_BEFORE_NAME = 1;
+}
+
+// Source field association, not a resolved identity definition or physical base.
+message IdentityContract {
+  optional string entity_name = 1;
+  optional bool owns_identity = 2;
 }
 
 enum ColumnRole {

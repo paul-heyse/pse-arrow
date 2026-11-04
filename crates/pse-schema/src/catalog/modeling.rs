@@ -312,7 +312,7 @@ fn indices() -> T {
     .into_field();
     field.metadata_mut().insert(
         crate::model::field_facets::EXPRESSION_BINDER.into(),
-        "domain-before-name".into(),
+        crate::model::ExpressionBinder::DomainBeforeName.as_str().into(),
     );
     T::from_field(field)
 }

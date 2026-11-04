@@ -11,6 +11,31 @@
 
 use pse_ids::SemanticId;
 
+/// Source association carried by one identity field, before catalog resolution.
+/// The name neither resolves an identity owner nor establishes its storage base.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IdentityContract<'a> {
+    /// Declared entity identity name.
+    pub name: &'a str,
+    /// This field declares ownership; ordinary carriers do not acquire ownership.
+    pub owns_identity: bool,
+}
+
+impl<'a> IdentityContract<'a> {
+    /// Parse exact source facets without inventing resolved catalog information.
+    /// # Errors
+    /// Empty identities, orphan ownership and noncanonical ownership markers refuse.
+    pub fn parse_metadata(name: Option<&'a str>, owner: Option<&str>, path: &str) -> Result<Option<Self>, crate::SchemaError> {
+        match (name, owner) {
+            (None, None) => Ok(None),
+            (Some(name), owner) if !name.is_empty() && matches!(owner, None | Some("true")) => {
+                Ok(Some(Self { name, owns_identity: owner.is_some() }))
+            }
+            _ => Err(crate::checks::invalid(path, "identity requires a nonempty declared name and a canonical ownership marker")),
+        }
+    }
+}
+
 /// An entity identity before assembly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IdentityDecl {

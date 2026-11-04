@@ -83,6 +83,20 @@ impl FieldContract {
         self.get(super::field_facets::CANONICAL_KEY)
             .and_then(super::CanonicalKeyKind::parse)
     }
+    /// Checked source policy for this canonical field occurrence.
+    /// # Errors
+    /// Unknown key kinds or noncanonical present policy markers refuse.
+    pub fn canonical_contract(&self) -> Result<Option<super::CanonicalFieldContract>, crate::SchemaError> {
+        use super::field_facets::{CANONICAL_KEY, CANONICAL_READONLY, CANONICAL_RECORD_KEY};
+        super::CanonicalFieldContract::parse_metadata(self.get(CANONICAL_KEY), self.get(CANONICAL_READONLY), self.get(CANONICAL_RECORD_KEY), self.name())
+    }
+    /// Checked path/traversal association for a source-expression occurrence.
+    /// # Errors
+    /// Incomplete or unknown source policies refuse at this field's path.
+    pub fn expression_source_contract(&self) -> Result<Option<super::ExpressionSourceContract<'_>>, crate::SchemaError> {
+        use super::field_facets::{EXPRESSION_ROLE, EXPRESSION_ORDINAL, EXPRESSION_BINDER};
+        super::ExpressionSourceContract::parse_metadata(self.get(EXPRESSION_ROLE), self.get(EXPRESSION_ORDINAL), self.get(EXPRESSION_BINDER), self.name())
+    }
     /// Freeze the field after insertion.
     #[must_use]
     pub fn canonical_readonly(self) -> Self {
@@ -400,6 +414,12 @@ impl FieldContract {
     /// The entity identity this column carries, declared or inherited.
     pub fn identity(&self) -> Option<&str> {
         self.get(IDENTITY)
+    }
+    /// Checked unbound identity association carried by this native field.
+    /// # Errors
+    /// Empty names or malformed present ownership declarations refuse.
+    pub fn identity_contract(&self) -> Result<Option<super::IdentityContract<'_>>, crate::SchemaError> {
+        super::IdentityContract::parse_metadata(self.get(IDENTITY), self.get(IDENTITY_OWNER), self.name())
     }
     /// Whether this column was declared the owner of its identity.
     pub fn owns_identity(&self) -> bool {
@@ -882,5 +902,44 @@ mod facet_metadata_tests {
         assert!(ReferenceContract::for_contract(&partial).unwrap_err().to_string().contains("partial"));
         let empty = FieldContract::native(DataType::UInt64).with_fk("", "id");
         assert!(ReferenceContract::for_contract(&empty).is_err());
+    }
+
+    #[test]
+    fn selected_facet_metadata_identity_preserves_carrier_and_owner_distinction() {
+        let carrier = FieldContract::id().with_name("goal_id").with_identity("accuracy_goal");
+        let identity = carrier.identity_contract().unwrap().unwrap();
+        assert_eq!(identity.name, "accuracy_goal");
+        assert!(!identity.owns_identity);
+        let owner = FieldContract::id().with_owned_identity("accuracy_goal");
+        assert!(owner.identity_contract().unwrap().unwrap().owns_identity);
+        for field in [FieldContract::id().facet(IDENTITY_OWNER, "true"),
+            FieldContract::id().with_identity(""), carrier.facet(IDENTITY_OWNER, "false")]
+        { assert!(field.identity_contract().is_err()); }
+    }
+
+    #[test]
+    fn selected_facet_metadata_canonical_and_expression_policies_remain_source_declarations() {
+        use crate::model::{CanonicalKeyKind, ExpressionOrdinal};
+        use crate::model::field_facets as F;
+        let mutable = FieldContract::native(DataType::Utf8).with_canonical_key(CanonicalKeyKind::Project).canonical_mutable();
+        let policy = mutable.canonical_contract().unwrap().unwrap();
+        assert_eq!(policy.key, Some(CanonicalKeyKind::Project));
+        assert_eq!(policy.readonly, Some(false));
+        assert!(!policy.record_key);
+        let selected = mutable.canonical_record_key();
+        let policy = selected.canonical_contract().unwrap().unwrap();
+        assert_eq!(policy.readonly, Some(true)); assert!(policy.record_key);
+        let source = FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ROLE, "owner.items.{0}.body").facet(F::EXPRESSION_ORDINAL, "flatten");
+        let policy = source.expression_source_contract().unwrap().unwrap();
+        assert_eq!(policy.role, Some("owner.items.{0}.body"));
+        assert_eq!(policy.ordinal, Some(ExpressionOrdinal::Flatten));
+        for field in [FieldContract::native(DataType::Utf8).facet(F::CANONICAL_KEY, "future"),
+            FieldContract::native(DataType::Utf8).facet(F::CANONICAL_READONLY, "yes"),
+            FieldContract::native(DataType::Utf8).facet(F::CANONICAL_RECORD_KEY, "false")]
+        { assert!(field.canonical_contract().is_err()); }
+        for field in [FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ROLE, ""),
+            FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ORDINAL, "future"),
+            FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_BINDER, "future")]
+        { assert!(field.expression_source_contract().is_err()); }
     }
 }
