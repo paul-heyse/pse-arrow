@@ -1,0 +1,34 @@
+syntax = "proto2";
+package independent.v1;
+import "pse/contract/v1/metadata.proto";
+
+message Request {
+  option (pse.contract.v1.message) = {
+    metadata_version: 2
+    owner: { rust_type: "independent::NativeFields" declaration_file: "src/native-fields.rs" }
+    interpretation_version: 1 direction: DIRECTION_BOTH construction_role: CONSTRUCTION_ROLE_DATA
+    native_shape: { record: {
+      fields: { name: "value" tag: 1 direction: DIRECTION_BOTH contract: { native_type: { scalar: NATIVE_SCALAR_U64 } } }
+      fields: { name: "cells" tag: 2 direction: DIRECTION_BOTH contract: { native_type: { set_value: { scalar: NATIVE_SCALAR_U64 } } } }
+      fields: { name: "identity" tag: 3 direction: DIRECTION_BOTH contract: { native_type: { scalar: NATIVE_SCALAR_SEMANTIC_ID } } }
+      fields: { name: "sample" tag: 4 direction: DIRECTION_BOTH contract: { native_type: { scalar: NATIVE_SCALAR_F64_BITS } local_rules: { float64_domain: { preset: NATIVE_FLOAT64_PRESET_FINITE } } } }
+    } }
+  };
+  optional uint64 value = 1 [(pse.contract.v1.field) = {
+    metadata_version: 2 native_field: "value" direction: DIRECTION_BOTH
+    native_contract: { native_type: { scalar: NATIVE_SCALAR_U64 } }
+  }];
+  repeated uint64 cells = 2 [(pse.contract.v1.field) = {
+    metadata_version: 2 native_field: "cells" direction: DIRECTION_BOTH
+    native_contract: { native_type: { set_value: { scalar: NATIVE_SCALAR_U64 } } }
+  }];
+  optional bytes identity = 3 [(pse.contract.v1.field) = {
+    metadata_version: 2 native_field: "identity" direction: DIRECTION_BOTH
+    native_contract: { native_type: { scalar: NATIVE_SCALAR_SEMANTIC_ID } }
+  }];
+  optional fixed64 sample = 4 [(pse.contract.v1.field) = {
+    metadata_version: 2 native_field: "sample" direction: DIRECTION_BOTH
+    native_contract: { native_type: { scalar: NATIVE_SCALAR_F64_BITS }
+      local_rules: { float64_domain: { preset: NATIVE_FLOAT64_PRESET_FINITE } } }
+  }];
+}

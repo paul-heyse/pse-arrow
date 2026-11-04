@@ -19,6 +19,13 @@ impl std::error::Error for DomainDiagnostic {
 /// A structural acquisition, schema, codec or explicitly selected domain refusal.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum MetadataError {
+    /// Original schema or interpretation cannot be understood by this reader.
+    #[error("contract metadata interpretation unavailable: {reason}")]
+    #[diagnostic(code("schema.version_mismatch"))]
+    Unavailable {
+        /// Attributed unsupported meaning, without adopting a default.
+        reason: String,
+    },
     /// A selected world or schema cannot represent the required meaning.
     #[error("invalid contract metadata: {reason}")]
     #[diagnostic(code("workflow.input"))]
@@ -93,6 +100,10 @@ pub enum MetadataError {
 }
 
 impl MetadataError {
+    /// Whether this refusal retains an unavailable interpretation rather than malformed input.
+    pub fn is_unavailable(&self) -> bool {
+        match self { Self::Unavailable { .. } => true, Self::At { source, .. } | Self::Context { source, .. } => source.is_unavailable(), _ => false }
+    }
     /// Preserve an actual file/subject association around a typed native error.
     pub fn at(self, file: impl Into<String>, subject: impl Into<String>) -> Self {
         Self::At { file: file.into(), subject: subject.into(), source: Box::new(self) }

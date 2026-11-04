@@ -116,10 +116,11 @@ and allocation are published in A02 before dependent generator/consumer changes.
 `MessageOptions`, `FieldOptions` and `MethodOptions` extension namespaces.
 `MessageMetadata` carries metadata version, Rust type/declaration-file provenance,
 owner interpretation version, direction, construction role and optional original
-action effects. `FieldMetadata` carries version, native field correspondence and
-direction; `MethodMetadata` carries version and explicit method effects. The action's
+action effects plus the required native owner shape. `FieldMetadata` carries version,
+native field correspondence, direction and the required native type/local-rule contract;
+`MethodMetadata` carries version and explicit method effects. The action's
 intent and the RPC's composed intent remain separate declarations. Unspecified enum
-zero is unavailable meaning. Interoperability version 1 does not imply that every
+zero is unavailable meaning. The major namespace does not imply that every
 native owner's interpretation is version 1.
 
 Compile these ordinary sources and their complete imports with Buf, then link the
@@ -131,8 +132,8 @@ to create concrete typed option messages against that acquired schema. Checked
 extendee/type matching and Buffa's unknown-field extension storage preserve unrelated
 imported options; ordinary typed Prost re-encoding is excluded. Protobuf's
 [custom-option resolution rules](https://buf.build/docs/reference/protobuf-language-spec/#options)
-define the separate extendees. The v1 adapter checks known enum numbers, field tags,
-types and explicit presence before interpreting an imported lookalike as v1.
+define the separate extendees. The current adapter checks known enum numbers, field tags,
+types and explicit presence before interpreting an imported lookalike as current metadata.
 
 One `pse-contract::metadata` checker consumes borrowed normalized facts, with no wire
 or product dependency. Generation and descriptor inspection use that checker for
@@ -142,8 +143,8 @@ interpretation changes under a named policy independently of wire compatibility.
 Known owner/version associations come from the actual generation graph; offline readers
 must select the immutable interpretations they have available. A missing owner interpretation
 or external domain policy remains Unknown. Rust path/file moves remain provenance
-changes. Selected registry facets use their native typed validator; the initial named
-comparison policy conservatively rejects changes to validated domain facet values.
+changes. Selected registry facets use their native typed validator and purpose-specific
+normalizer; the named comparison policy rejects changes to normalized semantic facts.
 Introducing a selected facet on an existing field needs an explicit owner-policy
 decision; individual validity does not establish compatibility with the previously
 unannotated field. Borrowed native coverage selects expected owners, fields (including
@@ -164,7 +165,16 @@ identity versus opaque bytes, ordered versus set membership, nested absence, or 
 meaning. Required native distinctions must survive typed option publication and shared
 normalization/comparison. Reuse the existing structural vocabulary; do not add another IR or
 infer this meaning from Rust display names. The precise typed schema/version extension and
-matching descriptor/source policy controls remain bounded A02 design work before policy freeze.
+matching descriptor/source policy controls remain bounded A02 work before policy freeze.
+
+The current writer selects interoperability metadata version **2** in the existing
+major namespace. Its required native field contract transports the actual `TypeRef`,
+closed `Scalar` and `LocalRule` declarations (including exact binary64 interval bits).
+Required native owner shape transports the existing record/alternative layout and
+canonical string vocabulary, including source tags and per-field direction. Decoding
+normalizes back to those existing native types; it does not add a second semantic IR.
+Old schema/version interpretation remains Unknown, and current missing facts refuse.
+Raw historical descriptor inputs remain inspectable without a legacy production writer.
 
 The selected registry policy must also separate retained full option facts from the semantic
 projection it compares. Documentation and structure presentation alone must not become physical
@@ -172,6 +182,35 @@ incompatibility merely because their encoded option bytes differ. Use the native
 metadata-purpose decisions for that normalization, preserving meaningful physical, collection,
 reference and storage-policy changes. Independently test both wire-compatible native meaning
 changes and presentation-only changes; unavailable interpretation still yields Unknown.
+
+The composed comparison purpose is explicitly **native-crossing + registry-execution +
+canonical-publication**. It is not a scientific identity or universal storage identity.
+Source-derived coverage includes required domain extensions and typed option member paths,
+so stripping a quantity, canonical policy or physical carrier from both acquired worlds
+cannot erase its native obligation. The same source-key lowering owns emission and coverage.
+Domain callbacks validate and normalize in each world's own `DescriptorPool`; full original
+FDS/options remain retained. Prose-only facts are retained but have no semantic comparison
+value for this purpose. Other identity purposes retain their existing metadata rules.
+
+Actual registry fields carry a standard Arrow IPC Schema Message containing exactly the
+source-owned native `Field`, emitted by Arrow 59.3
+[`IpcDataGenerator::schema_to_bytes_with_dictionary_tracker`](https://docs.rs/arrow-ipc/59.3.0/arrow_ipc/writer/struct.IpcDataGenerator.html#method.schema_to_bytes_with_dictionary_tracker).
+The source-only canonical field carrier is not a published JSON type schema. Before
+[`fb_to_schema`](https://docs.rs/arrow-ipc/59.3.0/arrow_ipc/convert/fn.fb_to_schema.html),
+the domain adapter verifies the acquired FlatBuffer, exactly-one-field cardinality,
+metadata key/value presence and uniqueness at every nested field, and supported logical
+union, dictionary, precision/unit and child-layout premises. This is necessary because
+the pinned [conversion source](https://docs.rs/arrow-ipc/59.3.0/src/arrow_ipc/convert.rs.html)
+otherwise folds duplicate metadata into a map and has infallible panic branches for
+unsupported type declarations. Invalid/unsupported input refuses before normalization.
+Typed registry facets must agree with the decoded native field metadata. Existing
+`pse_columnar::native_field::project(ExecutionIdentity)` plus the existing canonical native
+field renderer provides this purpose's physical projection: timestamps retain unit/timezone,
+as do decimal, dictionary, nullability and nested field meaning, even when Rust/wire scalar
+representations overlap. Explicit typed canonical policy carries publication meaning that
+the existing execution projection deliberately excludes. Complete native `TypeRef` versus
+Arrow source-rendering correspondence remains an explicit A02 obligation; neither these
+local guards nor exact compiled-world binding alone establish that broader equivalence.
 
 The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
 and the independent host. It depends on pure `pse-contract`, the selected Buffa family
@@ -249,6 +288,23 @@ list/zero/flatten ordinal and domain-before-name binder policies. The native sou
 builders and option readers share these owner parsers and vocabularies. The schema's
 enum allocations are checked against the native correspondence; a selected key that
 acquires a new native meaning requires an explicit typed interpretation update.
+
+Canonical publication annotations additionally retain source ASSERT/DEFAULT, initial
+lifecycle member, exceptional transition predicate, sealing predicate/refusal and reference
+kind. `pse-schema::model::CanonicalFieldPolicy` owns this interpretation, composed with the
+existing opaque key/readonly/record-key contract. SurrealDB 3.3.4
+[`surrealdb_syn::expr_for_definition`](https://docs.rs/surrealdb-syn/3.3.4/surrealdb_syn/fn.expr_for_definition.html)
+uses stored-definition grammar and requires the entire input (`Parser::assert_finished`);
+the inert `surrealdb_sql::Expr` is rendered with native
+[`ToSql`](https://docs.rs/surrealdb-types/3.3.4/surrealdb_types/trait.ToSql.html).
+Formatting-equivalent expressions therefore compare by canonical native syntax, while
+meaningful policy changes remain incompatible for canonical publication. The original
+concrete `ParseError` remains in the native diagnostic source chain. An initial member is
+native enum vocabulary, never an expression. Refusal identities use the existing closed
+native vocabulary; enum membership and physical field associations require their actual
+resolved owners. Syntax success establishes neither database/variable/type validity nor
+execution permission. Native declaration validation and option interpretation call this
+same owner; no generated policy table or generic metadata fallback replaces it.
 
 The existing source-derived metadata map is an internal carrier. The domain lowerer
 uses shared `pse-schema` canonical parsers, also used by native field admission, for

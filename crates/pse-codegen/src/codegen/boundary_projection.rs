@@ -28,6 +28,9 @@ mod source_error;
 pub use source_error::ProjectionCodegenError;
 use pse_contract_proto::{OptionEncoder, CORE_IMPORT, NativeSelection, check_descriptors};
 
+// Internal source-generation carrier only. Published options carry standard Arrow IPC.
+pub(crate) const REGISTRY_FIELD_SOURCE: &str = "pse.codegen.native_field";
+
 mod adapters;
 mod float_collections;
 mod source_metadata;
@@ -72,8 +75,8 @@ pub fn native_policy_source(graph: &ProjectionGraph, package: &str, direction: D
     let selection = source_metadata::native_selection(graph, package, direction);
     if selection.owners.is_empty() { return Err(error("native source policy requires at least one actual owner")); }
     Ok(format!(
-        "// Source-derived immutable interpretation and coverage; no native authority.\n/// Exact source-owned interpretation versions available to this consumer.\npub const INTERPRETATIONS: &[(&str, u32)] = &{:?};\n/// Required source-selected coverage, independent of acquired option presence.\npub const NATIVE_SELECTION: pse_contract_proto::NativeSelection<'static> = pse_contract_proto::NativeSelection {{ owners: &{:?}, fields: &{:?}, methods: &{:?} }};\n",
-        selection.interpretations, selection.owners, selection.fields, selection.methods,
+        "// Source-derived immutable interpretation and coverage; no native authority.\n/// Exact source-owned interpretation versions available to this consumer.\npub const INTERPRETATIONS: &[(&str, u32)] = &{:?};\n/// Required source-selected coverage, independent of acquired option presence.\npub const NATIVE_SELECTION: pse_contract_proto::NativeSelection<'static> = pse_contract_proto::NativeSelection {{ owners: &{:?}, fields: &{:?}, methods: &{:?}, facets: &{:?}, facet_fields: &{:?} }};\n",
+        selection.interpretations, selection.owners, selection.fields, selection.methods, selection.facets, selection.facet_fields,
     ))
 }
 
@@ -145,7 +148,7 @@ pub fn descriptors_for_direction(
     for definition in graph.definitions().values() {
         let mut message = DescriptorProto {
             name: Some(definition.name.clone()),
-            options: metadata.message_options(definition)?.into(),
+            options: metadata.message_options(definition, package)?.into(),
             reserved_range: definition
                 .reserved_tags
                 .iter()
@@ -191,7 +194,7 @@ pub fn descriptors_for_direction(
                     lower.fields(&mut nested, &alternative.fields).map_err(|e| e.at(definition.source, format!("{}::{}", definition.rust_type, alternative.name)))?;
                     message.nested_type.push(nested);
                     let mut field_options = FieldOptions::default();
-                    metadata.field_correspondence(&mut field_options, &alternative.name, definition.direction)?;
+                    metadata.field_correspondence(&mut field_options, &alternative.name, definition.direction, &TypeRef::Named(definition.name.clone()), &[], package)?;
                     message.field.push(FieldDescriptorProto {
                         name: Some(snake_case(&alternative.name)),
                         number: Some(alternative.tag as i32),
@@ -226,7 +229,7 @@ pub fn descriptors_for_direction(
                     },
                 )?;
                 let mut options = field.options.as_option().cloned().unwrap_or_default();
-                metadata.field_correspondence(&mut options, "value", definition.direction)?;
+                metadata.field_correspondence(&mut options, "value", definition.direction, &TypeRef::Named(definition.name.clone()), &[], package)?;
                 field.options = options.into();
                 message.field.push(field);
             }
@@ -280,13 +283,15 @@ pub fn descriptors_for_direction(
         file: dependency_order(files)?,
         ..Default::default()
     };
-    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<(), ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
+    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<Option<Vec<u8>>, ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_option)];
     let names = source_metadata::native_selection(graph, package, direction);
     let interpretations = names.interpretations.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
     let owners = names.owners.iter().map(String::as_str).collect::<Vec<_>>();
     let fields = names.fields.iter().map(String::as_str).collect::<Vec<_>>();
     let methods = names.methods.iter().map(String::as_str).collect::<Vec<_>>();
-    let selection = NativeSelection { owners: &owners, fields: &fields, methods: &methods };
+    let facets = names.facets.iter().map(|(subject, extension)| (subject.as_str(), extension.as_str())).collect::<Vec<_>>();
+    let facet_fields = names.facet_fields.iter().map(|(subject, extension, field)| (subject.as_str(), extension.as_str(), field.as_str())).collect::<Vec<_>>();
+    let selection = NativeSelection { owners: &owners, fields: &fields, methods: &methods, facets: &facets, facet_fields: &facet_fields };
     let policy = source_metadata::TypedPolicy::new(&validators, &interpretations, selection);
     let selected_extensions = if lower.uses_registry { &[registry_facets::EXTENSION][..] } else { &[] };
     let assessment = check_descriptors(&descriptor_set, file_name, &policy, selected_extensions)?;
@@ -403,7 +408,7 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
                 field.ty,
                 field.direction,
                 field.rules,
-                format!("{:?}", field.named_facets)
+                format!("{:?}", field.named_facets.iter().filter(|(key, _)| key.as_str() != REGISTRY_FIELD_SOURCE).collect::<BTreeMap<_, _>>())
                     .replace('|', "\\|")
                     .replace('`', "&#96;")
             );
@@ -523,7 +528,7 @@ impl Lower<'_> {
                 }
             }
             let mut options = lowered.options.as_option().cloned().unwrap_or_default();
-            self.metadata.field_options(&mut options, field)?;
+            self.metadata.field_options(&mut options, field, self.package)?;
             if let Some(facets) = registry_facets::field_options(field, self.graph, self.metadata)? {
                 self.metadata.attach(&mut options, registry_facets::EXTENSION, facets)?;
                 self.uses_registry = true;

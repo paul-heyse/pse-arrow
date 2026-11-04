@@ -4,11 +4,11 @@
 //! Registry-owned, typed option publication. The string map is an internal source
 //! carrier only; canonical structured facets are parsed by their native owners.
 
-use buffa_descriptor::{DynamicMessage, Value};
+use buffa_descriptor::{DynamicMessage, Value, ReflectMessage};
 use pse_contract::boundary_projection::{Field, ProjectionGraph, Shape, TypeRef};
 use pse_schema::{model::{
     CollectionContract, CollectionOrder, ColumnRole, ExtensionUse, ExpressionGrammar,
-    BoundaryShape, CanonicalFieldContract, CanonicalKeyKind, ExpressionBinder, ExpressionOrdinal,
+    BoundaryShape, CanonicalKeyKind, ExpressionBinder, ExpressionOrdinal,
     ExpressionSourceContract, FieldContract, IdentityContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative,
     field_facets as keys,
 }};
@@ -21,6 +21,31 @@ pub(super) const EXTENSION: &str = "pse.schema.v1.registry_field";
 
 #[cfg(test)]
 mod tests;
+mod native_ipc;
+
+pub(super) fn has_options(field: &Field) -> bool { !field.named_facets.is_empty() }
+
+// One source-key -> typed-field correspondence is shared by coverage and emission
+// validation. This never walks an acquired descriptor to approve its own scope.
+const SOURCE_FIELDS: &[(&str, &str)] = &[
+    (keys::EXTENSION, "extension"), (keys::PARAMETER, "extension"), (keys::ROLE, "role"),
+    (keys::DOC, "documentation"), (keys::STRUCTURE, "structure_name"),
+    (keys::QUANTITY, "quantity"), (keys::TRANSFER_CONTEXT, "transfer_context_version"),
+    (keys::KEY_REFERENCE, "reference"), (keys::FK_RELATION, "reference"), (keys::FK_COLUMN, "reference"),
+    (keys::GRAPH_ENDPOINT, "graph_endpoint"), (keys::KEY_COLLECTION, "collection"),
+    (keys::KEY_INTEGER_RANGE, "integer_range"), (keys::KEY_TAGGED_ALTERNATIVE, "tagged_alternative"),
+    (keys::IDENTITY, "identity"), (keys::IDENTITY_OWNER, "identity"),
+    (keys::CANONICAL_KEY, "canonical.key_kind"), (keys::CANONICAL_READONLY, "canonical.readonly"), (keys::CANONICAL_RECORD_KEY, "canonical.record_key"),
+    (keys::CANONICAL_ASSERT, "canonical.assertion"), (keys::CANONICAL_DEFAULT, "canonical.default_expression"), (keys::CANONICAL_TRANSITION, "canonical.initial_member"),
+    (keys::CANONICAL_TRANSITION_EXCEPTION, "canonical.transition_exception"), (keys::CANONICAL_SEALED, "canonical.sealed"), (keys::CANONICAL_SEAL_REFUSAL, "canonical.seal_refusal"), (keys::CANONICAL_REFERENCE_KIND, "canonical.reference_kind"),
+    (keys::EXPRESSION_ROLE, "expression_source"), (keys::EXPRESSION_ORDINAL, "expression_source"), (keys::EXPRESSION_BINDER, "expression_source"),
+    (super::REGISTRY_FIELD_SOURCE, "native_field_ipc"),
+];
+pub(super) fn required_fields(field: &Field) -> Vec<&'static str> {
+    let mut result = vec!["metadata_version"];
+    for (key, target) in SOURCE_FIELDS { if field.named_facets.contains_key(*key) && !result.contains(target) { result.push(target); } }
+    result
+}
 
 fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), ProjectionCodegenError> {
     schema_shapes(pool)?;
@@ -56,14 +81,14 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), Projectio
 
 // Acceptance contract of the known v1 interpreter, not a descriptor producer.
 fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), ProjectionCodegenError> {
-    use buffa_descriptor::{FieldKind::{Singular, List}, SingularKind::{Scalar, Message, Enum}, ScalarType::{Uint32, Int64, String, Bool}};
+    use buffa_descriptor::{FieldKind::{Singular, List}, SingularKind::{Scalar, Message, Enum}, ScalarType::{Uint32, Int64, String, Bool, Bytes}};
     let message = |name: &str| pool.message_index(&format!("pse.schema.v1.{name}")).map(Message).ok_or_else(|| error(format!("missing registry option message {name}")));
     let enumeration = |name: &str| pool.enum_index(&format!("pse.schema.v1.{name}")).map(Enum).map(Singular).ok_or_else(|| error(format!("missing registry option enum {name}")));
     let scalar = |kind| Singular(Scalar(kind));
     for (name, expected) in [
-        ("RegistryFieldFacets", vec![("metadata_version", scalar(Uint32)), ("extension", Singular(message("ExtensionUse")?)), ("role", enumeration("ColumnRole")?), ("documentation", scalar(String)), ("structure_name", scalar(String)), ("quantity", Singular(message("QuantityReference")?)), ("transfer_context_version", scalar(Uint32)), ("reference", Singular(message("ReferenceContract")?)), ("graph_endpoint", enumeration("GraphEndpoint")?), ("collection", Singular(message("CollectionContract")?)), ("integer_range", Singular(message("IntegerRange")?)), ("tagged_alternative", Singular(message("TaggedAlternative")?)), ("identity", Singular(message("IdentityContract")?)), ("canonical", Singular(message("CanonicalFieldContract")?)), ("expression_source", Singular(message("ExpressionSourceContract")?))]),
+        ("RegistryFieldFacets", vec![("metadata_version", scalar(Uint32)), ("extension", Singular(message("ExtensionUse")?)), ("role", enumeration("ColumnRole")?), ("documentation", scalar(String)), ("structure_name", scalar(String)), ("quantity", Singular(message("QuantityReference")?)), ("transfer_context_version", scalar(Uint32)), ("reference", Singular(message("ReferenceContract")?)), ("graph_endpoint", enumeration("GraphEndpoint")?), ("collection", Singular(message("CollectionContract")?)), ("integer_range", Singular(message("IntegerRange")?)), ("tagged_alternative", Singular(message("TaggedAlternative")?)), ("identity", Singular(message("IdentityContract")?)), ("canonical", Singular(message("CanonicalFieldContract")?)), ("expression_source", Singular(message("ExpressionSourceContract")?)), ("native_field_ipc", scalar(Bytes))]),
         ("IdentityContract", vec![("entity_name", scalar(String)), ("owns_identity", scalar(Bool))]),
-        ("CanonicalFieldContract", vec![("key_kind", enumeration("CanonicalKeyKind")?), ("readonly", scalar(Bool)), ("record_key", scalar(Bool))]),
+        ("CanonicalFieldContract", vec![("key_kind", enumeration("CanonicalKeyKind")?), ("readonly", scalar(Bool)), ("record_key", scalar(Bool)), ("assertion", scalar(String)), ("default_expression", scalar(String)), ("initial_member", scalar(String)), ("transition_exception", scalar(String)), ("sealed", scalar(String)), ("seal_refusal", scalar(String)), ("reference_kind", scalar(String))]),
         ("ExpressionSourceContract", vec![("role_path_template", scalar(String)), ("ordinal", enumeration("ExpressionOrdinal")?), ("binder", enumeration("ExpressionBinder")?)]),
         ("ExtensionUse", vec![("simple", enumeration("SimpleExtension")?), ("enumeration", scalar(String)), ("ordinal_target_relation", scalar(String)), ("expression_grammar", enumeration("ExpressionGrammar")?)]),
         ("QuantityReference", vec![("qualified_name", scalar(String))]),
@@ -143,11 +168,22 @@ fn extension(value: ExtensionUse<'_>, encoder: &OptionEncoder) -> Result<Value, 
 
 /// Lower every selected annotation or refuse it with its native field/key attribution.
 pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &OptionEncoder) -> Result<Option<DynamicMessage>, ProjectionCodegenError> {
-    if field.named_facets.is_empty() { return Ok(None); }
+    let value = lower_field_options(field, graph, encoder)?;
+    if let Some(value) = &value { check_option(value)?; }
+    Ok(value)
+}
+
+fn lower_field_options(field: &Field, graph: &ProjectionGraph, encoder: &OptionEncoder) -> Result<Option<DynamicMessage>, ProjectionCodegenError> {
+    if !has_options(field) { return Ok(None); }
     let path = &field.name;
     let invalid = |key: &str, reason: &str| error(format!("{path}.{key}: {reason}"));
     let get = |key: &str| field.named_facets.get(key).map(String::as_str);
-    let mut fields = vec![("metadata_version", Value::U32(1))];
+    let mut fields = vec![("metadata_version", Value::U32(2))];
+    if let Some(source) = get(super::REGISTRY_FIELD_SOURCE) {
+        let native: arrow_schema::Field = serde_json::from_str(source)?;
+        if native.name() != &field.name { return Err(invalid(super::REGISTRY_FIELD_SOURCE, "native IPC field differs from its source field")); }
+        fields.push(("native_field_ipc", Value::Bytes(native_ipc::encode(&native)?)));
+    }
     if let Some(text) = get(keys::BOUNDARY_SHAPE) { check_shape(field, graph, text)?; }
     if let Some(identity) = IdentityContract::parse_metadata(get(keys::IDENTITY), get(keys::IDENTITY_OWNER), path)? {
         fields.push(("identity", message(encoder, "IdentityContract", &[
@@ -155,11 +191,9 @@ pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &Op
             ("owns_identity", Value::Bool(identity.owns_identity)),
         ])?));
     }
-    if let Some(canonical) = CanonicalFieldContract::parse_metadata(get(keys::CANONICAL_KEY), get(keys::CANONICAL_READONLY), get(keys::CANONICAL_RECORD_KEY), path)? {
-        let mut values = vec![("record_key", Value::Bool(canonical.record_key))];
-        if let Some(kind) = canonical.key { values.push(("key_kind", Value::EnumNumber(canonical_number(&encoder.pool(), kind)?))); }
-        if let Some(readonly) = canonical.readonly { values.push(("readonly", Value::Bool(readonly))); }
-        fields.push(("canonical", message(encoder, "CanonicalFieldContract", &values)?));
+    let source_metadata = field.named_facets.iter().map(|(key, value)| (key.clone(), value.clone())).collect();
+    if let Some(policy) = pse_schema::model::CanonicalFieldPolicy::parse_metadata(&source_metadata, path)? {
+        fields.push(("canonical", Value::Message(canonical_message(&policy, encoder)?)));
     }
     if let Some(expression) = ExpressionSourceContract::parse_metadata(get(keys::EXPRESSION_ROLE), get(keys::EXPRESSION_ORDINAL), get(keys::EXPRESSION_BINDER), path)? {
         let mut values = Vec::new();
@@ -244,6 +278,7 @@ pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &Op
         ])?));
     }
     for (key, value) in &field.named_facets {
+        if SOURCE_FIELDS.iter().any(|(known, _)| known == key) { continue; }
         match key.as_str() {
             keys::BOUNDARY_TAG => {
                 if value != &field.tag.to_string() { return Err(invalid(key, "source boundary tag differs from the selected descriptor number")); }
@@ -258,7 +293,9 @@ pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &Op
         }
     }
     let value = encoder.message("pse.schema.v1.RegistryFieldFacets", &fields)?;
-    check_option(&value)?;
+    for name in required_fields(field) {
+        if !has_path(&value, name) { return Err(invalid(name, "source facet failed to publish its required typed field")); }
+    }
     Ok(Some(value))
 }
 
@@ -284,6 +321,48 @@ fn check_shape(field: &Field, graph: &ProjectionGraph, text: &str) -> Result<(),
     expected.sort(); actual.sort();
     if expected != actual { return Err(invalid()); }
     Ok(())
+}
+
+fn has_path(message: &DynamicMessage, path: &str) -> bool {
+    let (name, rest) = path.split_once('.').map_or((path, None), |(name, rest)| (name, Some(rest)));
+    match (value(message, name), rest) { (Some(_), None) => true, (Some(Value::Message(value)), Some(rest)) => has_path(value, rest), _ => false }
+}
+
+const CANONICAL_CLAUSES: &[(&str, &str)] = &[
+    (keys::CANONICAL_ASSERT, "assertion"), (keys::CANONICAL_DEFAULT, "default_expression"),
+    (keys::CANONICAL_TRANSITION, "initial_member"), (keys::CANONICAL_TRANSITION_EXCEPTION, "transition_exception"),
+    (keys::CANONICAL_SEALED, "sealed"), (keys::CANONICAL_SEAL_REFUSAL, "seal_refusal"), (keys::CANONICAL_REFERENCE_KIND, "reference_kind"),
+];
+fn canonical_message(policy: &pse_schema::model::CanonicalFieldPolicy, encoder: &OptionEncoder) -> Result<DynamicMessage, ProjectionCodegenError> {
+    let mut values = Vec::new();
+    if let Some(contract) = policy.contract {
+        values.push(("record_key", Value::Bool(contract.record_key)));
+        if let Some(kind) = contract.key { values.push(("key_kind", Value::EnumNumber(canonical_number(&encoder.pool(), kind)?))); }
+        if let Some(readonly) = contract.readonly { values.push(("readonly", Value::Bool(readonly))); }
+    }
+    for (name, expression) in [("assertion", &policy.assertion), ("default_expression", &policy.default), ("transition_exception", &policy.transition_exception), ("sealed", &policy.sealed)] {
+        if let Some(expression) = expression { values.push((name, Value::String(expression.canonical()))); }
+    }
+    if let Some(initial) = &policy.initial { values.push(("initial_member", Value::String(initial.clone()))); }
+    if let Some(kind) = &policy.reference_kind { values.push(("reference_kind", Value::String(kind.clone()))); }
+    if let Some(refusal) = policy.seal_refusal { values.push(("seal_refusal", Value::String(refusal.wire().into()))); }
+    Ok(encoder.message("pse.schema.v1.CanonicalFieldContract", &values)?)
+}
+fn canonical_policy(canonical: &DynamicMessage) -> Result<pse_schema::model::CanonicalFieldPolicy, ProjectionCodegenError> {
+    closed(canonical, "CanonicalFieldContract", &["key_kind", "readonly", "record_key", "assertion", "default_expression", "initial_member", "transition_exception", "sealed", "seal_refusal", "reference_kind"])?;
+    let mut metadata = std::collections::HashMap::new();
+    if let Some(value) = value(canonical, "key_kind") {
+        let Value::EnumNumber(number) = value else { return Err(error("canonical key is not an enum")); };
+        let key = CanonicalKeyKind::ALL.iter().copied().find(|kind| canonical_number(canonical.pool(), *kind).is_ok_and(|value| value == *number)).ok_or_else(|| error("unknown native canonical key kind"))?;
+        metadata.insert(keys::CANONICAL_KEY.into(), key.as_str().into());
+    }
+    if let Some(readonly) = value(canonical, "readonly") {
+        let Value::Bool(readonly) = readonly else { return Err(error("canonical readonly is not bool")); };
+        metadata.insert(keys::CANONICAL_READONLY.into(), readonly.to_string());
+    }
+    match value(canonical, "record_key") { Some(Value::Bool(true)) => { metadata.insert(keys::CANONICAL_RECORD_KEY.into(), "true".into()); }, None | Some(Value::Bool(false)) => {}, _ => return Err(error("canonical record-key declaration is not bool")) }
+    for (key, name) in CANONICAL_CLAUSES { if value(canonical, name).is_some() { metadata.insert((*key).into(), text(canonical, name)?); } }
+    pse_schema::model::CanonicalFieldPolicy::parse_metadata(&metadata, "typed registry canonical policy")?.ok_or_else(|| error("empty canonical source policy"))
 }
 
 fn value<'a>(message: &'a DynamicMessage, name: &str) -> Option<&'a Value> {
@@ -326,9 +405,12 @@ fn closed(message: &DynamicMessage, name: &str, fields: &[&str]) -> Result<(), P
 /// Interpret selected extension payloads through the same native domain contracts.
 /// Reading an option does not admit Arrow storage, resolve quantities or run a catalog.
 pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCodegenError> {
+    if let Some(Value::U32(version)) = value(option, "metadata_version") && *version != 2 {
+        return Err(pse_contract_proto::MetadataError::Unavailable { reason: format!("unavailable registry interpretation version {version}") }.into());
+    }
     vocabularies(option.pool())?;
-    closed(option, "RegistryFieldFacets", &["metadata_version", "extension", "role", "documentation", "structure_name", "quantity", "transfer_context_version", "reference", "graph_endpoint", "collection", "integer_range", "tagged_alternative", "identity", "canonical", "expression_source"])?;
-    if required(option, "metadata_version")? != &Value::U32(1) { return Err(error("unknown registry metadata version")); }
+    closed(option, "RegistryFieldFacets", &["metadata_version", "extension", "role", "documentation", "structure_name", "quantity", "transfer_context_version", "reference", "graph_endpoint", "collection", "integer_range", "tagged_alternative", "identity", "canonical", "expression_source", "native_field_ipc"])?;
+    if required(option, "metadata_version")? != &Value::U32(2) { return Err(error("unknown registry metadata version")); }
     if value(option, "role").is_some() { enumeration(option, "role", 6)?; }
     if value(option, "identity").is_some() {
         let identity = nested(option, "identity")?;
@@ -340,18 +422,7 @@ pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCode
         };
         IdentityContract::parse_metadata(Some(&name), owner, "typed registry identity")?;
     }
-    if value(option, "canonical").is_some() {
-        let canonical = nested(option, "canonical")?;
-        closed(canonical, "CanonicalFieldContract", &["key_kind", "readonly", "record_key"])?;
-        let key = value(canonical, "key_kind").map(|value| {
-            let Value::EnumNumber(number) = value else { return Err(error("canonical key is not an enum")); };
-            CanonicalKeyKind::ALL.iter().copied().find(|kind| canonical_number(option.pool(), *kind).is_ok_and(|value| value == *number))
-                .ok_or_else(|| error("unknown native canonical key kind"))
-        }).transpose()?;
-        let readonly = match value(canonical, "readonly") { None => None, Some(Value::Bool(true)) => Some("true"), Some(Value::Bool(false)) => Some("false"), _ => return Err(error("canonical readonly is not bool")) };
-        let record_key = match required(canonical, "record_key")? { Value::Bool(true) => Some("true"), Value::Bool(false) => None, _ => return Err(error("canonical record-key declaration is not bool")) };
-        if CanonicalFieldContract::parse_metadata(key.map(CanonicalKeyKind::as_str), readonly, record_key, "typed registry canonical policy")?.is_none() { return Err(error("empty canonical source policy")); }
-    }
+    if value(option, "canonical").is_some() { canonical_policy(nested(option, "canonical")?)?; }
     if value(option, "expression_source").is_some() {
         let expression = nested(option, "expression_source")?;
         closed(expression, "ExpressionSourceContract", &["role_path_template", "ordinal", "binder"])?;
@@ -419,5 +490,63 @@ pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCode
         let native = TaggedAlternative { discriminator: text(alternative, "discriminator")?, arms };
         TaggedAlternative::parse_metadata(&native.canonical(), "typed registry alternative")?;
     }
+    if let Some(carrier) = value(option, "native_field_ipc") {
+        let Value::Bytes(carrier) = carrier else { return Err(error("native field carrier is not bytes")); };
+        let field = native_ipc::decode(carrier)?;
+        FieldContract::from_field(field.clone()).canonical_policy()?;
+        let encoder = OptionEncoder::from_pool(std::sync::Arc::clone(option.pool()))?;
+        let expected = lower_native_field(&field, &encoder)?;
+        for descriptor in option.message_descriptor().fields() {
+            if descriptor.name() == "native_field_ipc" { continue; }
+            if option.field_by_number(descriptor.number()) != expected.field_by_number(descriptor.number()) {
+                return Err(error(format!("native IPC field disagrees with typed registry fact {}", descriptor.name())));
+            }
+        }
+    }
     Ok(())
+}
+
+fn lower_native_field(native: &arrow_schema::Field, encoder: &OptionEncoder) -> Result<DynamicMessage, ProjectionCodegenError> {
+    let mut metadata = native.metadata().iter().map(|(key, value)| (key.clone(), value.clone())).collect::<std::collections::BTreeMap<_, _>>();
+    // Presentation was checked against the actual source graph before publication;
+    // it has no additional registry-execution facts. Never infer a source graph
+    // from an acquired schema or let this retained presentation grant admission.
+    metadata.remove(keys::BOUNDARY_SHAPE);
+    let tag = metadata.get(keys::BOUNDARY_TAG).map(|tag| tag.parse::<u32>()).transpose().map_err(|_| error("native field has an invalid boundary number"))?.unwrap_or(1);
+    let field = Field { name: native.name().clone(), tag, ty: TypeRef::Scalar(pse_contract::boundary_projection::Scalar::Bool), direction: pse_contract::boundary_projection::Direction::Both, rules: vec![], named_facets: metadata };
+    lower_field_options(&field, &ProjectionGraph::default(), encoder)?.ok_or_else(|| error("native IPC field has no declared registry facets"))
+}
+
+/// Normalization for native crossing + registry execution + canonical publication.
+/// Original options/IPC remain in the acquired FDS. Other identity purposes retain
+/// their own source-owned rules (for example structure names in storage identity).
+pub(super) fn normalize_option(option: &DynamicMessage) -> Result<Option<Vec<u8>>, ProjectionCodegenError> {
+    use buffa_descriptor::ReflectMessageMut;
+    check_option(option)?;
+    let mut normalized = option.clone();
+    let encoder = OptionEncoder::from_pool(std::sync::Arc::clone(option.pool()))?;
+    if let Some(Value::Message(canonical)) = value(option, "canonical") {
+        let policy = canonical_policy(canonical)?;
+        let normalized_value = canonical_message(&policy, &encoder)?;
+        let pool = std::sync::Arc::clone(normalized.pool());
+        let field = pool.message(normalized.message_index()).field_by_name("canonical").ok_or_else(|| error("known canonical option is absent"))?;
+        normalized.try_set(field, Value::Message(normalized_value)).map_err(pse_contract_proto::MetadataError::from)?;
+    }
+
+    let pool = std::sync::Arc::clone(normalized.pool());
+    let descriptor = pool.message(normalized.message_index());
+    for name in ["documentation", "structure_name"] {
+        let field = descriptor.field_by_name(name).ok_or_else(|| error("known registry provenance field is absent"))?;
+        normalized.try_clear(field).map_err(pse_contract_proto::MetadataError::from)?;
+    }
+    if let Some(Value::Bytes(carrier)) = value(option, "native_field_ipc") {
+        let field = native_ipc::decode(carrier)?;
+        let field = pse_columnar::native_field::project(&field, pse_columnar::native_field::MetadataPurpose::ExecutionIdentity)?;
+        let canonical = pse_schema::model::field::render_field(&field)?;
+        let field = descriptor.field_by_name("native_field_ipc").ok_or_else(|| error("known native IPC option field is absent"))?;
+        normalized.try_set(field, Value::Bytes(canonical.into_bytes())).map_err(pse_contract_proto::MetadataError::from)?;
+    }
+    let has_meaning = normalized.message_descriptor().fields().iter().any(|field| field.name() != "metadata_version" && normalized.field_by_number(field.number()).is_some());
+    if !has_meaning { return Ok(None); }
+    Ok(Some(normalized.try_encode_to_vec().map_err(pse_contract_proto::MetadataError::from)?))
 }

@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+syntax = "proto2";
+package pse.contract.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// Interoperability representations of the native pse-contract vocabulary.
+// UNSPECIFIED is never an admitted interpretation. Owner/file are provenance,
+// never an exact source span, scientific identity or execution capability.
+enum Direction {
+  DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_INPUT = 1;
+  DIRECTION_OUTPUT = 2;
+  DIRECTION_BOTH = 3;
+}
+enum ConstructionRole {
+  CONSTRUCTION_ROLE_UNSPECIFIED = 0;
+  CONSTRUCTION_ROLE_DATA = 1;
+  CONSTRUCTION_ROLE_OBSERVATION_ONLY = 2;
+}
+enum EffectScope {
+  EFFECT_SCOPE_UNSPECIFIED = 0;
+  EFFECT_SCOPE_OBSERVATION = 1;
+  EFFECT_SCOPE_SOURCE_ADMISSION = 2;
+  EFFECT_SCOPE_CANONICAL_COMMAND = 3;
+  EFFECT_SCOPE_RETENTION_RELEASE = 4;
+  EFFECT_SCOPE_FILE_EXPORT = 5;
+  EFFECT_SCOPE_CAPTURE = 6;
+  EFFECT_SCOPE_NATIVE_EXECUTION = 7;
+}
+message Owner {
+  optional string rust_type = 1;
+  optional string declaration_file = 2;
+}
+message MessageMetadata {
+  optional uint32 metadata_version = 1;
+  optional Owner owner = 2;
+  optional uint32 interpretation_version = 3;
+  optional Direction direction = 4;
+  optional ConstructionRole construction_role = 5;
+  // Only for an actual source-owned action record, independent of RPC effects.
+  optional Effects effects = 6;
+}
+message FieldMetadata {
+  optional uint32 metadata_version = 1;
+  optional string native_field = 2;
+  optional Direction direction = 3;
+}
+message Effects {
+  optional EffectScope scope = 1;
+  optional bool read_only = 2;
+  optional bool idempotent = 3;
+  optional bool destructive = 4;
+}
+message MethodMetadata {
+  optional uint32 metadata_version = 1;
+  optional Effects effects = 2;
+}
+
+// The same number is deliberate: these are three distinct extendee namespaces.
+// 51066 is reserved by repository convention for owner-specific registry facets.
+extend google.protobuf.MessageOptions {
+  optional MessageMetadata message = 51065;
+}
+extend google.protobuf.FieldOptions {
+  optional FieldMetadata field = 51065;
+}
+extend google.protobuf.MethodOptions {
+  optional MethodMetadata method = 51065;
+}

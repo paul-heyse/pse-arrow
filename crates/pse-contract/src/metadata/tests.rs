@@ -9,11 +9,55 @@ const META: MessageMetadata<'_> = MessageMetadata {
     direction: Some(EnumValue::Known(BoundaryDirection::Both)),
     construction: Some(EnumValue::Known(ConstructionRole::Data)),
     effects: None,
+    native_shape: Some(&crate::boundary_projection::Shape::Record(Vec::new())),
 };
 const FILES: &[File<'_>] = &[File { name: "request.proto", imports: &[] }];
 const SYMBOLS: &[&str] = &["pse.test.v1.Request", "google.protobuf.MessageOptions", "google.protobuf.FieldOptions"];
 const MESSAGE: Message<'_> = Message { name: "pse.test.v1.Request", file: "request.proto", metadata: Some(META) };
+const NATIVE_U64: TypeRef = TypeRef::Scalar(crate::boundary_projection::Scalar::U64);
+const FIELD_META: FieldMetadata<'_> = FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Both)), native_type: Some(&NATIVE_U64), local_rules: Some(&[]) };
 fn world<'a>(messages: &'a [Message<'a>]) -> World<'a> { World { files: FILES, symbols: SYMBOLS, messages, ..World::default() } }
+
+#[test]
+fn native_scalar_container_and_local_rule_changes_do_not_hide_behind_wire_shapes() {
+    use crate::boundary_projection::{Scalar, Float64Domain};
+    for (old_type, new_type) in [
+        (TypeRef::Scalar(Scalar::U64), TypeRef::Scalar(Scalar::I64)),
+        (TypeRef::Scalar(Scalar::SemanticId), TypeRef::Scalar(Scalar::Bytes)),
+        (TypeRef::Set(Box::new(NATIVE_U64)), TypeRef::Repeated(Box::new(NATIVE_U64))),
+    ] {
+        let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&old_type), ..FIELD_META }), reference: None }];
+        let new_fields = [Field { metadata: Some(FieldMetadata { native_type: Some(&new_type), ..FIELD_META }), ..old_fields[0] }];
+        assert_eq!(compare(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &World { fields: &new_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
+    }
+    let float = TypeRef::Scalar(Scalar::F64Bits);
+    let finite = [LocalRule::Float64Domain(Float64Domain::Finite)];
+    let positive = [LocalRule::Float64Domain(Float64Domain::PositiveFinite)];
+    let old_fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&finite), ..FIELD_META }), reference: None }];
+    let new_fields = [Field { metadata: Some(FieldMetadata { native_type: Some(&float), local_rules: Some(&positive), ..FIELD_META }), ..old_fields[0] }];
+    assert_eq!(compare(&World { fields: &old_fields, ..world(&[MESSAGE]) }, &World { fields: &new_fields, ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
+}
+
+#[test]
+fn native_owner_string_vocabulary_and_alternative_tags_are_meaning() {
+    use crate::boundary_projection::{Shape, Alternative};
+    for (old, new) in [
+        (Shape::StringEnum(vec!["before".into()]), Shape::StringEnum(vec!["after".into()])),
+        (Shape::Alternatives(vec![Alternative { name: "Unit".into(), tag: 1, fields: vec![] }]), Shape::Alternatives(vec![Alternative { name: "Unit".into(), tag: 2, fields: vec![] }])),
+    ] {
+        let before = [Message { metadata: Some(MessageMetadata { native_shape: Some(&old), ..META }), ..MESSAGE }];
+        let after = [Message { metadata: Some(MessageMetadata { native_shape: Some(&new), ..META }), ..MESSAGE }];
+        assert_eq!(compare(&world(&before), &world(&after), &POLICY).disposition, Disposition::Incompatible);
+    }
+}
+
+#[test]
+fn old_contracts_stay_unknown_and_missing_current_field_meaning_refuses() {
+    let field = Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { native_type: None, local_rules: None, ..FIELD_META }), reference: None };
+    assert_eq!(check(&World { fields: &[field], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Incompatible);
+    let legacy = Field { metadata: Some(FieldMetadata { metadata_version: Some(1), native_type: None, local_rules: None, ..FIELD_META }), ..field };
+    assert_eq!(check(&World { fields: &[legacy], ..world(&[MESSAGE]) }, &POLICY).disposition, Disposition::Unknown);
+}
 
 #[test]
 fn required_presence_and_unknown_interpretation_are_distinct() {
@@ -28,7 +72,7 @@ fn required_presence_and_unknown_interpretation_are_distinct() {
     let unknown = check(&world(&[message]), &POLICY);
     assert_eq!(unknown.disposition, Disposition::Unknown);
     assert_eq!(unknown.findings.len(), 2);
-    assert_eq!(unknown.policy, "pse.contract.v1/core");
+    assert_eq!(unknown.policy, "pse.contract.v2/native-crossing");
 }
 
 #[test]
@@ -83,7 +127,7 @@ fn imports_references_and_extensions_use_the_actual_world() {
     let files = [File { name: "request.proto", imports: &["missing.proto"] }];
     let missing = check(&World { files: &files, ..world(&[]) }, &POLICY);
     assert!(missing.findings.iter().any(|finding| finding.reason == "missing transitive import"));
-    let fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Input)) }), reference: Some("pse.absent.v1.Value") }];
+    let fields = [Field { name: "pse.test.v1.Request.value", file: "request.proto", metadata: Some(FieldMetadata { metadata_version: Some(VERSION), native_field: Some("value"), direction: Some(EnumValue::Known(BoundaryDirection::Input)), native_type: Some(&TypeRef::Scalar(crate::boundary_projection::Scalar::U64)), local_rules: Some(&[]) }), reference: Some("pse.absent.v1.Value") }];
     assert_eq!(check(&World { fields: &fields, ..world(&[]) }, &POLICY).disposition, Disposition::Incompatible);
 }
 

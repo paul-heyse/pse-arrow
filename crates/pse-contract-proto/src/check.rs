@@ -22,7 +22,11 @@ pub fn check_descriptors(
     policy: &impl DescriptorPolicy,
     selected_extensions: &[&str],
 ) -> Result<core::Assessment, MetadataError> {
-    let mut result = with_world(descriptors, selected_file, selected_extensions, policy, |world| core::check(world, policy))?;
+    let mut result = match with_world(descriptors, selected_file, selected_extensions, policy, |world| core::check(world, policy)) {
+        Ok(result) => result,
+        Err(error) if error.is_unavailable() => unavailable_assessment(selected_file, policy, &error),
+        Err(error) => return Err(error),
+    };
     if policy.native_selection().is_none() { result.record(selected_file, "native selection", core::Disposition::Unknown, "approved native owner/field/method coverage is unavailable"); }
     Ok(result)
 }
@@ -35,14 +39,46 @@ pub fn compare_descriptors<A: DescriptorPolicy, B: DescriptorPolicy>(
     policy: &impl core::InterpretationPolicy,
     selected_extensions: &[&str],
 ) -> Result<core::Assessment, MetadataError> {
-    with_world(old.descriptors, old.selected_file, selected_extensions, old.policy, |before| with_world(new.descriptors, new.selected_file, selected_extensions, new.policy, |after| {
+    let compared = with_world(old.descriptors, old.selected_file, selected_extensions, old.policy, |before| {
+        let acquired = with_world(new.descriptors, new.selected_file, selected_extensions, new.policy, |after| {
         let mut result = core::compare(before, after, policy);
         for (label, source) in [("old", core::check(before, old.policy)), ("new", core::check(after, new.policy))] {
             for finding in source.findings { result.record(&finding.file, &finding.subject, finding.disposition, format!("{label} source policy {}: {}", source.policy, finding.reason)); }
         }
         if old.policy.native_selection().is_none() || new.policy.native_selection().is_none() { result.record(new.selected_file, "native selection", core::Disposition::Unknown, "old/new approved native coverage is unavailable"); }
         result
-    }))?
+        });
+        match acquired {
+            Ok(result) => Ok(result),
+            Err(error) if error.is_unavailable() => {
+                let mut result = unavailable_assessment(new.selected_file, policy, &error);
+                merge_source(&mut result, "old", core::check(before, old.policy));
+                Ok(result)
+            },
+            Err(error) => Err(error),
+        }
+    });
+    match compared {
+        Ok(result) => result,
+        Err(error) if error.is_unavailable() => {
+            let mut result = unavailable_assessment(old.selected_file, policy, &error);
+            merge_source(&mut result, "new", check_descriptors(new.descriptors, new.selected_file, new.policy, selected_extensions)?);
+            Ok(result)
+        },
+        Err(error) => Err(error),
+    }
+}
+
+fn unavailable_assessment(file: &str, policy: &impl core::InterpretationPolicy, error: &MetadataError) -> core::Assessment {
+    fn location(error: &MetadataError) -> Option<(&str, &str)> {
+        match error { MetadataError::At { file, subject, .. } => Some((file, subject)), MetadataError::Context { source, .. } => location(source), _ => None }
+    }
+    let (file, subject) = location(error).unwrap_or((file, "metadata interpretation"));
+    core::Assessment { policy: policy.name().into(), disposition: core::Disposition::Unknown,
+        findings: vec![core::Finding { file: file.into(), subject: subject.into(), disposition: core::Disposition::Unknown, reason: error.to_string() }] }
+}
+fn merge_source(result: &mut core::Assessment, label: &str, source: core::Assessment) {
+    for finding in source.findings { result.record(&finding.file, &finding.subject, finding.disposition, format!("{label} source policy {}: {}", source.policy, finding.reason)); }
 }
 
 fn with_world<T>(
@@ -89,8 +125,10 @@ fn with_world<T>(
         collect_extensions(file, &mut extension_declarations);
     }
     let extensions = extension_declarations.iter().map(|(name, extendee, number, file)| core::Extension { name, extendee, number: *number, file }).collect::<Vec<_>>();
-    let messages = messages.iter().map(|value| Ok(core::Message { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(message_metadata).transpose())? })).collect::<Result<Vec<_>, MetadataError>>()?;
-    let fields = fields.iter().map(|value| Ok(core::Field { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(field_metadata).transpose())?, reference: value.references.first().map(String::as_str) })).collect::<Result<Vec<_>, MetadataError>>()?;
+    let native_shapes = messages.iter().map(|value| located(&value.file, &value.name, value.metadata.as_ref().map(owner_shape::decode).transpose().map(Option::flatten))).collect::<Result<Vec<_>, _>>()?;
+    let messages = messages.iter().zip(&native_shapes).map(|(value, shape)| Ok(core::Message { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(|metadata| message_metadata(metadata, shape.as_ref())).transpose())? })).collect::<Result<Vec<_>, MetadataError>>()?;
+    let native_contracts = fields.iter().map(|value| located(&value.file, &value.name, value.metadata.as_ref().map(field_contract::decode).transpose().map(Option::flatten))).collect::<Result<Vec<_>, _>>()?;
+    let fields = fields.iter().zip(&native_contracts).map(|(value, contract)| Ok(core::Field { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(|metadata| field_metadata(metadata, contract.as_ref())).transpose())?, reference: value.references.first().map(String::as_str) })).collect::<Result<Vec<_>, MetadataError>>()?;
     let methods = methods.iter().map(|value| Ok(core::Method { name: &value.name, file: &value.file, metadata: located(&value.file, &value.name, value.metadata.as_ref().map(method_metadata).transpose())?, input: &value.references[0], output: &value.references[1] })).collect::<Result<Vec<_>, MetadataError>>()?;
     let facets = facets.iter().map(|facet| core::Facet { subject: &facet.subject, file: &facet.file, policy: &facet.policy, value: &facet.value, interpretation_available: facet.interpretation_available }).collect::<Vec<_>>();
     Ok(consume(&core::World { files: &files, symbols: &symbols, messages: &messages, fields: &fields, methods: &methods, extensions: &extensions, facets: &facets }))
@@ -109,11 +147,30 @@ fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto
         if required || expected || metadata.is_some() {
             fields.push(Selected { name: name.clone(), file: file.into(), metadata, references: field.type_name.as_deref().map(|name| name.trim_start_matches('.').into()).into_iter().collect() });
         }
-        for extension in selected_extensions {
-            if let Some(options) = field.options.as_option()
-                && let Some(value) = encoder.decode_extension(options, extension)? {
-                let interpretation_available = if let Some(result) = policy.check_decoded_facet(extension, &value) { located(file, &name, result)?; true } else { false };
-                facets.push(SelectedFacet { subject: name.clone(), file: file.into(), policy: (*extension).into(), value: value.try_encode_to_vec()?, interpretation_available });
+        let mut extensions = selected_extensions.to_vec();
+        if let Some(selection) = policy.native_selection() {
+            for (subject, extension) in selection.facets { if *subject == name && !extensions.contains(extension) { extensions.push(extension); } }
+        }
+        for extension in extensions {
+            let value = located(file, &name, field.options.as_option().map(|options| encoder.decode_extension(options, extension)).transpose())?.flatten();
+            let required = policy.native_selection().is_some_and(|selection| selection.facets.contains(&(name.as_str(), extension)));
+            match value {
+                None if required => return Err(error(format!("required selected domain facet {extension} is absent")).at(file, &name)),
+                None => {},
+                Some(value) => {
+                    if let Some(selection) = policy.native_selection() {
+                        for (subject, selected_extension, field) in selection.facet_fields {
+                            if *subject == name && *selected_extension == extension && !has_path(&value, field)? {
+                                return Err(error(format!("required selected domain fact {extension}.{field} is absent")).at(file, &name));
+                            }
+                        }
+                    }
+                    let (value, interpretation_available) = match policy.normalize_decoded_facet(extension, &value) {
+                        Some(result) => (located(file, &name, result)?, true),
+                        None => (Some(value.try_encode_to_vec()?), false),
+                    };
+                    if let Some(value) = value { facets.push(SelectedFacet { subject: name.clone(), file: file.into(), policy: extension.into(), value, interpretation_available }); }
+                },
             }
         }
     }
@@ -121,6 +178,12 @@ fn collect_fields(encoder: &OptionEncoder, message: &descriptor::DescriptorProto
         collect_fields(encoder, nested, &format!("{owner}.{}", nested.name.as_deref().unwrap_or_default()), file, false, selected_extensions, policy, fields, facets)?;
     }
     Ok(())
+}
+
+fn has_path(message: &DynamicMessage, path: &str) -> Result<bool, MetadataError> {
+    let (head, tail) = path.split_once('.').map_or((path, None), |(head, tail)| (head, Some(tail)));
+    let Some(value) = value(message, head)? else { return Ok(false); };
+    match tail { None => Ok(true), Some(tail) => match value { Value::Message(value) => has_path(value, tail), _ => Err(error(format!("selected typed option path {path} crosses a non-message"))) } }
 }
 
 fn collect_extensions<'a>(file: &'a FileDescriptorProto, output: &mut Vec<(String, &'a str, u32, &'a str)>) {
@@ -138,48 +201,51 @@ fn collect_extensions<'a>(file: &'a FileDescriptorProto, output: &mut Vec<(Strin
     for message in &file.message_type { nested(message, package, name, output); }
 }
 
-fn value<'a>(message: &'a DynamicMessage, name: &str) -> Result<Option<&'a Value>, MetadataError> {
+pub(super) fn value<'a>(message: &'a DynamicMessage, name: &str) -> Result<Option<&'a Value>, MetadataError> {
     let descriptor = message.message_descriptor();
     let field = descriptor.field_by_name(name).ok_or_else(|| error(format!("{}.{name}: unavailable typed metadata field", descriptor.full_name())))?;
     Ok(message.field_by_number(field.number()))
 }
-fn uint(message: &DynamicMessage, name: &str) -> Result<Option<u32>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::U32(value)) => Ok(Some(*value)), _ => Err(error(format!("{name}: expected metadata uint32"))) } }
-fn boolean(message: &DynamicMessage, name: &str) -> Result<Option<bool>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::Bool(value)) => Ok(Some(*value)), _ => Err(error(format!("{name}: expected metadata bool"))) } }
-fn text<'a>(message: &'a DynamicMessage, name: &str) -> Result<Option<&'a str>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::String(value)) => Ok(Some(value)), _ => Err(error(format!("{name}: expected metadata string"))) } }
-fn child<'a>(message: &'a DynamicMessage, name: &str) -> Result<Option<&'a DynamicMessage>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::Message(value)) => Ok(Some(value)), _ => Err(error(format!("{name}: expected metadata message"))) } }
-fn enumeration<T>(message: &DynamicMessage, name: &str, known: impl FnOnce(i32) -> Option<T>) -> Result<Option<core::EnumValue<T>>, MetadataError> {
-    let raw = match value(message, name)? {
+pub(super) fn uint(message: &DynamicMessage, name: &str) -> Result<Option<u32>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::U32(value)) => Ok(Some(*value)), _ => Err(error(format!("{name}: expected metadata uint32"))) } }
+pub(super) fn boolean(message: &DynamicMessage, name: &str) -> Result<Option<bool>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::Bool(value)) => Ok(Some(*value)), _ => Err(error(format!("{name}: expected metadata bool"))) } }
+pub(super) fn text<'a>(message: &'a DynamicMessage, name: &str) -> Result<Option<&'a str>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::String(value)) => Ok(Some(value)), _ => Err(error(format!("{name}: expected metadata string"))) } }
+pub(super) fn child<'a>(message: &'a DynamicMessage, name: &str) -> Result<Option<&'a DynamicMessage>, MetadataError> { match value(message, name)? { None => Ok(None), Some(Value::Message(value)) => Ok(Some(value)), _ => Err(error(format!("{name}: expected metadata message"))) } }
+pub(super) fn enumeration<T>(message: &DynamicMessage, name: &str, known: impl FnOnce(i32) -> Option<T>) -> Result<Option<core::EnumValue<T>>, MetadataError> {
+    let number = message.message_descriptor().field_by_name(name).ok_or_else(|| unavailable("metadata enum is absent from its acquired schema"))?.number();
+    let unknown = message.unknown_fields().iter().find_map(|field| if field.number == number { if let buffa::UnknownFieldData::Varint(value) = field.data { Some(value as i32) } else { None } } else { None });
+    let raw = if unknown.is_some() { unknown } else { match value(message, name)? {
         Some(Value::EnumNumber(value)) => Some(*value),
-        None => {
-            let number = message.message_descriptor().field_by_name(name).ok_or_else(|| error("unavailable metadata enum"))?.number();
-            message.unknown_fields().iter().find_map(|field| if field.number == number { if let buffa::UnknownFieldData::Varint(value) = field.data { Some(value as i32) } else { None } } else { None })
-        },
+        None => None,
         _ => return Err(error(format!("{name}: expected metadata enum"))),
-    };
+    } };
     Ok(raw.map(|number| known(number).map(core::EnumValue::Known).unwrap_or(core::EnumValue::Unknown(number))))
 }
 fn direction(number: i32) -> Option<Direction> { match number { 1 => Some(Direction::Input), 2 => Some(Direction::Output), 3 => Some(Direction::Both), _ => None } }
-fn known_fields(message: &DynamicMessage, expected: &[&str]) -> Result<(), MetadataError> {
+pub(super) fn known_fields(message: &DynamicMessage, expected: &[&str]) -> Result<(), MetadataError> {
     for field in message.message_descriptor().fields() {
-        if message.field_by_number(field.number()).is_some() && !expected.contains(&field.name()) { return Err(error(format!("{}: unsupported selected metadata field {}", message.message_descriptor().full_name(), field.name()))); }
+        if message.field_by_number(field.number()).is_some() && !expected.contains(&field.name()) { return Err(unavailable(format!("{}: unsupported selected metadata field {}", message.message_descriptor().full_name(), field.name()))); }
     }
     for field in message.unknown_fields() {
         let known_enum_number = message.message_descriptor().field(field.number).is_some_and(|descriptor| matches!(descriptor.kind(), buffa_descriptor::FieldKind::Singular(buffa_descriptor::SingularKind::Enum(_)))) && matches!(field.data, buffa::UnknownFieldData::Varint(_));
-        if !known_enum_number { return Err(error(format!("{}: unknown selected metadata field {}", message.message_descriptor().full_name(), field.number))); }
+        if !known_enum_number { return Err(unavailable(format!("{}: unknown selected metadata field {}", message.message_descriptor().full_name(), field.number))); }
     }
     Ok(())
 }
-fn message_metadata(message: &DynamicMessage) -> Result<core::MessageMetadata<'_>, MetadataError> {
-    known_fields(message, &["metadata_version", "owner", "interpretation_version", "direction", "construction_role", "effects"])?;
+fn message_metadata<'a>(message: &'a DynamicMessage, shape: Option<&'a pse_contract::boundary_projection::Shape>) -> Result<core::MessageMetadata<'a>, MetadataError> {
+    known_fields(message, &["metadata_version", "owner", "interpretation_version", "direction", "construction_role", "effects", "native_shape"])?;
     Ok(core::MessageMetadata {
         metadata_version: uint(message, "metadata_version")?,
         owner: child(message, "owner")?.map(|owner| { known_fields(owner, &["rust_type", "declaration_file"])?; Ok::<_, MetadataError>(core::Owner { rust_type: text(owner, "rust_type")?.unwrap_or_default(), declaration_file: text(owner, "declaration_file")?.unwrap_or_default() }) }).transpose()?,
         interpretation_version: uint(message, "interpretation_version")?, direction: enumeration(message, "direction", direction)?,
         construction: enumeration(message, "construction_role", |number| match number { 1 => Some(ConstructionRole::Data), 2 => Some(ConstructionRole::ObservationOnly), _ => None })?,
         effects: child(message, "effects")?.map(effects_metadata).transpose()?,
+        native_shape: shape,
     })
 }
-fn field_metadata(message: &DynamicMessage) -> Result<core::FieldMetadata<'_>, MetadataError> { known_fields(message, &["metadata_version", "native_field", "direction"])?; Ok(core::FieldMetadata { metadata_version: uint(message, "metadata_version")?, native_field: text(message, "native_field")?, direction: enumeration(message, "direction", direction)? }) }
+fn field_metadata<'a>(message: &'a DynamicMessage, contract: Option<&'a (TypeRef, Vec<LocalRule>)>) -> Result<core::FieldMetadata<'a>, MetadataError> {
+    known_fields(message, &["metadata_version", "native_field", "direction", "native_contract"])?;
+    Ok(core::FieldMetadata { metadata_version: uint(message, "metadata_version")?, native_field: text(message, "native_field")?, direction: enumeration(message, "direction", direction)?, native_type: contract.map(|contract| &contract.0), local_rules: contract.map(|contract| contract.1.as_slice()) })
+}
 fn method_metadata(message: &DynamicMessage) -> Result<core::MethodMetadata, MetadataError> {
     known_fields(message, &["metadata_version", "effects"])?;
     Ok(core::MethodMetadata { metadata_version: uint(message, "metadata_version")?, effects: child(message, "effects")?.map(effects_metadata).transpose()? })

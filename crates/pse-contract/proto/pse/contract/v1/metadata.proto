@@ -41,11 +41,113 @@ message MessageMetadata {
   optional ConstructionRole construction_role = 5;
   // Only for an actual source-owned action record, independent of RPC effects.
   optional Effects effects = 6;
+  optional NativeOwnerShape native_shape = 7;
 }
+message NativeOwnerShape {
+  oneof kind {
+    NativeRecord record = 1;
+    NativeAlternatives alternatives = 2;
+    NativeStringEnum string_enum = 3;
+  }
+}
+message NativeRecord { repeated NativeFieldDeclaration fields = 1; }
+message NativeFieldDeclaration {
+  optional string name = 1;
+  optional uint32 tag = 2;
+  optional NativeFieldContract contract = 3;
+  optional Direction direction = 4;
+}
+message NativeAlternatives { repeated NativeAlternative alternatives = 1; }
+message NativeAlternative {
+  optional string name = 1;
+  optional uint32 tag = 2;
+  repeated NativeFieldDeclaration fields = 3;
+}
+message NativeStringEnum { repeated string values = 1; }
 message FieldMetadata {
   optional uint32 metadata_version = 1;
   optional string native_field = 2;
   optional Direction direction = 3;
+  // Required by metadata version 2; meaning comes from actual native owners.
+  optional NativeFieldContract native_contract = 4;
+}
+message NativeFieldContract {
+  optional NativeType native_type = 1;
+  repeated NativeLocalRule local_rules = 2;
+}
+// Representations of pse-contract TypeRef/Scalar, never inferred from wire kinds.
+enum NativeScalar {
+  NATIVE_SCALAR_UNSPECIFIED = 0;
+  NATIVE_SCALAR_BOOL = 1;
+  NATIVE_SCALAR_STRING = 2;
+  NATIVE_SCALAR_U32 = 3;
+  NATIVE_SCALAR_U8 = 4;
+  NATIVE_SCALAR_U16 = 5;
+  NATIVE_SCALAR_U64 = 6;
+  NATIVE_SCALAR_I16 = 7;
+  NATIVE_SCALAR_I32 = 8;
+  NATIVE_SCALAR_I64 = 9;
+  NATIVE_SCALAR_F32_BITS = 10;
+  NATIVE_SCALAR_F64_BITS = 11;
+  NATIVE_SCALAR_BYTES = 12;
+  NATIVE_SCALAR_SEMANTIC_ID = 13;
+  NATIVE_SCALAR_CONTENT_HASH = 14;
+}
+message NativeType {
+  oneof kind {
+    NativeScalar scalar = 1;
+    string named_owner = 2;
+    NativeType optional_value = 3;
+    NativeType repeated_value = 4;
+    NativeType set_value = 5;
+    NativeMap map = 6;
+  }
+}
+message NativeMap {
+  optional NativeType key = 1;
+  optional NativeType value = 2;
+}
+message NativeLocalRule {
+  oneof kind {
+    bool required_value = 1;
+    bool positive_duration = 2;
+    NativeFloat64Domain float64_domain = 3;
+    NativeSignedRange signed_range = 4;
+    NativeUnsignedRange unsigned_range = 5;
+    NativeLength length = 6;
+    NativeLength utf8_bytes = 7;
+  }
+}
+enum NativeFloat64Preset {
+  NATIVE_FLOAT64_PRESET_UNSPECIFIED = 0;
+  NATIVE_FLOAT64_PRESET_FINITE = 1;
+  NATIVE_FLOAT64_PRESET_NONNEGATIVE_FINITE = 2;
+  NATIVE_FLOAT64_PRESET_POSITIVE_FINITE = 3;
+  NATIVE_FLOAT64_PRESET_POSITIVE_UNIT = 4;
+}
+message NativeFloat64Domain {
+  oneof kind {
+    NativeFloat64Preset preset = 1;
+    NativeFloat64Interval interval = 2;
+  }
+}
+message NativeFloat64Interval {
+  optional fixed64 lower_bits = 1;
+  optional bool lower_inclusive = 2;
+  optional fixed64 upper_bits = 3;
+  optional bool upper_inclusive = 4;
+}
+message NativeSignedRange {
+  optional sint64 minimum = 1;
+  optional sint64 maximum = 2;
+}
+message NativeUnsignedRange {
+  optional uint64 minimum = 1;
+  optional uint64 maximum = 2;
+}
+message NativeLength {
+  optional uint64 minimum = 1;
+  optional uint64 maximum = 2;
 }
 message Effects {
   optional EffectScope scope = 1;

@@ -8177,6 +8177,7 @@ dependencies = [
  "buffa-codegen",
  "buffa-descriptor",
  "buffa-types",
+ "flatbuffers",
  "hex",
  "miette",
  "prettyplease 0.3.0",

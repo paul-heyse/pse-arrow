@@ -14,7 +14,7 @@ impl DescriptorPolicy for FixturePolicy {
         Some(NativeSelection {
             owners: &["independent.v1.Request"],
             fields: &["independent.v1.Request.value", "independent.v1.Request.detail", "independent.v1.Request.Alternative1.payload"],
-            methods: &["independent.v1.Procedure.Run"],
+            methods: &["independent.v1.Procedure.Run"], facets: &[], facet_fields: &[],
         })
     }
 }
@@ -24,6 +24,77 @@ fn compared(old: &FileDescriptorSet, new: &FileDescriptorSet) -> pse_contract::m
 
 const SOURCE: &str = include_str!("../tests/fixtures/metadata/options.proto");
 const FORWARDED: &str = include_str!("../tests/fixtures/metadata/forwarded.proto");
+const NATIVE_FIELDS: &str = include_str!("../tests/fixtures/metadata/native-fields.proto");
+
+struct NativeFactsPolicy;
+impl pse_contract::metadata::InterpretationPolicy for NativeFactsPolicy {
+    fn name(&self) -> &str { "independent/native-field-v2" }
+    fn supports_interpretation(&self, subject: &str, version: u32) -> bool { subject == "independent.v1.Request" && version == 1 }
+}
+impl DescriptorPolicy for NativeFactsPolicy {
+    fn native_selection(&self) -> Option<NativeSelection<'_>> { Some(NativeSelection { owners: &["independent.v1.Request"], fields: &["independent.v1.Request.value", "independent.v1.Request.cells", "independent.v1.Request.identity", "independent.v1.Request.sample"], methods: &[], facets: &[], facet_fields: &[] }) }
+}
+
+#[test]
+fn independent_native_contract_changes_are_incompatible_with_identical_wire_declarations() {
+    let old = compile(NATIVE_FIELDS, FORWARDED).unwrap();
+    for (before, after) in [
+        ("native_type: { scalar: NATIVE_SCALAR_U64 }", "native_type: { scalar: NATIVE_SCALAR_I64 }"),
+        ("set_value", "repeated_value"),
+        ("NATIVE_SCALAR_SEMANTIC_ID", "NATIVE_SCALAR_BYTES"),
+        ("NATIVE_FLOAT64_PRESET_FINITE", "NATIVE_FLOAT64_PRESET_POSITIVE_FINITE"),
+    ] {
+        assert_eq!(NATIVE_FIELDS.matches(before).count(), 2, "literal source owner shape and occurrence facts both retain the native declaration");
+        let new = compile(&NATIVE_FIELDS.replace(before, after), FORWARDED).unwrap();
+        let selected = |world: &FileDescriptorSet| world.file.iter().find(|file| file.name.as_deref() == Some("options.proto")).unwrap().message_type[0].field.iter().map(|field| (field.name.clone(), field.number, field.r#type, field.type_name.clone(), field.label)).collect::<Vec<_>>();
+        assert_eq!(selected(&old), selected(&new), "native meaning changes independently of every selected wire declaration");
+        assert_eq!(compare_descriptors(DescriptorInput { descriptors: &old, selected_file: "options.proto", policy: &NativeFactsPolicy }, DescriptorInput { descriptors: &new, selected_file: "options.proto", policy: &NativeFactsPolicy }, &NativeFactsPolicy, &[]).unwrap().disposition, Disposition::Incompatible);
+    }
+}
+
+#[test]
+fn legacy_missing_and_unknown_native_contracts_never_become_current_compatibility() {
+    // Exact historical authored sources from the pre-v2 source checkpoint;
+    // retained only as independent inputs, with no legacy producer/reader path.
+    let legacy = compile_with_core(include_str!("../tests/fixtures/metadata/options-v1.proto"), FORWARDED,
+        Some(include_str!("../tests/fixtures/metadata/core-v1.proto"))).unwrap();
+    assert_eq!(check_descriptors(&legacy, "options.proto", &POLICY, &[]).unwrap().disposition, Disposition::Unknown);
+    assert_eq!(compared(&legacy, &legacy).disposition, Disposition::Unknown);
+    let current = compile(SOURCE, FORWARDED).unwrap();
+    assert_eq!(compared(&legacy, &current).disposition, Disposition::Unknown);
+    for (before, after, expected) in [
+        ("native_contract: { native_type: { scalar: NATIVE_SCALAR_U64 } }", "", Disposition::Incompatible),
+        ("native_type: { scalar: NATIVE_SCALAR_U64 }", "native_type: { scalar: NATIVE_SCALAR_UNSPECIFIED }", Disposition::Unknown),
+        ("NATIVE_FLOAT64_PRESET_FINITE", "NATIVE_FLOAT64_PRESET_UNSPECIFIED", Disposition::Unknown),
+        ("metadata_version: 2", "metadata_version: 99", Disposition::Unknown),
+    ] {
+        let world = compile(&NATIVE_FIELDS.replace(before, after), FORWARDED).unwrap();
+        assert_eq!(check_descriptors(&world, "options.proto", &NativeFactsPolicy, &[]).unwrap().disposition, expected);
+    }
+}
+
+#[test]
+fn native_field_codec_preserves_existing_owners_and_exact_interval_bits() {
+    use pse_contract::boundary_projection::{Float64Domain, Float64Interval, Scalar, TypeRef};
+    let world = compile(NATIVE_FIELDS, FORWARDED).unwrap();
+    let encoder = OptionEncoder::new(&world.file).unwrap();
+    let roundtrip = |ty: &TypeRef, rules: &[LocalRule]| {
+        let metadata = encoder.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::U32(pse_contract::metadata::VERSION)), ("native_contract", Value::Message(encoder.native_contract(ty, rules, "independent.v1").unwrap()))]).unwrap();
+        assert_eq!(field_contract::decode(&metadata).unwrap(), Some((ty.clone(), rules.to_vec())));
+    };
+    for scalar in [Scalar::Bool, Scalar::String, Scalar::U32, Scalar::U8, Scalar::U16, Scalar::U64, Scalar::I16, Scalar::I32, Scalar::I64, Scalar::F32Bits, Scalar::F64Bits, Scalar::Bytes, Scalar::SemanticId, Scalar::ContentHash] { roundtrip(&TypeRef::Scalar(scalar), &[]); }
+    let named = TypeRef::Named("independent.v1.Request".into());
+    let values = TypeRef::Repeated(Box::new(TypeRef::Set(Box::new(named))));
+    let mapping = TypeRef::Map(Box::new(TypeRef::Scalar(Scalar::SemanticId)), Box::new(values));
+    roundtrip(&TypeRef::Optional(Box::new(mapping)), &[]);
+    for domain in [Float64Domain::Finite, Float64Domain::NonnegativeFinite, Float64Domain::PositiveFinite, Float64Domain::PositiveUnit, Float64Domain::Interval(Float64Interval::new(-0.0, false, 1.0, true))] { roundtrip(&TypeRef::Scalar(Scalar::F64Bits), &[LocalRule::Float64Domain(domain)]); }
+    roundtrip(&TypeRef::Scalar(Scalar::I64), &[LocalRule::SignedRange { min: i64::MIN, max: -1 }]);
+    roundtrip(&TypeRef::Scalar(Scalar::U64), &[LocalRule::UnsignedRange { min: 0, max: u64::MAX }]);
+    roundtrip(&TypeRef::Repeated(Box::new(TypeRef::Scalar(Scalar::Bool))), &[LocalRule::Length { min: 0, max: 17 }]);
+    roundtrip(&TypeRef::Scalar(Scalar::String), &[LocalRule::Utf8Bytes { min: 1, max: 8 }]);
+    roundtrip(&TypeRef::Optional(Box::new(TypeRef::Scalar(Scalar::Bool))), &[LocalRule::Required]);
+    roundtrip(&TypeRef::Named("independent.v1.StdDuration".into()), &[LocalRule::PositiveDuration]);
+}
 
 fn compile(source: &str, forwarded: &str) -> Result<FileDescriptorSet, String> {
     compile_with_core(source, forwarded, None)
@@ -44,18 +115,18 @@ fn compile_with_core(source: &str, forwarded: &str, core_override: Option<&str>)
 }
 
 #[test]
-fn imported_core_schema_cannot_redefine_known_v1_meaning() {
+fn imported_core_schema_cannot_redefine_known_v2_meaning() {
     let source = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pse-contract/proto/pse/contract/v1/metadata.proto")).unwrap();
     for (before, after) in [
         ("optional uint32 interpretation_version = 3;", "optional uint32 interpretation_version = 9;"),
         ("optional uint32 interpretation_version = 3;", "optional uint32 interpretation_version = 3 [default = 1];"),
         ("DIRECTION_INPUT = 1;", "DIRECTION_INPUT = 9;"),
-        ("optional Effects effects = 6;", "optional Effects effects = 6; optional string hidden_semantics = 7;"),
+        ("optional Effects effects = 6;", "optional Effects effects = 6; optional string hidden_semantics = 8;"),
     ] {
         assert_eq!(source.matches(before).count(), 1);
         let altered_schema = source.replace(before, after);
         let acquired = compile_with_core(SOURCE, FORWARDED, Some(&altered_schema)).unwrap();
-        assert!(check_descriptors(&acquired, "options.proto", &POLICY, &[]).is_err(), "imported schema drift must not normalize to compatible v1");
+        assert_eq!(check_descriptors(&acquired, "options.proto", &POLICY, &[]).unwrap().disposition, Disposition::Unknown, "imported schema drift must not normalize to compatible v2");
     }
 }
 
@@ -153,9 +224,46 @@ fn selected_unknown_core_payload_fields_are_retained_then_refused_with_source() 
     metadata.merge(&additional).unwrap();
     options.unknown_fields_mut().retain(|field| field.number != 51065);
     encoder.attach(options, "pse.contract.v1.message", metadata).unwrap();
-    let failure = check_descriptors(&world, "options.proto", &POLICY, &[]).unwrap_err().to_string();
+    let result = check_descriptors(&world, "options.proto", &POLICY, &[]).unwrap();
+    assert_eq!(result.disposition, Disposition::Unknown);
+    assert_eq!(result.findings[0].subject, "independent.v1.Request");
+    let failure = &result.findings[0].reason;
     assert!(failure.contains("options.proto:independent.v1.Request"), "{failure}");
     assert!(failure.contains("unknown selected metadata field 999"), "{failure}");
+}
+
+#[test]
+fn unknown_enum_occurrence_cannot_hide_beside_an_earlier_known_value() {
+    let mut world = compile(NATIVE_FIELDS, FORWARDED).unwrap();
+    let encoder = OptionEncoder::new(&world.file).unwrap();
+    let options = world.file.iter_mut().find(|file| file.name.as_deref() == Some("options.proto")).unwrap().message_type[0].field[0].options.as_option_mut().unwrap();
+    let metadata = encoder.decode_extension(options, "pse.contract.v1.field").unwrap().unwrap();
+    let Some(Value::Message(contract)) = metadata.field_by_number(4) else { panic!("contract"); };
+    let Some(Value::Message(native_type)) = contract.field_by_number(1) else { panic!("type"); };
+    let mut native_type = native_type.clone();
+    let mut raw = Vec::new();
+    buffa::UnknownField { number: 1, data: buffa::UnknownFieldData::Varint(99) }.write_to(&mut raw);
+    native_type.merge(&raw).unwrap();
+    assert_eq!(native_type.field_by_number(1), Some(&Value::EnumNumber(6)), "the known scalar remains beside the retained future enum occurrence");
+    let contract = encoder.message("pse.contract.v1.NativeFieldContract", &[("native_type", Value::Message(native_type))]).unwrap();
+    let metadata = encoder.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::U32(2)), ("native_field", Value::String("value".into())), ("direction", Value::EnumNumber(3)), ("native_contract", Value::Message(contract))]).unwrap();
+    options.unknown_fields_mut().retain(|field| field.number != 51065);
+    encoder.attach(options, "pse.contract.v1.field", metadata).unwrap();
+    assert_eq!(check_descriptors(&world, "options.proto", &NativeFactsPolicy, &[]).unwrap().disposition, Disposition::Unknown);
+}
+
+#[test]
+fn native_shape_codec_preserves_declared_string_members_and_refuses_empty_alternatives() {
+    use pse_contract::boundary_projection::Shape;
+    let imports = compile(SOURCE, FORWARDED).unwrap();
+    let encoder = OptionEncoder::new(&imports.file).unwrap();
+    let shape = Shape::StringEnum(vec!["".into(), "present".into()]);
+    let metadata = encoder.message("pse.contract.v1.MessageMetadata", &[("metadata_version", Value::U32(2)), ("native_shape", Value::Message(encoder.native_shape(&shape, "independent.v1").unwrap()))]).unwrap();
+    assert_eq!(owner_shape::decode(&metadata).unwrap(), Some(shape), "the existing native Shape owner permits an explicit empty-string member");
+    let empty = encoder.message("pse.contract.v1.NativeAlternatives", &[]).unwrap();
+    let shape = encoder.message("pse.contract.v1.NativeOwnerShape", &[("alternatives", Value::Message(empty))]).unwrap();
+    let metadata = encoder.message("pse.contract.v1.MessageMetadata", &[("metadata_version", Value::U32(2)), ("native_shape", Value::Message(shape))]).unwrap();
+    assert!(owner_shape::decode(&metadata).is_err());
 }
 
 #[test]

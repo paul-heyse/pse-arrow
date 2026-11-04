@@ -42,7 +42,7 @@ pub(super) fn render(
         column.checked_role()?;
         column.checked_extension()?;
         column.identity_contract()?;
-        column.canonical_contract()?;
+        column.canonical_policy()?;
         column.expression_source_contract()?;
         let ty = super::semantic::model_type(ty)?;
         if TaggedAlternative::from_field(column.field())?.is_some()
@@ -98,6 +98,8 @@ pub(super) fn render(
         {
             metadata.insert(crate::model::reference::KEY_REFERENCE.into(), reference.canonical()?);
         }
+        let native_field = column.field().clone().with_metadata(metadata.iter().map(|(key, value)| (key.clone(), value.clone())).collect());
+        metadata.insert(super::super::boundary_projection::REGISTRY_FIELD_SOURCE.into(), crate::model::field::render_field(&native_field)?);
         let facets = metadata
             .into_iter()
             .map(|(key, value)| quote!((#key.into(), #value.into())))

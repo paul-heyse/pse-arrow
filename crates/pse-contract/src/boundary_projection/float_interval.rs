@@ -13,6 +13,10 @@ pub struct Float64Interval {
 }
 
 impl Float64Interval {
+    /// Exact original endpoint bits and inclusion, without normalizing signed zero.
+    pub const fn endpoints(self) -> (u64, bool, u64, bool) {
+        (self.lower_bits, self.lower_inclusive, self.upper_bits, self.upper_inclusive)
+    }
     /// Declare original finite bounds and whether each endpoint belongs to the domain.
     pub const fn new(lower: f64, lower_inclusive: bool, upper: f64, upper_inclusive: bool) -> Self {
         Self {

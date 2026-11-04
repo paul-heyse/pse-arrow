@@ -12,7 +12,7 @@
 use std::sync::Arc;
 use buffa::{ExtensionSet, UnknownFields};
 use buffa_descriptor::{DescriptorPool, DynamicMessage, Value, ReflectMessage, ReflectMessageMut};
-use pse_contract::{boundary_projection::{ConstructionRole, Definition, Direction, Field}, operation_effects::{EffectFacts, EffectScope}};
+use pse_contract::{boundary_projection::{ConstructionRole, Definition, Direction, Field, LocalRule, TypeRef}, operation_effects::{EffectFacts, EffectScope}};
 use buffa_descriptor::generated::descriptor::{self, FileDescriptorProto, FileDescriptorSet};
 mod error;
 pub use error::{DomainDiagnostic, MetadataError};
@@ -21,11 +21,14 @@ pub use error::{DomainDiagnostic, MetadataError};
 pub mod support;
 
 fn error(reason: impl Into<String>) -> MetadataError { MetadataError::Invalid { reason: reason.into() } }
+fn unavailable(reason: impl Into<String>) -> MetadataError { MetadataError::Unavailable { reason: reason.into() } }
 
 /// Actual source schema import required by every owner-derived generation world.
 pub const CORE_IMPORT: &str = "pse/contract/v1/metadata.proto";
 
 mod check;
+mod field_contract;
+mod owner_shape;
 pub use check::{check_descriptors, compare_descriptors};
 #[cfg(test)]
 mod tests;
@@ -42,10 +45,16 @@ impl OptionEncoder {
     /// Link complete actual imports and enforce the known core schema correspondence.
     pub fn new(imports: &[FileDescriptorProto]) -> Result<Self, MetadataError> {
         if !imports.iter().any(|file| file.name.as_deref() == Some(CORE_IMPORT)) {
-            return Err(error(format!("required typed metadata import {CORE_IMPORT} is missing; compile the source schema with its complete import closure")));
+            return Err(unavailable(format!("required typed metadata import {CORE_IMPORT} is missing; compile the source schema with its complete import closure")));
         }
         let pool = DescriptorPool::new(FileDescriptorSet { file: imports.to_vec(), ..Default::default() }).map_err(|source| MetadataError::Pool { source }.context("typed metadata import world"))?;
-        let encoder = Self { pool: Arc::new(pool) };
+        Self::from_pool(Arc::new(pool))
+    }
+
+    /// Reuse an acquired immutable world while enforcing the identical core schema
+    /// guard. Sharing a pool never supplies source interpretation or coverage.
+    pub fn from_pool(pool: Arc<DescriptorPool>) -> Result<Self, MetadataError> {
+        let encoder = Self { pool };
         // These are representations of actual native members, not a second native
         // vocabulary. Refuse a schema that changes the correspondence silently.
         encoder.vocabulary("pse.contract.v1.Direction", &["DIRECTION_UNSPECIFIED", "DIRECTION_INPUT", "DIRECTION_OUTPUT", "DIRECTION_BOTH"])?;
@@ -57,51 +66,52 @@ impl OptionEncoder {
             ("field", "google.protobuf.FieldOptions", "pse.contract.v1.FieldMetadata"),
             ("method", "google.protobuf.MethodOptions", "pse.contract.v1.MethodMetadata"),
         ] {
-            let extension = encoder.pool.extension_by_name(&format!("pse.contract.v1.{name}")).ok_or_else(|| error(format!("required typed metadata extension {name} is absent")))?;
-            let expected = encoder.pool.message_index(ty).ok_or_else(|| error(format!("required typed option message {ty} is absent")))?;
+            let extension = encoder.pool.extension_by_name(&format!("pse.contract.v1.{name}")).ok_or_else(|| unavailable(format!("required typed metadata extension {name} is absent")))?;
+            let expected = encoder.pool.message_index(ty).ok_or_else(|| unavailable(format!("required typed option message {ty} is absent")))?;
             if extension.field().number() != 51065 || encoder.pool.message(extension.extendee()).full_name() != extendee
                 || extension.field().kind() != buffa_descriptor::FieldKind::Singular(buffa_descriptor::SingularKind::Message(expected)) {
-                return Err(error(format!("typed metadata extension {name} has a changed allocation, extendee or value type")));
+                return Err(unavailable(format!("typed metadata extension {name} has a changed allocation, extendee or value type")));
             }
         }
         Ok(encoder)
     }
 
-    // This is the v1 interpreter's acceptance contract, never a descriptor producer.
+    // This is the v2 interpreter's acceptance contract, never a descriptor producer.
     // The actual .proto remains the declaration; imported lookalikes cannot change
-    // known member types, tags or presence and then be normalized as compatible v1.
+    // known member types, tags or presence and then be normalized as compatible v2.
     fn core_shapes(&self) -> Result<(), MetadataError> {
         use buffa_descriptor::{FieldKind::Singular, SingularKind::{Scalar, Message, Enum}, ScalarType::{Uint32, String, Bool}};
-        let message = |name: &str| self.pool.message_index(&format!("pse.contract.v1.{name}")).map(Message).map(Singular).ok_or_else(|| error(format!("missing v1 metadata message {name}")));
-        let enumeration = |name: &str| self.pool.enum_index(&format!("pse.contract.v1.{name}")).map(Enum).map(Singular).ok_or_else(|| error(format!("missing v1 metadata enum {name}")));
+        let message = |name: &str| self.pool.message_index(&format!("pse.contract.v1.{name}")).map(Message).map(Singular).ok_or_else(|| unavailable(format!("missing v1 metadata message {name}")));
+        let enumeration = |name: &str| self.pool.enum_index(&format!("pse.contract.v1.{name}")).map(Enum).map(Singular).ok_or_else(|| unavailable(format!("missing v1 metadata enum {name}")));
         let scalar = |kind| Singular(Scalar(kind));
         for (name, expected) in [
             ("Owner", vec![("rust_type", scalar(String)), ("declaration_file", scalar(String))]),
-            ("MessageMetadata", vec![("metadata_version", scalar(Uint32)), ("owner", message("Owner")?), ("interpretation_version", scalar(Uint32)), ("direction", enumeration("Direction")?), ("construction_role", enumeration("ConstructionRole")?), ("effects", message("Effects")?)]),
-            ("FieldMetadata", vec![("metadata_version", scalar(Uint32)), ("native_field", scalar(String)), ("direction", enumeration("Direction")?)]),
+            ("MessageMetadata", vec![("metadata_version", scalar(Uint32)), ("owner", message("Owner")?), ("interpretation_version", scalar(Uint32)), ("direction", enumeration("Direction")?), ("construction_role", enumeration("ConstructionRole")?), ("effects", message("Effects")?), ("native_shape", message("NativeOwnerShape")?)]),
+            ("FieldMetadata", vec![("metadata_version", scalar(Uint32)), ("native_field", scalar(String)), ("direction", enumeration("Direction")?), ("native_contract", message("NativeFieldContract")?)]),
             ("MethodMetadata", vec![("metadata_version", scalar(Uint32)), ("effects", message("Effects")?)]),
             ("Effects", vec![("scope", enumeration("EffectScope")?), ("read_only", scalar(Bool)), ("idempotent", scalar(Bool)), ("destructive", scalar(Bool))]),
         ] {
             let full_name = format!("pse.contract.v1.{name}");
-            let descriptor = self.pool.message_by_name(&full_name).ok_or_else(|| error(format!("missing v1 metadata message {name}")))?;
+            let descriptor = self.pool.message_by_name(&full_name).ok_or_else(|| unavailable(format!("missing v1 metadata message {name}")))?;
             if descriptor.fields().len() != expected.len() || !descriptor.oneofs().is_empty() || !descriptor.extension_ranges().is_empty()
                 || expected.iter().enumerate().any(|(index, (name, kind))| descriptor.field_by_name(name).is_none_or(|field| field.name() != *name || field.number() != (index + 1) as u32 || field.kind() != *kind || field.is_delimited() || field.presence() != buffa::editions::FieldPresence::Explicit)) {
-                return Err(error(format!("{full_name}: unsupported v1 metadata field schema correspondence")));
+                return Err(unavailable(format!("{full_name}: unsupported v1 metadata field schema correspondence")));
             }
         }
-        let source = self.pool.file_by_name(CORE_IMPORT).ok_or_else(|| error("core option source schema is absent"))?;
+        self.verify_native_schema()?;
+        let source = self.pool.file_by_name(CORE_IMPORT).ok_or_else(|| unavailable("core option source schema is absent"))?;
         if source.syntax.as_deref().unwrap_or("proto2") != "proto2" || source.edition.is_some()
             || source.message_type.iter().flat_map(|message| &message.field).any(|field| field.default_value.is_some()) {
-            return Err(error("core v1 metadata requires proto2 explicit presence without redefined defaults"));
+            return Err(unavailable("core v1 metadata requires proto2 explicit presence without redefined defaults"));
         }
         Ok(())
     }
 
     /// Refuse changed spelling/number correspondence in a selected owner vocabulary.
     pub fn vocabulary(&self, name: &str, expected: &[&str]) -> Result<(), MetadataError> {
-        let enumeration = self.pool.enum_by_name(name).ok_or_else(|| error(format!("missing typed metadata vocabulary {name}")))?;
+        let enumeration = self.pool.enum_by_name(name).ok_or_else(|| unavailable(format!("missing typed metadata vocabulary {name}")))?;
         if enumeration.values().len() != expected.len() || expected.iter().enumerate().any(|(number, name)| enumeration.value_by_name(name).is_none_or(|value| value.number() != number as i32)) {
-            return Err(error(format!("{name}: schema/native vocabulary correspondence changed")));
+            return Err(unavailable(format!("{name}: schema/native vocabulary correspondence changed")));
         }
         Ok(())
     }
@@ -154,13 +164,14 @@ impl OptionEncoder {
     }
 
     /// Emit source-owned core message meaning, including optional original action facts.
-    pub fn message_options(&self, definition: &Definition) -> Result<descriptor::MessageOptions, MetadataError> {
+    pub fn message_options(&self, definition: &Definition, package: &str) -> Result<descriptor::MessageOptions, MetadataError> {
         let owner = self.message("pse.contract.v1.Owner", &[("rust_type", Value::String(definition.rust_type.into())), ("declaration_file", Value::String(definition.source.into()))])?;
         let construction = match definition.construction { ConstructionRole::Data => 1, ConstructionRole::ObservationOnly => 2 };
         let mut fields = vec![
             ("metadata_version", Value::U32(pse_contract::metadata::VERSION)), ("owner", Value::Message(owner)),
             ("interpretation_version", Value::U32(definition.version)), ("direction", direction(definition.direction)),
             ("construction_role", Value::EnumNumber(construction)),
+            ("native_shape", Value::Message(self.native_shape(&definition.shape, package)?)),
         ];
         if let Some(effects) = definition.effects { fields.push(("effects", Value::Message(self.effects(effects)?))); }
         let metadata = self.message("pse.contract.v1.MessageMetadata", &fields)?;
@@ -170,13 +181,13 @@ impl OptionEncoder {
     }
 
     /// Emit a native field's core correspondence without changing existing rules.
-    pub fn field_options(&self, options: &mut descriptor::FieldOptions, field: &Field) -> Result<(), MetadataError> {
-        self.field_correspondence(options, &field.name, field.direction)
+    pub fn field_options(&self, options: &mut descriptor::FieldOptions, field: &Field, package: &str) -> Result<(), MetadataError> {
+        self.field_correspondence(options, &field.name, field.direction, &field.ty, &field.rules, package)
     }
 
     /// Emit an explicit alternative/value field correspondence supplied by its owner.
-    pub fn field_correspondence(&self, options: &mut descriptor::FieldOptions, name: &str, field_direction: Direction) -> Result<(), MetadataError> {
-        let metadata = self.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::U32(pse_contract::metadata::VERSION)), ("native_field", Value::String(name.into())), ("direction", direction(field_direction))])?;
+    pub fn field_correspondence(&self, options: &mut descriptor::FieldOptions, name: &str, field_direction: Direction, ty: &TypeRef, rules: &[LocalRule], package: &str) -> Result<(), MetadataError> {
+        let metadata = self.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::U32(pse_contract::metadata::VERSION)), ("native_field", Value::String(name.into())), ("direction", direction(field_direction)), ("native_contract", Value::Message(self.native_contract(ty, rules, package)?))])?;
         self.attach(options, "pse.contract.v1.field", metadata)
     }
 
@@ -208,8 +219,10 @@ fn direction(value: Direction) -> Value {
 pub trait DescriptorPolicy: pse_contract::metadata::InterpretationPolicy {
     /// Native source selection, independent of whether acquired options survived.
     fn native_selection(&self) -> Option<NativeSelection<'_>> { None }
-    /// None means that the original interpretation is unavailable, hence Unknown.
-    fn check_decoded_facet(&self, _extension: &str, _value: &DynamicMessage) -> Option<Result<(), MetadataError>> { None }
+    /// Normalize for this explicitly named comparison purpose using the original
+    /// world's pool. Outer None means unavailable interpretation (Unknown); inner
+    /// None means validated, retained provenance without facts for this purpose.
+    fn normalize_decoded_facet(&self, _extension: &str, _value: &DynamicMessage) -> Option<Result<Option<Vec<u8>>, MetadataError>> { None }
 }
 impl DescriptorPolicy for pse_contract::metadata::CorePolicy<'_> {}
 
@@ -222,6 +235,12 @@ pub struct NativeSelection<'a> {
     pub fields: &'a [&'a str],
     /// Expected source-composed method paths.
     pub methods: &'a [&'a str],
+    /// Required (field path, extension name) associations from the native source,
+    /// independently of whether either acquired world's options survived.
+    pub facets: &'a [(&'a str, &'a str)],
+    /// Required typed top-level option fields (subject, extension, field name).
+    /// Source coverage remains independent of acquired payload presence.
+    pub facet_fields: &'a [(&'a str, &'a str, &'a str)],
 }
 
 /// One acquired descriptor world with its own available native policy.

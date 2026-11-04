@@ -21,12 +21,23 @@ message RegistryFieldFacets {
   optional IdentityContract identity = 13;
   optional CanonicalFieldContract canonical = 14;
   optional ExpressionSourceContract expression_source = 15;
+  // Standard Arrow IPC Schema Message containing exactly the actual native Field.
+  // The domain reader verifies raw metadata uniqueness before Arrow conversion.
+  optional bytes native_field_ipc = 16;
 }
 
 message CanonicalFieldContract {
   optional CanonicalKeyKind key_kind = 1;
   optional bool readonly = 2;
   optional bool record_key = 3;
+  optional string assertion = 4;
+  optional string default_expression = 5;
+  // Native enumeration member, not a SurrealQL expression.
+  optional string initial_member = 6;
+  optional string transition_exception = 7;
+  optional string sealed = 8;
+  optional string seal_refusal = 9;
+  optional string reference_kind = 10;
 }
 
 enum CanonicalKeyKind {

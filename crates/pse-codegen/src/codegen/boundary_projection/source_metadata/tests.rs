@@ -26,8 +26,8 @@ fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
     let extensions = [registry_facets::EXTENSION];
     assert_eq!(check_descriptors(&set, "physical.proto", &CorePolicy { interpretations: &[("pse.physical.v1.QuantityAnnotatedOwner", 1)] }, &extensions).unwrap().disposition, Disposition::Unknown);
     let encoder = OptionEncoder::new(&set.file).unwrap();
-    let validators: [(&str, DomainCheck); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
-    let selection = NativeSelection { owners: &["pse.physical.v1.QuantityAnnotatedOwner"], fields: &["pse.physical.v1.QuantityAnnotatedOwner.temperature"], methods: &[] };
+    let validators: [(&str, DomainCheck); 1] = [(registry_facets::EXTENSION, registry_facets::normalize_option)];
+    let selection = NativeSelection { owners: &["pse.physical.v1.QuantityAnnotatedOwner"], fields: &["pse.physical.v1.QuantityAnnotatedOwner.temperature"], methods: &[], facets: &[], facet_fields: &[] };
     let policy = TypedPolicy::new(&validators, &[("pse.physical.v1.QuantityAnnotatedOwner", 1)], selection);
     assert_eq!(check_descriptors(&set, "physical.proto", &policy, &extensions).unwrap().disposition, Disposition::Compatible);
     let file = set.file.iter().find(|file| file.name.as_deref() == Some("physical.proto")).unwrap();
@@ -39,4 +39,22 @@ fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
     file.message_type[0].field[0].options.as_option_mut().unwrap().unknown_fields_mut().retain(|field| field.number != 51066);
     let compared = compare_descriptors(DescriptorInput { descriptors: &before, selected_file: "physical.proto", policy: &policy }, DescriptorInput { descriptors: &set, selected_file: "physical.proto", policy: &policy }, &policy, &extensions).unwrap();
     assert_eq!(compared.disposition, Disposition::Incompatible, "a valid newly introduced physical facet changes existing field meaning");
+
+    // Literal expected source obligations do not come from acquired options.
+    let strict = TypedPolicy::new(&validators, &[("pse.physical.v1.QuantityAnnotatedOwner", 1)], NativeSelection {
+        facets: &[("pse.physical.v1.QuantityAnnotatedOwner.temperature", registry_facets::EXTENSION)],
+        facet_fields: &[("pse.physical.v1.QuantityAnnotatedOwner.temperature", registry_facets::EXTENSION, "quantity")],
+        ..selection
+    });
+    let input = || DescriptorInput { descriptors: &before, selected_file: "physical.proto", policy: &strict };
+    assert!(compare_descriptors(input(), input(), &strict, &extensions).is_err(), "stripping the selected extension from both worlds must not vacuously compare");
+    let mut missing_fact = set.clone();
+    let options = missing_fact.file.iter_mut().find(|file| file.name.as_deref() == Some("physical.proto")).unwrap().message_type[0].field[0].options.as_option_mut().unwrap();
+    options.unknown_fields_mut().retain(|field| field.number != 51066);
+    let role_only = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(2)), ("role", Value::EnumNumber(3))]).unwrap();
+    encoder.attach(options, registry_facets::EXTENSION, role_only).unwrap();
+    let input = || DescriptorInput { descriptors: &missing_fact, selected_file: "physical.proto", policy: &strict };
+    let refusal = compare_descriptors(input(), input(), &strict, &extensions).unwrap_err();
+    assert!(refusal.to_string().contains("physical.proto:pse.physical.v1.QuantityAnnotatedOwner.temperature"));
+    assert!(refusal.to_string().contains("required selected domain fact"));
 }

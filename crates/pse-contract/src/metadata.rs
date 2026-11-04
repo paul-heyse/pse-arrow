@@ -7,10 +7,10 @@
 //! scientific meaning, creates native capabilities or establishes wire compatibility.
 
 use std::collections::BTreeSet;
-use crate::{BoundaryDirection, boundary_projection::ConstructionRole, operation_effects::{EffectFacts, EffectScope}};
+use crate::{BoundaryDirection, boundary_projection::{ConstructionRole, LocalRule, TypeRef}, operation_effects::{EffectFacts, EffectScope}};
 
 /// Current interoperability metadata version; distinct from owner interpretation.
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 
 /// Explicit known/unknown enum decoding; an unknown number never becomes a default.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,6 +45,8 @@ pub struct MessageMetadata<'a> {
     pub construction: Option<EnumValue<ConstructionRole>>,
     /// Optional original source action intent, separate from RPC method effects.
     pub effects: Option<Effects>,
+    /// Actual declared record/alternative layout or canonical string vocabulary.
+    pub native_shape: Option<&'a crate::boundary_projection::Shape>,
 }
 
 /// Normalized typed field options.
@@ -56,6 +58,10 @@ pub struct FieldMetadata<'a> {
     pub native_field: Option<&'a str>,
     /// Actual owner-declared direction.
     pub direction: Option<EnumValue<BoundaryDirection>>,
+    /// Original native type meaning, independently of its protobuf representation.
+    pub native_type: Option<&'a TypeRef>,
+    /// Actual owner-declared local rules, including an explicitly empty rule set.
+    pub local_rules: Option<&'a [LocalRule]>,
 }
 
 /// Presence-preserving normalized operation intent. It never grants permission.
@@ -217,7 +223,7 @@ pub struct CorePolicy<'a> {
     pub interpretations: &'a [(&'a str, u32)],
 }
 impl InterpretationPolicy for CorePolicy<'_> {
-    fn name(&self) -> &str { "pse.contract.v1/core" }
+    fn name(&self) -> &str { "pse.contract.v2/native-crossing" }
     fn supports_interpretation(&self, subject: &str, version: u32) -> bool { self.interpretations.contains(&(subject, version)) }
 }
 
@@ -318,6 +324,7 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
             }
             result.enumeration(message.file, message.name, metadata.direction, "direction");
             result.enumeration(message.file, message.name, metadata.construction, "construction role");
+            if metadata.metadata_version == Some(VERSION) { result.required(message.file, message.name, metadata.native_shape, "native owner shape"); }
             if let Some(effects) = metadata.effects { result.effects(message.file, message.name, effects); }
         }
     }
@@ -330,6 +337,12 @@ pub fn check(world: &World<'_>, policy: &impl InterpretationPolicy) -> Assessmen
             result.version(policy, field.file, field.name, metadata.metadata_version);
             if result.required(field.file, field.name, metadata.native_field, "native field").is_some_and(str::is_empty) { result.record(field.file, field.name, Disposition::Incompatible, "empty native field"); }
             result.enumeration(field.file, field.name, metadata.direction, "direction");
+            if metadata.metadata_version == Some(VERSION) {
+                if let Some(ty) = result.required(field.file, field.name, metadata.native_type, "native type") {
+                    check_native_references(ty, &symbols, field.file, field.name, &mut result);
+                }
+                result.required(field.file, field.name, metadata.local_rules, "native local rules");
+            }
         }
     }
     selected.clear();
@@ -365,6 +378,7 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
                 if known_changed(a.direction, b.direction) || known_changed(a.construction, b.construction) { result.record(after.file, after.name, Disposition::Incompatible, "direction or construction role changed"); }
                 if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "metadata version changed"); }
                 if effects_changed(a.effects, b.effects) { result.record(after.file, after.name, Disposition::Incompatible, "source action effects changed"); }
+                if a.metadata_version == Some(VERSION) && b.metadata_version == Some(VERSION) && a.native_shape != b.native_shape { result.record(after.file, after.name, Disposition::Incompatible, "native owner layout or string vocabulary changed"); }
                 if let (Some(a), Some(b)) = (a.interpretation_version, b.interpretation_version) && a != b { result.record(after.file, after.name, policy.interpretation_change(after.name, a, b), "owner interpretation version changed"); }
             }
         }
@@ -377,6 +391,10 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
                 if let (Some(a), Some(b)) = (before.metadata, after.metadata) {
                     if a.metadata_version != b.metadata_version { result.record(after.file, after.name, Disposition::Unknown, "field metadata version changed"); }
                     if a.native_field != b.native_field || known_changed(a.direction, b.direction) { result.record(after.file, after.name, Disposition::Incompatible, "field correspondence or direction changed"); }
+                    if a.metadata_version == Some(VERSION) && b.metadata_version == Some(VERSION) {
+                        if a.native_type != b.native_type { result.record(after.file, after.name, Disposition::Incompatible, "native field type meaning changed"); }
+                        if a.local_rules != b.local_rules { result.record(after.file, after.name, Disposition::Incompatible, "native local rules changed"); }
+                    }
                 }
             }
         }
@@ -410,6 +428,15 @@ pub fn compare(old: &World<'_>, new: &World<'_>, policy: &impl InterpretationPol
         }
     }
     result
+}
+
+fn check_native_references(ty: &TypeRef, symbols: &BTreeSet<&str>, file: &str, subject: &str, result: &mut Assessment) {
+    match ty {
+        TypeRef::Named(name) if !symbols.contains(name.as_str()) => result.record(file, subject, Disposition::Incompatible, format!("unresolved native type reference {name}")),
+        TypeRef::Named(_) | TypeRef::Scalar(_) => {},
+        TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => check_native_references(inner, symbols, file, subject, result),
+        TypeRef::Map(key, value) => { check_native_references(key, symbols, file, subject, result); check_native_references(value, symbols, file, subject, result); }
+    }
 }
 
 fn known_changed<T: PartialEq>(old: Option<EnumValue<T>>, new: Option<EnumValue<T>>) -> bool {

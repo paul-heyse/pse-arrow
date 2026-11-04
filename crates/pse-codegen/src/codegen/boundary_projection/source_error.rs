@@ -13,6 +13,18 @@ pub enum ProjectionCodegenError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Metadata(#[from] pse_contract_proto::MetadataError),
+    /// Original Arrow conversion or purpose projection refusal.
+    #[error("native field IPC: {0}")]
+    #[diagnostic(code("schema.invalid_declaration"))]
+    Arrow(#[from] arrow_schema::ArrowError),
+    /// Original verified FlatBuffer acquisition refusal.
+    #[error("native field IPC flatbuffer: {0}")]
+    #[diagnostic(code("schema.invalid_declaration"))]
+    Flatbuffer(#[from] flatbuffers::InvalidFlatbuffer),
+    /// Original native source-only field carrier decode refusal.
+    #[error("native field source: {0}")]
+    #[diagnostic(code("schema.invalid_declaration"))]
+    Json(#[from] serde_json::Error),
     /// Original native source association, without flattening its typed cause.
     #[error("{file}:{subject}: {source}")]
     #[diagnostic(forward(source))]

@@ -80,19 +80,19 @@ fn registry_options_check_nested_presentation_against_actual_owner_graph() {
 fn registry_options_refuse_unrepresented_source_facets_and_invalid_typed_payloads() {
     let encoder = encoder();
     let mut graph = ProjectionGraph::default();
-    for (key, text) in [("pse.future.meaning", "x"), (keys::CANONICAL_ASSERT, "true"), (keys::ROLE, "future_role"), (keys::FK_RELATION, "target"), (keys::BOUNDARY_TAG, "9")] {
+    for (key, text) in [("pse.future.meaning", "x"), (keys::ROLE, "future_role"), (keys::FK_RELATION, "target"), (keys::BOUNDARY_TAG, "9")] {
         let selected = field::<u64>(&mut graph, &[(key, text.into())]);
         let failure = field_options(&selected, &graph, &encoder).unwrap_err().to_string();
         assert!(failure.contains("native_field"), "{failure}");
         assert!(failure.contains(key) || key == keys::ROLE, "{failure}");
     }
-    let unknown_version = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(2))]).unwrap();
+    let unknown_version = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(99))]).unwrap();
     assert!(check_option(&unknown_version).is_err());
     let reversed = message(&encoder, "CollectionContract", &[("order", Value::EnumNumber(1)), ("minimum", Value::I64(10)), ("maximum", Value::I64(3)), ("unique", Value::Bool(false))]).unwrap();
-    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(1)), ("collection", reversed)]).unwrap();
+    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(2)), ("collection", reversed)]).unwrap();
     assert!(check_option(&option).is_err());
     let empty_extension = message(&encoder, "ExtensionUse", &[]).unwrap();
-    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(1)), ("extension", empty_extension)]).unwrap();
+    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(2)), ("extension", empty_extension)]).unwrap();
     assert!(check_option(&option).is_err());
 }
 
@@ -142,7 +142,7 @@ fn registry_options_preserve_unresolved_identity_carriers_and_explicit_ownership
     let orphan = field::<u64>(&mut graph, &[(keys::IDENTITY_OWNER, "true".into())]);
     assert!(field_options(&orphan, &graph, &encoder).is_err());
     let empty = message(&encoder, "IdentityContract", &[("entity_name", Value::String(String::new())), ("owns_identity", Value::Bool(true))]).unwrap();
-    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(1)), ("identity", empty)]).unwrap();
+    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(2)), ("identity", empty)]).unwrap();
     assert!(check_option(&option).is_err());
 }
 
@@ -178,6 +178,63 @@ fn registry_options_preserve_canonical_mutability_and_expression_occurrence_poli
         assert!(field_options(&source, &graph, &encoder).is_err());
     }
     let incomplete = message(&encoder, "ExpressionSourceContract", &[("role_path_template", Value::String("owner.field".into()))]).unwrap();
-    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(1)), ("expression_source", incomplete)]).unwrap();
+    let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(2)), ("expression_source", incomplete)]).unwrap();
     assert!(check_option(&option).is_err());
+}
+
+#[test]
+fn selected_purpose_preserves_native_storage_and_filters_only_declared_provenance() {
+    use arrow_schema::{DataType, TimeUnit};
+    let encoder = encoder();
+    let mut graph = ProjectionGraph::default();
+    let native = |kind, documentation: &str| arrow_schema::Field::new("native_field", kind, true).with_metadata(std::collections::HashMap::from([
+        (keys::ROLE.into(), "measure".into()), (keys::DOC.into(), documentation.into()), (keys::BOUNDARY_TAG.into(), "7".into()),
+    ]));
+    let source = |graph: &mut ProjectionGraph, native: &arrow_schema::Field| {
+        let mut metadata = native.metadata().iter().map(|(key, value)| (key.clone(), value.clone())).collect::<BTreeMap<_, _>>();
+        metadata.insert(super::super::REGISTRY_FIELD_SOURCE.into(), pse_schema::model::field::render_field(native).unwrap());
+        Field::of::<Option<i64>>(graph, "native_field", 7, Direction::Both, vec![]).unwrap().with_named_facets(metadata)
+    };
+    let field_a = native(DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())), "before");
+    let a = field_options(&source(&mut graph, &field_a), &graph, &encoder).unwrap().unwrap();
+    let field_b = native(DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())), "after");
+    let b = field_options(&source(&mut graph, &field_b), &graph, &encoder).unwrap().unwrap();
+    assert_ne!(a.try_encode_to_vec().unwrap(), b.try_encode_to_vec().unwrap(), "full original carrier retains prose");
+    assert_eq!(normalize_option(&a).unwrap(), normalize_option(&b).unwrap(), "named execution/publication purpose excludes source prose only");
+    let plain = native(DataType::Int64, "before");
+    let plain = field_options(&source(&mut graph, &plain), &graph, &encoder).unwrap().unwrap();
+    assert_ne!(normalize_option(&a).unwrap(), normalize_option(&plain).unwrap(), "timestamp micros+UTC must not collapse to native Rust i64");
+    let nanos = native(DataType::Timestamp(TimeUnit::Nanosecond, Some("UTC".into())), "before");
+    let nanos = field_options(&source(&mut graph, &nanos), &graph, &encoder).unwrap().unwrap();
+    assert_ne!(normalize_option(&a).unwrap(), normalize_option(&nanos).unwrap());
+    let mut mismatched = source(&mut graph, &field_a);
+    mismatched.named_facets.insert(keys::ROLE.into(), "label".into());
+    assert!(field_options(&mismatched, &graph, &encoder).is_err(), "typed facets cannot disagree with the native IPC field metadata");
+
+    let doc_only = field::<String>(&mut graph, &[(keys::DOC, "retained prose".into())]);
+    let option = field_options(&doc_only, &graph, &encoder).unwrap().unwrap();
+    assert_eq!(normalize_option(&option).unwrap(), None, "prose-only introduction has no semantic facts under this named purpose");
+}
+
+#[test]
+fn canonical_publication_policy_uses_native_parser_and_inert_ast_normalization() {
+    let encoder = encoder();
+    let mut graph = ProjectionGraph::default();
+    let option = |graph: &mut ProjectionGraph, expression: &str| {
+        let selected = field::<u64>(graph, &[(keys::CANONICAL_ASSERT, expression.into()), (keys::CANONICAL_DEFAULT, "1+2".into())]);
+        field_options(&selected, graph, &encoder).unwrap().unwrap()
+    };
+    let a = option(&mut graph, "$value>0");
+    let b = option(&mut graph, " $value > 0 ");
+    let c = option(&mut graph, "$value>1");
+    assert_eq!(normalize_option(&a).unwrap(), normalize_option(&b).unwrap());
+    assert_ne!(normalize_option(&a).unwrap(), normalize_option(&c).unwrap(), "canonical policy remains meaningful although Arrow execution projection excludes it");
+    for text in ["$value > 0 trailing", ""] {
+        let selected = field::<u64>(&mut graph, &[(keys::CANONICAL_ASSERT, text.into())]);
+        let failure = field_options(&selected, &graph, &encoder).unwrap_err();
+        let mut cause: Option<&dyn std::error::Error> = Some(&failure);
+        let mut original = false;
+        while let Some(value) = cause { original |= value.downcast_ref::<pse_schema::model::CanonicalExpressionParseError>().is_some(); cause = value.source(); }
+        assert!(original, "native source parser cause must survive option publication");
+    }
 }
