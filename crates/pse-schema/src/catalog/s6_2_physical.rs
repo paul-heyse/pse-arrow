@@ -228,7 +228,7 @@ fn declare_reference_bases(builder: &mut RegistryBuilder) {
             source: file!(),
             name: "RegistryPhysicalBasis",
             version: 1,
-            direction: pse_vocabulary::BoundaryDirection::Output,
+            direction: pse_contract::BoundaryDirection::Output,
             reserved_tags: &[],
             reserved_names: &[],
         }),
@@ -307,7 +307,7 @@ fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
         "blueprint §6.2 physical type: quantity_types. Version two adds the optional name a quantity type is addressed by, declared once in the physical document and unique within it (ADR-0123 Outcome 6); a package sees it unqualified and as `<package>.<name>` when its manifest depends on the declaring package.",
     ).with_boundary_record(crate::model::BoundaryRecord {
         source: file!(), name: "RegistryPhysicalQuantityType", version: 1,
-        direction: pse_vocabulary::BoundaryDirection::Output,
+        direction: pse_contract::BoundaryDirection::Output,
         reserved_tags: &[], reserved_names: &[],
     }));
 }

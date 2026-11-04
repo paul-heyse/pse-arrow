@@ -136,7 +136,7 @@ fn diagnostic_observations_and_performing_locators_project_original_data_without
 
 #[test]
 fn named_tuple_records_and_multi_payload_alternatives_keep_original_native_json() {
-    crate::projection_tuple_struct! {
+    pse_contract::projection_tuple_struct! {
         #[derive(Debug, PartialEq)]
         struct Move {
             projection: { name: "SourceMove", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -162,7 +162,7 @@ fn named_tuple_records_and_multi_payload_alternatives_keep_original_native_json(
     tuple.as_object_mut().unwrap().remove("title");
     assert_eq!(record, tuple);
 
-    crate::projection_tuple_enum! {
+    pse_contract::projection_tuple_enum! {
         #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
         enum Expression {
             projection: { name: "TupleExpression", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -215,7 +215,7 @@ fn tuple_payload_attributes_rules_and_unprojected_native_states_are_source_owned
             ))
         }
     }
-    crate::projection_enum! {
+    pse_contract::projection_enum! {
         #[derive(Debug, Default, serde::Serialize)]
         #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
         enum NativeSettings {
@@ -256,7 +256,7 @@ fn tuple_payload_attributes_rules_and_unprojected_native_states_are_source_owned
 
 #[test]
 fn remote_enum_binding_reuses_actual_variants_and_preserves_both_existing_json_forms() {
-    crate::projection_enum! {
+    pse_contract::projection_enum! {
         @serde_remote {
             #[derive(serde::Serialize, serde::Deserialize)]
             #[serde(remote = "Signal", tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
@@ -313,10 +313,10 @@ fn remote_enum_binding_reuses_actual_variants_and_preserves_both_existing_json_f
     );
 }
 
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     pub struct CapturedProjectionFixture<T = u64> {
-        projection: { name: "CapturedProjectionFixtureFor", rust_path: crate::boundary_projection::tests::CapturedProjectionFixture,
+        projection: { name: "CapturedProjectionFixtureFor", rust_path: crate::boundary_contracts::tests::CapturedProjectionFixture,
             version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
         position: u64 => { tag: 1, direction: Direction::Both, rules: [] };
         value: T => { tag: 2, direction: Direction::Both, rules: [] };
@@ -352,7 +352,7 @@ fn generic_source_records_preserve_native_argument_identity_and_access() {
         assert_eq!(
             definition.public_rust_path.as_deref(),
             Some(
-                format!("pse_model::boundary_projection::tests::CapturedProjectionFixture<{path}>")
+                format!("pse_model::boundary_contracts::tests::CapturedProjectionFixture<{path}>")
                     .as_str()
             )
         );
@@ -400,7 +400,7 @@ fn actual_study_point_facts_keep_nominal_occurrence_and_source_enum_meaning() {
 fn foreign_remote_binding_uses_one_field_table_and_checked_shared_access() {
     use super::{Adapted, CheckedProjectionRecord, ProjectionAdapter, SharedAdapter};
     type NativeRangeAlias = std::ops::Range<u16>;
-    crate::projection_remote! {
+    pse_contract::projection_remote! {
         #[derive(serde::Serialize, serde::Deserialize)]
         #[serde(remote = "std::ops::Range<u16>", deny_unknown_fields)]
         struct RangeBinding for std::ops::Range<u16> {
@@ -415,7 +415,7 @@ fn foreign_remote_binding_uses_one_field_table_and_checked_shared_access() {
         #[serde(with = "RangeBinding")]
         range: std::ops::Range<u16>,
     }
-    crate::projection_struct! {
+    pse_contract::projection_struct! {
         struct NativeOwner {
             projection: { name: "NativeRangeOwner", version: 1, direction: Direction::Both,
                 reserved_tags: [], reserved_names: [] };
@@ -982,7 +982,7 @@ fn explicitly_local_payload_custody_is_excluded_from_the_wire_layout() {
 
 #[test]
 fn method_effects_are_explicit_original_facts_and_cannot_be_annotated_twice() {
-    use crate::operation_effects::EffectFacts;
+    use pse_contract::operation_effects::EffectFacts;
     assert!(
         Service::new("Selected")
             .effects(EffectFacts::OBSERVATION)

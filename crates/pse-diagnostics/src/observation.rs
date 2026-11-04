@@ -9,6 +9,7 @@
 pub use crate::{NonFinite, OperationOutcome as Outcome, Relationship};
 #[cfg(test)]
 mod allocator_probe;
+#[macro_use]
 mod producer;
 mod thread_cpu;
 pub use producer::{

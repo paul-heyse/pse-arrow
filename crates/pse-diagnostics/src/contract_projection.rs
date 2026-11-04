@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Local trait integration of the original lower-level diagnostic declarations.
 
-use super::*;
-use pse_diagnostics::boundary::{BoundaryDeclaration, BoundaryField, BoundaryVocabulary};
+use pse_contract::boundary_projection::*;
+use crate::boundary::{BoundaryDeclaration, BoundaryField, BoundaryVocabulary};
 
 macro_rules! diagnostic_vocabulary {
     ($($owner:path),* $(,)?) => { $(
@@ -22,7 +22,7 @@ macro_rules! diagnostic_vocabulary {
         }
     )* };
 }
-diagnostic_vocabulary!(pse_diagnostics::DiagnosticRule);
+diagnostic_vocabulary!(crate::DiagnosticRule);
 
 macro_rules! diagnostic_record {
     ($owner:path; $public:expr; $name:literal; $version:literal; $direction:ident;
@@ -81,7 +81,7 @@ macro_rules! diagnostic_enum {
     };
 }
 
-pse_diagnostics::diagnostic_operand_contract_boundary!(diagnostic_record);
-pse_diagnostics::diagnostic_operation_id_boundary!(diagnostic_record);
-pse_diagnostics::diagnostic_producer_id_boundary!(diagnostic_record);
-pse_diagnostics::diagnostic_producer_role_boundary!(diagnostic_enum);
+diagnostic_operand_contract_boundary!(diagnostic_record);
+diagnostic_operation_id_boundary!(diagnostic_record);
+diagnostic_producer_id_boundary!(diagnostic_record);
+diagnostic_producer_role_boundary!(diagnostic_enum);

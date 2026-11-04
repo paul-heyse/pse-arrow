@@ -77,29 +77,6 @@ macro_rules! vocabulary {
 }
 
 vocabulary! {
-    /// Public direction of an owner-derived boundary declaration.
-    BoundaryDirection as "boundary_direction" {
-        /// Accepted from clients.
-        Input => "input",
-        /// Produced for clients.
-        Output => "output",
-        /// Shared input and output meaning.
-        Both => "both",
-    }
-}
-impl BoundaryDirection {
-    /// Whether this declaration participates in the selected projection.
-    pub const fn includes(self, selected: Self) -> bool {
-        matches!(self, Self::Both)
-            || matches!(selected, Self::Both)
-            || matches!(
-                (self, selected),
-                (Self::Input, Self::Input) | (Self::Output, Self::Output)
-            )
-    }
-}
-
-vocabulary! {
     /// The seven namespaces a relation can live in (blueprint §4.1, §6).
     Namespace as "namespace" {
         /// Shipped contracts and reference data; named-policy identity (blueprint §5.1).

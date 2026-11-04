@@ -6,34 +6,34 @@ pub use crate::generated::enums::{
 };
 pub use pse_diagnostics::{DiagnosticCode, DiagnosticRule, DiagnosticStage, OperandContract};
 use pse_ids::{ContentHash, SemanticId};
-const MAGNITUDE_DOMAIN: crate::boundary_projection::Float64Domain =
-    crate::boundary_projection::Float64Domain::Finite;
+const MAGNITUDE_DOMAIN: pse_contract::boundary_projection::Float64Domain =
+    pse_contract::boundary_projection::Float64Domain::Finite;
 
 /// Registry-owned explicit nonfinite numerical failure observations.
 pub use crate::generated::enums::DiagnosticNonfiniteObservation as NonfiniteObservation;
-crate::projection_struct! {
+pse_contract::projection_struct! {
 /// Finite physical evidence bound to its complete immutable quantity contract.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PhysicalObservation {
-    projection: { name: "DiagnosticPhysicalObservation", version: 1, direction: crate::boundary_projection::Direction::Both,
+    projection: { name: "DiagnosticPhysicalObservation", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Finite canonical magnitude.
     #[serde(
         deserialize_with = "finite_number",
         serialize_with = "serialize_finite_number"
     )]
-    pub magnitude: f64 => { tag: 1, direction: crate::boundary_projection::Direction::Both,
-        rules: [crate::boundary_projection::LocalRule::Float64Domain(MAGNITUDE_DOMAIN)] };
+    pub magnitude: f64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(MAGNITUDE_DOMAIN)] };
     /// Registered complete quantity contract.
-    pub quantity: SemanticId => { tag: 2, direction: crate::boundary_projection::Direction::Both, rules: [] };
+    pub quantity: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Declared canonical unit.
-    pub unit: SemanticId => { tag: 3, direction: crate::boundary_projection::Direction::Both, rules: [] };
+    pub unit: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Immutable interpretation context.
-    pub context: ContentHash => { tag: 4, direction: crate::boundary_projection::Direction::Both, rules: [] };
+    pub context: ContentHash => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-crate::projection_enum! {
+pse_contract::projection_enum! {
 /// Evidence distinguishes absence, finite numerical/physical values and nonfinite failures.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -43,7 +43,7 @@ crate::projection_enum! {
     deny_unknown_fields
 )]
 pub enum Observation {
-    projection: { name: "DiagnosticObservation", version: 1, direction: crate::boundary_projection::Direction::Both,
+    projection: { name: "DiagnosticObservation", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Evidence was not available.
     Missing => 1;
@@ -53,7 +53,7 @@ pub enum Observation {
             deserialize_with = "finite_number",
             serialize_with = "serialize_finite_number"
         )]
-        f64 => { rules: [crate::boundary_projection::LocalRule::Float64Domain(MAGNITUDE_DOMAIN)] }
+        f64 => { rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(MAGNITUDE_DOMAIN)] }
     ) => 2;
     /// Explicitly tagged nonfinite numerical failure evidence.
     Nonfinite(NonfiniteObservation) => 3;

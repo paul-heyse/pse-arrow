@@ -14,13 +14,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <[pse_quantity::dimension::Ratio; 8] as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <[pse_quantity::dimension::Ratio; 8] as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <[pse_quantity::dimension::Ratio; 8] as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <[pse_quantity::dimension::Ratio; 8] as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "values")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::Array8PhysicalRatio {
@@ -50,8 +50,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <[pse_quantity::dimension::Ratio; 8] as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <[pse_quantity::dimension::Ratio; 8] as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <[pse_quantity::dimension::Ratio; 8] as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <[pse_quantity::dimension::Ratio; 8] as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "values")],
             path,
@@ -75,7 +75,9 @@ impl NativeFrom<
                 from_items(values, current_path)?
             },
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -89,13 +91,13 @@ for pse_quantity::ids::BasisId {
         AdapterError,
     > {
         layout(
-            <pse_quantity::ids::BasisId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::BasisId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::BasisId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::BasisId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::BasisId {
@@ -111,8 +113,8 @@ for pse_quantity::ids::BasisId {
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::ids::BasisId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::BasisId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::BasisId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::BasisId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
@@ -123,7 +125,9 @@ for pse_quantity::ids::BasisId {
                 Vec<u8>,
             >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -202,15 +206,15 @@ impl NativeInto<
         layout(
             <pse_model::document::Version<
                 1,
-            > as pse_model::boundary_projection::ProjectionRecord>::VERSION,
+            > as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::document::Version<
                 1,
-            > as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            > as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::DocumentVersion1 {
@@ -229,16 +233,18 @@ impl NativeFrom<
         layout(
             <pse_model::document::Version<
                 1,
-            > as pse_model::boundary_projection::ProjectionRecord>::VERSION,
+            > as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::document::Version<
                 1,
-            > as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            > as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
         let fields = (native_from::<_, u32>(wire.value, &child_path(path, "value"))?,);
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -253,13 +259,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::ids::EntityKindId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::EntityKindId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::EntityKindId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::EntityKindId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::EntityKindId {
@@ -276,8 +282,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::ids::EntityKindId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::EntityKindId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::EntityKindId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::EntityKindId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
@@ -288,7 +294,9 @@ impl NativeFrom<
                 Vec<u8>,
             >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -303,8 +311,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::kind::KindDefinition as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::kind::KindDefinition as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::kind::KindDefinition as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::kind::KindDefinition as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "monomial"),
@@ -316,7 +324,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::KindDefinition {
@@ -391,8 +399,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::kind::KindDefinition as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::kind::KindDefinition as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::kind::KindDefinition as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::kind::KindDefinition as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "monomial"),
@@ -479,7 +487,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -493,13 +503,13 @@ for pse_quantity::kind::KindFactor {
         AdapterError,
     > {
         layout(
-            <pse_quantity::kind::KindFactor as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::kind::KindFactor as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::kind::KindFactor as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::kind::KindFactor as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "kind"), (2, "exponent")],
             path,
         )?;
-        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::KindFactor {
@@ -526,8 +536,8 @@ for pse_quantity::kind::KindFactor {
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::kind::KindFactor as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::kind::KindFactor as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::kind::KindFactor as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::kind::KindFactor as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "kind"), (2, "exponent")],
             path,
@@ -548,7 +558,9 @@ for pse_quantity::kind::KindFactor {
                 &child_path(path, "exponent"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -563,8 +575,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::basis::Basis as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::basis::Basis as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::basis::Basis as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::basis::Basis as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -575,7 +587,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalBasis {
@@ -636,8 +648,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::basis::Basis as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::basis::Basis as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::basis::Basis as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::basis::Basis as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -700,7 +712,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -715,13 +729,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::dimension::DimensionVector as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::dimension::DimensionVector as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::dimension::DimensionVector as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::dimension::DimensionVector as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "exponents")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalDimensionVector {
@@ -743,8 +757,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::dimension::DimensionVector as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::dimension::DimensionVector as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::dimension::DimensionVector as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::dimension::DimensionVector as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "exponents")],
             path,
@@ -758,7 +772,9 @@ impl NativeFrom<
                 &child_path(path, "exponents"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -773,13 +789,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::entity_kind::EntityKind as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::entity_kind::EntityKind as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::entity_kind::EntityKind as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::entity_kind::EntityKind as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id"), (2, "name")],
             path,
         )?;
-        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalEntityKind {
@@ -802,8 +818,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::entity_kind::EntityKind as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::entity_kind::EntityKind as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::entity_kind::EntityKind as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::entity_kind::EntityKind as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id"), (2, "name")],
             path,
@@ -818,7 +834,9 @@ impl NativeFrom<
             )?,
             native_from::<_, String>(wire.name, &child_path(path, "name"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -833,8 +851,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::workflow::PhysicalQuantityDescription as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::workflow::PhysicalQuantityDescription as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "quantity"),
@@ -863,7 +881,7 @@ impl NativeInto<
             field_8,
             field_9,
             field_10,
-        ) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription {
@@ -969,8 +987,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::workflow::PhysicalQuantityDescription as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::workflow::PhysicalQuantityDescription as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "quantity"),
@@ -1099,7 +1117,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1114,8 +1134,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::kind::QuantityKind as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::kind::QuantityKind as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::kind::QuantityKind as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::kind::QuantityKind as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1127,7 +1147,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityKind {
@@ -1184,8 +1204,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::kind::QuantityKind as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::kind::QuantityKind as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::kind::QuantityKind as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::kind::QuantityKind as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1248,7 +1268,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1263,13 +1285,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::dimension::Ratio as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::dimension::Ratio as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::dimension::Ratio as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::dimension::Ratio as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "num"), (2, "den")],
             path,
         )?;
-        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalRatio {
@@ -1287,8 +1309,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::dimension::Ratio as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::dimension::Ratio as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::dimension::Ratio as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::dimension::Ratio as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "num"), (2, "den")],
             path,
@@ -1297,7 +1319,9 @@ impl NativeFrom<
             native_from::<_, i32>(wire.num, &child_path(path, "num"))?,
             native_from::<_, i32>(wire.den, &child_path(path, "den"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1312,8 +1336,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::unit::Unit as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::unit::Unit as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::unit::Unit as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::unit::Unit as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1327,7 +1351,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalUnit {
@@ -1398,8 +1422,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::unit::Unit as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::unit::Unit as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::unit::Unit as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::unit::Unit as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1477,7 +1501,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1556,13 +1582,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::ids::QuantityKindId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::QuantityKindId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::QuantityKindId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::QuantityKindId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityKindId {
@@ -1579,8 +1605,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::ids::QuantityKindId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::QuantityKindId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::QuantityKindId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::QuantityKindId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
@@ -1591,7 +1617,9 @@ impl NativeFrom<
                 Vec<u8>,
             >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1606,8 +1634,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::quantity_type::QuantityType as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::quantity_type::QuantityType as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::quantity_type::QuantityType as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::quantity_type::QuantityType as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1618,7 +1646,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityType {
@@ -1667,8 +1695,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::quantity_type::QuantityType as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::quantity_type::QuantityType as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::quantity_type::QuantityType as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::quantity_type::QuantityType as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1722,7 +1750,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1737,13 +1767,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::ids::QuantityTypeId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::QuantityTypeId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::QuantityTypeId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::QuantityTypeId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeId {
@@ -1760,8 +1790,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::ids::QuantityTypeId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::QuantityTypeId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::QuantityTypeId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::QuantityTypeId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
@@ -1772,7 +1802,9 @@ impl NativeFrom<
                 Vec<u8>,
             >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -1787,8 +1819,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::quantity_type::QuantityTypeKey as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::quantity_type::QuantityTypeKey as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::quantity_type::QuantityTypeKey as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::quantity_type::QuantityTypeKey as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "kind"),
@@ -1800,7 +1832,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::QuantityTypeKey {
@@ -1875,8 +1907,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::quantity_type::QuantityTypeKey as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::quantity_type::QuantityTypeKey as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::quantity_type::QuantityTypeKey as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::quantity_type::QuantityTypeKey as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "kind"),
@@ -1960,7 +1992,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2005,13 +2039,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_model::reference_exchange::ReferenceBlock as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceBlock as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceBlock as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceBlock as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "content"), (2, "schema"), (3, "rows")],
             path,
         )?;
-        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceBlock {
@@ -2030,8 +2064,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_model::reference_exchange::ReferenceBlock as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceBlock as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceBlock as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceBlock as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "content"), (2, "schema"), (3, "rows")],
             path,
@@ -2041,7 +2075,9 @@ impl NativeFrom<
             native_from::<_, Vec<u8>>(wire.schema, &child_path(path, "schema"))?,
             native_from::<_, u64>(wire.rows, &child_path(path, "rows"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2056,8 +2092,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceCaseContract as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceCaseContract as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "version"),
@@ -2069,7 +2105,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract {
@@ -2143,8 +2179,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceCaseContract as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceCaseContract as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "version"),
@@ -2224,7 +2260,9 @@ impl NativeFrom<
                 from_items(values, current_path)?
             },
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2239,13 +2277,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::reference_state::ReferenceCondition as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::reference_state::ReferenceCondition as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::reference_state::ReferenceCondition as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::reference_state::ReferenceCondition as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "value"), (2, "quantity_type"), (3, "unit")],
             path,
         )?;
-        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCondition {
@@ -2274,8 +2312,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::reference_state::ReferenceCondition as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::reference_state::ReferenceCondition as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::reference_state::ReferenceCondition as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::reference_state::ReferenceCondition as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "value"), (2, "quantity_type"), (3, "unit")],
             path,
@@ -2300,7 +2338,9 @@ impl NativeFrom<
                 &child_path(path, "unit"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2315,13 +2355,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_model::reference_exchange::ReferenceEnvelope as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceEnvelope as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceEnvelope as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceEnvelope as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "version"), (2, "meaning"), (3, "required"), (4, "outcome")],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope {
@@ -2364,8 +2404,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_model::reference_exchange::ReferenceEnvelope as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceEnvelope as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceEnvelope as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceEnvelope as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "version"), (2, "meaning"), (3, "required"), (4, "outcome")],
             path,
@@ -2404,7 +2444,9 @@ impl NativeFrom<
                 &child_path(path, "outcome"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2419,13 +2461,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceFixedInput as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceFixedInput as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "key"), (2, "value"), (3, "physical")],
             path,
         )?;
-        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput {
@@ -2449,8 +2491,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceFixedInput as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceFixedInput as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "key"), (2, "value"), (3, "physical")],
             path,
@@ -2466,7 +2508,9 @@ impl NativeFrom<
                 &child_path(path, "physical"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2481,13 +2525,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceInputArtifact as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceInputArtifact as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "path"), (2, "sha256")],
             path,
         )?;
-        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact {
@@ -2505,8 +2549,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceInputArtifact as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceInputArtifact as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "path"), (2, "sha256")],
             path,
@@ -2515,7 +2559,9 @@ impl NativeFrom<
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             native_from::<_, Vec<u8>>(wire.sha256, &child_path(path, "sha256"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2530,8 +2576,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_model::reference_exchange::ReferenceMeaning as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceMeaning as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceMeaning as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceMeaning as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "case"),
@@ -2542,7 +2588,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning {
@@ -2569,8 +2615,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_model::reference_exchange::ReferenceMeaning as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceMeaning as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceMeaning as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceMeaning as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "case"),
@@ -2594,7 +2640,9 @@ impl NativeFrom<
                 Vec<u8>,
             >(wire.configuration, &child_path(path, "configuration"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2609,8 +2657,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_model::reference_exchange::ReferenceObservable as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceObservable as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceObservable as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceObservable as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -2622,7 +2670,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservable {
@@ -2652,8 +2700,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_model::reference_exchange::ReferenceObservable as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::reference_exchange::ReferenceObservable as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceObservable as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceObservable as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -2683,7 +2731,9 @@ impl NativeFrom<
                 .transpose()?,
             native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2698,13 +2748,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceObservableContract as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceObservableContract as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "output"), (2, "key"), (3, "physical")],
             path,
         )?;
-        let (field_0, field_1, field_2) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract {
@@ -2728,8 +2778,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceObservableContract as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceObservableContract as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "output"), (2, "key"), (3, "physical")],
             path,
@@ -2745,7 +2795,9 @@ impl NativeFrom<
                 &child_path(path, "physical"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -2761,17 +2813,17 @@ impl NativeInto<
     > {
         let value = self;
         layout(
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "outputs"), (2, "blocks")],
             path,
         )?;
-        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok((field_0, field_1)) => {
@@ -2819,17 +2871,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "code"), (2, "stage")],
             path,
         )?;
-        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok((field_0, field_1)) => {
@@ -2857,17 +2909,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::VERSION,
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
             3,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -2891,17 +2943,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::VERSION,
-            <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+            <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+        let value = match <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
             4,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -2956,10 +3008,10 @@ impl NativeFrom<
                 let path = alternative_path.as_str();
                 let wire = *wire;
                 layout(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -3003,7 +3055,7 @@ impl NativeFrom<
                     },
                 );
                 Ok(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
@@ -3015,10 +3067,10 @@ impl NativeFrom<
                 let path = alternative_path.as_str();
                 let wire = *wire;
                 layout(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -3030,7 +3082,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.stage, &child_path(path, "stage"))?,
                 );
                 Ok(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
@@ -3042,10 +3094,10 @@ impl NativeFrom<
                 let path = alternative_path.as_str();
                 let wire = *wire;
                 layout(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::VERSION,
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
@@ -3056,7 +3108,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::from_projection_alternative(fields),
                 )
@@ -3068,10 +3120,10 @@ impl NativeFrom<
                 let path = alternative_path.as_str();
                 let wire = *wire;
                 layout(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::VERSION,
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::FIELD_LAYOUT,
                     1,
@@ -3082,7 +3134,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <pse_model::reference_exchange::ReferenceOutcome as pse_model::boundary_projection::ProjectionAlternative<
+                    <pse_model::reference_exchange::ReferenceOutcome as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::from_projection_alternative(fields),
                 )
@@ -3101,8 +3153,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::reference_state::ReferenceState as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::reference_state::ReferenceState as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::reference_state::ReferenceState as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::reference_state::ReferenceState as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -3115,7 +3167,7 @@ impl NativeInto<
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceState {
@@ -3175,8 +3227,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::reference_state::ReferenceState as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::reference_state::ReferenceState as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::reference_state::ReferenceState as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::reference_state::ReferenceState as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -3243,7 +3295,9 @@ impl NativeFrom<
                 })
                 .transpose()?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -3258,13 +3312,13 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <pse_quantity::ids::ReferenceStateId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::ReferenceStateId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::ReferenceStateId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::ReferenceStateId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceStateId {
@@ -3281,8 +3335,8 @@ impl NativeFrom<
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::ids::ReferenceStateId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::ReferenceStateId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::ReferenceStateId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::ReferenceStateId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
@@ -3293,7 +3347,9 @@ impl NativeFrom<
                 Vec<u8>,
             >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -3369,13 +3425,13 @@ for pse_quantity::unit::UnitFactor {
         AdapterError,
     > {
         layout(
-            <pse_quantity::unit::UnitFactor as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::unit::UnitFactor as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::unit::UnitFactor as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::unit::UnitFactor as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "unit"), (2, "exponent")],
             path,
         )?;
-        let (field_0, field_1) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::UnitFactor {
@@ -3402,8 +3458,8 @@ for pse_quantity::unit::UnitFactor {
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::unit::UnitFactor as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::unit::UnitFactor as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::unit::UnitFactor as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::unit::UnitFactor as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "unit"), (2, "exponent")],
             path,
@@ -3424,7 +3480,9 @@ for pse_quantity::unit::UnitFactor {
                 &child_path(path, "exponent"),
             )?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }
@@ -3438,13 +3496,13 @@ for pse_quantity::ids::UnitId {
         AdapterError,
     > {
         layout(
-            <pse_quantity::ids::UnitId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::UnitId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::UnitId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::UnitId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
         )?;
-        let (field_0,) = pse_model::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::reference_exchange::generated::pb::pse::reference::v1::UnitId {
@@ -3460,8 +3518,8 @@ for pse_quantity::ids::UnitId {
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <pse_quantity::ids::UnitId as pse_model::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_quantity::ids::UnitId as pse_model::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::ids::UnitId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::ids::UnitId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id")],
             path,
@@ -3472,7 +3530,9 @@ for pse_quantity::ids::UnitId {
                 Vec<u8>,
             >(required(wire.id, &child_path(path, "id"))?, &child_path(path, "id"))?,
         );
-        pse_model::boundary_projection::ProjectionRecord::from_projection_fields(fields)
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
             .map_err(|error| error.at(path))
     }
 }

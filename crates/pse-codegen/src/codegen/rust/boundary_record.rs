@@ -61,7 +61,7 @@ pub(super) fn render(
         if let Some(range) = IntegerRange::from_field(column.field())? {
             let (min, max) = (range.minimum, range.maximum);
             rules.push(
-                quote!(crate::boundary_projection::LocalRule::SignedRange { min: #min, max: #max }),
+                quote!(pse_contract::boundary_projection::LocalRule::SignedRange { min: #min, max: #max }),
             );
         }
         if let Some(collection) = CollectionContract::from_field(column.field())?
@@ -76,7 +76,7 @@ pub(super) fn render(
                 .map_err(|error| super::error(error.to_string()))?
                 .unwrap_or(u64::MAX);
             rules.push(
-                quote!(crate::boundary_projection::LocalRule::Length { min: #min, max: #max }),
+                quote!(pse_contract::boundary_projection::LocalRule::Length { min: #min, max: #max }),
             );
         }
         field_rules.push(!rules.is_empty());
@@ -89,8 +89,8 @@ pub(super) fn render(
             .map(|(key, value)| quote!((#key.into(), #value.into())))
             .collect::<Vec<_>>();
         definitions.push(
-            quote!(crate::boundary_projection::Field::of::<#ty>(graph, #field_name, #number,
-            crate::boundary_projection::Direction::#direction, vec![#(#rules),*])?
+            quote!(pse_contract::boundary_projection::Field::of::<#ty>(graph, #field_name, #number,
+            pse_contract::boundary_projection::Direction::#direction, vec![#(#rules),*])?
             .with_named_facets(std::collections::BTreeMap::from([#(#facets),*]))),
         );
         layout.push(quote!((#number, #field_name)));
@@ -98,30 +98,30 @@ pub(super) fn render(
         types.push(ty);
         let field = super::types::ident(field_name);
         recursive.push(
-            quote!(crate::boundary_projection::validate_field(&self.#field,
-            &crate::boundary_projection::field_path(path, #field_name), &[#(#rules),*])?;),
+            quote!(pse_contract::boundary_projection::validate_field(&self.#field,
+            &pse_contract::boundary_projection::field_path(path, #field_name), &[#(#rules),*])?;),
         );
     }
     Ok(quote! {
-        impl crate::boundary_projection::ProjectionType for #row {
-            fn projection(graph: &mut crate::boundary_projection::ProjectionGraph)
-                -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError> {
+        impl pse_contract::boundary_projection::ProjectionType for #row {
+            fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph)
+                -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
                 graph.declare::<Self>(#name, #source, #version,
-                    crate::boundary_projection::Direction::#direction, &[#(#reserved_tags),*], &[#(#reserved_names),*],
-                    |graph| Ok(crate::boundary_projection::Shape::Record(vec![#(#definitions),*])))
+                    pse_contract::boundary_projection::Direction::#direction, &[#(#reserved_tags),*], &[#(#reserved_names),*],
+                    |graph| Ok(pse_contract::boundary_projection::Shape::Record(vec![#(#definitions),*])))
             }
         }
-        impl crate::boundary_projection::ProjectionRecord for #row {
+        impl pse_contract::boundary_projection::ProjectionRecord for #row {
             const VERSION: u32 = #version;
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[#(#layout),*];
             type Fields = (#(#types,)*);
             fn into_projection_fields(self) -> Self::Fields { (#(self.#names,)*) }
             fn from_projection_fields((#(#names,)*): Self::Fields)
-                -> Result<Self, crate::boundary_projection::AdapterError> { Ok(Self { #(#names,)* }) }
+                -> Result<Self, pse_contract::boundary_projection::AdapterError> { Ok(Self { #(#names,)* }) }
         }
-        impl crate::boundary_projection::ValidateProjection for #row {
-            const NEEDS_RECURSIVE_VALIDATION: bool = false #(|| #field_rules || <#types as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*;
-            fn validate_at(&self, path: &str) -> Result<(), crate::boundary_projection::ValidationError> {
+        impl pse_contract::boundary_projection::ValidateProjection for #row {
+            const NEEDS_RECURSIVE_VALIDATION: bool = false #(|| #field_rules || <#types as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*;
+            fn validate_at(&self, path: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
                 if Self::NEEDS_RECURSIVE_VALIDATION { #(#recursive)* }
                 Ok(())
             }

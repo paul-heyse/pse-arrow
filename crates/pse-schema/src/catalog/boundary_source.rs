@@ -23,7 +23,7 @@ pub(super) fn present(
     layouts: &[RecordLayout],
 ) -> Result<RelationDecl, SchemaError> {
     let version = declaration.key.version;
-    let direction = pse_vocabulary::BoundaryDirection::Both;
+    let direction = pse_contract::BoundaryDirection::Both;
     let mut used = BTreeSet::new();
     declaration.columns = fields(declaration.columns, "", source, version, layouts, &mut used)?;
     if used.len() != layouts.len() {
@@ -145,7 +145,7 @@ fn annotate(
             ));
             let presentation = layout(layouts, &path)?;
             let shape =
-                BoundaryShape::native(source, version, pse_vocabulary::BoundaryDirection::Both)
+                BoundaryShape::native(source, version, pse_contract::BoundaryDirection::Both)
                     .alternatives(
                         presentation
                             .alternatives
@@ -263,7 +263,7 @@ mod tests {
             present(original.clone(), file!(), "ActualSource", &[ROOT, PAYLOAD]).unwrap();
         assert_eq!(
             projected.boundary.unwrap().direction,
-            pse_vocabulary::BoundaryDirection::Both
+            pse_contract::BoundaryDirection::Both
         );
         assert_eq!(
             projected
@@ -401,7 +401,7 @@ mod tests {
             let boundary = row.boundary.unwrap();
             assert_eq!(
                 (boundary.name, boundary.version, boundary.direction),
-                (native, version, pse_vocabulary::BoundaryDirection::Both)
+                (native, version, pse_contract::BoundaryDirection::Both)
             );
             let mut fields = Vec::new();
             for field in &row.columns {
@@ -410,7 +410,7 @@ mod tests {
             for field in fields {
                 if matches!(field.data_type(), DataType::Struct(_)) && field.extension().is_none() {
                     let shape = BoundaryShape::from_field(field.field()).unwrap().unwrap();
-                    assert_eq!(shape.direction, pse_vocabulary::BoundaryDirection::Both);
+                    assert_eq!(shape.direction, pse_contract::BoundaryDirection::Both);
                 }
             }
         }

@@ -58,7 +58,7 @@ pub fn declared_policy(
 pub use pse_model::generated::enums::ModelingFactNamespace as FactNamespace;
 use std::collections::BTreeMap;
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// A reserved fact. Every member of a namespace is a variant, so an undeclared fact is
 /// unrepresentable rather than refused by its spelling.
 #[derive(
@@ -75,7 +75,7 @@ pse_model::projection_enum! {
 )]
 #[serde(deny_unknown_fields)]
 pub enum Fact {
-    projection: { name: "ModelingFact", version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    projection: { name: "ModelingFact", version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// The selected analysis route, a [`Route`] member.
     Route => 1;
     /// Whether the route integrates in time; always derived from the route.

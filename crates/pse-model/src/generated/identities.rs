@@ -68,12 +68,12 @@ pse_ids::semantic_id_newtype! {
 }
 ///A registered representation unit (entity identity `unit`, ADR-0115).
 pub type UnitId = pse_quantity::UnitId;
-impl crate::boundary_projection::ProjectionType for AccuracyGoalId {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyGoalId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -82,21 +82,21 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalId {
                 stringify!(AccuracyGoalId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -105,18 +105,18 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyGoalId {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyGoalId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for AccuracyGoalId {
+impl pse_contract::boundary_projection::ProjectionRecord for AccuracyGoalId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -125,7 +125,7 @@ impl crate::boundary_projection::ProjectionRecord for AccuracyGoalId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -144,12 +144,12 @@ impl crate::SemanticFrame for AccuracyGoalId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for AttemptId {
+impl pse_contract::boundary_projection::ProjectionType for AttemptId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -158,21 +158,21 @@ impl crate::boundary_projection::ProjectionType for AttemptId {
                 stringify!(AttemptId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -181,18 +181,18 @@ impl crate::boundary_projection::ProjectionType for AttemptId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AttemptId {
+impl pse_contract::boundary_projection::ValidateProjection for AttemptId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for AttemptId {
+impl pse_contract::boundary_projection::ProjectionRecord for AttemptId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -201,7 +201,7 @@ impl crate::boundary_projection::ProjectionRecord for AttemptId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -235,12 +235,12 @@ impl crate::SemanticFrame for BasisId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for DeclarationId {
+impl pse_contract::boundary_projection::ProjectionType for DeclarationId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -249,21 +249,21 @@ impl crate::boundary_projection::ProjectionType for DeclarationId {
                 stringify!(DeclarationId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -272,18 +272,18 @@ impl crate::boundary_projection::ProjectionType for DeclarationId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DeclarationId {
+impl pse_contract::boundary_projection::ValidateProjection for DeclarationId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for DeclarationId {
+impl pse_contract::boundary_projection::ProjectionRecord for DeclarationId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -292,7 +292,7 @@ impl crate::boundary_projection::ProjectionRecord for DeclarationId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -311,12 +311,12 @@ impl crate::SemanticFrame for DeclarationId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for EngineeringRuleId {
+impl pse_contract::boundary_projection::ProjectionType for EngineeringRuleId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -325,21 +325,21 @@ impl crate::boundary_projection::ProjectionType for EngineeringRuleId {
                 stringify!(EngineeringRuleId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -348,18 +348,18 @@ impl crate::boundary_projection::ProjectionType for EngineeringRuleId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EngineeringRuleId {
+impl pse_contract::boundary_projection::ValidateProjection for EngineeringRuleId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for EngineeringRuleId {
+impl pse_contract::boundary_projection::ProjectionRecord for EngineeringRuleId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -368,7 +368,7 @@ impl crate::boundary_projection::ProjectionRecord for EngineeringRuleId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -387,12 +387,12 @@ impl crate::SemanticFrame for EngineeringRuleId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for EngineeringScaleId {
+impl pse_contract::boundary_projection::ProjectionType for EngineeringScaleId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -401,21 +401,21 @@ impl crate::boundary_projection::ProjectionType for EngineeringScaleId {
                 stringify!(EngineeringScaleId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -424,18 +424,18 @@ impl crate::boundary_projection::ProjectionType for EngineeringScaleId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EngineeringScaleId {
+impl pse_contract::boundary_projection::ValidateProjection for EngineeringScaleId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for EngineeringScaleId {
+impl pse_contract::boundary_projection::ProjectionRecord for EngineeringScaleId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -444,7 +444,7 @@ impl crate::boundary_projection::ProjectionRecord for EngineeringScaleId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -478,12 +478,12 @@ impl crate::SemanticFrame for EntityKindId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for FitId {
+impl pse_contract::boundary_projection::ProjectionType for FitId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -492,21 +492,21 @@ impl crate::boundary_projection::ProjectionType for FitId {
                 stringify!(FitId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -515,18 +515,18 @@ impl crate::boundary_projection::ProjectionType for FitId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for FitId {
+impl pse_contract::boundary_projection::ValidateProjection for FitId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for FitId {
+impl pse_contract::boundary_projection::ProjectionRecord for FitId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -535,7 +535,7 @@ impl crate::boundary_projection::ProjectionRecord for FitId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -554,12 +554,12 @@ impl crate::SemanticFrame for FitId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for InstanceId {
+impl pse_contract::boundary_projection::ProjectionType for InstanceId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -568,21 +568,21 @@ impl crate::boundary_projection::ProjectionType for InstanceId {
                 stringify!(InstanceId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -591,18 +591,18 @@ impl crate::boundary_projection::ProjectionType for InstanceId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for InstanceId {
+impl pse_contract::boundary_projection::ValidateProjection for InstanceId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for InstanceId {
+impl pse_contract::boundary_projection::ProjectionRecord for InstanceId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -611,7 +611,7 @@ impl crate::boundary_projection::ProjectionRecord for InstanceId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -630,12 +630,12 @@ impl crate::SemanticFrame for InstanceId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for PackageId {
+impl pse_contract::boundary_projection::ProjectionType for PackageId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -644,21 +644,21 @@ impl crate::boundary_projection::ProjectionType for PackageId {
                 stringify!(PackageId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -667,18 +667,18 @@ impl crate::boundary_projection::ProjectionType for PackageId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PackageId {
+impl pse_contract::boundary_projection::ValidateProjection for PackageId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for PackageId {
+impl pse_contract::boundary_projection::ProjectionRecord for PackageId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -687,7 +687,7 @@ impl crate::boundary_projection::ProjectionRecord for PackageId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -751,12 +751,12 @@ impl crate::SemanticFrame for ReferenceStateId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for RunId {
+impl pse_contract::boundary_projection::ProjectionType for RunId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -765,21 +765,21 @@ impl crate::boundary_projection::ProjectionType for RunId {
                 stringify!(RunId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -788,18 +788,18 @@ impl crate::boundary_projection::ProjectionType for RunId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for RunId {
+impl pse_contract::boundary_projection::ValidateProjection for RunId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for RunId {
+impl pse_contract::boundary_projection::ProjectionRecord for RunId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -808,7 +808,7 @@ impl crate::boundary_projection::ProjectionRecord for RunId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -827,12 +827,12 @@ impl crate::SemanticFrame for RunId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for SolutionId {
+impl pse_contract::boundary_projection::ProjectionType for SolutionId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -841,21 +841,21 @@ impl crate::boundary_projection::ProjectionType for SolutionId {
                 stringify!(SolutionId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -864,18 +864,18 @@ impl crate::boundary_projection::ProjectionType for SolutionId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for SolutionId {
+impl pse_contract::boundary_projection::ValidateProjection for SolutionId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for SolutionId {
+impl pse_contract::boundary_projection::ProjectionRecord for SolutionId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -884,7 +884,7 @@ impl crate::boundary_projection::ProjectionRecord for SolutionId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }
@@ -903,12 +903,12 @@ impl crate::SemanticFrame for SolutionId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
-impl crate::boundary_projection::ProjectionType for StudyId {
+impl pse_contract::boundary_projection::ProjectionType for StudyId {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -917,21 +917,21 @@ impl crate::boundary_projection::ProjectionType for StudyId {
                 stringify!(StudyId),
                 file!(),
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        crate::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                crate::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     pse_ids::SemanticId,
                                 >(
                                     graph,
                                     "id",
                                     1,
-                                    crate::boundary_projection::Direction::Both,
-                                    vec![crate::boundary_projection::LocalRule::Required],
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![pse_contract::boundary_projection::LocalRule::Required],
                                 )?,
                             ],
                         ),
@@ -940,18 +940,18 @@ impl crate::boundary_projection::ProjectionType for StudyId {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyId {
+impl pse_contract::boundary_projection::ValidateProjection for StudyId {
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
     fn projection_length(&self) -> Option<usize> {
         Some(<pse_ids::SemanticId>::WIDTH)
     }
 }
-impl crate::boundary_projection::ProjectionRecord for StudyId {
+impl pse_contract::boundary_projection::ProjectionRecord for StudyId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::SemanticId,);
@@ -960,7 +960,7 @@ impl crate::boundary_projection::ProjectionRecord for StudyId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self::from_id(id))
     }
 }

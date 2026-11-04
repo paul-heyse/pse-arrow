@@ -10,36 +10,36 @@ use crate::{
 };
 pub use pse_model::generated::runtime::canonical_project_contexts::Row as ProjectContext;
 use surrealdb_types::Object;
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact project journal position; never a source revision sequence or wall clock.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct ContextCut {
-    projection: { name: "CanonicalContextCut", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "CanonicalContextCut", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Issuing canonical database identity.
-    pub issuing_store: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub issuing_store: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Stable project identity.
-    pub project: pse_model::generated::canonical::ProjectKey => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub project: pse_model::generated::canonical::ProjectKey => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Last included journal position.
-    pub sequence: u64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub sequence: u64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Complete frozen selection. Deserializing this document grants no source authority.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ContextSelection {
-    projection: { name: "CanonicalContextSelection", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "CanonicalContextSelection", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Original recorded cut.
-    pub cut: ContextCut => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub cut: ContextCut => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// UTC instant in signed microseconds since the Unix epoch.
-    pub effective_at_us: i64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub effective_at_us: i64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original immutable selected source descriptor.
-    pub context: ProjectContext => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub context: ProjectContext => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl Eq for ContextSelection {}

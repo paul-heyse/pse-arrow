@@ -3,7 +3,7 @@
 //! Refuse unsupported native meaning without discarding retained future binary fields.
 
 use buffa_descriptor::reflect::{ReflectMessage, ValueRef};
-use pse_model::boundary_projection::{AdapterError, AdapterFailure};
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 
 pub(super) fn validate<M: ReflectMessage + protovalidate_buffa::Validate>(
     message: &M,
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn operation_extent_is_the_same_utf8_byte_rule_for_native_and_wire_owners() {
-        use pse_model::boundary_projection::ValidateProjection as _;
+        use pse_contract::boundary_projection::ValidateProjection as _;
         for (count, accepted) in [(64, true), (65, false)] {
             let operation = "é".repeat(count);
             let native = pse_model::engineering::EngineeringOperationKey {

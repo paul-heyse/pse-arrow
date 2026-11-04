@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 //! Owned progress observations preserve integral counters, unavailable evidence and provenance.
 use pse_backend_native::solve::{Event, IncumbentEvent, Metric};
-use pse_model::boundary_projection::Direction;
+use pse_contract::boundary_projection::Direction;
 use pse_model::diagnostic::Observation;
 use std::collections::BTreeMap;
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Original ordinary telemetry coverage, independent of scientific completion.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -40,7 +40,7 @@ impl Default for ProgressCoverage {
     }
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Bounded optional writer outcome; none of these authorizes scientific interruption.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -65,7 +65,7 @@ pub enum ProgressWriterOutcome {
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Original bounded failure of the optional progress writer.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -79,7 +79,7 @@ pub struct ProgressWriterFailure {
 }
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Optional writer failure boundary; queued unacknowledged events remain uncertain.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -144,7 +144,7 @@ pub(crate) fn bounded_event(event: &Event, maximum: usize) -> bool {
     true
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Portable observation of one native metric, independent of its backend-specific key.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -190,7 +190,7 @@ impl From<&Metric> for ProgressMetricDocument {
         }
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// An incumbent in original objective units and its retained native search evidence.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -223,7 +223,7 @@ impl From<&IncumbentEvent> for IncumbentDocument {
         }
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// An owned event from memory or from a durable attempt's selected stream.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -279,7 +279,7 @@ impl From<&Event> for ProgressEventDocument {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Current source checkpoint and independent issued-event coverage. Reading it never
 /// retains a run's cancellation lease or reconstructs a numerical event from metrics.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

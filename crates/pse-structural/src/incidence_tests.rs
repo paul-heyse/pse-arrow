@@ -5,7 +5,7 @@ use pounce_presolve::matching::{BipartiteMatching, hopcroft_karp};
 #[test]
 fn block_projection_preserves_the_opaque_source_scoped_hash() {
     use crate::incidence::BlockId;
-    use pse_model::boundary_projection::{ProjectionGraph, ProjectionRecord, Shape};
+    use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, Shape};
     let hash = pse_ids::ContentHash::from_bytes([0x21; 32]);
     let block = BlockId::from_projection_fields((hash,)).unwrap();
     assert_eq!(block.into_projection_fields(), (hash,));

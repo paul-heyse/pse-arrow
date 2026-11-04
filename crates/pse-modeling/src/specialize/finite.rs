@@ -14,37 +14,37 @@ use std::{
     sync::Arc,
 };
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One declared finite family in an actual instance and outer coordinate context.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct FamilyKey {
     projection: { name: "ModelingFamilyKey", rust_path: crate::specialize::finite::FamilyKey,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output,
         reserved_tags: [], reserved_names: [] };
     /// Actual definition instance, kept outside reusable body identities.
-    pub instance: InstanceId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub instance: InstanceId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original owning declaration.
-    pub declaration: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub declaration: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact generated source field role of this family.
-    pub role: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub role: String => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Enclosing coordinates in declared order, before this family's own binders.
-    pub parents: Vec<Value> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub parents: Vec<Value> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One actual ragged axis occurrence, after its preceding coordinates have been selected.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct DomainKey {
     projection: { name: "ModelingDomainKey", rust_path: crate::specialize::finite::DomainKey,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output,
         reserved_tags: [], reserved_names: [] };
     /// Declared finite family.
-    pub family: FamilyKey => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub family: FamilyKey => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Axis position in declared order.
-    pub position: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub position: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// This family's earlier selected coordinates, preserving actual ragged context.
-    pub prefix: Vec<Value> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub prefix: Vec<Value> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 impl DomainKey {

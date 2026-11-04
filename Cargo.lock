@@ -8090,6 +8090,7 @@ dependencies = [
  "pounce-qp",
  "pounce-rs",
  "pounce-sens-core",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-ipopt-sys",
@@ -8179,6 +8180,7 @@ dependencies = [
  "proc-macro2",
  "protovalidate-buffa-protos",
  "pse-columnar",
+ "pse-contract",
  "pse-ids",
  "pse-model",
  "pse-quantity",
@@ -8223,6 +8225,7 @@ dependencies = [
  "once_cell",
  "petgraph",
  "pse-authoring",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-kernels",
@@ -8241,6 +8244,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pse-contract"
+version = "0.0.1"
+dependencies = [
+ "miette",
+ "schemars",
+ "serde",
+ "serde_json",
+ "strum",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "pse-diagnostics"
 version = "0.0.1"
 dependencies = [
@@ -8250,6 +8265,7 @@ dependencies = [
  "miette",
  "pin-project-lite",
  "procfs-core",
+ "pse-contract",
  "rustix 1.1.5",
  "schemars",
  "serde",
@@ -8385,6 +8401,7 @@ dependencies = [
  "blake3",
  "hex",
  "proptest",
+ "pse-contract",
  "pse-diagnostics",
  "schemars",
  "serde",
@@ -8407,6 +8424,7 @@ version = "0.0.1"
 dependencies = [
  "enum-map",
  "miette",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
@@ -8428,6 +8446,7 @@ dependencies = [
  "pounce-nlp",
  "pounce-presolve",
  "proptest",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-kernels",
@@ -8455,6 +8474,7 @@ dependencies = [
  "miette",
  "nutype",
  "petgraph",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-quantity",
@@ -8473,6 +8493,7 @@ version = "0.0.1"
 dependencies = [
  "petgraph",
  "pse-authoring",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
@@ -8510,6 +8531,7 @@ dependencies = [
  "pse-buildinfo",
  "pse-codegen",
  "pse-columnar",
+ "pse-contract",
  "pse-diagnostics",
  "pse-engine",
  "pse-host",
@@ -8555,6 +8577,7 @@ name = "pse-quantity"
 version = "0.0.1"
 dependencies = [
  "proptest",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-vocabulary",
@@ -8660,6 +8683,7 @@ dependencies = [
  "pse-buildinfo",
  "pse-columnar",
  "pse-compiler",
+ "pse-contract",
  "pse-diagnostics",
  "pse-engine",
  "pse-host",
@@ -8714,6 +8738,7 @@ dependencies = [
  "datafusion-common",
  "hex",
  "pse-columnar",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-quantity",
@@ -8730,6 +8755,7 @@ version = "0.0.1"
 dependencies = [
  "petgraph",
  "pounce-presolve",
+ "pse-contract",
  "pse-diagnostics",
  "pse-ids",
  "pse-kernels",
@@ -13391,6 +13417,7 @@ dependencies = [
  "pse-buildinfo",
  "pse-codegen",
  "pse-columnar",
+ "pse-contract",
  "pse-diagnostics",
  "pse-engine",
  "pse-ids",

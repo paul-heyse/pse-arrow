@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::*;
-use pse_model::boundary_projection::{
+use pse_contract::boundary_projection::{
     AdapterError, ProjectionError, ProjectionObservationRecord, ProjectionType,
 };
 
@@ -34,8 +34,8 @@ impl ProjectionObservationRecord for NativeObservation {
     }
 }
 
-impl pse_model::boundary_projection::ValidateProjection for NativeObservation {
-    fn validate_at(&self, _: &str) -> Result<(), pse_model::boundary_projection::ValidationError> {
+impl pse_contract::boundary_projection::ValidateProjection for NativeObservation {
+    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared structure for independent comparisons; expected answers stay external.
-use crate::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
+use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_ids::{ContentHash, SemanticId};
 
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Complete scientific interpretation of the independently constructed case.
     pub struct ReferenceMeaning {
@@ -21,7 +21,7 @@ crate::projection_struct! {
         pub configuration: ContentHash => { tag: 5, direction: Direction::Both, rules: [] };
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     /// Original scalar observation and its physical correspondence.
     pub struct ReferenceObservable {
@@ -40,7 +40,7 @@ crate::projection_struct! {
         pub value: f64 => { tag: 6, direction: Direction::Both, rules: [] };
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Retained columnar block; acquired data needs an independent block comparator.
     pub struct ReferenceBlock {
@@ -53,7 +53,7 @@ crate::projection_struct! {
         pub rows: u64 => { tag: 3, direction: Direction::Both, rules: [] };
     }
 }
-crate::projection_enum! {
+pse_contract::projection_enum! {
     #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     /// Different completion states retain their distinct evidence meanings.
     pub enum ReferenceOutcome {
@@ -78,7 +78,7 @@ crate::projection_enum! {
         NotRun(String) => 4;
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
     /// Shared structure independent of numerical answer construction.
     pub struct ReferenceEnvelope {

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use pse_model::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
 
 /// A typed crossing refusal, preserving validator compilation/evaluation and rule failures.
 #[derive(Debug, thiserror::Error)]
@@ -20,7 +20,7 @@ pub enum BoundaryProjectionError {
     WireValidation(#[from] protovalidate_buffa::ValidationError),
     /// An outgoing native producer violated its shared local envelope.
     #[error("outgoing native projection: {0}")]
-    OutgoingNative(#[source] pse_model::boundary_projection::ValidationError),
+    OutgoingNative(#[source] pse_contract::boundary_projection::ValidationError),
     /// An outgoing mapping could not preserve its actual native meaning.
     #[error("outgoing native adoption: {0}")]
     OutgoingAdoption(#[source] AdapterError),
@@ -68,7 +68,7 @@ pub(crate) fn native_from<N: NativeFrom<W>, W>(value: W, path: &str) -> Result<N
     N::from_wire(value, path)
 }
 pub(crate) fn child_path(parent: &str, field: &str) -> String {
-    pse_model::boundary_projection::field_path(parent, field)
+    pse_contract::boundary_projection::field_path(parent, field)
 }
 pub(crate) fn refused(path: &str, kind: AdapterFailure, reason: &str) -> AdapterError {
     AdapterError::refused(path, kind, reason)

@@ -31,7 +31,7 @@ fn descriptor(n: usize, m: usize) -> ProviderSpec {
 
 #[test]
 fn provider_extent_projection_preserves_native_limits_and_refusal_categories() {
-    use pse_model::boundary_projection::ValidateProjection;
+    use pse_contract::boundary_projection::ValidateProjection;
 
     let registry = pse_quantity::standard::standard_registry().unwrap();
     let mut spec = descriptor(MAXIMUM_SCALAR_PORTS, MINIMUM_PROVIDER_OUTPUTS);

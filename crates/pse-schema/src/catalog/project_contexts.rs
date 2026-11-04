@@ -112,7 +112,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                     source: file!(),
                     name: "CanonicalProjectContext",
                     version: 1,
-                    direction: pse_vocabulary::BoundaryDirection::Both,
+                    direction: pse_contract::BoundaryDirection::Both,
                     reserved_tags: &[],
                     reserved_names: &[],
                 }),

@@ -1453,7 +1453,7 @@ fn declare_physical_boundary(b: &mut RegistryBuilder) {
     .with_boundary_shape(crate::model::BoundaryShape::native(
         file!(),
         1,
-        pse_vocabulary::BoundaryDirection::Both,
+        pse_contract::BoundaryDirection::Both,
     ));
     relation(
         b,

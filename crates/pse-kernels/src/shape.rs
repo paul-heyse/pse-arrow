@@ -8,47 +8,47 @@ const MAXIMUM_LOGICAL_PORTS: usize = 4096;
 const MINIMUM_SHAPE_AXES: usize = 1;
 const MAXIMUM_SHAPE_AXES: usize = 16;
 const MAXIMUM_SHAPE_CELLS: usize = MAXIMUM_SCALAR_PORTS;
-const LOGICAL_PORTS_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const LOGICAL_PORTS_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: 0,
         max: MAXIMUM_LOGICAL_PORTS as u64,
     };
-const SHAPE_AXES_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const SHAPE_AXES_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: MINIMUM_SHAPE_AXES as u64,
         max: MAXIMUM_SHAPE_AXES as u64,
     };
-const SHAPE_CELLS_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const SHAPE_CELLS_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: 0,
         max: MAXIMUM_SHAPE_CELLS as u64,
     };
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One logical argument or result array. Sparse or ragged coordinates are explicit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProviderShape {
     projection: { name: "KernelProviderShape", rust_path: crate::ProviderShape,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Semantic logical argument/result identity.
-    pub id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Ordered domain identities.
-    pub axes: Vec<SemanticId> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [SHAPE_AXES_RULE] };
+    pub axes: Vec<SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [SHAPE_AXES_RULE] };
     /// Ordered coordinate tuples; no membership is inferred from observed values.
-    pub coordinates: Vec<Vec<SemanticId>> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [SHAPE_CELLS_RULE] };
+    pub coordinates: Vec<Vec<SemanticId>> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [SHAPE_CELLS_RULE] };
     /// Scalar port IDs in coordinate order.
-    pub cells: Vec<SemanticId> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [SHAPE_CELLS_RULE] };
+    pub cells: Vec<SemanticId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [SHAPE_CELLS_RULE] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Logical shape metadata; unlisted scalar ports retain their scalar meaning.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProviderShapes {
     projection: { name: "KernelProviderShapes", rust_path: crate::ProviderShapes,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Logical shapes over the provider's input ports.
-    pub inputs: Vec<ProviderShape> => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [LOGICAL_PORTS_RULE] };
+    pub inputs: Vec<ProviderShape> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [LOGICAL_PORTS_RULE] };
     /// Logical shapes over the provider's output ports.
-    pub outputs: Vec<ProviderShape> => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [LOGICAL_PORTS_RULE] };
+    pub outputs: Vec<ProviderShape> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [LOGICAL_PORTS_RULE] };
 }
 }
 impl ProviderShapes {
@@ -135,7 +135,7 @@ impl ProviderShapes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_model::boundary_projection::ValidateProjection;
+    use pse_contract::boundary_projection::ValidateProjection;
 
     #[test]
     fn logical_shape_projection_preserves_native_limits_and_refusal_categories() {

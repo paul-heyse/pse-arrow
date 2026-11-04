@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn projected_scalar_domains_match_checked_constructors_for_exact_ieee_values() {
-        use crate::boundary_projection::{Float64Domain, ProjectionGraph, ProjectionRecord};
+        use pse_contract::boundary_projection::{Float64Domain, ProjectionGraph, ProjectionRecord};
         let samples = [
             0.0,
             -0.0,

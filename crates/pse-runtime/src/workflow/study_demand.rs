@@ -4,9 +4,9 @@
 //! Explicit occurrence detail. Original completion is mandatory in every mode.
 
 use super::{WorkflowError, contract};
-use pse_model::boundary_projection::{Direction, ValidateProjection as _};
+use pse_contract::boundary_projection::{Direction, ValidateProjection as _};
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Detail selected independently of the original completion and assessment.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -27,7 +27,7 @@ pub enum StudyOutputDemand {
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact named relations with a finite per-occurrence materialization allowance.
 /// Exceeding the allowance refuses detail capture; it never silently truncates rows.
 #[derive(
@@ -48,7 +48,7 @@ pub struct StudyDetailDemand {
 }
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Registry-typed scientific keys within an occurrence. Run identity is supplied
 /// by the original occurrence rather than accepted from a detail selector.
 #[derive(

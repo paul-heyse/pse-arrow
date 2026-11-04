@@ -58,32 +58,6 @@ fn float_collection_domains_preserve_absence_empty_values_and_both_signed_zeros(
 }
 
 #[test]
-fn floating_domain_refuses_record_resemblance_and_non_binary64_leaves() {
-    projection_struct! {
-        struct NotAnArray {
-            projection: { name: "NotAnArray", version: 1, direction: Direction::Both,
-                reserved_tags: [], reserved_names: [] };
-            values: Vec<f64> => { tag: 1, direction: Direction::Both, rules: [] };
-        }
-    }
-    let mut graph = ProjectionGraph::of::<NotAnArray>().unwrap();
-    let root = NotAnArray::projection(&mut graph).unwrap();
-    assert!(!float_collections::supports_float64_domain(
-        &root,
-        graph.definitions()
-    ));
-    assert!(
-        graph
-            .array_container::<f64, 2>(&root, TypeRef::Scalar(Scalar::F64Bits))
-            .is_err()
-    );
-    assert!(!float_collections::supports_float64_domain(
-        &TypeRef::Repeated(Box::new(TypeRef::Scalar(Scalar::U64))),
-        graph.definitions()
-    ));
-}
-
-#[test]
 fn source_nominal_float_domains_preserve_subtypes_and_strict_native_intervals() {
     const OPEN_UNIT: Float64Domain =
         Float64Domain::Interval(Float64Interval::new(0.0, false, 1.0, false));

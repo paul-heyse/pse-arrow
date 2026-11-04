@@ -3,7 +3,7 @@
 //! Public bounded study browsing and immutable cohort analysis over protected original results.
 use super::{RetainedDataServices, Runtime, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
-use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
+use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 pub use pse_operations::canonical_study_workbench::{
     CapturedStudyRow, StudyCohortMember, StudyWorkbenchFilter, StudyWorkbenchHeader,
 };
@@ -43,7 +43,7 @@ fn cohort_header_page_schema(schema: &mut schemars::Schema) {
 pub use pse_operations::canonical_control::{
     StudyWorkbenchCursor, StudyWorkbenchPage, StudyWorkbenchRequest,
 };
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One complete bounded population selected before any analytical payload work.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -60,7 +60,7 @@ pub struct StudyCohortRequest {
     pub maximum_members: usize => { tag: 3, direction: Direction::Both, rules: [COHORT_MEMBERS] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Historical acknowledgement of a complete native cut. Identifiers grant no read permission.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -81,7 +81,7 @@ pub struct StudyCohortReceipt {
     pub complete: bool => { tag: 6, direction: Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Capture-bound keyset continuation, never a floating membership selection.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -96,7 +96,7 @@ pub struct StudyCohortCursor {
     pub after: u64 => { tag: 3, direction: Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// An explicitly bounded page request against a live retained capture.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -110,7 +110,7 @@ pub struct StudyCohortPageRequest {
     pub cursor: Option<StudyCohortCursor> => { tag: 2, direction: Direction::Input, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// A finite compact header request against the original live capture.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -124,7 +124,7 @@ pub struct StudyCohortHeaderRequest {
     pub cursor: Option<StudyCohortCursor> => { tag: 2, direction: Direction::Input, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One bounded immutable header prefix with its actual retained allocation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -139,7 +139,7 @@ pub struct StudyCohortHeaderPage {
     #[serde(skip)]
     #[schemars(skip)]
     pub(super) _owner: Option<Arc<MemoryReservation>> = None
-        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+        => check: |_, _| Ok::<(), pse_contract::boundary_projection::ValidationError>(());
     }
 }
 }
@@ -150,7 +150,7 @@ impl StudyCohortHeaderPage {
         self._owner.clone()
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One bounded immutable occurrence prefix, including original unavailable facts.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -165,7 +165,7 @@ pub struct StudyCohortMemberPage {
     #[serde(skip)]
     #[schemars(skip)]
     pub(super) _owner: Option<Arc<MemoryReservation>> = None
-        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+        => check: |_, _| Ok::<(), pse_contract::boundary_projection::ValidationError>(());
     }
 }
 }
@@ -950,7 +950,7 @@ mod tests {
             .validate_projection()
             .unwrap_err();
             assert!(
-                matches!(error, pse_model::boundary_projection::ValidationError::Rule {
+                matches!(error, pse_contract::boundary_projection::ValidationError::Rule {
                 path, rule: "unsigned.range", ..
             } if path == "maximum")
             );

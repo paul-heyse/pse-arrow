@@ -62,7 +62,7 @@ mod tests {
         assert!(text.contains("37u32") || text.contains("37"));
         assert!(text.contains("pse.domain.fk.relation") && text.contains("reference.units"));
         assert!(text.contains("ProjectionRecord") && text.contains("Direction :: Output"));
-        assert!(text.contains("Result < Self , crate :: boundary_projection :: AdapterError >"));
+        assert!(text.contains("Result < Self , pse_contract :: boundary_projection :: AdapterError >"));
     }
 
     #[test]

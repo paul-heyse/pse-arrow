@@ -30,7 +30,7 @@ mod tests {
     /// Recursion here deliberately reaches a generic pair before this owner's
     /// graph definition exists. The source alias, rather than type_name fallback,
     /// is the information sufficient to name that exact pair's public Rust path.
-    pub enum RecursiveAliasFixture {
+    pub(crate) enum RecursiveAliasFixture {
         Leaf,
         Function(Vec<(String, RecursiveAliasFixture)>),
     }
@@ -84,7 +84,7 @@ mod tests {
         assert_eq!(
             pair.public_rust_path.as_deref(),
             Some(
-                "(String,pse_model::boundary_projection::public_alias_path::tests::RecursiveAliasFixture)"
+                "(String,pse_contract::boundary_projection::public_alias_path::tests::RecursiveAliasFixture)"
             )
         );
         assert_eq!(

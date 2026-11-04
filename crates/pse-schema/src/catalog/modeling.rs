@@ -57,7 +57,7 @@ pub(super) fn version_requirement() -> T {
     .with_boundary_shape(crate::model::BoundaryShape::native(
         file!(),
         1,
-        pse_vocabulary::BoundaryDirection::Both,
+        pse_contract::BoundaryDirection::Both,
     ))
 }
 /// The scalar arms of a cell, each a named structure a key cell shares (ADR-0123

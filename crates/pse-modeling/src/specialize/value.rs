@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod structure;
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// A fully explicit structural value.
 #[derive(
     Clone,
@@ -30,7 +30,7 @@ pse_model::projection_enum! {
 #[serde(deny_unknown_fields)]
 pub enum Value {
     projection: { name: "StructuralValue", rust_path: crate::specialize::Value, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both,
+        direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Predicate.
     Boolean(bool) => 1;
@@ -39,20 +39,20 @@ pub enum Value {
     /// Finite scalar with its complete physical type.
     Number {
         /// Bit pattern of the canonical `f64` value.
-        bits: u64 => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
-            rules: [], representation: pse_model::boundary_projection::Scalar::F64Bits };
+        bits: u64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+            rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
         /// Physical quantity type.
-        quantity: QuantityTypeId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        quantity: QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 3;
     /// Generated continuous coordinate; identity is independent of its floating value.
     Coordinate {
         /// Coordinate identity.
-        id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Bit pattern of the canonical `f64` position.
-        bits: u64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
-            rules: [], representation: pse_model::boundary_projection::Scalar::F64Bits };
+        bits: u64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both,
+            rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
         /// Physical quantity type of the axis.
-        quantity: QuantityTypeId => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        quantity: QuantityTypeId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 4;
     /// Textual label.
     Text(String) => 5;
@@ -60,42 +60,42 @@ pub enum Value {
     /// (ADR-0123 Outcome 2).
     Entity {
         /// The entity declaration, or a keyed row's derived identity.
-        id: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        id: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// The most-derived kind of the entity.
-        kind: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        kind: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 6;
     /// Value of an authored closed enumeration.
     Enum {
         /// Enumeration declaration.
-        enumeration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        enumeration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Member identity: renaming a member keeps it (ADR-0123 Outcome 2).
-        member: SemanticId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        member: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 7;
     /// An opaque value of a declared identifier scheme, compared byte-exactly and never
     /// parsed (ADR-0123 Outcome 2).
     Identifier {
         /// Identifier scheme declaration.
-        scheme: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        scheme: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// The value as written.
-        value: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        value: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 8;
     /// Definition identity with named partial bindings.
     Definition {
         /// Definition declaration.
-        id: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        id: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Bound arguments by name.
-        bindings: BTreeMap<String, Value> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        bindings: BTreeMap<String, Value> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 9;
     /// A pure function declaration selected as structural data.
     Function(DeclarationId) => 10;
     /// Typed heterogeneous table row: positional cells and the column names they bind.
     Row {
         /// Table declaration.
-        table: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        table: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Column names in column order, shared with the admitted table.
-        names: std::sync::Arc<[String]> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        names: std::sync::Arc<[String]> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Values in column order, shared with the admitted row.
-        fields: std::sync::Arc<[Value]> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        fields: std::sync::Arc<[Value]> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 11;
     /// Ordered finite set with no duplicates.
     Set(Vec<Value>) => 12;
@@ -1956,7 +1956,7 @@ pub(crate) fn conforms(value: &Value, ty: &Type, p: &CheckedPackage) -> bool {
 #[cfg(test)]
 mod projection_tests {
     use super::*;
-    use pse_model::boundary_projection::{
+    use pse_contract::boundary_projection::{
         ProjectionGraph, Scalar, Shape, TypeRef, ValidateProjection,
     };
 

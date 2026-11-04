@@ -14,6 +14,7 @@ use crate::{
 };
 use std::collections::BTreeMap;
 #[path = "resolved_receipts.rs"]
+#[macro_use]
 pub mod receipts;
 
 /// Scoped authority of one admitted scientific response formula. It never changes the

@@ -4,64 +4,64 @@
 use super::*;
 use pse_operations::canonical_selection::{ProductHeaderCursor, ProductHeaderPage};
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact specialization to inspect without preparing it.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationDiscoveryRequest {
-    projection: { name: "PreparationDiscoveryRequest", rust_path: crate::workflow::PreparationDiscoveryRequest, version: 2, direction: pse_model::boundary_projection::Direction::Input, reserved_tags: [], reserved_names: [] };
+    projection: { name: "PreparationDiscoveryRequest", rust_path: crate::workflow::PreparationDiscoveryRequest, version: 2, direction: pse_contract::boundary_projection::Direction::Input, reserved_tags: [], reserved_names: [] };
     /// Selected authored root.
-    pub root: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub root: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Selected occurrence identity.
-    pub instance: InstanceId => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub instance: InstanceId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Input, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Exact specialization premises, including demand and formulation.
-    pub bindings: Bindings => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub bindings: Bindings => { tag: 3, direction: pse_contract::boundary_projection::Direction::Input, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Exact specialization limits.
-    pub limits: Limits => { tag: 4, direction: pse_model::boundary_projection::Direction::Input, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub limits: Limits => { tag: 4, direction: pse_contract::boundary_projection::Direction::Input, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Continue durable publication headers under the same immutable source.
-    pub durable_after: Option<ProductHeaderCursor> => { tag: 5, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub durable_after: Option<ProductHeaderCursor> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
 }
 }
 /// Receiving compatibility is independent of current availability.
 pub use pse_model::generated::enums::PreparationEligibility;
 /// Which existing process-local owner retains the observed immutable product.
 pub use pse_model::generated::enums::PreparationProductKind;
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Compact observational metadata; contains no live product or native handle.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResidentPreparation {
-    projection: { name: "ResidentPreparation", rust_path: crate::workflow::ResidentPreparation, version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+    projection: { name: "ResidentPreparation", rust_path: crate::workflow::ResidentPreparation, version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Original retention product class.
-    pub kind: PreparationProductKind => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub kind: PreparationProductKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Existing exact-key and source-premise assessment.
-    pub eligibility: PreparationEligibility => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub eligibility: PreparationEligibility => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Immutable insertion weight, including retained key and owner metadata.
-    pub retained_bytes: u64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub retained_bytes: u64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original compiler-sealed body identity for body/encoding entries only.
-    pub semantic_identity: Option<String> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub semantic_identity: Option<String> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Bounded observation, not a cache census or a reusable preparation receipt.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationDiscoveryReport {
-    projection: { name: "PreparationDiscoveryReport", rust_path: crate::workflow::PreparationDiscoveryReport, version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+    projection: { name: "PreparationDiscoveryReport", rust_path: crate::workflow::PreparationDiscoveryReport, version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact local source parent identity inspected.
-    pub revision_id: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub revision_id: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Selected deployment physical identity.
-    pub physical: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub physical: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// At most 32 resident metadata rows. Body entries are service-wide and unchecked;
     /// selected admissions/frontiers/bases are scoped to the requested root.
     /// Absence has no inferred cause.
-    pub resident: Vec<ResidentPreparation> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Length { min: 0, max: PreparationDiscoveryReport::MAX_RESIDENT_ROWS as u64 }] };
+    pub resident: Vec<ResidentPreparation> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Length { min: 0, max: PreparationDiscoveryReport::MAX_RESIDENT_ROWS as u64 }] };
     /// More matching process-local entries existed during this observation.
-    pub residents_truncated: bool => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub residents_truncated: bool => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original rooted publication headers, when this package has canonical origin.
-    pub durable: Option<ProductHeaderPage> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub durable: Option<ProductHeaderPage> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Passive durable presence never establishes receiving qualification.
-    pub durable_eligibility: PreparationEligibility => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub durable_eligibility: PreparationEligibility => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 impl PreparationDiscoveryReport {
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn preparation_completion_projection_retains_original_scope_and_shared_bound() {
-        use pse_model::boundary_projection::{ProjectionGraph, Shape, TypeRef, ValidateProjection};
+        use pse_contract::boundary_projection::{ProjectionGraph, Shape, TypeRef, ValidateProjection};
         let graph = ProjectionGraph::of::<PreparationDiscoveryReport>().unwrap();
         let Shape::Record(fields) = &graph.definitions()["PreparationDiscoveryReport"].shape else {
             panic!("original completion owner")
@@ -209,7 +209,7 @@ mod tests {
         report.validate_projection().unwrap();
         report.resident.push(resident);
         assert!(
-            matches!(report.validate_projection(), Err(pse_model::boundary_projection::ValidationError::Rule { path, rule: "length", .. }) if path == "resident")
+            matches!(report.validate_projection(), Err(pse_contract::boundary_projection::ValidationError::Rule { path, rule: "length", .. }) if path == "resident")
         );
     }
 

@@ -2,16 +2,16 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual controller/estimator mapping intents retain their existing tuple documents.
 
-pse_model::projection_tuple_struct! {
+pse_contract::projection_tuple_struct! {
     /// One controller path whose solved value drives the selected plant input.
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct ControllerMove {
         projection: { name: "ControllerMove", rust_path: crate::workflow::ControllerMove, version: 1,
-            direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+            direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
         /// Controller case path whose value is applied.
-        pub path: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pub path: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Driven plant input index.
-        pub input: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pub input: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     }
 }
 
@@ -57,27 +57,27 @@ mod tests {
         assert_eq!(restored, current);
     }
 }
-pse_model::projection_tuple_struct! {
+pse_contract::projection_tuple_struct! {
     /// One controller signal binding and the case path predicting its next value.
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct ControllerPrediction {
         projection: { name: "ControllerPrediction", rust_path: crate::workflow::ControllerPrediction, version: 1,
-            direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+            direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
         /// Existing measured or estimated controller binding.
-        pub binding: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pub binding: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Controller case path predicting that binding one period ahead.
-        pub predictor: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pub predictor: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     }
 }
-pse_model::projection_tuple_struct! {
+pse_contract::projection_tuple_struct! {
     /// One original plant output and its ordered estimator case paths over the window.
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct EstimatorMeasurement {
         projection: { name: "EstimatorMeasurement", rust_path: crate::workflow::EstimatorMeasurement, version: 1,
-            direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+            direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
         /// Existing measured plant contract output.
-        pub output: pse_ids::SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pub output: pse_ids::SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Oldest-to-newest case paths, including the current window endpoint.
-        pub paths: Vec<String> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        pub paths: Vec<String> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     }
 }

@@ -1816,7 +1816,7 @@ impl ExecutionServices {
         identity: IssuedRunIdentity,
         cancel: &crate::CancelSource,
     ) -> Result<IssuedRunStart, WorkflowError> {
-        pse_model::boundary_projection::validate_field(
+        pse_contract::boundary_projection::validate_field(
             &identity.operation,
             "operation",
             &[pse_model::engineering::OPERATION_ID_RULE],

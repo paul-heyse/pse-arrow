@@ -54,24 +54,24 @@ pub fn physical_identity(
 ) -> ContentHash {
     crate::physical_identity::identity(quantities, preconditions)
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Consumed compilation controls, separate from semantic preparation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    projection: { name: "CompilerProfile", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "CompilerProfile", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Optimization controls.
-    pub optimization: Optimization => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub optimization: Optimization => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Local numeric limits affecting evaluator admission.
-    pub evaluation: EvaluationLimits => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub evaluation: EvaluationLimits => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Per-case sparse assembly and complete numerical-worker admission limits.
-    pub assembly: AssemblyLimits => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub assembly: AssemblyLimits => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Shared finite conservative construction work for domain facts and demanded
     /// class proof, including expression storage/substitution bounds and derivative
     /// calls. These units are not measured library-operation counters and do not
     /// admit byte allocations or numerical evaluator work.
-    pub class_proof_work: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub class_proof_work: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl Default for Profile {
@@ -87,7 +87,7 @@ impl Default for Profile {
 #[cfg(test)]
 mod projection_tests {
     use super::Profile;
-    use pse_model::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+    use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
 
     #[test]
     fn actual_compiler_profile_projects_its_complete_math_controls() {

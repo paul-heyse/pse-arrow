@@ -3,11 +3,8 @@
 //! Shared case correspondence; numerical candidates are exchanged separately.
 use crate::workflow::PhysicalQuantityDescription;
 use pse_ids::SemanticId;
-use pse_model::{
-    boundary_projection::{Direction, LocalRule},
-    document::Version,
-    reference_exchange::ReferenceMeaning,
-};
+use pse_model::{document::Version, reference_exchange::ReferenceMeaning};
+use pse_contract::{boundary_projection::{Direction, LocalRule}};
 
 const KEY: LocalRule = LocalRule::Utf8Bytes { min: 1, max: 1024 };
 const POPULATION: LocalRule = LocalRule::Length {
@@ -15,7 +12,7 @@ const POPULATION: LocalRule = LocalRule::Length {
     max: 65_536,
 };
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Independently agreed scalar coordinate and its original physical interpretation.
     pub struct ReferenceObservableContract {
@@ -30,7 +27,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Original fixed input; it is never an expected answer or a transferred solution.
     pub struct ReferenceFixedInput {
@@ -45,7 +42,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Exact original artifact used in establishing scientific correspondence.
     pub struct ReferenceInputArtifact {
@@ -58,7 +55,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Complete comparison contract sent before an independent reference calculation.
     /// This carries inputs and correspondence, while candidate values stay in a separate envelope.

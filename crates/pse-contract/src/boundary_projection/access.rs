@@ -151,13 +151,13 @@ impl<T, A: ProjectionAdapter<T>> ProjectionAdapter<std::sync::Arc<T>> for Shared
     }
     fn adapter_path() -> String {
         format!(
-            "pse_model::boundary_projection::SharedAdapter<{}>",
+            "pse_contract::boundary_projection::SharedAdapter<{}>",
             A::adapter_path()
         )
     }
     fn public_path() -> Option<String> {
         Some(format!(
-            "pse_model::boundary_projection::Adapted<{},{}>",
+            "pse_contract::boundary_projection::Adapted<{},{}>",
             <Self as ProjectionAdapter<std::sync::Arc<T>>>::native_path(),
             <Self as ProjectionAdapter<std::sync::Arc<T>>>::adapter_path()
         ))
@@ -343,23 +343,20 @@ impl AdapterError {
     }
 }
 
-pse_diagnostics::impl_diagnostic! {
-    AdapterError,
-    code(this) { match this {
-        Self::Refused { kind: AdapterFailure::LayoutMismatch, .. } => Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),
-        Self::Refused { .. } => Some(pse_diagnostics::DiagnosticCode::WorkflowInput),
-        Self::Validation(_) => None,
-    } },
-    forward(this) { match this { Self::Validation(error) => Some(error), _ => None } },
-    help(_this) { None }, related(_this) { None }, source(_this) { None },
-    facts(this) {
-        let mut facts = pse_diagnostics::DiagnosticFacts::default();
-        if let Self::Refused { path, kind, reason } = this {
-            facts.observe("field_path", pse_diagnostics::DiagnosticObservation::Text(path.clone()));
-            facts.observe("adoption_category", pse_diagnostics::DiagnosticObservation::Text(format!("{kind:?}")));
-            facts.observe("detail", pse_diagnostics::DiagnosticObservation::Text(reason.clone()));
+
+
+impl miette::Diagnostic for AdapterError {
+    fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        match self {
+            Self::Refused { kind: AdapterFailure::LayoutMismatch, .. } => Some(Box::new("workflow.internal")),
+            Self::Refused { .. } => Some(Box::new("workflow.input")),
+            Self::Validation(error) => miette::Diagnostic::code(error),
         }
-        facts
+    }
+    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+        match self {
+            Self::Validation(error) => Some(error),
+            Self::Refused { .. } => None,
+        }
     }
 }
-impl crate::diagnostic::DiagnosticProjection for AdapterError {}

@@ -12,7 +12,7 @@ use crate::{
 };
 use futures_util::FutureExt as _;
 use pse_ids::{ContentHash, EncodingHasher};
-use pse_model::boundary_projection::ValidateProjection as _;
+use pse_contract::boundary_projection::ValidateProjection as _;
 use pse_model::engineering::*;
 use std::{
     collections::BTreeMap,
@@ -90,10 +90,10 @@ fn original<'a>(
     if let Some(error) = error.downcast_ref::<crate::math::MathRuntimeError>() {
         return Some(error);
     }
-    if let Some(error) = error.downcast_ref::<pse_model::boundary_projection::ValidationError>() {
+    if let Some(error) = error.downcast_ref::<pse_contract::boundary_projection::ValidationError>() {
         return Some(error);
     }
-    if let Some(error) = error.downcast_ref::<pse_model::boundary_projection::AdapterError>() {
+    if let Some(error) = error.downcast_ref::<pse_contract::boundary_projection::AdapterError>() {
         return Some(error);
     }
     if let Some(error) =
@@ -1285,13 +1285,13 @@ pub(super) fn failure(error: &dyn pse_diagnostics::TypedDiagnostic) -> Engineeri
     let mut field_path = None;
     let mut field_rule = None;
     for _ in 0..16 {
-        if let Some(pse_model::boundary_projection::AdapterError::Refused { path, .. }) =
+        if let Some(pse_contract::boundary_projection::AdapterError::Refused { path, .. }) =
             original.downcast_ref()
         {
             field_path = Some(path.clone());
             break;
         }
-        if let Some(pse_model::boundary_projection::ValidationError::Rule { path, rule, .. }) =
+        if let Some(pse_contract::boundary_projection::ValidationError::Rule { path, rule, .. }) =
             original.downcast_ref()
         {
             field_path = Some(path.clone());

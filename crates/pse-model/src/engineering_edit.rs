@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact-parent authored-file intent; the native loader owns all scientific interpretation.
-use crate::boundary_projection::{Direction, LocalRule};
+use pse_contract::boundary_projection::{Direction, LocalRule};
 use crate::engineering::{LOCAL_REVISION_RULE, OPERATION_ID_RULE, SOURCE_FILE_PATH_RULE};
 use pse_ids::SemanticId;
 
-crate::projection_enum! {
+pse_contract::projection_enum! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Explicit file membership operation; omission never deletes an inherited file.
     pub enum SourceFileChange {
@@ -18,7 +18,7 @@ crate::projection_enum! {
         Remove => 3;
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// One explicit edit to an existing package's source inventory.
     pub struct SourceFileEdit {
@@ -31,7 +31,7 @@ crate::projection_struct! {
         pub change: SourceFileChange => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Atomic exact-parent file editing consumed by the original native reload/delta owner.
     pub struct SourceFileDelta {
@@ -42,7 +42,7 @@ crate::projection_struct! {
         pub edits: Vec<SourceFileEdit> => { tag: 2, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 1024 }] };
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Idempotent service request for a source-owner exact-parent file delta.
     pub struct EngineeringEditSource {

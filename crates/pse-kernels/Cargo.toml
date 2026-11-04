@@ -20,6 +20,7 @@ doctest = false
 workspace = true
 
 [dependencies]
+pse-contract.workspace = true
 serde.workspace = true
 schemars.workspace = true
 pse-ids.workspace = true

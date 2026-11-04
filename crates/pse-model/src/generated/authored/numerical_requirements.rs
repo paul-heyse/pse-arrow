@@ -88,12 +88,13 @@ impl PartialEq for AuthoredNumericalRequirementsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirementsRow {
+impl pse_contract::boundary_projection::ProjectionType
+for AuthoredNumericalRequirementsRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -102,19 +103,19 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                 "AuthoredNumericalRequirementsRow",
                 "crates/pse-schema/src/catalog/native_math.rs",
                 3u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "requirement_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -125,13 +126,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "key".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::DeclarationId>,
                             >(
                                     graph,
                                     "model_id",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -147,13 +148,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::DeclarationId>,
                             >(
                                     graph,
                                     "case_id",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -169,13 +170,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::InstanceId>,
                             >(
                                     graph,
                                     "instance_id",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -191,13 +192,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::FitId>,
                             >(
                                     graph,
                                     "fit_id",
                                     5u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -213,13 +214,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "target_id",
                                     6u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -230,13 +231,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalTarget,
                             >(
                                     graph,
                                     "target_kind",
                                     7u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -248,13 +249,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "nominal",
                                     8u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -264,13 +265,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "scaling_factor",
                                     9u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -280,13 +281,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "absolute_tolerance",
                                     10u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -296,13 +297,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "relative_tolerance",
                                     11u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -312,13 +313,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<bool>,
                             >(
                                     graph,
                                     "shared_engineering_allowance",
                                     12u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -331,13 +332,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::EngineeringRuleId>,
                             >(
                                     graph,
                                     "engineering_rule_id",
                                     13u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -349,13 +350,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "unit_id",
                                     14u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -366,13 +367,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalCoordinates,
                             >(
                                     graph,
                                     "coordinates",
                                     15u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -387,13 +388,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i32,
                             >(
                                     graph,
                                     "priority",
                                     16u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -403,13 +404,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 bool,
                             >(
                                     graph,
                                     "required",
                                     17u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -419,13 +420,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "provenance",
                                     18u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -441,7 +442,8 @@ impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirement
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for AuthoredNumericalRequirementsRow {
+impl pse_contract::boundary_projection::ProjectionRecord
+for AuthoredNumericalRequirementsRow {
     const VERSION: u32 = 3u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "requirement_id"),
@@ -526,7 +528,7 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredNumericalRequireme
             r#required,
             r#provenance,
         ): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#requirement_id,
             r#model_id,
@@ -549,162 +551,171 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredNumericalRequireme
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection
+impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredNumericalRequirementsRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::DeclarationId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::DeclarationId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::InstanceId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::FitId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalTarget as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalTarget as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             bool,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::EngineeringRuleId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalCoordinates as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalCoordinates as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <i32 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <i32 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#requirement_id,
-                &crate::boundary_projection::field_path(path, "requirement_id"),
+                &pse_contract::boundary_projection::field_path(path, "requirement_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#model_id,
-                &crate::boundary_projection::field_path(path, "model_id"),
+                &pse_contract::boundary_projection::field_path(path, "model_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#case_id,
-                &crate::boundary_projection::field_path(path, "case_id"),
+                &pse_contract::boundary_projection::field_path(path, "case_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#instance_id,
-                &crate::boundary_projection::field_path(path, "instance_id"),
+                &pse_contract::boundary_projection::field_path(path, "instance_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#fit_id,
-                &crate::boundary_projection::field_path(path, "fit_id"),
+                &pse_contract::boundary_projection::field_path(path, "fit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_id,
-                &crate::boundary_projection::field_path(path, "target_id"),
+                &pse_contract::boundary_projection::field_path(path, "target_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_kind,
-                &crate::boundary_projection::field_path(path, "target_kind"),
+                &pse_contract::boundary_projection::field_path(path, "target_kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#nominal,
-                &crate::boundary_projection::field_path(path, "nominal"),
+                &pse_contract::boundary_projection::field_path(path, "nominal"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#scaling_factor,
-                &crate::boundary_projection::field_path(path, "scaling_factor"),
+                &pse_contract::boundary_projection::field_path(path, "scaling_factor"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#absolute_tolerance,
-                &crate::boundary_projection::field_path(path, "absolute_tolerance"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "absolute_tolerance",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#relative_tolerance,
-                &crate::boundary_projection::field_path(path, "relative_tolerance"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "relative_tolerance",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#shared_engineering_allowance,
-                &crate::boundary_projection::field_path(
+                &pse_contract::boundary_projection::field_path(
                     path,
                     "shared_engineering_allowance",
                 ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#engineering_rule_id,
-                &crate::boundary_projection::field_path(path, "engineering_rule_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "engineering_rule_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#unit_id,
-                &crate::boundary_projection::field_path(path, "unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#coordinates,
-                &crate::boundary_projection::field_path(path, "coordinates"),
+                &pse_contract::boundary_projection::field_path(path, "coordinates"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#priority,
-                &crate::boundary_projection::field_path(path, "priority"),
+                &pse_contract::boundary_projection::field_path(path, "priority"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#required,
-                &crate::boundary_projection::field_path(path, "required"),
+                &pse_contract::boundary_projection::field_path(path, "required"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#provenance,
-                &crate::boundary_projection::field_path(path, "provenance"),
+                &pse_contract::boundary_projection::field_path(path, "provenance"),
                 &[],
             )?;
         }

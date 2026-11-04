@@ -4,12 +4,12 @@
 
 use super::{ModelingPackage, WorkflowError, contract};
 use pse_ids::ContentHash;
-use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
+use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 use std::sync::Arc;
 
 const MAXIMUM_PROVIDER_INSPECTION_BYTES: usize = 64 << 10;
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Select actual retained provider registrations without constructing a native worker.
 #[derive(Clone, Debug)]
 pub struct ProviderInspectionRequest {
@@ -24,7 +24,7 @@ pub struct ProviderInspectionRequest {
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Original retained factory meaning. A descriptor does not prove a new native worker can start.
 #[derive(Clone, Debug)]
 pub struct ProviderInspectionEntry {
@@ -39,7 +39,7 @@ pub struct ProviderInspectionEntry {
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact native source and finite retained-factory observations, never provider preparation.
 #[derive(Clone, Debug)]
 pub struct ProviderInspectionPage {

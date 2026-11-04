@@ -35,12 +35,12 @@ impl PartialEq for AuthoredDocumentsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
+impl pse_contract::boundary_projection::ProjectionType for AuthoredDocumentsRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -49,19 +49,19 @@ impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
                 "AuthoredDocumentsRow",
                 "crates/pse-schema/src/catalog/s6_1_identity.rs",
                 2u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "document_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -75,13 +75,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
                                         ("pse.domain.role".into(), "key".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::identities::PackageId,
                             >(
                                     graph,
                                     "package_id",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -98,13 +98,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
                                         ("pse.domain.role".into(), "reference".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "path",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -117,13 +117,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
                                         ("pse.domain.role".into(), "label".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<String>,
                             >(
                                     graph,
                                     "source_text",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -137,13 +137,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::Bytes>,
                             >(
                                     graph,
                                     "content",
                                     5u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -163,7 +163,7 @@ impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for AuthoredDocumentsRow {
+impl pse_contract::boundary_projection::ProjectionRecord for AuthoredDocumentsRow {
     const VERSION: u32 = 2u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "document_id"),
@@ -190,7 +190,7 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredDocumentsRow {
     }
     fn from_projection_fields(
         (r#document_id, r#package_id, r#path, r#source_text, r#content): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#document_id,
             r#package_id,
@@ -200,49 +200,49 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredDocumentsRow {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for AuthoredDocumentsRow {
+impl pse_contract::boundary_projection::ValidateProjection for AuthoredDocumentsRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::identities::PackageId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::PackageId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::Bytes,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#document_id,
-                &crate::boundary_projection::field_path(path, "document_id"),
+                &pse_contract::boundary_projection::field_path(path, "document_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#package_id,
-                &crate::boundary_projection::field_path(path, "package_id"),
+                &pse_contract::boundary_projection::field_path(path, "package_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#path,
-                &crate::boundary_projection::field_path(path, "path"),
+                &pse_contract::boundary_projection::field_path(path, "path"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#source_text,
-                &crate::boundary_projection::field_path(path, "source_text"),
+                &pse_contract::boundary_projection::field_path(path, "source_text"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#content,
-                &crate::boundary_projection::field_path(path, "content"),
+                &pse_contract::boundary_projection::field_path(path, "content"),
                 &[],
             )?;
         }

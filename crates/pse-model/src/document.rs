@@ -291,12 +291,12 @@ impl<const N: u32> Version<N> {
     pub const NUMBER: u32 = N;
 }
 
-impl<const N: u32> crate::boundary_projection::ProjectionType for Version<N> {
+impl<const N: u32> pse_contract::boundary_projection::ProjectionType for Version<N> {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
-    ) -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError>
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError>
     {
-        use crate::boundary_projection::{Direction, Field, LocalRule, Shape};
+        use pse_contract::boundary_projection::{Direction, Field, LocalRule, Shape};
         graph.declare::<Self>(
             &format!("DocumentVersion{N}"),
             file!(),
@@ -319,7 +319,7 @@ impl<const N: u32> crate::boundary_projection::ProjectionType for Version<N> {
         )
     }
 }
-impl<const N: u32> crate::boundary_projection::ProjectionRecord for Version<N> {
+impl<const N: u32> pse_contract::boundary_projection::ProjectionRecord for Version<N> {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (u32,);
@@ -328,21 +328,21 @@ impl<const N: u32> crate::boundary_projection::ProjectionRecord for Version<N> {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         if value == Self::NUMBER {
             Ok(Self)
         } else {
-            Err(crate::boundary_projection::AdapterError::refused(
+            Err(pse_contract::boundary_projection::AdapterError::refused(
                 "value",
-                crate::boundary_projection::AdapterFailure::InvalidValue,
+                pse_contract::boundary_projection::AdapterFailure::InvalidValue,
                 format!("document requires interpretation version {}", Self::NUMBER),
             ))
         }
     }
 }
-impl<const N: u32> crate::boundary_projection::ValidateProjection for Version<N> {
+impl<const N: u32> pse_contract::boundary_projection::ValidateProjection for Version<N> {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> {
+    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

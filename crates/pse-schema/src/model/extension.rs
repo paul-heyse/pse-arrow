@@ -339,7 +339,7 @@ impl ExtensionUse<'_> {
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(super::FieldContract::structure(fields).with_boundary_shape(
-            super::BoundaryShape::native(file!(), 1, pse_vocabulary::BoundaryDirection::Both),
+            super::BoundaryShape::native(file!(), 1, pse_contract::BoundaryDirection::Both),
         ))
     }
 

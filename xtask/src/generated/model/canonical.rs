@@ -83,12 +83,12 @@ impl pse_model::SemanticFrame for ProblemKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProblemKey {
+impl pse_contract::boundary_projection::ProjectionType for ProblemKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -97,20 +97,20 @@ impl pse_model::boundary_projection::ProjectionType for ProblemKey {
                 "CanonicalProblemKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -120,7 +120,7 @@ impl pse_model::boundary_projection::ProjectionType for ProblemKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProblemKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProblemKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -129,16 +129,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProblemKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProblemKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProblemKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -222,12 +222,12 @@ impl pse_model::SemanticFrame for RevisionKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for RevisionKey {
+impl pse_contract::boundary_projection::ProjectionType for RevisionKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -236,20 +236,20 @@ impl pse_model::boundary_projection::ProjectionType for RevisionKey {
                 "CanonicalRevisionKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -259,7 +259,7 @@ impl pse_model::boundary_projection::ProjectionType for RevisionKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for RevisionKey {
+impl pse_contract::boundary_projection::ProjectionRecord for RevisionKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -268,16 +268,16 @@ impl pse_model::boundary_projection::ProjectionRecord for RevisionKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for RevisionKey {
+impl pse_contract::boundary_projection::ValidateProjection for RevisionKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -365,12 +365,12 @@ impl pse_model::SemanticFrame for RunKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for RunKey {
+impl pse_contract::boundary_projection::ProjectionType for RunKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -379,20 +379,20 @@ impl pse_model::boundary_projection::ProjectionType for RunKey {
                 "CanonicalRunKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -402,7 +402,7 @@ impl pse_model::boundary_projection::ProjectionType for RunKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for RunKey {
+impl pse_contract::boundary_projection::ProjectionRecord for RunKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -411,16 +411,16 @@ impl pse_model::boundary_projection::ProjectionRecord for RunKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for RunKey {
+impl pse_contract::boundary_projection::ValidateProjection for RunKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -504,12 +504,12 @@ impl pse_model::SemanticFrame for AttemptKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for AttemptKey {
+impl pse_contract::boundary_projection::ProjectionType for AttemptKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -518,20 +518,20 @@ impl pse_model::boundary_projection::ProjectionType for AttemptKey {
                 "CanonicalAttemptKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -541,7 +541,7 @@ impl pse_model::boundary_projection::ProjectionType for AttemptKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for AttemptKey {
+impl pse_contract::boundary_projection::ProjectionRecord for AttemptKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -550,16 +550,16 @@ impl pse_model::boundary_projection::ProjectionRecord for AttemptKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for AttemptKey {
+impl pse_contract::boundary_projection::ValidateProjection for AttemptKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -643,12 +643,12 @@ impl pse_model::SemanticFrame for StudyKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for StudyKey {
+impl pse_contract::boundary_projection::ProjectionType for StudyKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -657,20 +657,20 @@ impl pse_model::boundary_projection::ProjectionType for StudyKey {
                 "CanonicalStudyKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -680,7 +680,7 @@ impl pse_model::boundary_projection::ProjectionType for StudyKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for StudyKey {
+impl pse_contract::boundary_projection::ProjectionRecord for StudyKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -689,16 +689,16 @@ impl pse_model::boundary_projection::ProjectionRecord for StudyKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for StudyKey {
+impl pse_contract::boundary_projection::ValidateProjection for StudyKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -782,12 +782,12 @@ impl pse_model::SemanticFrame for StudyPointKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for StudyPointKey {
+impl pse_contract::boundary_projection::ProjectionType for StudyPointKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -796,20 +796,20 @@ impl pse_model::boundary_projection::ProjectionType for StudyPointKey {
                 "CanonicalStudyPointKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -819,7 +819,7 @@ impl pse_model::boundary_projection::ProjectionType for StudyPointKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for StudyPointKey {
+impl pse_contract::boundary_projection::ProjectionRecord for StudyPointKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -828,16 +828,16 @@ impl pse_model::boundary_projection::ProjectionRecord for StudyPointKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for StudyPointKey {
+impl pse_contract::boundary_projection::ValidateProjection for StudyPointKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -925,12 +925,12 @@ impl pse_model::SemanticFrame for OperationKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for OperationKey {
+impl pse_contract::boundary_projection::ProjectionType for OperationKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -939,20 +939,20 @@ impl pse_model::boundary_projection::ProjectionType for OperationKey {
                 "CanonicalOperationKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -962,7 +962,7 @@ impl pse_model::boundary_projection::ProjectionType for OperationKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for OperationKey {
+impl pse_contract::boundary_projection::ProjectionRecord for OperationKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -971,16 +971,16 @@ impl pse_model::boundary_projection::ProjectionRecord for OperationKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for OperationKey {
+impl pse_contract::boundary_projection::ValidateProjection for OperationKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1064,12 +1064,12 @@ impl pse_model::SemanticFrame for ArtifactKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ArtifactKey {
+impl pse_contract::boundary_projection::ProjectionType for ArtifactKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1078,20 +1078,20 @@ impl pse_model::boundary_projection::ProjectionType for ArtifactKey {
                 "CanonicalArtifactKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1101,7 +1101,7 @@ impl pse_model::boundary_projection::ProjectionType for ArtifactKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ArtifactKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ArtifactKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1110,16 +1110,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ArtifactKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ArtifactKey {
+impl pse_contract::boundary_projection::ValidateProjection for ArtifactKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1203,12 +1203,12 @@ impl pse_model::SemanticFrame for FileInstanceKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for FileInstanceKey {
+impl pse_contract::boundary_projection::ProjectionType for FileInstanceKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1217,20 +1217,20 @@ impl pse_model::boundary_projection::ProjectionType for FileInstanceKey {
                 "CanonicalFileInstanceKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1240,7 +1240,7 @@ impl pse_model::boundary_projection::ProjectionType for FileInstanceKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for FileInstanceKey {
+impl pse_contract::boundary_projection::ProjectionRecord for FileInstanceKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1249,16 +1249,16 @@ impl pse_model::boundary_projection::ProjectionRecord for FileInstanceKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for FileInstanceKey {
+impl pse_contract::boundary_projection::ValidateProjection for FileInstanceKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1342,12 +1342,12 @@ impl pse_model::SemanticFrame for ProjectKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1356,20 +1356,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectKey {
                 "CanonicalProjectKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1379,7 +1379,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1388,16 +1388,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1481,12 +1481,12 @@ impl pse_model::SemanticFrame for ProjectBranchKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectBranchKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectBranchKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1495,20 +1495,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectBranchKey {
                 "CanonicalProjectBranchKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1518,7 +1518,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectBranchKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectBranchKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectBranchKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1527,16 +1527,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectBranchKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectBranchKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectBranchKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1620,12 +1620,12 @@ impl pse_model::SemanticFrame for ProjectDraftKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectDraftKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectDraftKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1634,20 +1634,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectDraftKey {
                 "CanonicalProjectDraftKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1657,7 +1657,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectDraftKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectDraftKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectDraftKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1666,16 +1666,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectDraftKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectDraftKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectDraftKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1759,12 +1759,12 @@ impl pse_model::SemanticFrame for DraftVersionKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for DraftVersionKey {
+impl pse_contract::boundary_projection::ProjectionType for DraftVersionKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1773,20 +1773,20 @@ impl pse_model::boundary_projection::ProjectionType for DraftVersionKey {
                 "CanonicalDraftVersionKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1796,7 +1796,7 @@ impl pse_model::boundary_projection::ProjectionType for DraftVersionKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for DraftVersionKey {
+impl pse_contract::boundary_projection::ProjectionRecord for DraftVersionKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1805,16 +1805,16 @@ impl pse_model::boundary_projection::ProjectionRecord for DraftVersionKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for DraftVersionKey {
+impl pse_contract::boundary_projection::ValidateProjection for DraftVersionKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1898,12 +1898,12 @@ impl pse_model::SemanticFrame for ProjectSavepointKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectSavepointKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectSavepointKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1912,20 +1912,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectSavepointKey {
                 "CanonicalProjectSavepointKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -1935,7 +1935,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectSavepointKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectSavepointKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectSavepointKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -1944,16 +1944,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectSavepointKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectSavepointKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectSavepointKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2037,12 +2037,12 @@ impl pse_model::SemanticFrame for ProjectBookmarkKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectBookmarkKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectBookmarkKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2051,20 +2051,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectBookmarkKey {
                 "CanonicalProjectBookmarkKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2074,7 +2074,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectBookmarkKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectBookmarkKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectBookmarkKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2083,16 +2083,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectBookmarkKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectBookmarkKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectBookmarkKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2176,12 +2176,12 @@ impl pse_model::SemanticFrame for ProjectAncestryKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectAncestryKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectAncestryKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2190,20 +2190,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectAncestryKey {
                 "CanonicalProjectAncestryKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2213,7 +2213,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectAncestryKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectAncestryKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectAncestryKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2222,16 +2222,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectAncestryKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectAncestryKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectAncestryKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2315,12 +2315,12 @@ impl pse_model::SemanticFrame for DraftDiagnosticKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for DraftDiagnosticKey {
+impl pse_contract::boundary_projection::ProjectionType for DraftDiagnosticKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2329,20 +2329,20 @@ impl pse_model::boundary_projection::ProjectionType for DraftDiagnosticKey {
                 "CanonicalDraftDiagnosticKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2352,7 +2352,7 @@ impl pse_model::boundary_projection::ProjectionType for DraftDiagnosticKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for DraftDiagnosticKey {
+impl pse_contract::boundary_projection::ProjectionRecord for DraftDiagnosticKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2361,16 +2361,16 @@ impl pse_model::boundary_projection::ProjectionRecord for DraftDiagnosticKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for DraftDiagnosticKey {
+impl pse_contract::boundary_projection::ValidateProjection for DraftDiagnosticKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2454,12 +2454,12 @@ impl pse_model::SemanticFrame for ProjectContextKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectContextKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectContextKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2468,20 +2468,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectContextKey {
                 "CanonicalProjectContextKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2491,7 +2491,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectContextKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectContextKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectContextKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2500,16 +2500,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectContextKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectContextKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectContextKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2593,12 +2593,12 @@ impl pse_model::SemanticFrame for ContextAncestryKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ContextAncestryKey {
+impl pse_contract::boundary_projection::ProjectionType for ContextAncestryKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2607,20 +2607,20 @@ impl pse_model::boundary_projection::ProjectionType for ContextAncestryKey {
                 "CanonicalContextAncestryKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2630,7 +2630,7 @@ impl pse_model::boundary_projection::ProjectionType for ContextAncestryKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ContextAncestryKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ContextAncestryKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2639,16 +2639,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ContextAncestryKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ContextAncestryKey {
+impl pse_contract::boundary_projection::ValidateProjection for ContextAncestryKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2732,12 +2732,12 @@ impl pse_model::SemanticFrame for ResearchReferenceKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ResearchReferenceKey {
+impl pse_contract::boundary_projection::ProjectionType for ResearchReferenceKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2746,20 +2746,20 @@ impl pse_model::boundary_projection::ProjectionType for ResearchReferenceKey {
                 "CanonicalResearchReferenceKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2769,7 +2769,7 @@ impl pse_model::boundary_projection::ProjectionType for ResearchReferenceKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ResearchReferenceKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ResearchReferenceKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2778,16 +2778,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ResearchReferenceKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ResearchReferenceKey {
+impl pse_contract::boundary_projection::ValidateProjection for ResearchReferenceKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2871,12 +2871,12 @@ impl pse_model::SemanticFrame for ResearchDatasetKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ResearchDatasetKey {
+impl pse_contract::boundary_projection::ProjectionType for ResearchDatasetKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2885,20 +2885,20 @@ impl pse_model::boundary_projection::ProjectionType for ResearchDatasetKey {
                 "CanonicalResearchDatasetKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -2908,7 +2908,7 @@ impl pse_model::boundary_projection::ProjectionType for ResearchDatasetKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ResearchDatasetKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ResearchDatasetKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -2917,16 +2917,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ResearchDatasetKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ResearchDatasetKey {
+impl pse_contract::boundary_projection::ValidateProjection for ResearchDatasetKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3010,12 +3010,12 @@ impl pse_model::SemanticFrame for ResearchSelectionKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ResearchSelectionKey {
+impl pse_contract::boundary_projection::ProjectionType for ResearchSelectionKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3024,20 +3024,20 @@ impl pse_model::boundary_projection::ProjectionType for ResearchSelectionKey {
                 "CanonicalResearchSelectionKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3047,7 +3047,7 @@ impl pse_model::boundary_projection::ProjectionType for ResearchSelectionKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ResearchSelectionKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ResearchSelectionKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3056,16 +3056,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ResearchSelectionKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ResearchSelectionKey {
+impl pse_contract::boundary_projection::ValidateProjection for ResearchSelectionKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3149,12 +3149,12 @@ impl pse_model::SemanticFrame for ResearchPublicationKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ResearchPublicationKey {
+impl pse_contract::boundary_projection::ProjectionType for ResearchPublicationKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3163,20 +3163,20 @@ impl pse_model::boundary_projection::ProjectionType for ResearchPublicationKey {
                 "CanonicalResearchPublicationKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3186,7 +3186,7 @@ impl pse_model::boundary_projection::ProjectionType for ResearchPublicationKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ResearchPublicationKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ResearchPublicationKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3195,16 +3195,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ResearchPublicationKey
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ResearchPublicationKey {
+impl pse_contract::boundary_projection::ValidateProjection for ResearchPublicationKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3288,12 +3288,12 @@ impl pse_model::SemanticFrame for ProjectImportKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProjectImportKey {
+impl pse_contract::boundary_projection::ProjectionType for ProjectImportKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3302,20 +3302,20 @@ impl pse_model::boundary_projection::ProjectionType for ProjectImportKey {
                 "CanonicalProjectImportKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3325,7 +3325,7 @@ impl pse_model::boundary_projection::ProjectionType for ProjectImportKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProjectImportKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProjectImportKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3334,16 +3334,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProjectImportKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProjectImportKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectImportKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3427,12 +3427,12 @@ impl pse_model::SemanticFrame for ProductKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProductKey {
+impl pse_contract::boundary_projection::ProjectionType for ProductKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3441,20 +3441,20 @@ impl pse_model::boundary_projection::ProjectionType for ProductKey {
                 "CanonicalProductKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3464,7 +3464,7 @@ impl pse_model::boundary_projection::ProjectionType for ProductKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProductKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProductKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3473,16 +3473,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProductKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProductKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProductKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3566,12 +3566,12 @@ impl pse_model::SemanticFrame for BodyContentKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for BodyContentKey {
+impl pse_contract::boundary_projection::ProjectionType for BodyContentKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3580,20 +3580,20 @@ impl pse_model::boundary_projection::ProjectionType for BodyContentKey {
                 "CanonicalBodyContentKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3603,7 +3603,7 @@ impl pse_model::boundary_projection::ProjectionType for BodyContentKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for BodyContentKey {
+impl pse_contract::boundary_projection::ProjectionRecord for BodyContentKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3612,16 +3612,16 @@ impl pse_model::boundary_projection::ProjectionRecord for BodyContentKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for BodyContentKey {
+impl pse_contract::boundary_projection::ValidateProjection for BodyContentKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3705,12 +3705,12 @@ impl pse_model::SemanticFrame for SelectionReceiptKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for SelectionReceiptKey {
+impl pse_contract::boundary_projection::ProjectionType for SelectionReceiptKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3719,20 +3719,20 @@ impl pse_model::boundary_projection::ProjectionType for SelectionReceiptKey {
                 "CanonicalSelectionReceiptKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3742,7 +3742,7 @@ impl pse_model::boundary_projection::ProjectionType for SelectionReceiptKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for SelectionReceiptKey {
+impl pse_contract::boundary_projection::ProjectionRecord for SelectionReceiptKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3751,16 +3751,16 @@ impl pse_model::boundary_projection::ProjectionRecord for SelectionReceiptKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for SelectionReceiptKey {
+impl pse_contract::boundary_projection::ValidateProjection for SelectionReceiptKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3844,12 +3844,12 @@ impl pse_model::SemanticFrame for ProductAssociationKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProductAssociationKey {
+impl pse_contract::boundary_projection::ProjectionType for ProductAssociationKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3858,20 +3858,20 @@ impl pse_model::boundary_projection::ProjectionType for ProductAssociationKey {
                 "CanonicalProductAssociationKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -3881,7 +3881,7 @@ impl pse_model::boundary_projection::ProjectionType for ProductAssociationKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProductAssociationKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProductAssociationKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -3890,16 +3890,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProductAssociationKey 
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProductAssociationKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProductAssociationKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3983,12 +3983,12 @@ impl pse_model::SemanticFrame for ProductDescriptorKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ProductDescriptorKey {
+impl pse_contract::boundary_projection::ProjectionType for ProductDescriptorKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3997,20 +3997,20 @@ impl pse_model::boundary_projection::ProjectionType for ProductDescriptorKey {
                 "CanonicalProductDescriptorKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4020,7 +4020,7 @@ impl pse_model::boundary_projection::ProjectionType for ProductDescriptorKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ProductDescriptorKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ProductDescriptorKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4029,16 +4029,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ProductDescriptorKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ProductDescriptorKey {
+impl pse_contract::boundary_projection::ValidateProjection for ProductDescriptorKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4122,12 +4122,12 @@ impl pse_model::SemanticFrame for AnalysisKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for AnalysisKey {
+impl pse_contract::boundary_projection::ProjectionType for AnalysisKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4136,20 +4136,20 @@ impl pse_model::boundary_projection::ProjectionType for AnalysisKey {
                 "CanonicalAnalysisKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4159,7 +4159,7 @@ impl pse_model::boundary_projection::ProjectionType for AnalysisKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for AnalysisKey {
+impl pse_contract::boundary_projection::ProjectionRecord for AnalysisKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4168,16 +4168,16 @@ impl pse_model::boundary_projection::ProjectionRecord for AnalysisKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for AnalysisKey {
+impl pse_contract::boundary_projection::ValidateProjection for AnalysisKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4261,12 +4261,12 @@ impl pse_model::SemanticFrame for AnalysisNodeKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for AnalysisNodeKey {
+impl pse_contract::boundary_projection::ProjectionType for AnalysisNodeKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4275,20 +4275,20 @@ impl pse_model::boundary_projection::ProjectionType for AnalysisNodeKey {
                 "CanonicalAnalysisNodeKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4298,7 +4298,7 @@ impl pse_model::boundary_projection::ProjectionType for AnalysisNodeKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for AnalysisNodeKey {
+impl pse_contract::boundary_projection::ProjectionRecord for AnalysisNodeKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4307,16 +4307,16 @@ impl pse_model::boundary_projection::ProjectionRecord for AnalysisNodeKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for AnalysisNodeKey {
+impl pse_contract::boundary_projection::ValidateProjection for AnalysisNodeKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4400,12 +4400,12 @@ impl pse_model::SemanticFrame for MaintenanceOperationKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for MaintenanceOperationKey {
+impl pse_contract::boundary_projection::ProjectionType for MaintenanceOperationKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4414,20 +4414,20 @@ impl pse_model::boundary_projection::ProjectionType for MaintenanceOperationKey 
                 "CanonicalMaintenanceOperationKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4437,7 +4437,7 @@ impl pse_model::boundary_projection::ProjectionType for MaintenanceOperationKey 
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for MaintenanceOperationKey {
+impl pse_contract::boundary_projection::ProjectionRecord for MaintenanceOperationKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4446,16 +4446,16 @@ impl pse_model::boundary_projection::ProjectionRecord for MaintenanceOperationKe
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for MaintenanceOperationKey {
+impl pse_contract::boundary_projection::ValidateProjection for MaintenanceOperationKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4539,12 +4539,12 @@ impl pse_model::SemanticFrame for MaintenanceActivationKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for MaintenanceActivationKey {
+impl pse_contract::boundary_projection::ProjectionType for MaintenanceActivationKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4553,20 +4553,20 @@ impl pse_model::boundary_projection::ProjectionType for MaintenanceActivationKey
                 "CanonicalMaintenanceActivationKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4576,7 +4576,7 @@ impl pse_model::boundary_projection::ProjectionType for MaintenanceActivationKey
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for MaintenanceActivationKey {
+impl pse_contract::boundary_projection::ProjectionRecord for MaintenanceActivationKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4585,16 +4585,16 @@ impl pse_model::boundary_projection::ProjectionRecord for MaintenanceActivationK
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for MaintenanceActivationKey {
+impl pse_contract::boundary_projection::ValidateProjection for MaintenanceActivationKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4678,12 +4678,12 @@ impl pse_model::SemanticFrame for InlinePayloadKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for InlinePayloadKey {
+impl pse_contract::boundary_projection::ProjectionType for InlinePayloadKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4692,20 +4692,20 @@ impl pse_model::boundary_projection::ProjectionType for InlinePayloadKey {
                 "CanonicalInlinePayloadKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4715,7 +4715,7 @@ impl pse_model::boundary_projection::ProjectionType for InlinePayloadKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for InlinePayloadKey {
+impl pse_contract::boundary_projection::ProjectionRecord for InlinePayloadKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4724,16 +4724,16 @@ impl pse_model::boundary_projection::ProjectionRecord for InlinePayloadKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for InlinePayloadKey {
+impl pse_contract::boundary_projection::ValidateProjection for InlinePayloadKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4817,12 +4817,12 @@ impl pse_model::SemanticFrame for FileOwnerKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for FileOwnerKey {
+impl pse_contract::boundary_projection::ProjectionType for FileOwnerKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4831,20 +4831,20 @@ impl pse_model::boundary_projection::ProjectionType for FileOwnerKey {
                 "CanonicalFileOwnerKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4854,7 +4854,7 @@ impl pse_model::boundary_projection::ProjectionType for FileOwnerKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for FileOwnerKey {
+impl pse_contract::boundary_projection::ProjectionRecord for FileOwnerKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -4863,16 +4863,16 @@ impl pse_model::boundary_projection::ProjectionRecord for FileOwnerKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for FileOwnerKey {
+impl pse_contract::boundary_projection::ValidateProjection for FileOwnerKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4956,12 +4956,12 @@ impl pse_model::SemanticFrame for FileBorrowerKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for FileBorrowerKey {
+impl pse_contract::boundary_projection::ProjectionType for FileBorrowerKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4970,20 +4970,20 @@ impl pse_model::boundary_projection::ProjectionType for FileBorrowerKey {
                 "CanonicalFileBorrowerKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -4993,7 +4993,7 @@ impl pse_model::boundary_projection::ProjectionType for FileBorrowerKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for FileBorrowerKey {
+impl pse_contract::boundary_projection::ProjectionRecord for FileBorrowerKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -5002,16 +5002,16 @@ impl pse_model::boundary_projection::ProjectionRecord for FileBorrowerKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for FileBorrowerKey {
+impl pse_contract::boundary_projection::ValidateProjection for FileBorrowerKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5095,12 +5095,12 @@ impl pse_model::SemanticFrame for ManifestTicketKey {
         hash.str(&self.0);
     }
 }
-impl pse_model::boundary_projection::ProjectionType for ManifestTicketKey {
+impl pse_contract::boundary_projection::ProjectionType for ManifestTicketKey {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5109,20 +5109,20 @@ impl pse_model::boundary_projection::ProjectionType for ManifestTicketKey {
                 "CanonicalManifestTicketKey",
                 "crates/pse-schema/src/model/canonical.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| {
                     Ok(
-                        pse_model::boundary_projection::Shape::Record(
+                        pse_contract::boundary_projection::Shape::Record(
                             vec![
-                                pse_model::boundary_projection::Field::of::<
+                                pse_contract::boundary_projection::Field::of::<
                                     String,
                                 >(
                                     graph,
                                     "value",
                                     1,
-                                    pse_model::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?,
                             ],
@@ -5132,7 +5132,7 @@ impl pse_model::boundary_projection::ProjectionType for ManifestTicketKey {
             )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for ManifestTicketKey {
+impl pse_contract::boundary_projection::ProjectionRecord for ManifestTicketKey {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (String,);
@@ -5141,16 +5141,16 @@ impl pse_model::boundary_projection::ProjectionRecord for ManifestTicketKey {
     }
     fn from_projection_fields(
         (value,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(value))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for ManifestTicketKey {
+impl pse_contract::boundary_projection::ValidateProjection for ManifestTicketKey {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

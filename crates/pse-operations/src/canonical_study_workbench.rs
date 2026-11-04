@@ -10,7 +10,7 @@ use crate::{
 use std::sync::Arc;
 use surrealdb_types::{Bytes, Object, Value};
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Indexed predicates over actual original scientific and engineering owners.
 #[derive(
     Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -18,89 +18,89 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct StudyWorkbenchFilter {
     projection: { name: "StudyWorkbenchFilter", rust_path: crate::canonical_study_workbench::StudyWorkbenchFilter,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact study key, including terminal studies.
-    pub study: Option<String> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub study: Option<String> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact owning project; branch membership is resolved by its native owner.
-    pub project: Option<String> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub project: Option<String> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact branch key; not its mutable display name.
-    pub branch: Option<String> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub branch: Option<String> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact canonical modeling source revision.
-    pub source: Option<String> => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub source: Option<String> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact admitted physical source revision.
-    pub physical_revision: Option<String> => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub physical_revision: Option<String> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact immutable historical engineering context key.
-    pub context: Option<String> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub context: Option<String> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original canonical terminal class, independent from scientific usability.
-    pub outcome: Option<pse_model::generated::enums::CanonicalTerminalOutcome> => { tag: 7, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub outcome: Option<pse_model::generated::enums::CanonicalTerminalOutcome> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Dataset/selection keys select consumed ancestry; publication operation keys
     /// select the exact resulting parameter source. Existing ResearchReference keys
     /// select their explicitly named source/run neighborhood, without proving consumption.
-    pub research_reference: Option<String> => { tag: 8, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub research_reference: Option<String> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Compact immutable attribution and current header facts. No definitions or trajectories.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyWorkbenchHeader {
     projection: { name: "StudyWorkbenchHeader", rust_path: crate::canonical_study_workbench::StudyWorkbenchHeader,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact study identity.
-    pub study: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub study: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact parent execution.
-    pub run: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub run: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original source owner.
-    pub problem: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub problem: String => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact original modeling revision.
-    pub source: String => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub source: String => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact admitted physical revision, unavailable for historical untyped metadata.
-    pub physical_revision: Option<String> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub physical_revision: Option<String> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact physical source interpretation.
-    pub physical_identity: Option<String> => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub physical_identity: Option<String> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact engineering context, if selected.
-    pub context: Option<String> => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub context: Option<String> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Complete activated population size, before outcome filtering or analysis.
-    pub point_count: u64 => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub point_count: u64 => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual cancellation authority generation; not a metadata revision.
-    pub generation: u64 => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub generation: u64 => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original complete membership is activated.
-    pub active: bool => { tag: 10, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub active: bool => { tag: 10, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual persistent cancellation flag.
-    pub cancelled: bool => { tag: 11, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub cancelled: bool => { tag: 11, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Parent summary concluded.
-    pub terminal: bool => { tag: 12, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub terminal: bool => { tag: 12, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact terminal parent attempt, when admitted.
-    pub result_attempt: Option<String> => { tag: 13, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub result_attempt: Option<String> => { tag: 13, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original operational outcome, not scientific qualification.
-    pub outcome: Option<pse_model::generated::enums::CanonicalTerminalOutcome> => { tag: 14, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub outcome: Option<pse_model::generated::enums::CanonicalTerminalOutcome> => { tag: 14, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One frozen point's compact original facts; no operation, report or payload is decoded.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyCohortMember {
     projection: { name: "StudyCohortMember", rust_path: crate::canonical_study_workbench::StudyCohortMember,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact occurrence key.
-    pub key: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub key: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact owning study.
-    pub study: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub study: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual immutable member position.
-    pub ordinal: u64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub ordinal: u64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact original run.
-    pub run: String => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub run: String => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact currently assigned attempt; retries remain separate sources.
-    pub attempt: Option<String> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub attempt: Option<String> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Exact captured closed manifest; later completion cannot reclassify absence.
-    pub manifest: Option<String> => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub manifest: Option<String> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual native point metadata revision captured in this selection.
-    pub metadata_revision: u64 => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub metadata_revision: u64 => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Whether the policy has settled this occurrence.
-    pub settled: bool => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub settled: bool => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original lifecycle, scientific availability, attempt count and effect facts.
-    pub facts: pse_model::study::PointFacts => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub facts: pse_model::study::PointFacts => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 /// One bounded live browsing page; it never grants frozen completeness.
@@ -121,18 +121,18 @@ pub struct NativeStudyCapture {
     /// One shared actual owner through page and scan drain.
     pub capture: StudyCapture,
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// A stable capture position distinct from an occurrence's within-study ordinal.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "CapturedStudyRowFor{T}")]
 pub struct CapturedStudyRow<T> {
     projection: { name: "CapturedStudyRowFor", rust_path: crate::canonical_study_workbench::CapturedStudyRow,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Global immutable position in this exact capture.
-    pub position: u64 => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub position: u64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original captured facts.
-    pub value: T => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub value: T => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 /// One bounded decoded prefix. The caller owns its response/retained allocation.

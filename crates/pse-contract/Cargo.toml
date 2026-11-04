@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-contract"
+description = "Pure owner-derived structural contracts and checked boundary access."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+miette.workspace = true
+serde.workspace = true
+schemars.workspace = true
+strum.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

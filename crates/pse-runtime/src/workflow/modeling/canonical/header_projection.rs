@@ -2,9 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Selected declaration headers never copy the unrequested scientific bodies.
 use super::*;
-use pse_model::{
-    boundary_projection::ValidateProjection as _, engineering::EngineeringDeclarationHeader,
-};
+use pse_model::{engineering::EngineeringDeclarationHeader};
+use pse_contract::{boundary_projection::ValidateProjection as _};
 
 impl ModelingPackage {
     /// Project only selected original declaration identities and names from authenticated ingress.

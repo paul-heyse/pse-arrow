@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 //! Concrete local engineering service inputs and selected original-owner outcomes.
 
-use crate::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph, Service};
+use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph, Service};
 pub use crate::engineering_edit::{
     EngineeringEditSource, SourceFileChange, SourceFileDelta, SourceFileEdit,
 };
-use crate::operation_effects::EffectFacts;
-use crate::{projection_enum, projection_struct};
+use pse_contract::operation_effects::EffectFacts;
+use pse_contract::{projection_enum, projection_struct};
 use pse_ids::{ContentHash, SemanticId};
 use std::collections::BTreeMap;
 

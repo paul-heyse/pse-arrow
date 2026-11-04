@@ -3,7 +3,7 @@
 //! Checked named FERAL choices use the existing settings binding's exact conversions.
 
 use super::{FeralOrdering, FeralScaling, OrderingMethod, ScalingStrategy, ordering, scaling};
-use pse_model::boundary_projection::{
+use pse_contract::boundary_projection::{
     AdapterError, AdapterFailure, Direction, Field, ProjectionAdapter, ProjectionError,
     ProjectionGraph, ValidationError, adapter_source_path,
 };
@@ -40,7 +40,7 @@ macro_rules! named_choice {
             }
             fn public_path() -> Option<String> {
                 Some(format!(
-                    "pse_model::boundary_projection::Adapted<{},{}>",
+                    "pse_contract::boundary_projection::Adapted<{},{}>",
                     <Self as ProjectionAdapter<$native>>::native_path(),
                     <Self as ProjectionAdapter<$native>>::adapter_path()
                 ))
@@ -98,7 +98,7 @@ named_choice!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_model::boundary_projection::{Adapted, CheckedProjectionRecord};
+    use pse_contract::boundary_projection::{Adapted, CheckedProjectionRecord};
 
     #[test]
     fn actual_feral_named_choices_roundtrip_and_refuse_problem_data_variants() {

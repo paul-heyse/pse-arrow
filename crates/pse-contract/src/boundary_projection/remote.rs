@@ -30,7 +30,7 @@ macro_rules! projection_remote {
             const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
             type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
             fn public_path() -> Option<String> {
-                Some(format!("pse_model::boundary_projection::Adapted<{},{}>",
+                Some(format!("pse_contract::boundary_projection::Adapted<{},{}>",
                     <Self as $crate::boundary_projection::ProjectionAdapter<$target>>::native_path(),
                     <Self as $crate::boundary_projection::ProjectionAdapter<$target>>::adapter_path()))
             }

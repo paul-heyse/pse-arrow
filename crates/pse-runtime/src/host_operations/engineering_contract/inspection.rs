@@ -2,12 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual contextual model and passive retained-provider inspection crossings.
 
-use pse_model::{
-    boundary_projection::{Direction, LocalRule},
-    engineering::OPERATION_ID_RULE,
-};
+use pse_model::{engineering::OPERATION_ID_RULE};
+use pse_contract::{boundary_projection::{Direction, LocalRule}};
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Select the original complete contextual model inspection without dispatching its procedure.
     #[derive(Clone, Debug)]
     pub struct EngineeringInspectModeling {
@@ -20,7 +18,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Select actual retained factories independently of numerical worker construction.
     #[derive(Clone, Debug)]
     pub struct EngineeringInspectProviders {
@@ -34,19 +32,19 @@ pse_model::projection_struct! {
 }
 
 pub(super) fn service(
-    service: pse_model::boundary_projection::Service,
-    graph: &mut pse_model::boundary_projection::ProjectionGraph,
-) -> Result<pse_model::boundary_projection::Service, pse_model::boundary_projection::ProjectionError>
+    service: pse_contract::boundary_projection::Service,
+    graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+) -> Result<pse_contract::boundary_projection::Service, pse_contract::boundary_projection::ProjectionError>
 {
     service
         .unary::<EngineeringInspectModeling, crate::workflow::ModelingInspection>(
             graph,
             "InspectModeling",
         )?
-        .effects(pse_model::operation_effects::EffectFacts::OBSERVATION)?
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?
         .unary::<EngineeringInspectProviders, crate::workflow::ProviderInspectionPage>(
             graph,
             "InspectProviders",
         )?
-        .effects(pse_model::operation_effects::EffectFacts::OBSERVATION)
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)
 }

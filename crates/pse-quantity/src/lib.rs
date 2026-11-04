@@ -47,9 +47,11 @@
 //! [`semantic_id_newtype`]: pse_ids::semantic_id_newtype
 
 pub mod admission;
+#[macro_use]
 pub mod basis;
 pub mod boundary;
 pub mod conversion;
+#[macro_use]
 pub mod dimension;
 pub mod enums;
 pub mod error;
@@ -57,10 +59,13 @@ pub mod error;
 #[cfg(feature = "reference-package-projection")]
 #[rustfmt::skip]
 pub mod generated;
+#[macro_use]
 pub mod entity_kind;
 pub mod ids;
+#[macro_use]
 pub mod index;
 pub mod infer;
+#[macro_use]
 pub mod kind;
 pub use entity_kind::EntityKind;
 #[cfg(test)]
@@ -72,20 +77,25 @@ pub mod numeric;
 pub mod operation;
 pub mod physical_identity;
 pub mod precondition;
+#[macro_use]
 pub mod quantity_type;
+#[macro_use]
 pub mod reference_state;
 pub mod reference_translation;
 pub use reference_translation::{ReferenceTranslation, ScientificAnchor};
 pub mod registry;
+#[macro_use]
 pub mod resolved;
 pub use resolved::{
     AdmittedContractBoundary, AdmittedOutputBoundary, PhysicalFormulaAuthority, ResolvedInference,
     ResolvedPhysicalContract,
 };
+#[macro_use]
 pub mod scheme;
 pub mod smoothing;
 #[cfg(feature = "fixtures")]
 pub mod standard;
+#[macro_use]
 pub mod unit;
 #[cfg(test)]
 mod unit_algebra_tests;
@@ -129,3 +139,7 @@ pub mod functions;
 /// Resolver-owned physical dependency projections for compiler products.
 #[doc(hidden)]
 pub mod premises;
+
+mod contract_quantity;
+mod contract_quantity_passive;
+mod contract_ids;

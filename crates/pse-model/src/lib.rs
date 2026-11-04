@@ -11,8 +11,6 @@ mod bytes;
 pub use bytes::Bytes;
 /// Shared source-derived conservative container bounds.
 pub mod allocation;
-/// Typed owner declarations for externally versioned boundary projections.
-pub mod boundary_projection;
 /// Source-attributed public failure structure.
 pub mod diagnostic;
 /// Versioned boundary documents (ADR-0116 Outcome 6).
@@ -31,8 +29,8 @@ pub mod forms;
 pub mod lineage;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
-/// Shared source-owned operation effects and exact-request repeatability facts.
-pub mod operation_effects;
+/// Model-owned boundary implementations and downstream diagnostic decoration.
+mod boundary_contracts;
 /// Versioned scientific exchange structure and semantic correspondence checks.
 pub mod reference_exchange;
 /// Validated single-value setting domains (ADR-0116 Outcome 8).

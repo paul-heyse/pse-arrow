@@ -72,6 +72,7 @@ native-solvers = [
 ]
 
 [dependencies]
+pse-contract.workspace = true
 pse-host.workspace = true
 buffa.workspace = true
 buffa-descriptor.workspace = true

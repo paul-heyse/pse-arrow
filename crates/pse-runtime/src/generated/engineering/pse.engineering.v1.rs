@@ -3098,7 +3098,7 @@ pub const __ADMITTED_STUDY_POINT_POLICY_TEXT_ANY: ::buffa::type_registry::TextAn
     text_merge: ::buffa::type_registry::any_merge_text::<AdmittedStudyPointPolicy>,
 };
 /// Rust owner: \[u8; 16\]
-/// Source: crates/pse-model/src/boundary_projection/quantity.rs
+/// Source: crates/pse-contract/src/boundary_projection/array.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -3355,7 +3355,7 @@ pub const __ARRAY16U8_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::
     text_merge: ::buffa::type_registry::any_merge_text::<Array16U8>,
 };
 /// Rust owner: \[u64; 2\]
-/// Source: crates/pse-model/src/boundary_projection/quantity.rs
+/// Source: crates/pse-contract/src/boundary_projection/array.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -3660,7 +3660,7 @@ pub const __ARRAY2U64_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::
     text_merge: ::buffa::type_registry::any_merge_text::<Array2U64>,
 };
 /// Rust owner: \[\[u8; 16\]; 3\]
-/// Source: crates/pse-model/src/boundary_projection/quantity.rs
+/// Source: crates/pse-contract/src/boundary_projection/array.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -3941,7 +3941,7 @@ pub const __ARRAY3ARRAY16U8_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::b
     text_merge: ::buffa::type_registry::any_merge_text::<Array3Array16U8>,
 };
 /// Rust owner: \[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3\]
-/// Source: crates/pse-model/src/boundary_projection/quantity.rs
+/// Source: crates/pse-contract/src/boundary_projection/array.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -4222,7 +4222,7 @@ pub const __ARRAY3FINITE_BOUND_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = 
     text_merge: ::buffa::type_registry::any_merge_text::<Array3FiniteBound>,
 };
 /// Rust owner: \[pse_quantity::dimension::Ratio; 8\]
-/// Source: crates/pse-model/src/boundary_projection/quantity.rs
+/// Source: crates/pse-contract/src/boundary_projection/array.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -108756,15 +108756,15 @@ pub const __DYNAMICS_METHOD_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::b
     text_encode: ::buffa::type_registry::any_encode_text::<DynamicsMethod>,
     text_merge: ::buffa::type_registry::any_merge_text::<DynamicsMethod>,
 };
-/// Rust owner: pse_model::operation_effects::EffectFacts
-/// Source: crates/pse-model/src/operation_effects.rs
+/// Rust owner: pse_contract::operation_effects::EffectFacts
+/// Source: crates/pse-contract/src/operation_effects.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct EffectFacts {
-    /// Rust field: pse_model::operation_effects::EffectFacts.scope
+    /// Rust field: pse_contract::operation_effects::EffectFacts.scope
     /// Original named field facets: {}
     ///
     /// Field 1: `scope`
@@ -108773,7 +108773,7 @@ pub struct EffectFacts {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
     )]
     pub scope: ::buffa::MessageField<EffectScope, ::buffa::Inline<EffectScope>>,
-    /// Rust field: pse_model::operation_effects::EffectFacts.read_only
+    /// Rust field: pse_contract::operation_effects::EffectFacts.read_only
     /// Original named field facets: {}
     ///
     /// Field 2: `read_only`
@@ -108783,7 +108783,7 @@ pub struct EffectFacts {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
     )]
     pub read_only: bool,
-    /// Rust field: pse_model::operation_effects::EffectFacts.idempotent
+    /// Rust field: pse_contract::operation_effects::EffectFacts.idempotent
     /// Original named field facets: {}
     ///
     /// Field 3: `idempotent`
@@ -108793,7 +108793,7 @@ pub struct EffectFacts {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
     )]
     pub idempotent: bool,
-    /// Rust field: pse_model::operation_effects::EffectFacts.destructive
+    /// Rust field: pse_contract::operation_effects::EffectFacts.destructive
     /// Original named field facets: {}
     ///
     /// Field 4: `destructive`
@@ -109128,8 +109128,8 @@ pub const __EFFECT_FACTS_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buff
     text_encode: ::buffa::type_registry::any_encode_text::<EffectFacts>,
     text_merge: ::buffa::type_registry::any_merge_text::<EffectFacts>,
 };
-/// Rust owner: pse_model::operation_effects::EffectScope
-/// Source: crates/pse-model/src/operation_effects.rs
+/// Rust owner: pse_contract::operation_effects::EffectScope
+/// Source: crates/pse-contract/src/operation_effects.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -133507,7 +133507,7 @@ pub const __FERAL_ORDERING_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::bu
     text_encode: ::buffa::type_registry::any_encode_text::<FeralOrdering>,
     text_merge: ::buffa::type_registry::any_merge_text::<FeralOrdering>,
 };
-/// Rust owner: pse_model::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>
+/// Rust owner: pse_contract::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>
 /// Source: crates/pse-backend-native/src/settings/pounce/projection.rs
 /// Interpretation version: 1
 /// Direction: Both
@@ -133515,7 +133515,7 @@ pub const __FERAL_ORDERING_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::bu
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct FeralOrderingSetting {
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>.value
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>.value
     /// Original named field facets: {}
     ///
     /// Field 1: `value`
@@ -134035,7 +134035,7 @@ pub const __FERAL_SCALING_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buf
     text_encode: ::buffa::type_registry::any_encode_text::<FeralScaling>,
     text_merge: ::buffa::type_registry::any_merge_text::<FeralScaling>,
 };
-/// Rust owner: pse_model::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>
+/// Rust owner: pse_contract::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>
 /// Source: crates/pse-backend-native/src/settings/pounce/projection.rs
 /// Interpretation version: 1
 /// Direction: Both
@@ -134043,7 +134043,7 @@ pub const __FERAL_SCALING_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buf
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct FeralScalingSetting {
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>.value
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>.value
     /// Original named field facets: {}
     ///
     /// Field 1: `value`
@@ -134309,7 +134309,7 @@ pub const __FERAL_SCALING_SETTING_TEXT_ANY: ::buffa::type_registry::TextAnyEntry
     text_encode: ::buffa::type_registry::any_encode_text::<FeralScalingSetting>,
     text_merge: ::buffa::type_registry::any_merge_text::<FeralScalingSetting>,
 };
-/// Rust owner: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>
+/// Rust owner: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>
 /// Source: crates/pse-backend-native/src/settings/pounce.rs
 /// Interpretation version: 1
 /// Direction: Both
@@ -134317,7 +134317,7 @@ pub const __FERAL_SCALING_SETTING_TEXT_ANY: ::buffa::type_registry::TextAnyEntry
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct FeralSettings {
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.bounded_storage_max_dimension
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.bounded_storage_max_dimension
     /// Original named field facets: {}
     ///
     /// Field 1: `bounded_storage_max_dimension`
@@ -134327,7 +134327,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub bounded_storage_max_dimension: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.cascade_break
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.cascade_break
     /// Original named field facets: {}
     ///
     /// Field 2: `cascade_break`
@@ -134336,7 +134336,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub cascade_break: ::core::option::Option<bool>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.fma
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.fma
     /// Original named field facets: {}
     ///
     /// Field 3: `fma`
@@ -134346,7 +134346,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
     )]
     pub fma: bool,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine
     /// Original named field facets: {}
     ///
     /// Field 4: `refine`
@@ -134356,7 +134356,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
     )]
     pub refine: bool,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.increase_quality
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.increase_quality
     /// Original named field facets: {}
     ///
     /// Field 5: `increase_quality`
@@ -134366,7 +134366,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
     )]
     pub increase_quality: bool,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_max_steps
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_max_steps
     /// Original named field facets: {}
     ///
     /// Field 6: `refine_max_steps`
@@ -134376,7 +134376,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub refine_max_steps: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_target
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_target
     /// Original named field facets: {}
     ///
     /// Field 7: `refine_target`
@@ -134386,7 +134386,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub refine_target: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.singular_pivot_floor
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.singular_pivot_floor
     /// Original named field facets: {}
     ///
     /// Field 8: `singular_pivot_floor`
@@ -134396,7 +134396,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub singular_pivot_floor: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.inertia_pivot_floor
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.inertia_pivot_floor
     /// Original named field facets: {}
     ///
     /// Field 9: `inertia_pivot_floor`
@@ -134406,7 +134406,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub inertia_pivot_floor: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.pivtol
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.pivtol
     /// Original named field facets: {}
     ///
     /// Field 10: `pivtol`
@@ -134416,7 +134416,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub pivtol: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.ordering
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.ordering
     /// Original named field facets: {}
     ///
     /// Field 11: `ordering`
@@ -134428,7 +134428,7 @@ pub struct FeralSettings {
         FeralOrderingSetting,
         ::buffa::Inline<FeralOrderingSetting>,
     >,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.scaling
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.scaling
     /// Original named field facets: {}
     ///
     /// Field 12: `scaling`
@@ -134440,7 +134440,7 @@ pub struct FeralSettings {
         FeralScalingSetting,
         ::buffa::Inline<FeralScalingSetting>,
     >,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.parallel
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.parallel
     /// Original named field facets: {}
     ///
     /// Field 13: `parallel`
@@ -134449,7 +134449,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub parallel: ::core::option::Option<bool>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.min_par_flops
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.min_par_flops
     /// Original named field facets: {}
     ///
     /// Field 14: `min_par_flops`
@@ -134459,7 +134459,7 @@ pub struct FeralSettings {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub min_par_flops: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.static_pivoting
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.static_pivoting
     /// Original named field facets: {}
     ///
     /// Field 15: `static_pivoting`
@@ -228335,7 +228335,7 @@ pub const __NATIVE_WARM_RESTART_TEXT_ANY: ::buffa::type_registry::TextAnyEntry =
     text_merge: ::buffa::type_registry::any_merge_text::<NativeWarmRestart>,
 };
 /// Rust owner: core::time::Duration
-/// Source: crates/pse-model/src/boundary_projection/standard.rs
+/// Source: crates/pse-contract/src/boundary_projection/standard.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -283575,7 +283575,7 @@ pub const __SENSITIVITY_CORRECTOR_TEXT_ANY: ::buffa::type_registry::TextAnyEntry
     text_encode: ::buffa::type_registry::any_encode_text::<SensitivityCorrector>,
     text_merge: ::buffa::type_registry::any_merge_text::<SensitivityCorrector>,
 };
-/// Rust owner: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>
+/// Rust owner: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>
 /// Source: crates/pse-backend-native/src/dynamics.rs
 /// Interpretation version: 1
 /// Direction: Both
@@ -283583,7 +283583,7 @@ pub const __SENSITIVITY_CORRECTOR_TEXT_ANY: ::buffa::type_registry::TextAnyEntry
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct SharedDiffsolInitialConditionOptions {
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.use_linesearch
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.use_linesearch
     /// Original named field facets: {}
     ///
     /// Field 1: `use_linesearch`
@@ -283593,7 +283593,7 @@ pub struct SharedDiffsolInitialConditionOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
     )]
     pub use_linesearch: bool,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linesearch_iterations
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linesearch_iterations
     /// Original named field facets: {}
     ///
     /// Field 2: `max_linesearch_iterations`
@@ -283603,7 +283603,7 @@ pub struct SharedDiffsolInitialConditionOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_linesearch_iterations: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_newton_iterations
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_newton_iterations
     /// Original named field facets: {}
     ///
     /// Field 3: `max_newton_iterations`
@@ -283613,7 +283613,7 @@ pub struct SharedDiffsolInitialConditionOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_newton_iterations: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linear_solver_setups
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linear_solver_setups
     /// Original named field facets: {}
     ///
     /// Field 4: `max_linear_solver_setups`
@@ -283623,7 +283623,7 @@ pub struct SharedDiffsolInitialConditionOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_linear_solver_setups: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.step_reduction_factor
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.step_reduction_factor
     /// Original named field facets: {}
     ///
     /// Field 5: `step_reduction_factor`
@@ -283633,7 +283633,7 @@ pub struct SharedDiffsolInitialConditionOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub step_reduction_factor: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.armijo_constant
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.armijo_constant
     /// Original named field facets: {}
     ///
     /// Field 6: `armijo_constant`
@@ -284025,7 +284025,7 @@ pub const __SHARED_DIFFSOL_INITIAL_CONDITION_OPTIONS_TEXT_ANY: ::buffa::type_reg
         SharedDiffsolInitialConditionOptions,
     >,
 };
-/// Rust owner: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>
+/// Rust owner: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>
 /// Source: crates/pse-backend-native/src/dynamics.rs
 /// Interpretation version: 1
 /// Direction: Both
@@ -284033,7 +284033,7 @@ pub const __SHARED_DIFFSOL_INITIAL_CONDITION_OPTIONS_TEXT_ANY: ::buffa::type_reg
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
 pub struct SharedDiffsolOdeSolverOptions {
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_iterations
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_iterations
     /// Original named field facets: {}
     ///
     /// Field 1: `max_nonlinear_solver_iterations`
@@ -284043,7 +284043,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_nonlinear_solver_iterations: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_error_test_failures
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_error_test_failures
     /// Original named field facets: {}
     ///
     /// Field 2: `max_error_test_failures`
@@ -284053,7 +284053,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_error_test_failures: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_failures
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_failures
     /// Original named field facets: {}
     ///
     /// Field 3: `max_nonlinear_solver_failures`
@@ -284063,7 +284063,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub max_nonlinear_solver_failures: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.nonlinear_solver_tolerance
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.nonlinear_solver_tolerance
     /// Original named field facets: {}
     ///
     /// Field 4: `nonlinear_solver_tolerance`
@@ -284073,7 +284073,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub nonlinear_solver_tolerance: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep
     /// Original named field facets: {}
     ///
     /// Field 5: `min_timestep`
@@ -284083,7 +284083,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub min_timestep: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_growth
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_growth
     /// Original named field facets: {}
     ///
     /// Field 6: `max_timestep_growth`
@@ -284093,7 +284093,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub max_timestep_growth: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_growth
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_growth
     /// Original named field facets: {}
     ///
     /// Field 7: `min_timestep_growth`
@@ -284103,7 +284103,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub min_timestep_growth: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_shrink
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_shrink
     /// Original named field facets: {}
     ///
     /// Field 8: `max_timestep_shrink`
@@ -284113,7 +284113,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub max_timestep_shrink: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_shrink
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_shrink
     /// Original named field facets: {}
     ///
     /// Field 9: `min_timestep_shrink`
@@ -284123,7 +284123,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::core::option::Option::is_none"
     )]
     pub min_timestep_shrink: ::core::option::Option<u64>,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_jacobian_after_steps
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_jacobian_after_steps
     /// Original named field facets: {}
     ///
     /// Field 10: `update_jacobian_after_steps`
@@ -284133,7 +284133,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub update_jacobian_after_steps: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_rhs_jacobian_after_steps
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_rhs_jacobian_after_steps
     /// Original named field facets: {}
     ///
     /// Field 11: `update_rhs_jacobian_after_steps`
@@ -284143,7 +284143,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub update_rhs_jacobian_after_steps: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_jacobian
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_jacobian
     /// Original named field facets: {}
     ///
     /// Field 12: `threshold_to_update_jacobian`
@@ -284153,7 +284153,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub threshold_to_update_jacobian: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_rhs_jacobian
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_rhs_jacobian
     /// Original named field facets: {}
     ///
     /// Field 13: `threshold_to_update_rhs_jacobian`
@@ -284163,7 +284163,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub threshold_to_update_rhs_jacobian: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_proportional
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_proportional
     /// Original named field facets: {}
     ///
     /// Field 14: `pi_control_proportional`
@@ -284173,7 +284173,7 @@ pub struct SharedDiffsolOdeSolverOptions {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub pi_control_proportional: u64,
-    /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_integral
+    /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_integral
     /// Original named field facets: {}
     ///
     /// Field 15: `pi_control_integral`
@@ -326882,7 +326882,7 @@ pub const __TRIAL_POLICY_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buff
     text_merge: ::buffa::type_registry::any_merge_text::<TrialPolicy>,
 };
 /// Rust owner: (alloc::string::String, pse_modeling::types::Type)
-/// Source: crates/pse-model/src/boundary_projection/tuple_pair.rs
+/// Source: crates/pse-contract/src/boundary_projection/tuple_pair.rs
 /// Interpretation version: 1
 /// Direction: Both
 #[derive(Clone, PartialEq, Default)]
@@ -333166,7 +333166,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: \[u8; 16\]
-        /// Source: crates/pse-model/src/boundary_projection/quantity.rs
+        /// Source: crates/pse-contract/src/boundary_projection/array.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -333543,7 +333543,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: \[u64; 2\]
-        /// Source: crates/pse-model/src/boundary_projection/quantity.rs
+        /// Source: crates/pse-contract/src/boundary_projection/array.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -333949,7 +333949,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: \[\[u8; 16\]; 3\]
-        /// Source: crates/pse-model/src/boundary_projection/quantity.rs
+        /// Source: crates/pse-contract/src/boundary_projection/array.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -334366,7 +334366,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: \[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3\]
-        /// Source: crates/pse-model/src/boundary_projection/quantity.rs
+        /// Source: crates/pse-contract/src/boundary_projection/array.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -334783,7 +334783,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: \[pse_quantity::dimension::Ratio; 8\]
-        /// Source: crates/pse-model/src/boundary_projection/quantity.rs
+        /// Source: crates/pse-contract/src/boundary_projection/array.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -482096,30 +482096,30 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::operation_effects::EffectFacts
-        /// Source: crates/pse-model/src/operation_effects.rs
+        /// Rust owner: pse_contract::operation_effects::EffectFacts
+        /// Source: crates/pse-contract/src/operation_effects.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
         pub struct EffectFactsView<'a> {
-            /// Rust field: pse_model::operation_effects::EffectFacts.scope
+            /// Rust field: pse_contract::operation_effects::EffectFacts.scope
             /// Original named field facets: {}
             ///
             /// Field 1: `scope`
             pub scope: ::buffa::MessageFieldView<
                 super::super::__buffa::view::EffectScopeView<'a>,
             >,
-            /// Rust field: pse_model::operation_effects::EffectFacts.read_only
+            /// Rust field: pse_contract::operation_effects::EffectFacts.read_only
             /// Original named field facets: {}
             ///
             /// Field 2: `read_only`
             pub read_only: bool,
-            /// Rust field: pse_model::operation_effects::EffectFacts.idempotent
+            /// Rust field: pse_contract::operation_effects::EffectFacts.idempotent
             /// Original named field facets: {}
             ///
             /// Field 3: `idempotent`
             pub idempotent: bool,
-            /// Rust field: pse_model::operation_effects::EffectFacts.destructive
+            /// Rust field: pse_contract::operation_effects::EffectFacts.destructive
             /// Original named field facets: {}
             ///
             /// Field 4: `destructive`
@@ -482436,7 +482436,7 @@ pub mod __buffa {
             pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
                 self.0.into_bytes()
             }
-            /// Rust field: pse_model::operation_effects::EffectFacts.scope
+            /// Rust field: pse_contract::operation_effects::EffectFacts.scope
             /// Original named field facets: {}
             ///
             /// Field 1: `scope`
@@ -482448,7 +482448,7 @@ pub mod __buffa {
             > {
                 &self.0.reborrow().scope
             }
-            /// Rust field: pse_model::operation_effects::EffectFacts.read_only
+            /// Rust field: pse_contract::operation_effects::EffectFacts.read_only
             /// Original named field facets: {}
             ///
             /// Field 2: `read_only`
@@ -482456,7 +482456,7 @@ pub mod __buffa {
             pub fn read_only(&self) -> bool {
                 self.0.reborrow().read_only
             }
-            /// Rust field: pse_model::operation_effects::EffectFacts.idempotent
+            /// Rust field: pse_contract::operation_effects::EffectFacts.idempotent
             /// Original named field facets: {}
             ///
             /// Field 3: `idempotent`
@@ -482464,7 +482464,7 @@ pub mod __buffa {
             pub fn idempotent(&self) -> bool {
                 self.0.reborrow().idempotent
             }
-            /// Rust field: pse_model::operation_effects::EffectFacts.destructive
+            /// Rust field: pse_contract::operation_effects::EffectFacts.destructive
             /// Original named field facets: {}
             ///
             /// Field 4: `destructive`
@@ -482620,8 +482620,8 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::operation_effects::EffectScope
-        /// Source: crates/pse-model/src/operation_effects.rs
+        /// Rust owner: pse_contract::operation_effects::EffectScope
+        /// Source: crates/pse-contract/src/operation_effects.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -516934,13 +516934,13 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>
+        /// Rust owner: pse_contract::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>
         /// Source: crates/pse-backend-native/src/settings/pounce/projection.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
         pub struct FeralOrderingSettingView<'a> {
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>.value
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>.value
             /// Original named field facets: {}
             ///
             /// Field 1: `value`
@@ -517210,7 +517210,7 @@ pub mod __buffa {
             pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
                 self.0.into_bytes()
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>.value
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection\>.value
             /// Original named field facets: {}
             ///
             /// Field 1: `value`
@@ -517742,13 +517742,13 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>
+        /// Rust owner: pse_contract::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>
         /// Source: crates/pse-backend-native/src/settings/pounce/projection.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
         pub struct FeralScalingSettingView<'a> {
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>.value
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>.value
             /// Original named field facets: {}
             ///
             /// Field 1: `value`
@@ -518018,7 +518018,7 @@ pub mod __buffa {
             pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
                 self.0.into_bytes()
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>.value
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection\>.value
             /// Original named field facets: {}
             ///
             /// Field 1: `value`
@@ -518176,87 +518176,87 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>
+        /// Rust owner: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>
         /// Source: crates/pse-backend-native/src/settings/pounce.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
         pub struct FeralSettingsView<'a> {
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.bounded_storage_max_dimension
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.bounded_storage_max_dimension
             /// Original named field facets: {}
             ///
             /// Field 1: `bounded_storage_max_dimension`
             pub bounded_storage_max_dimension: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.cascade_break
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.cascade_break
             /// Original named field facets: {}
             ///
             /// Field 2: `cascade_break`
             pub cascade_break: ::core::option::Option<bool>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.fma
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.fma
             /// Original named field facets: {}
             ///
             /// Field 3: `fma`
             pub fma: bool,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine
             /// Original named field facets: {}
             ///
             /// Field 4: `refine`
             pub refine: bool,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.increase_quality
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.increase_quality
             /// Original named field facets: {}
             ///
             /// Field 5: `increase_quality`
             pub increase_quality: bool,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_max_steps
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_max_steps
             /// Original named field facets: {}
             ///
             /// Field 6: `refine_max_steps`
             pub refine_max_steps: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_target
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_target
             /// Original named field facets: {}
             ///
             /// Field 7: `refine_target`
             pub refine_target: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.singular_pivot_floor
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.singular_pivot_floor
             /// Original named field facets: {}
             ///
             /// Field 8: `singular_pivot_floor`
             pub singular_pivot_floor: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.inertia_pivot_floor
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.inertia_pivot_floor
             /// Original named field facets: {}
             ///
             /// Field 9: `inertia_pivot_floor`
             pub inertia_pivot_floor: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.pivtol
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.pivtol
             /// Original named field facets: {}
             ///
             /// Field 10: `pivtol`
             pub pivtol: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.ordering
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.ordering
             /// Original named field facets: {}
             ///
             /// Field 11: `ordering`
             pub ordering: ::buffa::MessageFieldView<
                 super::super::__buffa::view::FeralOrderingSettingView<'a>,
             >,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.scaling
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.scaling
             /// Original named field facets: {}
             ///
             /// Field 12: `scaling`
             pub scaling: ::buffa::MessageFieldView<
                 super::super::__buffa::view::FeralScalingSettingView<'a>,
             >,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.parallel
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.parallel
             /// Original named field facets: {}
             ///
             /// Field 13: `parallel`
             pub parallel: ::core::option::Option<bool>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.min_par_flops
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.min_par_flops
             /// Original named field facets: {}
             ///
             /// Field 14: `min_par_flops`
             pub min_par_flops: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.static_pivoting
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.static_pivoting
             /// Original named field facets: {}
             ///
             /// Field 15: `static_pivoting`
@@ -518852,7 +518852,7 @@ pub mod __buffa {
             pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
                 self.0.into_bytes()
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.bounded_storage_max_dimension
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.bounded_storage_max_dimension
             /// Original named field facets: {}
             ///
             /// Field 1: `bounded_storage_max_dimension`
@@ -518860,7 +518860,7 @@ pub mod __buffa {
             pub fn bounded_storage_max_dimension(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().bounded_storage_max_dimension
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.cascade_break
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.cascade_break
             /// Original named field facets: {}
             ///
             /// Field 2: `cascade_break`
@@ -518868,7 +518868,7 @@ pub mod __buffa {
             pub fn cascade_break(&self) -> ::core::option::Option<bool> {
                 self.0.reborrow().cascade_break
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.fma
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.fma
             /// Original named field facets: {}
             ///
             /// Field 3: `fma`
@@ -518876,7 +518876,7 @@ pub mod __buffa {
             pub fn fma(&self) -> bool {
                 self.0.reborrow().fma
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine
             /// Original named field facets: {}
             ///
             /// Field 4: `refine`
@@ -518884,7 +518884,7 @@ pub mod __buffa {
             pub fn refine(&self) -> bool {
                 self.0.reborrow().refine
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.increase_quality
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.increase_quality
             /// Original named field facets: {}
             ///
             /// Field 5: `increase_quality`
@@ -518892,7 +518892,7 @@ pub mod __buffa {
             pub fn increase_quality(&self) -> bool {
                 self.0.reborrow().increase_quality
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_max_steps
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_max_steps
             /// Original named field facets: {}
             ///
             /// Field 6: `refine_max_steps`
@@ -518900,7 +518900,7 @@ pub mod __buffa {
             pub fn refine_max_steps(&self) -> u64 {
                 self.0.reborrow().refine_max_steps
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_target
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.refine_target
             /// Original named field facets: {}
             ///
             /// Field 7: `refine_target`
@@ -518908,7 +518908,7 @@ pub mod __buffa {
             pub fn refine_target(&self) -> u64 {
                 self.0.reborrow().refine_target
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.singular_pivot_floor
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.singular_pivot_floor
             /// Original named field facets: {}
             ///
             /// Field 8: `singular_pivot_floor`
@@ -518916,7 +518916,7 @@ pub mod __buffa {
             pub fn singular_pivot_floor(&self) -> u64 {
                 self.0.reborrow().singular_pivot_floor
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.inertia_pivot_floor
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.inertia_pivot_floor
             /// Original named field facets: {}
             ///
             /// Field 9: `inertia_pivot_floor`
@@ -518924,7 +518924,7 @@ pub mod __buffa {
             pub fn inertia_pivot_floor(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().inertia_pivot_floor
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.pivtol
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.pivtol
             /// Original named field facets: {}
             ///
             /// Field 10: `pivtol`
@@ -518932,7 +518932,7 @@ pub mod __buffa {
             pub fn pivtol(&self) -> u64 {
                 self.0.reborrow().pivtol
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.ordering
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.ordering
             /// Original named field facets: {}
             ///
             /// Field 11: `ordering`
@@ -518944,7 +518944,7 @@ pub mod __buffa {
             > {
                 &self.0.reborrow().ordering
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.scaling
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.scaling
             /// Original named field facets: {}
             ///
             /// Field 12: `scaling`
@@ -518956,7 +518956,7 @@ pub mod __buffa {
             > {
                 &self.0.reborrow().scaling
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.parallel
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.parallel
             /// Original named field facets: {}
             ///
             /// Field 13: `parallel`
@@ -518964,7 +518964,7 @@ pub mod __buffa {
             pub fn parallel(&self) -> ::core::option::Option<bool> {
                 self.0.reborrow().parallel
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.min_par_flops
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.min_par_flops
             /// Original named field facets: {}
             ///
             /// Field 14: `min_par_flops`
@@ -518972,7 +518972,7 @@ pub mod __buffa {
             pub fn min_par_flops(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().min_par_flops
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.static_pivoting
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity\>.static_pivoting
             /// Original named field facets: {}
             ///
             /// Field 15: `static_pivoting`
@@ -650738,7 +650738,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: core::time::Duration
-        /// Source: crates/pse-model/src/boundary_projection/standard.rs
+        /// Source: crates/pse-contract/src/boundary_projection/standard.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
@@ -729080,38 +729080,38 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>
+        /// Rust owner: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>
         /// Source: crates/pse-backend-native/src/dynamics.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
         pub struct SharedDiffsolInitialConditionOptionsView<'a> {
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.use_linesearch
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.use_linesearch
             /// Original named field facets: {}
             ///
             /// Field 1: `use_linesearch`
             pub use_linesearch: bool,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linesearch_iterations
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linesearch_iterations
             /// Original named field facets: {}
             ///
             /// Field 2: `max_linesearch_iterations`
             pub max_linesearch_iterations: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_newton_iterations
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_newton_iterations
             /// Original named field facets: {}
             ///
             /// Field 3: `max_newton_iterations`
             pub max_newton_iterations: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linear_solver_setups
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linear_solver_setups
             /// Original named field facets: {}
             ///
             /// Field 4: `max_linear_solver_setups`
             pub max_linear_solver_setups: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.step_reduction_factor
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.step_reduction_factor
             /// Original named field facets: {}
             ///
             /// Field 5: `step_reduction_factor`
             pub step_reduction_factor: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.armijo_constant
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.armijo_constant
             /// Original named field facets: {}
             ///
             /// Field 6: `armijo_constant`
@@ -729507,7 +729507,7 @@ pub mod __buffa {
             pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
                 self.0.into_bytes()
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.use_linesearch
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.use_linesearch
             /// Original named field facets: {}
             ///
             /// Field 1: `use_linesearch`
@@ -729515,7 +729515,7 @@ pub mod __buffa {
             pub fn use_linesearch(&self) -> bool {
                 self.0.reborrow().use_linesearch
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linesearch_iterations
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linesearch_iterations
             /// Original named field facets: {}
             ///
             /// Field 2: `max_linesearch_iterations`
@@ -729523,7 +729523,7 @@ pub mod __buffa {
             pub fn max_linesearch_iterations(&self) -> u64 {
                 self.0.reborrow().max_linesearch_iterations
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_newton_iterations
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_newton_iterations
             /// Original named field facets: {}
             ///
             /// Field 3: `max_newton_iterations`
@@ -729531,7 +729531,7 @@ pub mod __buffa {
             pub fn max_newton_iterations(&self) -> u64 {
                 self.0.reborrow().max_newton_iterations
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linear_solver_setups
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.max_linear_solver_setups
             /// Original named field facets: {}
             ///
             /// Field 4: `max_linear_solver_setups`
@@ -729539,7 +729539,7 @@ pub mod __buffa {
             pub fn max_linear_solver_setups(&self) -> u64 {
                 self.0.reborrow().max_linear_solver_setups
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.step_reduction_factor
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.step_reduction_factor
             /// Original named field facets: {}
             ///
             /// Field 5: `step_reduction_factor`
@@ -729547,7 +729547,7 @@ pub mod __buffa {
             pub fn step_reduction_factor(&self) -> u64 {
                 self.0.reborrow().step_reduction_factor
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.armijo_constant
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::InitialConditionSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::initial_options::Remote\>\>.armijo_constant
             /// Original named field facets: {}
             ///
             /// Field 6: `armijo_constant`
@@ -729732,83 +729732,83 @@ pub mod __buffa {
                     })
             }
         }
-        /// Rust owner: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>
+        /// Rust owner: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>
         /// Source: crates/pse-backend-native/src/dynamics.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]
         pub struct SharedDiffsolOdeSolverOptionsView<'a> {
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_iterations
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_iterations
             /// Original named field facets: {}
             ///
             /// Field 1: `max_nonlinear_solver_iterations`
             pub max_nonlinear_solver_iterations: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_error_test_failures
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_error_test_failures
             /// Original named field facets: {}
             ///
             /// Field 2: `max_error_test_failures`
             pub max_error_test_failures: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_failures
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_failures
             /// Original named field facets: {}
             ///
             /// Field 3: `max_nonlinear_solver_failures`
             pub max_nonlinear_solver_failures: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.nonlinear_solver_tolerance
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.nonlinear_solver_tolerance
             /// Original named field facets: {}
             ///
             /// Field 4: `nonlinear_solver_tolerance`
             pub nonlinear_solver_tolerance: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep
             /// Original named field facets: {}
             ///
             /// Field 5: `min_timestep`
             pub min_timestep: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_growth
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_growth
             /// Original named field facets: {}
             ///
             /// Field 6: `max_timestep_growth`
             pub max_timestep_growth: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_growth
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_growth
             /// Original named field facets: {}
             ///
             /// Field 7: `min_timestep_growth`
             pub min_timestep_growth: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_shrink
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_shrink
             /// Original named field facets: {}
             ///
             /// Field 8: `max_timestep_shrink`
             pub max_timestep_shrink: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_shrink
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_shrink
             /// Original named field facets: {}
             ///
             /// Field 9: `min_timestep_shrink`
             pub min_timestep_shrink: ::core::option::Option<u64>,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_jacobian_after_steps
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_jacobian_after_steps
             /// Original named field facets: {}
             ///
             /// Field 10: `update_jacobian_after_steps`
             pub update_jacobian_after_steps: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_rhs_jacobian_after_steps
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_rhs_jacobian_after_steps
             /// Original named field facets: {}
             ///
             /// Field 11: `update_rhs_jacobian_after_steps`
             pub update_rhs_jacobian_after_steps: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_jacobian
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_jacobian
             /// Original named field facets: {}
             ///
             /// Field 12: `threshold_to_update_jacobian`
             pub threshold_to_update_jacobian: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_rhs_jacobian
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_rhs_jacobian
             /// Original named field facets: {}
             ///
             /// Field 13: `threshold_to_update_rhs_jacobian`
             pub threshold_to_update_rhs_jacobian: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_proportional
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_proportional
             /// Original named field facets: {}
             ///
             /// Field 14: `pi_control_proportional`
             pub pi_control_proportional: u64,
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_integral
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_integral
             /// Original named field facets: {}
             ///
             /// Field 15: `pi_control_integral`
@@ -730471,7 +730471,7 @@ pub mod __buffa {
             pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
                 self.0.into_bytes()
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_iterations
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_iterations
             /// Original named field facets: {}
             ///
             /// Field 1: `max_nonlinear_solver_iterations`
@@ -730479,7 +730479,7 @@ pub mod __buffa {
             pub fn max_nonlinear_solver_iterations(&self) -> u64 {
                 self.0.reborrow().max_nonlinear_solver_iterations
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_error_test_failures
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_error_test_failures
             /// Original named field facets: {}
             ///
             /// Field 2: `max_error_test_failures`
@@ -730487,7 +730487,7 @@ pub mod __buffa {
             pub fn max_error_test_failures(&self) -> u64 {
                 self.0.reborrow().max_error_test_failures
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_failures
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_nonlinear_solver_failures
             /// Original named field facets: {}
             ///
             /// Field 3: `max_nonlinear_solver_failures`
@@ -730495,7 +730495,7 @@ pub mod __buffa {
             pub fn max_nonlinear_solver_failures(&self) -> u64 {
                 self.0.reborrow().max_nonlinear_solver_failures
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.nonlinear_solver_tolerance
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.nonlinear_solver_tolerance
             /// Original named field facets: {}
             ///
             /// Field 4: `nonlinear_solver_tolerance`
@@ -730503,7 +730503,7 @@ pub mod __buffa {
             pub fn nonlinear_solver_tolerance(&self) -> u64 {
                 self.0.reborrow().nonlinear_solver_tolerance
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep
             /// Original named field facets: {}
             ///
             /// Field 5: `min_timestep`
@@ -730511,7 +730511,7 @@ pub mod __buffa {
             pub fn min_timestep(&self) -> u64 {
                 self.0.reborrow().min_timestep
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_growth
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_growth
             /// Original named field facets: {}
             ///
             /// Field 6: `max_timestep_growth`
@@ -730519,7 +730519,7 @@ pub mod __buffa {
             pub fn max_timestep_growth(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().max_timestep_growth
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_growth
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_growth
             /// Original named field facets: {}
             ///
             /// Field 7: `min_timestep_growth`
@@ -730527,7 +730527,7 @@ pub mod __buffa {
             pub fn min_timestep_growth(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().min_timestep_growth
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_shrink
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.max_timestep_shrink
             /// Original named field facets: {}
             ///
             /// Field 8: `max_timestep_shrink`
@@ -730535,7 +730535,7 @@ pub mod __buffa {
             pub fn max_timestep_shrink(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().max_timestep_shrink
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_shrink
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.min_timestep_shrink
             /// Original named field facets: {}
             ///
             /// Field 9: `min_timestep_shrink`
@@ -730543,7 +730543,7 @@ pub mod __buffa {
             pub fn min_timestep_shrink(&self) -> ::core::option::Option<u64> {
                 self.0.reborrow().min_timestep_shrink
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_jacobian_after_steps
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_jacobian_after_steps
             /// Original named field facets: {}
             ///
             /// Field 10: `update_jacobian_after_steps`
@@ -730551,7 +730551,7 @@ pub mod __buffa {
             pub fn update_jacobian_after_steps(&self) -> u64 {
                 self.0.reborrow().update_jacobian_after_steps
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_rhs_jacobian_after_steps
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.update_rhs_jacobian_after_steps
             /// Original named field facets: {}
             ///
             /// Field 11: `update_rhs_jacobian_after_steps`
@@ -730559,7 +730559,7 @@ pub mod __buffa {
             pub fn update_rhs_jacobian_after_steps(&self) -> u64 {
                 self.0.reborrow().update_rhs_jacobian_after_steps
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_jacobian
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_jacobian
             /// Original named field facets: {}
             ///
             /// Field 12: `threshold_to_update_jacobian`
@@ -730567,7 +730567,7 @@ pub mod __buffa {
             pub fn threshold_to_update_jacobian(&self) -> u64 {
                 self.0.reborrow().threshold_to_update_jacobian
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_rhs_jacobian
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.threshold_to_update_rhs_jacobian
             /// Original named field facets: {}
             ///
             /// Field 13: `threshold_to_update_rhs_jacobian`
@@ -730575,7 +730575,7 @@ pub mod __buffa {
             pub fn threshold_to_update_rhs_jacobian(&self) -> u64 {
                 self.0.reborrow().threshold_to_update_rhs_jacobian
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_proportional
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_proportional
             /// Original named field facets: {}
             ///
             /// Field 14: `pi_control_proportional`
@@ -730583,7 +730583,7 @@ pub mod __buffa {
             pub fn pi_control_proportional(&self) -> u64 {
                 self.0.reborrow().pi_control_proportional
             }
-            /// Rust field: pse_model::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_model::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_integral
+            /// Rust field: pse_contract::boundary_projection::access::Adapted\<alloc::sync::Arc\<diffsol::ode_solver::problem::OdeSolverOptions\<f64\>\>, pse_contract::boundary_projection::access::SharedAdapter\<pse_backend_native::dynamics::ode_options::Remote\>\>.pi_control_integral
             /// Original named field facets: {}
             ///
             /// Field 15: `pi_control_integral`
@@ -789377,7 +789377,7 @@ pub mod __buffa {
             }
         }
         /// Rust owner: (alloc::string::String, pse_modeling::types::Type)
-        /// Source: crates/pse-model/src/boundary_projection/tuple_pair.rs
+        /// Source: crates/pse-contract/src/boundary_projection/tuple_pair.rs
         /// Interpretation version: 1
         /// Direction: Both
         #[derive(Clone, Debug, Default)]

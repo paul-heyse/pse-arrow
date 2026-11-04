@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::*;
-use pse_model::boundary_projection::Float64Domain;
-use pse_model::boundary_projection::Float64Interval;
+use pse_contract::boundary_projection::Float64Domain;
+use pse_contract::boundary_projection::Float64Interval;
 
 #[test]
 fn finite_interval_descriptors_preserve_strict_endpoints_and_nominal_value_paths() {

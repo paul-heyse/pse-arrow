@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit finite-number representation for original persisted numeric controls.
 
-use crate::boundary_projection::Float64Domain;
+use pse_contract::boundary_projection::Float64Domain;
 use std::collections::BTreeMap;
 
 /// Typed numeric control components that have an ordinary finite JSON number form.

@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Shared original effect declarations; adapters do not restate their meaning.
-pub use pse_model::operation_effects::{EffectFacts, EffectScope};
+pub use pse_contract::operation_effects::{EffectFacts, EffectScope};
 
 /// Shared default branch for an explicitly issued receiving project intent.
 pub const DEFAULT_BRANCH: &str = "main";
@@ -80,9 +80,9 @@ pub struct ProjectOperationRequest {
 #[derive(Debug)]
 pub struct SelectedActionProjection {
     /// Complete selected request type world.
-    pub graph: pse_model::boundary_projection::ProjectionGraph,
+    pub graph: pse_contract::boundary_projection::ProjectionGraph,
     /// The selected actual action payload root.
-    pub root: pse_model::boundary_projection::TypeRef,
+    pub root: pse_contract::boundary_projection::TypeRef,
     /// Original macro-declared effect facts, without a second interpretation table.
     pub effects: EffectFacts,
 }
@@ -114,8 +114,8 @@ macro_rules! project_actions {
             /// Inspect this explicitly selected action, refusing unselected boundaries.
             /// # Errors
             /// Unselected actions and invalid/unsupported selected field types refuse.
-            pub fn selected_projection(&self) -> Result<SelectedActionProjection, pse_model::boundary_projection::ProjectionError> {
-                let mut graph = pse_model::boundary_projection::ProjectionGraph::default();
+            pub fn selected_projection(&self) -> Result<SelectedActionProjection, pse_contract::boundary_projection::ProjectionError> {
+                let mut graph = pse_contract::boundary_projection::ProjectionGraph::default();
                 let (root, effects) = match self {
                     $( Self::$name { .. } => project_actions!(@selected graph; $name $(, $register)?), )*
                 }?;
@@ -126,20 +126,20 @@ macro_rules! project_actions {
     };
     (@selected $graph:ident; $name:ident, $register:ident) => { Self::$register(&mut $graph) };
     (@selected $graph:ident; $name:ident) => {
-        Err(pse_model::boundary_projection::ProjectionError::invalid(
+        Err(pse_contract::boundary_projection::ProjectionError::invalid(
             concat!("ProjectAction::", stringify!($name)), "this action is outside the selected boundary projection"))
     };
     (@method $effect:ident, $name:ident, $wire:literal, $version:literal, $register:ident; $( $field:ident: $field_type:ty => $tag:expr, )*) => {
         /// Resolve this selected actual action's fields and original effect facts.
         /// # Errors
         /// Invalid or unsupported actual field projections refuse.
-        pub fn $register(graph: &mut pse_model::boundary_projection::ProjectionGraph)
-            -> Result<(pse_model::boundary_projection::TypeRef, EffectFacts), pse_model::boundary_projection::ProjectionError> {
+        pub fn $register(graph: &mut pse_contract::boundary_projection::ProjectionGraph)
+            -> Result<(pse_contract::boundary_projection::TypeRef, EffectFacts), pse_contract::boundary_projection::ProjectionError> {
             let root = graph.declare::<Self>($wire, file!(), $version,
-                pse_model::boundary_projection::Direction::Input, &[], &[], |graph| {
-                    Ok(pse_model::boundary_projection::Shape::Record(vec![$(
-                        pse_model::boundary_projection::Field::of::<$field_type>(graph,
-                            stringify!($field), $tag, pse_model::boundary_projection::Direction::Input, vec![])?,
+                pse_contract::boundary_projection::Direction::Input, &[], &[], |graph| {
+                    Ok(pse_contract::boundary_projection::Shape::Record(vec![$(
+                        pse_contract::boundary_projection::Field::of::<$field_type>(graph,
+                            stringify!($field), $tag, pse_contract::boundary_projection::Direction::Input, vec![])?,
                     )*]))
                 })?;
             Ok((root, EffectFacts::$effect))
@@ -392,11 +392,11 @@ mod tests {
         assert!(!selected.effects.destructive);
         assert_eq!(
             selected.root,
-            pse_model::boundary_projection::TypeRef::Named("PreparationDiscoveryAction".into())
+            pse_contract::boundary_projection::TypeRef::Named("PreparationDiscoveryAction".into())
         );
         let owner = &selected.graph.definitions()["PreparationDiscoveryAction"];
         assert_eq!(owner.version, 2);
-        let pse_model::boundary_projection::Shape::Record(fields) = &owner.shape else {
+        let pse_contract::boundary_projection::Shape::Record(fields) = &owner.shape else {
             panic!("actual selected action record")
         };
         assert_eq!(
@@ -408,7 +408,7 @@ mod tests {
         );
         assert_eq!(
             fields[1].ty,
-            pse_model::boundary_projection::TypeRef::Named("PreparationDiscoveryRequest".into())
+            pse_contract::boundary_projection::TypeRef::Named("PreparationDiscoveryRequest".into())
         );
         assert!(selected.graph.definitions().contains_key("StructuralValue"));
         assert!(

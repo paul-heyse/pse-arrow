@@ -78,28 +78,28 @@ pub(super) fn emit(
         } else {
             declarations.push(quote!(pse_ids::semantic_id_newtype! { #declaration }));
             model_traits.push(quote! {
-                impl crate::boundary_projection::ProjectionType for #name {
-                    fn projection(graph: &mut crate::boundary_projection::ProjectionGraph) -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError> {
+                impl pse_contract::boundary_projection::ProjectionType for #name {
+                    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
                         graph.declare::<Self>(stringify!(#name), file!(), 1,
-                            crate::boundary_projection::Direction::Both, &[], &[], |graph| {
-                                Ok(crate::boundary_projection::Shape::Record(vec![
-                                    crate::boundary_projection::Field::of::<#base>(graph, "id", 1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required])?,
+                            pse_contract::boundary_projection::Direction::Both, &[], &[], |graph| {
+                                Ok(pse_contract::boundary_projection::Shape::Record(vec![
+                                    pse_contract::boundary_projection::Field::of::<#base>(graph, "id", 1,
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required])?,
                                 ]))
                             })
                     }
                 }
-                impl crate::boundary_projection::ValidateProjection for #name {
-                    fn validate_at(&self, _: &str) -> Result<(), crate::boundary_projection::ValidationError> { Ok(()) }
+                impl pse_contract::boundary_projection::ValidateProjection for #name {
+                    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> { Ok(()) }
                     fn projection_length(&self) -> Option<usize> { Some(<#base>::WIDTH) }
                 }
-                impl crate::boundary_projection::ProjectionRecord for #name {
+                impl pse_contract::boundary_projection::ProjectionRecord for #name {
                     const VERSION: u32 = 1;
                     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
                     type Fields = (#base,);
                     fn into_projection_fields(self) -> Self::Fields { (self.as_id(),) }
-                    fn from_projection_fields((id,): Self::Fields) -> Result<Self, crate::boundary_projection::AdapterError> { Ok(Self::from_id(id)) }
+                    fn from_projection_fields((id,): Self::Fields) -> Result<Self, pse_contract::boundary_projection::AdapterError> { Ok(Self::from_id(id)) }
                 }
             });
         }

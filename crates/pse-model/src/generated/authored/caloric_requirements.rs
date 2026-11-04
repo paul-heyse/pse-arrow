@@ -83,13 +83,13 @@ impl PartialEq for AuthoredCaloricRequirementsFieldConsumersItem {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType
+impl pse_contract::boundary_projection::ProjectionType
 for AuthoredCaloricRequirementsFieldConsumersItem {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -98,19 +98,19 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                 "AuthoredCaloricRequirementsFieldConsumersItem",
                 "crates/pse-schema/src/catalog/native_math.rs",
                 1u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "target_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -119,13 +119,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "declaration_id",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -134,13 +134,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "power_rule_id",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -149,13 +149,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "actual_flow_id",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -164,13 +164,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "exposure_expression",
                                     5u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -178,13 +178,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.boundary.tag".into(), "5".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "power_quantity_id",
                                     6u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -193,13 +193,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "power_unit_id",
                                     7u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -208,13 +208,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 f64,
                             >(
                                     graph,
                                     "power_allowance",
                                     8u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -222,13 +222,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.boundary.tag".into(), "8".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "exposure_quantity_id",
                                     9u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -237,13 +237,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "exposure_unit_id",
                                     10u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -252,13 +252,13 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 f64,
                             >(
                                     graph,
                                     "aggregate_exposure",
                                     11u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -272,7 +272,7 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord
+impl pse_contract::boundary_projection::ProjectionRecord
 for AuthoredCaloricRequirementsFieldConsumersItem {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
@@ -330,7 +330,7 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
             r#exposure_unit_id,
             r#aggregate_exposure,
         ): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#target_id,
             r#declaration_id,
@@ -346,88 +346,100 @@ for AuthoredCaloricRequirementsFieldConsumersItem {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection
+impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredCaloricRequirementsFieldConsumersItem {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_id,
-                &crate::boundary_projection::field_path(path, "target_id"),
+                &pse_contract::boundary_projection::field_path(path, "target_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#declaration_id,
-                &crate::boundary_projection::field_path(path, "declaration_id"),
+                &pse_contract::boundary_projection::field_path(path, "declaration_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#power_rule_id,
-                &crate::boundary_projection::field_path(path, "power_rule_id"),
+                &pse_contract::boundary_projection::field_path(path, "power_rule_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#actual_flow_id,
-                &crate::boundary_projection::field_path(path, "actual_flow_id"),
+                &pse_contract::boundary_projection::field_path(path, "actual_flow_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#exposure_expression,
-                &crate::boundary_projection::field_path(path, "exposure_expression"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "exposure_expression",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#power_quantity_id,
-                &crate::boundary_projection::field_path(path, "power_quantity_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "power_quantity_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#power_unit_id,
-                &crate::boundary_projection::field_path(path, "power_unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "power_unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#power_allowance,
-                &crate::boundary_projection::field_path(path, "power_allowance"),
+                &pse_contract::boundary_projection::field_path(path, "power_allowance"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#exposure_quantity_id,
-                &crate::boundary_projection::field_path(path, "exposure_quantity_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "exposure_quantity_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#exposure_unit_id,
-                &crate::boundary_projection::field_path(path, "exposure_unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "exposure_unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#aggregate_exposure,
-                &crate::boundary_projection::field_path(path, "aggregate_exposure"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "aggregate_exposure",
+                ),
                 &[],
             )?;
         }
@@ -519,12 +531,13 @@ impl PartialEq for AuthoredCaloricRequirementsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsRow {
+impl pse_contract::boundary_projection::ProjectionType
+for AuthoredCaloricRequirementsRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -533,19 +546,19 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                 "AuthoredCaloricRequirementsRow",
                 "crates/pse-schema/src/catalog/native_math.rs",
                 1u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "requirement_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -556,13 +569,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "key".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::InstanceId>,
                             >(
                                     graph,
                                     "instance_id",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -577,13 +590,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "target_id",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -594,13 +607,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalTarget,
                             >(
                                     graph,
                                     "target_kind",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -612,13 +625,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "quantity_id",
                                     5u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -629,13 +642,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "unit_id",
                                     6u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -646,13 +659,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalSource,
                             >(
                                     graph,
                                     "source",
                                     7u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -664,13 +677,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "science_revision",
                                     8u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -680,13 +693,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "science_records",
                                     9u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -701,13 +714,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "response_quantity_id",
                                     10u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -718,13 +731,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "response_unit_id",
                                     11u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -735,13 +748,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "response",
                                     12u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -751,13 +764,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "thermal_quantity_id",
                                     13u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -768,13 +781,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "thermal_unit_id",
                                     14u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -785,13 +798,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "thermal_resolution",
                                     15u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -801,13 +814,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<AuthoredCaloricRequirementsFieldConsumersItem>,
                             >(
                                     graph,
                                     "consumers",
                                     16u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -828,7 +841,8 @@ impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsR
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for AuthoredCaloricRequirementsRow {
+impl pse_contract::boundary_projection::ProjectionRecord
+for AuthoredCaloricRequirementsRow {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "requirement_id"),
@@ -905,7 +919,7 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredCaloricRequirement
             r#thermal_resolution,
             r#consumers,
         ): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#requirement_id,
             r#instance_id,
@@ -926,140 +940,150 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredCaloricRequirement
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for AuthoredCaloricRequirementsRow {
+impl pse_contract::boundary_projection::ValidateProjection
+for AuthoredCaloricRequirementsRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::InstanceId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalTarget as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalTarget as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalSource as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalSource as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             AuthoredCaloricRequirementsFieldConsumersItem,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#requirement_id,
-                &crate::boundary_projection::field_path(path, "requirement_id"),
+                &pse_contract::boundary_projection::field_path(path, "requirement_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#instance_id,
-                &crate::boundary_projection::field_path(path, "instance_id"),
+                &pse_contract::boundary_projection::field_path(path, "instance_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_id,
-                &crate::boundary_projection::field_path(path, "target_id"),
+                &pse_contract::boundary_projection::field_path(path, "target_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_kind,
-                &crate::boundary_projection::field_path(path, "target_kind"),
+                &pse_contract::boundary_projection::field_path(path, "target_kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#quantity_id,
-                &crate::boundary_projection::field_path(path, "quantity_id"),
+                &pse_contract::boundary_projection::field_path(path, "quantity_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#unit_id,
-                &crate::boundary_projection::field_path(path, "unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#source,
-                &crate::boundary_projection::field_path(path, "source"),
+                &pse_contract::boundary_projection::field_path(path, "source"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#science_revision,
-                &crate::boundary_projection::field_path(path, "science_revision"),
+                &pse_contract::boundary_projection::field_path(path, "science_revision"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#science_records,
-                &crate::boundary_projection::field_path(path, "science_records"),
+                &pse_contract::boundary_projection::field_path(path, "science_records"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#response_quantity_id,
-                &crate::boundary_projection::field_path(path, "response_quantity_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "response_quantity_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#response_unit_id,
-                &crate::boundary_projection::field_path(path, "response_unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "response_unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#response,
-                &crate::boundary_projection::field_path(path, "response"),
+                &pse_contract::boundary_projection::field_path(path, "response"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#thermal_quantity_id,
-                &crate::boundary_projection::field_path(path, "thermal_quantity_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "thermal_quantity_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#thermal_unit_id,
-                &crate::boundary_projection::field_path(path, "thermal_unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "thermal_unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#thermal_resolution,
-                &crate::boundary_projection::field_path(path, "thermal_resolution"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "thermal_resolution",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#consumers,
-                &crate::boundary_projection::field_path(path, "consumers"),
+                &pse_contract::boundary_projection::field_path(path, "consumers"),
                 &[],
             )?;
         }

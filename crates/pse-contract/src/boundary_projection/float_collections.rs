@@ -30,12 +30,13 @@ pub enum NativeContainer {
     },
 }
 
-/// Implemented only alongside actual checked f64 nominal declarations in this crate.
-pub(crate) trait NominalFloat64: ProjectionRecord<Fields = (f64,)> {}
+/// Implemented at actual checked f64 nominal owners. The graph hook separately
+/// verifies their declared scalar shape; this trait carries no scientific admission.
+pub trait NominalFloat64: ProjectionRecord<Fields = (f64,)> {}
 
 impl ProjectionGraph {
     /// Attach scalar-value meaning from its actual checked source declaration.
-    pub(crate) fn nominal_float64<T: NominalFloat64>(
+    pub fn nominal_float64<T: NominalFloat64>(
         &mut self,
         root: &TypeRef,
     ) -> Result<(), ProjectionError> {

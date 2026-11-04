@@ -134,8 +134,8 @@ fn signed_registry_domains_lower_to_exact_sint64_rules_and_optional_presence() {
         Some(s_int64rules::LessThan::Lte(-1))
     ));
 }
-use pse_model::boundary_projection::{Direction, LocalRule, ProjectionType, Service};
-use pse_model::{projection_enum, projection_struct};
+use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionType, Service};
+use pse_contract::{projection_enum, projection_struct};
 
 #[test]
 fn nested_native_paths_rewrite_the_consuming_crate_inside_generic_arguments() {
@@ -336,7 +336,7 @@ fn binary64_setting_domains_lower_to_exact_fixed64_bounds_and_finite_cel() {
 
 #[test]
 fn nonnegative_binary64_domain_preserves_signed_zeros_and_refuses_negative_values() {
-    use pse_model::boundary_projection::{Float64Domain, ValidateProjection as _};
+    use pse_contract::boundary_projection::{Float64Domain, ValidateProjection as _};
     projection_struct! {
         struct NonnegativeAllowance {
             projection: { name: "NonnegativeAllowance", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
@@ -404,7 +404,7 @@ fn nonnegative_binary64_domain_preserves_signed_zeros_and_refuses_negative_value
 
 #[test]
 fn checked_foreign_adapter_generation_uses_source_binding_and_fallible_extraction() {
-    pse_model::projection_remote! {
+    pse_contract::projection_remote! {
         #[derive(serde::Serialize, serde::Deserialize)]
         #[serde(remote = "std::ops::Range<u16>", deny_unknown_fields)]
         struct NativeRangeBinding for std::ops::Range<u16> {
@@ -493,7 +493,7 @@ fn checked_foreign_adapter_generation_uses_source_binding_and_fallible_extractio
                     .iter()
                     .map(|segment| segment.ident.to_string())
                     .collect::<Vec<_>>()
-                    == ["pse_model", "boundary_projection", "Adapted"]
+                    == ["pse_contract", "boundary_projection", "Adapted"]
                 && let syn::PathArguments::AngleBracketed(arguments) =
                     &carrier.path.segments.last().unwrap().arguments
                 && arguments.args.len() == 2
@@ -912,18 +912,18 @@ fn missing_imports_unknown_types_and_unversioned_packages_refuse() {
     assert!(descriptors(&graph, "pse.boundary.v1", "owners.proto").is_err());
     assert!(descriptors_with_imports(&graph, "pse.boundary", "owners.proto", &imports()).is_err());
     struct Unsupported;
-    impl pse_model::boundary_projection::ValidateProjection for Unsupported {
+    impl pse_contract::boundary_projection::ValidateProjection for Unsupported {
         fn validate_at(
             &self,
             _: &str,
-        ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+        ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
             Ok(())
         }
     }
     impl ProjectionType for Unsupported {
         fn projection(
             _: &mut ProjectionGraph,
-        ) -> Result<TypeRef, pse_model::boundary_projection::ProjectionError> {
+        ) -> Result<TypeRef, pse_contract::boundary_projection::ProjectionError> {
             Ok(TypeRef::Named("Absent".into()))
         }
     }
@@ -978,7 +978,7 @@ fn retaining_original_wire_is_an_explicit_policy_and_keeps_alternative_refusal()
 
 #[test]
 fn domain_tautologies_are_lowered_exactly_without_unsigned_zero_comparisons() {
-    use pse_model::boundary_projection::ValidateProjection;
+    use pse_contract::boundary_projection::ValidateProjection;
     projection_struct! {
         struct DomainBounds {
             projection: { name: "DomainBounds", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };

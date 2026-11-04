@@ -10,7 +10,7 @@ use pse_operations::{
     canonical_research::{ResearchDataset, ResearchSelection},
 };
 use std::collections::BTreeSet;
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Authenticated original research ancestry carried by actual operation inputs.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -18,19 +18,19 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct ResearchSource {
     projection: { name: "ResearchSource", rust_path: crate::workflow::ResearchSource, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Canonical installation incarnation.
-    pub issuing_store: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub issuing_store: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Frozen original observation selection.
-    pub selection: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub selection: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Immutable dataset version.
-    pub dataset: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub dataset: String => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact currently consumed canonical source.
-    pub revision: String => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub revision: String => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original physical meaning.
-    pub physical_context: String => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub physical_context: String => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Explicit parameter publication ancestry, when consuming its new source.
-    pub publication: Option<String> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub publication: Option<String> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 /// Exact attribute selection into the original typed measurement owner.

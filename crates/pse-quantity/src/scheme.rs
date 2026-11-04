@@ -296,7 +296,7 @@ mod passive_projection_controls {
     use crate::boundary::BoundaryDocument;
     #[test]
     fn passive_scheme_syntax_reuses_original_document_without_quantity_admission() {
-        let quantity = crate::QuantityTypeId::from_bytes([7; 16]);
+        let quantity = QuantityTypeId::from_bytes([7; 16]);
         let source = Scheme::Product(
             Box::new(Scheme::Concrete(quantity)),
             Box::new(Scheme::Variable("T".into())),

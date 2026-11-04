@@ -96,19 +96,19 @@ impl TypeLookup for SymbolTypes<'_> {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Actual admitted finite values, retained before specialization discards lexical coordinates.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Carrier {
     projection: { name: "ModelingCarrier", rust_path: crate::resolved::Carrier,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output,
         reserved_tags: [], reserved_names: [] };
     /// A finite set and a realized continuous axis are different physical roles.
-    pub kind: CarrierKind => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub kind: CarrierKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Complete element type, including its actual entity or enumeration kind.
-    pub element: Type => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub element: Type => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Semantic order, with exact typed values and no numerical approximation.
-    pub members: Arc<[crate::specialize::Value]> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub members: Arc<[crate::specialize::Value]> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 impl Carrier {
@@ -128,19 +128,19 @@ impl Carrier {
     }
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// The declared interpretation survives even an empty carrier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum CarrierKind {
     projection: { name: "ModelingCarrierKind", rust_path: crate::resolved::CarrierKind,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output,
         reserved_tags: [], reserved_names: [] };
     /// An ordinary typed ordered finite set.
     OrderedSet => 1;
     /// A realized continuous coordinate axis.
     Continuous {
         /// Actual continuous domain declaration.
-        domain: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+        domain: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     } => 2;
 }
 }

@@ -26,13 +26,13 @@ pub use shape::{ProviderShape, ProviderShapes};
 // Registration extents are shared by native admission and its boundary declaration.
 const MAXIMUM_SCALAR_PORTS: usize = 4096;
 const MINIMUM_PROVIDER_OUTPUTS: usize = 1;
-const INPUT_PORTS_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const INPUT_PORTS_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: 0,
         max: MAXIMUM_SCALAR_PORTS as u64,
     };
-const OUTPUT_PORTS_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const OUTPUT_PORTS_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: MINIMUM_PROVIDER_OUTPUTS as u64,
         max: MAXIMUM_SCALAR_PORTS as u64,
     };
@@ -168,7 +168,7 @@ impl EvaluationContext<'_> {
     }
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Required partial derivative order; distinct from physical phase and conditioning.
 #[derive(
     Clone,
@@ -187,7 +187,7 @@ pse_model::projection_enum! {
 #[serde(rename_all = "snake_case")]
 pub enum DerivativeOrder {
     projection: { name: "KernelDerivativeOrder", rust_path: crate::DerivativeOrder,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Values only.
     Value => 1;
     /// Values and first partials.
@@ -292,44 +292,44 @@ impl DerivativeRequirements {
             .min(self.selector_neighborhood)
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Complete scalar physical port.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Port {
     projection: { name: "KernelProviderPort", rust_path: crate::Port,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Semantic port identity.
-    pub id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Quantity, including basis, reference and scale.
-    pub quantity: QuantityTypeId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub quantity: QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Actual representation unit.
-    pub unit: UnitId => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub unit: UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Immutable registration; a declaration alone is not an executable provider.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProviderSpec {
     projection: { name: "KernelProviderSpec", rust_path: crate::ProviderSpec,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Explicit logical arrays over scalar ABI cells; empty for all-scalar signatures.
-    pub shapes: ProviderShapes => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub shapes: ProviderShapes => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Provenance of local partials, independent of their available order.
-    pub derivative_source: DerivativeSource => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub derivative_source: DerivativeSource => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Implementation identity.
-    pub id: SemanticId => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub id: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Algorithm and physical interpretation revision.
-    pub revision: ContentHash => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub revision: ContentHash => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Exact parameter-data identity.
-    pub data: ContentHash => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub data: ContentHash => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Ordered scalar inputs.
-    pub inputs: Vec<Port> => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [INPUT_PORTS_RULE] };
+    pub inputs: Vec<Port> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [INPUT_PORTS_RULE] };
     /// Ordered outputs from one coherent state.
-    pub outputs: Vec<Port> => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [OUTPUT_PORTS_RULE] };
+    pub outputs: Vec<Port> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [OUTPUT_PORTS_RULE] };
     /// Implemented partial derivative order.
-    pub derivatives: DerivativeOrder => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub derivatives: DerivativeOrder => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Proven smooth neighborhood on the selected branch, distinct from implemented partials.
-    pub smoothness: DerivativeOrder => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub smoothness: DerivativeOrder => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 impl ProviderSpec {

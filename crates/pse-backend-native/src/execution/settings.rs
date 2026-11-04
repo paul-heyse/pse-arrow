@@ -5,13 +5,13 @@
 #[cfg(test)]
 mod projection_controls {
     use super::*;
-    use pse_model::boundary_projection::{ProjectionGraph, ValidateProjection};
+    use pse_contract::boundary_projection::{ProjectionGraph, ValidateProjection};
 
     #[test]
     fn backend_settings_projects_every_serializable_family_and_refuses_local_routed_default() {
         assert!(BackendSettings::Default.validate_projection().is_err());
         let graph = ProjectionGraph::of::<BackendSettings>().unwrap();
-        let pse_model::boundary_projection::Shape::Alternatives(alternatives) =
+        let pse_contract::boundary_projection::Shape::Alternatives(alternatives) =
             &graph.definitions()["NativeBackendSettings"].shape
         else {
             panic!("actual backend alternatives")
@@ -54,13 +54,13 @@ mod projection_controls {
     }
 }
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Explicit serializable native settings; routed defaults remain local to native dispatch.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "backend", rename_all = "snake_case")]
 pub enum BackendSettings {
     projection: { name: "NativeBackendSettings", rust_path: crate::execution::BackendSettings, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     @unprojected {
     /// Native defaults and the common semantic controls on the routed backend.
     #[default]

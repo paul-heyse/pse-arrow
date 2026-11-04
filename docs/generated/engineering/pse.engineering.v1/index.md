@@ -104,7 +104,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Array16U8`
 
-Rust owner: `[u8; 16]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `[u8; 16]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -114,7 +114,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Array2U64`
 
-Rust owner: `[u64; 2]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `[u64; 2]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -124,7 +124,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Array3Array16U8`
 
-Rust owner: `[[u8; 16]; 3]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `[[u8; 16]; 3]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -134,7 +134,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Array3FiniteBound`
 
-Rust owner: `[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -144,7 +144,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Array8PhysicalRatio`
 
-Rust owner: `[pse_quantity::dimension::Ratio; 8]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `[pse_quantity::dimension::Ratio; 8]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -2515,7 +2515,7 @@ Allowed canonical members: `["auto", "diffsol", "idas"]`.
 
 ## `EffectFacts`
 
-Rust owner: `pse_model::operation_effects::EffectFacts`. Source: `crates/pse-model/src/operation_effects.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::operation_effects::EffectFacts`. Source: `crates/pse-contract/src/operation_effects.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -2528,7 +2528,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `EffectScope`
 
-Rust owner: `pse_model::operation_effects::EffectScope`. Source: `crates/pse-model/src/operation_effects.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::operation_effects::EffectScope`. Source: `crates/pse-contract/src/operation_effects.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -3208,7 +3208,7 @@ Allowed canonical members: `["amd", "amf", "metis_nd", "scotch_nd", "kahip_nd", 
 
 ## `FeralOrderingSetting`
 
-Rust owner: `pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>`. Source: `crates/pse-backend-native/src/settings/pounce/projection.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>`. Source: `crates/pse-backend-native/src/settings/pounce/projection.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -3230,7 +3230,7 @@ Allowed canonical members: `["inf_norm", "mc64_symmetric", "identity", "auto"]`.
 
 ## `FeralScalingSetting`
 
-Rust owner: `pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>`. Source: `crates/pse-backend-native/src/settings/pounce/projection.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>`. Source: `crates/pse-backend-native/src/settings/pounce/projection.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -3240,7 +3240,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `FeralSettings`
 
-Rust owner: `pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>`. Source: `crates/pse-backend-native/src/settings/pounce.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>`. Source: `crates/pse-backend-native/src/settings/pounce.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -5135,7 +5135,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `NonnegativeDuration`
 
-Rust owner: `core::time::Duration`. Source: `crates/pse-model/src/boundary_projection/standard.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `core::time::Duration`. Source: `crates/pse-contract/src/boundary_projection/standard.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -6515,7 +6515,7 @@ Allowed canonical members: `["simultaneous", "staggered"]`.
 
 ## `SharedDiffsolInitialConditionOptions`
 
-Rust owner: `pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>`. Source: `crates/pse-backend-native/src/dynamics.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>`. Source: `crates/pse-backend-native/src/dynamics.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -6530,7 +6530,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `SharedDiffsolOdeSolverOptions`
 
-Rust owner: `pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>`. Source: `crates/pse-backend-native/src/dynamics.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>`. Source: `crates/pse-backend-native/src/dynamics.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -7457,7 +7457,7 @@ Allowed canonical members: `["terminal", "recoverable"]`.
 
 ## `Tuple2OfStringAndModelingType`
 
-Rust owner: `(alloc::string::String, pse_modeling::types::Type)`. Source: `crates/pse-model/src/boundary_projection/tuple_pair.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `(alloc::string::String, pse_modeling::types::Type)`. Source: `crates/pse-contract/src/boundary_projection/tuple_pair.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 

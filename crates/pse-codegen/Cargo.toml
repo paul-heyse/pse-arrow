@@ -20,7 +20,7 @@ doctest = false
 workspace = true
 
 [dependencies]
-pse-model.workspace = true
+pse-contract.workspace = true
 buffa.workspace = true
 buffa-codegen.workspace = true
 buffa-types.workspace = true
@@ -48,3 +48,6 @@ force-validate = [
   "pse-columnar/force-validate",
   "pse-schema/force-validate",
 ]
+
+[dev-dependencies]
+pse-model.workspace = true

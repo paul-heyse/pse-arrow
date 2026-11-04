@@ -35,20 +35,20 @@ pub type EngineeringContext =
 /// analyses and verification supply explicit tighter requirements and KKT budgets.
 pub const DEFAULT_ENGINEERING_ACCURACY: f64 = 1e-3;
 
-crate::projection_struct! {
+pse_contract::projection_struct! {
 /// Distinct normalized optimality requirements; no scalar means every stopping test.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct KktTolerances {
-    projection:{name:"NumericalKktTolerances",rust_path:crate::numerics::KktTolerances,version:1,direction:crate::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
+    projection:{name:"NumericalKktTolerances",rust_path:crate::numerics::KktTolerances,version:1,direction:pse_contract::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
     /// Normalized stationarity budget.
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub stationarity: f64 => {tag:1,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub stationarity: f64 => {tag:1,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
     /// Normalized complementarity budget.
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub complementarity: f64 => {tag:2,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub complementarity: f64 => {tag:2,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
 }
 }
 impl Default for KktTolerances {
@@ -59,82 +59,82 @@ impl Default for KktTolerances {
         }
     }
 }
-crate::projection_struct! {
+pse_contract::projection_struct! {
 /// Shared semantic controls resolved before invoking any native adapter.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NumericalPolicy {
-    projection:{name:"NumericalPolicy",rust_path:crate::numerics::NumericalPolicy,version:1,direction:crate::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
+    projection:{name:"NumericalPolicy",rust_path:crate::numerics::NumericalPolicy,version:1,direction:pse_contract::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
     /// Required standalone and nested numerical-policy interpretation version.
-    pub version: crate::document::Version<1> => {tag:1,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub version: crate::document::Version<1> => {tag:1,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// ID-keyed analysis overrides, using the same declaration as model/case sources.
     #[serde(default)]
-    pub requirements: Vec<NumericalRequirement> => {tag:2,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub requirements: Vec<NumericalRequirement> => {tag:2,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Selected output goals; empty does not assert decision invariance.
     #[serde(default)]
-    pub goals: Vec<AccuracyGoal> => {tag:3,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub goals: Vec<AccuracyGoal> => {tag:3,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Admitted explicitly tagged scales, with source and scope retained.
     #[serde(default)]
-    pub engineering_scales: Vec<EngineeringScale> => {tag:4,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub engineering_scales: Vec<EngineeringScale> => {tag:4,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Shared rules matched by full quantity meaning, not dimensions alone.
     #[serde(default)]
-    pub engineering_rules: Vec<EngineeringRule> => {tag:5,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub engineering_rules: Vec<EngineeringRule> => {tag:5,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Independently admitted caloric and consuming requirements, frozen before execution.
     #[serde(default)]
-    pub caloric_requirements: Vec<CaloricRequirement> => {tag:6,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub caloric_requirements: Vec<CaloricRequirement> => {tag:6,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Reject an engineering allowance relying on the canonical fallback.
     #[serde(default)]
-    pub strict_engineering_context: bool => {tag:7,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub strict_engineering_context: bool => {tag:7,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Shared relative engineering fraction; an explicit selected rule may override it.
     #[serde(default = "policy_defaults::engineering_relative_fraction")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub engineering_relative_fraction: f64 => {tag:8,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::NonnegativeFinite)]};
+    pub engineering_relative_fraction: f64 => {tag:8,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::NonnegativeFinite)]};
     /// Refuse canonical-unit fallback where no authored or quantity nominal is known.
     #[serde(default)]
-    pub strict_nominals: bool => {tag:9,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub strict_nominals: bool => {tag:9,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Permit native algorithmic scaling after model normalization.
     #[serde(default = "policy_defaults::native_scaling")]
-    pub native_scaling: bool => {tag:10,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub native_scaling: bool => {tag:10,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Operational normalized supplier action error, independent of KKT acceptance.
     #[serde(default = "policy_defaults::supplier_action_accuracy")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub supplier_action_accuracy: f64 => {tag:11,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub supplier_action_accuracy: f64 => {tag:11,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
     /// Implicit derivative linear-system backward error, independent of stationarity.
     #[serde(default = "policy_defaults::linear_backward_error")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub linear_backward_error: f64 => {tag:12,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub linear_backward_error: f64 => {tag:12,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
     /// Independent KKT budgets.
     #[serde(default)]
-    pub kkt: KktTolerances => {tag:13,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub kkt: KktTolerances => {tag:13,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Optional separately qualified acceptable-termination budgets.
     #[serde(default)]
-    pub acceptable: Option<KktTolerances> => {tag:14,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub acceptable: Option<KktTolerances> => {tag:14,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Integer-lattice violation budget in original variable coordinates.
     #[serde(default = "policy_defaults::integrality")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub integrality: f64 => {tag:15,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub integrality: f64 => {tag:15,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
     /// Absolute continuous optimality gap in normalized objective coordinates.
     #[serde(default = "policy_defaults::gap_absolute")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub gap_absolute: f64 => {tag:16,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub gap_absolute: f64 => {tag:16,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
     /// Dimensionless relative continuous optimality gap.
     #[serde(default = "policy_defaults::gap_relative")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub gap_relative: f64 => {tag:17,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::PositiveFinite)]};
+    pub gap_relative: f64 => {tag:17,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)]};
     /// Absolute gap in normalized objective coordinates.
     #[serde(default = "policy_defaults::mip_absolute_gap")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub mip_absolute_gap: f64 => {tag:18,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::NonnegativeFinite)]};
+    pub mip_absolute_gap: f64 => {tag:18,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::NonnegativeFinite)]};
     /// Dimensionless relative MIP gap.
     #[serde(default = "policy_defaults::mip_relative_gap")]
     #[serde(serialize_with = "crate::document::finite::serialize", deserialize_with = "crate::document::finite::deserialize")]
-    pub mip_relative_gap: f64 => {tag:19,direction:crate::boundary_projection::Direction::Both,rules:[crate::boundary_projection::LocalRule::Float64Domain(crate::boundary_projection::Float64Domain::NonnegativeFinite)]};
+    pub mip_relative_gap: f64 => {tag:19,direction:pse_contract::boundary_projection::Direction::Both,rules:[pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::NonnegativeFinite)]};
     /// Physical acceptance, separate from native termination.
     #[serde(default = "policy_defaults::closure")]
-    pub closure: ClosurePolicy => {tag:20,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub closure: ClosurePolicy => {tag:20,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Whether a validated original-feasible limit incumbent may be used as a result.
     #[serde(default = "policy_defaults::incumbent")]
-    pub incumbent: IncumbentPolicy => {tag:21,direction:crate::boundary_projection::Direction::Both,rules:[]};
+    pub incumbent: IncumbentPolicy => {tag:21,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
 }
 }
 impl Default for NumericalPolicy {
@@ -200,10 +200,10 @@ impl NumericalPolicy {
             self.gap_relative,
         ]
         .into_iter()
-        .any(|v| !crate::boundary_projection::Float64Domain::PositiveFinite.contains(v))
+        .any(|v| !pse_contract::boundary_projection::Float64Domain::PositiveFinite.contains(v))
             || [self.mip_absolute_gap, self.mip_relative_gap]
                 .into_iter()
-                .any(|v| !crate::boundary_projection::Float64Domain::NonnegativeFinite.contains(v))
+                .any(|v| !pse_contract::boundary_projection::Float64Domain::NonnegativeFinite.contains(v))
             || self.acceptable.is_some_and(|k| {
                 !k.stationarity.is_finite()
                     || !k.complementarity.is_finite()
@@ -215,7 +215,7 @@ impl NumericalPolicy {
                 "invalid independent numerical acceptance budgets",
             ));
         }
-        if !crate::boundary_projection::Float64Domain::NonnegativeFinite
+        if !pse_contract::boundary_projection::Float64Domain::NonnegativeFinite
             .contains(self.engineering_relative_fraction)
         {
             return Err(crate::malformed("invalid shared engineering fraction"));
@@ -526,7 +526,7 @@ mod policy_identity_tests {
     }
     #[test]
     fn actual_numerical_policy_projection_preserves_original_bytes_and_numeric_domains() {
-        use crate::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
+        use pse_contract::boundary_projection::{ProjectionGraph, ProjectionRecord, ValidateProjection};
         let mut policy = NumericalPolicy::default();
         policy.engineering_relative_fraction = -0.0;
         policy.mip_absolute_gap = -0.0;

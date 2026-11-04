@@ -3,7 +3,7 @@
 //! Generated typed preparation crossings; native preparation retains contextual authority.
 
 use crate::projection_support::*;
-use pse_model::boundary_projection::{AdapterError, AdapterFailure};
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 
 #[path = "generated/engineering/native-adapters.rs"]
 mod generated;

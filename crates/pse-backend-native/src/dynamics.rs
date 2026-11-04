@@ -3591,7 +3591,7 @@ pub type OdeConfiguration = diffsol::OdeSolverOptions<f64>;
 #[cfg(test)]
 mod remote_projection_tests {
     use super::{InitialConditionProjection, OdeOptionsProjection};
-    use pse_model::boundary_projection::{
+    use pse_contract::boundary_projection::{
         Adapted, CheckedProjectionRecord, ProjectionGraph, SharedAdapter,
     };
     use std::sync::Arc;
@@ -3659,7 +3659,7 @@ mod remote_projection_tests {
 
 mod initial_options {
     use super::*;
-    pse_model::projection_remote! {
+    pse_contract::projection_remote! {
     /// Source-owned remote declaration of the library's initialization controls.
     #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(
@@ -3670,13 +3670,13 @@ mod initial_options {
     pub struct Remote for diffsol::InitialConditionSolverOptions<f64> {
         projection: { name: "DiffsolInitialConditionOptions", rust_path: crate::dynamics::InitialConditionProjection,
             target_path: crate::dynamics::InitialConditionConfiguration,
-            version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
-        use_linesearch: bool => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_linesearch_iterations: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_newton_iterations: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_linear_solver_setups: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        step_reduction_factor: f64 => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        armijo_constant: f64 => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+            version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        use_linesearch: bool => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_linesearch_iterations: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_newton_iterations: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_linear_solver_setups: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        step_reduction_factor: f64 => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        armijo_constant: f64 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     }
     }
     pub(super) fn serialize<S: serde::Serializer>(
@@ -3694,7 +3694,7 @@ mod initial_options {
 
 mod ode_options {
     use super::*;
-    pse_model::projection_remote! {
+    pse_contract::projection_remote! {
     /// Source-owned remote declaration of the library's nonlinear integration controls.
     #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(remote = "diffsol::OdeSolverOptions<f64>", deny_unknown_fields)]
@@ -3702,22 +3702,22 @@ mod ode_options {
     pub struct Remote for diffsol::OdeSolverOptions<f64> {
         projection: { name: "DiffsolOdeSolverOptions", rust_path: crate::dynamics::OdeOptionsProjection,
             target_path: crate::dynamics::OdeConfiguration,
-            version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
-        max_nonlinear_solver_iterations: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_error_test_failures: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_nonlinear_solver_failures: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        nonlinear_solver_tolerance: f64 => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        min_timestep: f64 => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_timestep_growth: Option<f64> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        min_timestep_growth: Option<f64> => { tag: 7, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        max_timestep_shrink: Option<f64> => { tag: 8, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        min_timestep_shrink: Option<f64> => { tag: 9, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        update_jacobian_after_steps: usize => { tag: 10, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        update_rhs_jacobian_after_steps: usize => { tag: 11, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        threshold_to_update_jacobian: f64 => { tag: 12, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        threshold_to_update_rhs_jacobian: f64 => { tag: 13, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        pi_control_proportional: f64 => { tag: 14, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-        pi_control_integral: f64 => { tag: 15, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+            version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        max_nonlinear_solver_iterations: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_error_test_failures: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_nonlinear_solver_failures: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        nonlinear_solver_tolerance: f64 => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        min_timestep: f64 => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_timestep_growth: Option<f64> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        min_timestep_growth: Option<f64> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        max_timestep_shrink: Option<f64> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        min_timestep_shrink: Option<f64> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        update_jacobian_after_steps: usize => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        update_rhs_jacobian_after_steps: usize => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        threshold_to_update_jacobian: f64 => { tag: 12, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        threshold_to_update_rhs_jacobian: f64 => { tag: 13, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        pi_control_proportional: f64 => { tag: 14, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        pi_control_integral: f64 => { tag: 15, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     }
     }
     pub(super) fn serialize<S: serde::Serializer>(

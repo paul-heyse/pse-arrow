@@ -19,7 +19,7 @@ pub struct BoundaryShape {
     /// Scientific interpretation of this shape, separate from package version.
     pub version: u32,
     /// Actual public consumer direction.
-    pub direction: pse_vocabulary::BoundaryDirection,
+    pub direction: pse_contract::BoundaryDirection,
     /// Retired numbers, unavailable to fields or alternatives.
     pub reserved_tags: Vec<u32>,
     /// Retired public names.
@@ -49,7 +49,7 @@ impl BoundaryShape {
     pub fn native(
         source: &str,
         version: u32,
-        direction: pse_vocabulary::BoundaryDirection,
+        direction: pse_contract::BoundaryDirection,
     ) -> Self {
         Self {
             source: source.into(),
@@ -190,7 +190,7 @@ fn valid_tag(tag: u32) -> bool {
 mod tests {
     use super::*;
     use arrow_schema::DataType;
-    use pse_vocabulary::BoundaryDirection;
+    use pse_contract::BoundaryDirection;
 
     #[test]
     fn wire_presentation_preserves_execution_value_and_logical_type_identity() {

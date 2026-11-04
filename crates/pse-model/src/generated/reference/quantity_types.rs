@@ -67,12 +67,12 @@ impl PartialEq for ReferenceQuantityTypesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
+impl pse_contract::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -81,19 +81,19 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                 "RegistryPhysicalQuantityType",
                 "crates/pse-schema/src/catalog/s6_2_physical.rs",
                 1u32,
-                crate::boundary_projection::Direction::Output,
+                pse_contract::boundary_projection::Direction::Output,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::identities::QuantityTypeId,
                             >(
                                     graph,
                                     "quantity_type_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -105,13 +105,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "key".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<String>,
                             >(
                                     graph,
                                     "name",
                                     2u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -121,13 +121,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::identities::QuantityKindId,
                             >(
                                     graph,
                                     "quantity_kind_id",
                                     3u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -144,13 +144,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::BasisId>,
                             >(
                                     graph,
                                     "basis_id",
                                     4u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -164,13 +164,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::ReferenceStateId>,
                             >(
                                     graph,
                                     "reference_state_id",
                                     5u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -190,13 +190,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::ScaleKind,
                             >(
                                     graph,
                                     "scale_kind",
                                     6u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -208,13 +208,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<pse_ids::SemanticId>,
                             >(
                                     graph,
                                     "shape",
                                     7u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -229,13 +229,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::EntityKindId>,
                             >(
                                     graph,
                                     "subject_kind",
                                     8u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -247,13 +247,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::identities::UnitId,
                             >(
                                     graph,
                                     "canonical_unit_id",
                                     9u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -267,13 +267,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "nominal_magnitude",
                                     10u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -283,13 +283,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "doc",
                                     11u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -305,7 +305,7 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ReferenceQuantityTypesRow {
+impl pse_contract::boundary_projection::ProjectionRecord for ReferenceQuantityTypesRow {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "quantity_type_id"),
@@ -362,7 +362,7 @@ impl crate::boundary_projection::ProjectionRecord for ReferenceQuantityTypesRow 
             r#nominal_magnitude,
             r#doc,
         ): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#quantity_type_id,
             r#name,
@@ -378,99 +378,109 @@ impl crate::boundary_projection::ProjectionRecord for ReferenceQuantityTypesRow 
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ReferenceQuantityTypesRow {
+impl pse_contract::boundary_projection::ValidateProjection
+for ReferenceQuantityTypesRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::QuantityTypeId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::QuantityTypeId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::identities::QuantityKindId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::QuantityKindId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::BasisId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::ReferenceStateId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::ScaleKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ScaleKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             pse_ids::SemanticId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::EntityKindId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::identities::UnitId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::UnitId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#quantity_type_id,
-                &crate::boundary_projection::field_path(path, "quantity_type_id"),
+                &pse_contract::boundary_projection::field_path(path, "quantity_type_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#name,
-                &crate::boundary_projection::field_path(path, "name"),
+                &pse_contract::boundary_projection::field_path(path, "name"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#quantity_kind_id,
-                &crate::boundary_projection::field_path(path, "quantity_kind_id"),
+                &pse_contract::boundary_projection::field_path(path, "quantity_kind_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#basis_id,
-                &crate::boundary_projection::field_path(path, "basis_id"),
+                &pse_contract::boundary_projection::field_path(path, "basis_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#reference_state_id,
-                &crate::boundary_projection::field_path(path, "reference_state_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "reference_state_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#scale_kind,
-                &crate::boundary_projection::field_path(path, "scale_kind"),
+                &pse_contract::boundary_projection::field_path(path, "scale_kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#shape,
-                &crate::boundary_projection::field_path(path, "shape"),
+                &pse_contract::boundary_projection::field_path(path, "shape"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#subject_kind,
-                &crate::boundary_projection::field_path(path, "subject_kind"),
+                &pse_contract::boundary_projection::field_path(path, "subject_kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#canonical_unit_id,
-                &crate::boundary_projection::field_path(path, "canonical_unit_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "canonical_unit_id",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#nominal_magnitude,
-                &crate::boundary_projection::field_path(path, "nominal_magnitude"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "nominal_magnitude",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#doc,
-                &crate::boundary_projection::field_path(path, "doc"),
+                &pse_contract::boundary_projection::field_path(path, "doc"),
                 &[],
             )?;
         }

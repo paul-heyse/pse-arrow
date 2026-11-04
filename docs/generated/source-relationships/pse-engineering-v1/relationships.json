@@ -1299,7 +1299,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1315,7 +1315,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1331,7 +1331,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1347,7 +1347,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1363,7 +1363,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1379,7 +1379,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1395,7 +1395,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1411,7 +1411,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1427,7 +1427,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1443,7 +1443,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u8; 16]"
     },
@@ -1459,7 +1459,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1475,7 +1475,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1491,7 +1491,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1507,7 +1507,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1523,7 +1523,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1539,7 +1539,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1555,7 +1555,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1571,7 +1571,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1587,7 +1587,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1603,7 +1603,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[u64; 2]"
     },
@@ -1619,7 +1619,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1635,7 +1635,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1651,7 +1651,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1667,7 +1667,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1683,7 +1683,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1699,7 +1699,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1715,7 +1715,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1731,7 +1731,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1747,7 +1747,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1763,7 +1763,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[[u8; 16]; 3]"
     },
@@ -1779,7 +1779,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1795,7 +1795,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1811,7 +1811,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1827,7 +1827,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1843,7 +1843,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1859,7 +1859,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1875,7 +1875,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1891,7 +1891,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1907,7 +1907,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1923,7 +1923,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_model::scalars::__nutype_FiniteBound__::FiniteBound; 3]"
     },
@@ -1939,7 +1939,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -1955,7 +1955,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -1971,7 +1971,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -1987,7 +1987,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -2003,7 +2003,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -2019,7 +2019,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -2035,7 +2035,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -2051,7 +2051,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -2067,7 +2067,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -2083,7 +2083,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -30259,9 +30259,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30275,9 +30275,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30291,9 +30291,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30307,9 +30307,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30323,9 +30323,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30339,9 +30339,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30355,9 +30355,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30371,9 +30371,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30387,9 +30387,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30403,9 +30403,9 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectFacts"
+      "source_symbol": "pse_contract::operation_effects::EffectFacts"
     },
     {
       "basis": "declared",
@@ -30419,9 +30419,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30435,9 +30435,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30451,9 +30451,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30467,9 +30467,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30483,9 +30483,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30499,9 +30499,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30515,9 +30515,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30531,9 +30531,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30547,9 +30547,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -30563,9 +30563,9 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/operation_effects.rs",
+      "source_path": "crates/pse-contract/src/operation_effects.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::operation_effects::EffectScope"
+      "source_symbol": "pse_contract::operation_effects::EffectScope"
     },
     {
       "basis": "declared",
@@ -39589,7 +39589,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39605,7 +39605,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39621,7 +39621,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39637,7 +39637,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39653,7 +39653,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39669,7 +39669,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39685,7 +39685,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39701,7 +39701,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39717,7 +39717,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39733,7 +39733,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::symbolic::OrderingMethod, pse_backend_native::settings::pounce::projection::OrderingProjection>"
     },
     {
       "basis": "declared",
@@ -39909,7 +39909,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -39925,7 +39925,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -39941,7 +39941,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -39957,7 +39957,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -39973,7 +39973,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -39989,7 +39989,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -40005,7 +40005,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -40021,7 +40021,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -40037,7 +40037,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -40053,7 +40053,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce/projection.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<feral::scaling::ScalingStrategy, pse_backend_native::settings::pounce::projection::ScalingProjection>"
     },
     {
       "basis": "declared",
@@ -40069,7 +40069,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40085,7 +40085,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40101,7 +40101,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40117,7 +40117,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40133,7 +40133,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40149,7 +40149,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40165,7 +40165,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40181,7 +40181,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40197,7 +40197,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -40213,7 +40213,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/settings/pounce.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<pounce_feral::FeralConfig, pse_backend_native::settings::pounce::FeralIdentity>"
     },
     {
       "basis": "declared",
@@ -63443,7 +63443,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63459,7 +63459,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63475,7 +63475,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63491,7 +63491,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63507,7 +63507,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63523,7 +63523,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63539,7 +63539,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63555,7 +63555,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63571,7 +63571,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -63587,7 +63587,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/standard.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/standard.rs",
       "source_role": "semantic_owner",
       "source_symbol": "core::time::Duration"
     },
@@ -80533,7 +80533,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80549,7 +80549,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80565,7 +80565,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80581,7 +80581,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80597,7 +80597,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80613,7 +80613,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80629,7 +80629,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80645,7 +80645,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80661,7 +80661,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80677,7 +80677,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::InitialConditionSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::initial_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80693,7 +80693,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80709,7 +80709,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80725,7 +80725,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80741,7 +80741,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80757,7 +80757,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80773,7 +80773,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80789,7 +80789,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80805,7 +80805,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80821,7 +80821,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -80837,7 +80837,7 @@
       "source_identity": null,
       "source_path": "crates/pse-backend-native/src/dynamics.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_model::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_model::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
+      "source_symbol": "pse_contract::boundary_projection::access::Adapted<alloc::sync::Arc<diffsol::ode_solver::problem::OdeSolverOptions<f64>>, pse_contract::boundary_projection::access::SharedAdapter<pse_backend_native::dynamics::ode_options::Remote>>"
     },
     {
       "basis": "declared",
@@ -91859,7 +91859,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91875,7 +91875,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91891,7 +91891,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91907,7 +91907,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91923,7 +91923,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91939,7 +91939,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91955,7 +91955,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91971,7 +91971,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -91987,7 +91987,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },
@@ -92003,7 +92003,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/tuple_pair.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
       "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
     },

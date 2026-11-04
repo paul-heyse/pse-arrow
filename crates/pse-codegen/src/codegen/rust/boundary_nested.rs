@@ -28,7 +28,7 @@ pub(super) fn render(
 mod tests {
     use super::*;
     use arrow_schema::DataType;
-    use pse_model::boundary_projection::Direction as BoundaryDirection;
+    use pse_contract::boundary_projection::Direction as BoundaryDirection;
 
     #[test]
     fn native_selected_payloads_supply_checked_oneof_access_without_another_native_type() {
@@ -144,16 +144,16 @@ fn alternatives(
             let ty = payload_type(ty)?;
             (
                 quote!(
-                    vec![crate::boundary_projection::Field::of::<#ty>(graph,"value",1,
-                    crate::boundary_projection::Direction::#direction,
-                    vec![crate::boundary_projection::LocalRule::Required])?]
+                    vec![pse_contract::boundary_projection::Field::of::<#ty>(graph,"value",1,
+                    pse_contract::boundary_projection::Direction::#direction,
+                    vec![pse_contract::boundary_projection::LocalRule::Required])?]
                 ),
                 quote!(&[(1, "value")]),
                 quote!((#ty,)),
                 quote!(match self.#payload.take() {Some(value)=>Ok((value,)),None=>Err(self)}),
                 quote! { let (value,)=fields; Self::#constructor(value) },
-                quote!(#selected::#variant(value)=>crate::boundary_projection::ValidateProjection::validate_at(value,
-                    &crate::boundary_projection::field_path(path,#tag))),
+                quote!(#selected::#variant(value)=>pse_contract::boundary_projection::ValidateProjection::validate_at(value,
+                    &pse_contract::boundary_projection::field_path(path,#tag))),
             )
         } else {
             (
@@ -165,10 +165,10 @@ fn alternatives(
                 quote!(#selected::#variant=>Ok(())),
             )
         };
-        definitions.push(quote!(crate::boundary_projection::Alternative {name:#tag.into(),tag:#number,fields:#definition}));
+        definitions.push(quote!(pse_contract::boundary_projection::Alternative {name:#tag.into(),tag:#number,fields:#definition}));
         validation.push(check);
         accessors.push(quote! {
-            impl crate::boundary_projection::ProjectionAlternative<#number> for #row {
+            impl pse_contract::boundary_projection::ProjectionAlternative<#number> for #row {
                 const VERSION:u32=#version;
                 const FIELD_LAYOUT:&'static[(u32,&'static str)]=#field_layout;
                 type Fields=#types;
@@ -181,15 +181,15 @@ fn alternatives(
         });
     }
     Ok(quote! {
-        impl crate::boundary_projection::ProjectionType for #row {
-            fn projection(graph:&mut crate::boundary_projection::ProjectionGraph)->Result<crate::boundary_projection::TypeRef,crate::boundary_projection::ProjectionError> {
-                graph.declare::<Self>(#name,#source,#version,crate::boundary_projection::Direction::#direction,
-                    &[#(#reserved_tags),*],&[#(#reserved_names),*],|graph|Ok(crate::boundary_projection::Shape::Alternatives(vec![#(#definitions),*])))
+        impl pse_contract::boundary_projection::ProjectionType for #row {
+            fn projection(graph:&mut pse_contract::boundary_projection::ProjectionGraph)->Result<pse_contract::boundary_projection::TypeRef,pse_contract::boundary_projection::ProjectionError> {
+                graph.declare::<Self>(#name,#source,#version,pse_contract::boundary_projection::Direction::#direction,
+                    &[#(#reserved_tags),*],&[#(#reserved_names),*],|graph|Ok(pse_contract::boundary_projection::Shape::Alternatives(vec![#(#definitions),*])))
             }
         }
-        impl crate::boundary_projection::ValidateProjection for #row {
-            fn validate_at(&self,path:&str)->Result<(),crate::boundary_projection::ValidationError> {
-                match self.selected().map_err(|_|crate::boundary_projection::ValidationError::Rule {
+        impl pse_contract::boundary_projection::ValidateProjection for #row {
+            fn validate_at(&self,path:&str)->Result<(),pse_contract::boundary_projection::ValidationError> {
+                match self.selected().map_err(|_|pse_contract::boundary_projection::ValidationError::Rule {
                     path:path.into(),rule:"tagged_alternative",reason:"native tag must select exactly its declared payload".into(),
                 })? {#(#validation),*}
             }

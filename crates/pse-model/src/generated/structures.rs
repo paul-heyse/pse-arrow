@@ -118,13 +118,13 @@ impl PartialEq for ModelingCellValueReferencesPathsItem {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType
+impl pse_contract::boundary_projection::ProjectionType
 for ModelingCellValueReferencesPathsItem {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -133,19 +133,19 @@ for ModelingCellValueReferencesPathsItem {
                 "ModelingCellValueReferencesPathsItem",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "path",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -158,13 +158,13 @@ for ModelingCellValueReferencesPathsItem {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<Vec<ModelingKeyCell>>,
                             >(
                                     graph,
                                     "keys",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -183,7 +183,7 @@ for ModelingCellValueReferencesPathsItem {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord
+impl pse_contract::boundary_projection::ProjectionRecord
 for ModelingCellValueReferencesPathsItem {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
@@ -196,33 +196,33 @@ for ModelingCellValueReferencesPathsItem {
     }
     fn from_projection_fields(
         (r#path, r#keys): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#path, r#keys })
     }
 }
-impl crate::boundary_projection::ValidateProjection
+impl pse_contract::boundary_projection::ValidateProjection
 for ModelingCellValueReferencesPathsItem {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             Vec<ModelingKeyCell>,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#path,
-                &crate::boundary_projection::field_path(path, "path"),
+                &pse_contract::boundary_projection::field_path(path, "path"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#keys,
-                &crate::boundary_projection::field_path(path, "keys"),
+                &pse_contract::boundary_projection::field_path(path, "keys"),
                 &[],
             )?;
         }
@@ -250,12 +250,12 @@ impl PartialEq for ModelingCellValueReferences {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueReferences {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueReferences {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -264,19 +264,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueReferences 
                 "ModelingCellValueReferences",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<ModelingCellValueReferencesPathsItem>,
                             >(
                                     graph,
                                     "paths",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -295,7 +295,8 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueReferences 
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueReferences {
+impl pse_contract::boundary_projection::ProjectionRecord
+for ModelingCellValueReferences {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "paths")];
     type Fields = (Vec<ModelingCellValueReferencesPathsItem>,);
@@ -304,23 +305,24 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueReference
     }
     fn from_projection_fields(
         (r#paths,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#paths })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueReferences {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingCellValueReferences {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <Vec<
             ModelingCellValueReferencesPathsItem,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#paths,
-                &crate::boundary_projection::field_path(path, "paths"),
+                &pse_contract::boundary_projection::field_path(path, "paths"),
                 &[],
             )?;
         }
@@ -351,12 +353,12 @@ impl PartialEq for ModelingCellValueRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueRow {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -365,19 +367,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueRow {
                 "ModelingCellValueRow",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "target",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -390,13 +392,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueRow {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<ModelingKeyCell>,
                             >(
                                     graph,
                                     "keys",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -415,7 +417,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueRow {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueRow {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellValueRow {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "target"),
@@ -427,32 +429,32 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueRow {
     }
     fn from_projection_fields(
         (r#target, r#keys): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#target, r#keys })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueRow {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellValueRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             ModelingKeyCell,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target,
-                &crate::boundary_projection::field_path(path, "target"),
+                &pse_contract::boundary_projection::field_path(path, "target"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#keys,
-                &crate::boundary_projection::field_path(path, "keys"),
+                &pse_contract::boundary_projection::field_path(path, "keys"),
                 &[],
             )?;
         }
@@ -699,12 +701,12 @@ impl ModelingCellValue {
         }
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValue {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -713,134 +715,134 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValue {
                 "ModelingCellValue",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Alternatives(
+                    pse_contract::boundary_projection::Shape::Alternatives(
                         vec![
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "boolean".into(),
                                 tag: 1u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueBoolean,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "identifier".into(),
                                 tag: 5u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueIdentifier,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "integer".into(),
                                 tag: 2u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueInteger,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "missing".into(),
                                 tag: 9u32,
                                 fields: vec![],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "quantity".into(),
                                 tag: 3u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueQuantity,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "reference".into(),
                                 tag: 6u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueReference,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "references".into(),
                                 tag: 7u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueReferences,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "row".into(),
                                 tag: 8u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueRow,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "text".into(),
                                 tag: 4u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueText,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
@@ -850,72 +852,73 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValue {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValue {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellValue {
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         match self
             .selected()
-            .map_err(|_| crate::boundary_projection::ValidationError::Rule {
+            .map_err(|_| pse_contract::boundary_projection::ValidationError::Rule {
                 path: path.into(),
                 rule: "tagged_alternative",
                 reason: "native tag must select exactly its declared payload".into(),
             })?
         {
             ModelingCellValueSelected::Boolean(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "boolean"),
+                    &pse_contract::boundary_projection::field_path(path, "boolean"),
                 )
             }
             ModelingCellValueSelected::Identifier(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "identifier"),
+                    &pse_contract::boundary_projection::field_path(path, "identifier"),
                 )
             }
             ModelingCellValueSelected::Integer(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "integer"),
+                    &pse_contract::boundary_projection::field_path(path, "integer"),
                 )
             }
             ModelingCellValueSelected::Missing => Ok(()),
             ModelingCellValueSelected::Quantity(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "quantity"),
+                    &pse_contract::boundary_projection::field_path(path, "quantity"),
                 )
             }
             ModelingCellValueSelected::Reference(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "reference"),
+                    &pse_contract::boundary_projection::field_path(path, "reference"),
                 )
             }
             ModelingCellValueSelected::References(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "references"),
+                    &pse_contract::boundary_projection::field_path(path, "references"),
                 )
             }
             ModelingCellValueSelected::Row(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "row"),
+                    &pse_contract::boundary_projection::field_path(path, "row"),
                 )
             }
             ModelingCellValueSelected::Text(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "text"),
+                    &pse_contract::boundary_projection::field_path(path, "text"),
                 )
             }
         }
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<1u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<1u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueBoolean,);
@@ -933,7 +936,8 @@ impl crate::boundary_projection::ProjectionAlternative<1u32> for ModelingCellVal
         Self::from_boolean(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<5u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<5u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueIdentifier,);
@@ -951,7 +955,8 @@ impl crate::boundary_projection::ProjectionAlternative<5u32> for ModelingCellVal
         Self::from_identifier(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<2u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<2u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueInteger,);
@@ -969,7 +974,8 @@ impl crate::boundary_projection::ProjectionAlternative<2u32> for ModelingCellVal
         Self::from_integer(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<9u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<9u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[];
     type Fields = ();
@@ -984,7 +990,8 @@ impl crate::boundary_projection::ProjectionAlternative<9u32> for ModelingCellVal
         Self::from_missing()
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<3u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<3u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueQuantity,);
@@ -1002,7 +1009,8 @@ impl crate::boundary_projection::ProjectionAlternative<3u32> for ModelingCellVal
         Self::from_quantity(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<6u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<6u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueReference,);
@@ -1020,7 +1028,8 @@ impl crate::boundary_projection::ProjectionAlternative<6u32> for ModelingCellVal
         Self::from_reference(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<7u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<7u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueReferences,);
@@ -1038,7 +1047,8 @@ impl crate::boundary_projection::ProjectionAlternative<7u32> for ModelingCellVal
         Self::from_references(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<8u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<8u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueRow,);
@@ -1056,7 +1066,8 @@ impl crate::boundary_projection::ProjectionAlternative<8u32> for ModelingCellVal
         Self::from_row(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<4u32> for ModelingCellValue {
+impl pse_contract::boundary_projection::ProjectionAlternative<4u32>
+for ModelingCellValue {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueText,);
@@ -1098,12 +1109,12 @@ impl PartialEq for ModelingCellUncertainty {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellUncertainty {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellUncertainty {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1112,19 +1123,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellUncertainty {
                 "ModelingCellUncertainty",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::ModelingUncertaintyKind,
                             >(
                                     graph,
                                     "kind",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1137,13 +1148,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCellUncertainty {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 f64,
                             >(
                                     graph,
                                     "magnitude",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1157,7 +1168,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellUncertainty {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellUncertainty {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellUncertainty {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "kind"),
@@ -1169,28 +1180,28 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellUncertainty {
     }
     fn from_projection_fields(
         (r#kind, r#magnitude): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#kind, r#magnitude })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellUncertainty {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellUncertainty {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingUncertaintyKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ModelingUncertaintyKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#kind,
-                &crate::boundary_projection::field_path(path, "kind"),
+                &pse_contract::boundary_projection::field_path(path, "kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#magnitude,
-                &crate::boundary_projection::field_path(path, "magnitude"),
+                &pse_contract::boundary_projection::field_path(path, "magnitude"),
                 &[],
             )?;
         }
@@ -1221,12 +1232,12 @@ impl PartialEq for ModelingCell {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCell {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCell {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1235,19 +1246,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCell {
                 "ModelingCell",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 ModelingCellValue,
                             >(
                                     graph,
                                     "value",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1265,13 +1276,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCell {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<ModelingCellUncertainty>,
                             >(
                                     graph,
                                     "uncertainty",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1290,7 +1301,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCell {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCell {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "value"),
@@ -1302,30 +1313,30 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCell {
     }
     fn from_projection_fields(
         (r#value, r#uncertainty): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#value, r#uncertainty })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCell {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCell {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <ModelingCellValue as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <ModelingCellValue as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             ModelingCellUncertainty,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#value,
-                &crate::boundary_projection::field_path(path, "value"),
+                &pse_contract::boundary_projection::field_path(path, "value"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#uncertainty,
-                &crate::boundary_projection::field_path(path, "uncertainty"),
+                &pse_contract::boundary_projection::field_path(path, "uncertainty"),
                 &[],
             )?;
         }
@@ -1353,12 +1364,12 @@ impl PartialEq for ModelingCellValueBoolean {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueBoolean {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueBoolean {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1367,19 +1378,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueBoolean {
                 "ModelingCellValueBoolean",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 bool,
                             >(
                                     graph,
                                     "value",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1393,7 +1404,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueBoolean {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueBoolean {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellValueBoolean {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "value")];
     type Fields = (bool,);
@@ -1402,21 +1413,21 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueBoolean {
     }
     fn from_projection_fields(
         (r#value,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#value })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueBoolean {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellValueBoolean {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#value,
-                &crate::boundary_projection::field_path(path, "value"),
+                &pse_contract::boundary_projection::field_path(path, "value"),
                 &[],
             )?;
         }
@@ -1447,12 +1458,12 @@ impl PartialEq for ModelingCellValueIdentifier {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueIdentifier {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueIdentifier {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1461,19 +1472,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueIdentifier 
                 "ModelingCellValueIdentifier",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "scheme",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1486,13 +1497,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueIdentifier 
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "value",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1506,7 +1517,8 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueIdentifier 
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueIdentifier {
+impl pse_contract::boundary_projection::ProjectionRecord
+for ModelingCellValueIdentifier {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "scheme"),
@@ -1518,30 +1530,31 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueIdentifie
     }
     fn from_projection_fields(
         (r#scheme, r#value): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#scheme, r#value })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueIdentifier {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingCellValueIdentifier {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#scheme,
-                &crate::boundary_projection::field_path(path, "scheme"),
+                &pse_contract::boundary_projection::field_path(path, "scheme"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#value,
-                &crate::boundary_projection::field_path(path, "value"),
+                &pse_contract::boundary_projection::field_path(path, "value"),
                 &[],
             )?;
         }
@@ -1569,12 +1582,12 @@ impl PartialEq for ModelingCellValueInteger {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueInteger {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueInteger {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1583,19 +1596,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueInteger {
                 "ModelingCellValueInteger",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i64,
                             >(
                                     graph,
                                     "value",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1609,7 +1622,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueInteger {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueInteger {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellValueInteger {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "value")];
     type Fields = (i64,);
@@ -1618,21 +1631,21 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueInteger {
     }
     fn from_projection_fields(
         (r#value,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#value })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueInteger {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellValueInteger {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#value,
-                &crate::boundary_projection::field_path(path, "value"),
+                &pse_contract::boundary_projection::field_path(path, "value"),
                 &[],
             )?;
         }
@@ -1663,12 +1676,12 @@ impl PartialEq for ModelingCellValueQuantity {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueQuantity {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueQuantity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1677,19 +1690,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueQuantity {
                 "ModelingCellValueQuantity",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 f64,
                             >(
                                     graph,
                                     "magnitude",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1697,13 +1710,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueQuantity {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<Vec<ModelingUnitFactor>>,
                             >(
                                     graph,
                                     "unit",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1722,7 +1735,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueQuantity {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueQuantity {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellValueQuantity {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "magnitude"),
@@ -1734,30 +1747,31 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueQuantity 
     }
     fn from_projection_fields(
         (r#magnitude, r#unit): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#magnitude, r#unit })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueQuantity {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingCellValueQuantity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             Vec<ModelingUnitFactor>,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#magnitude,
-                &crate::boundary_projection::field_path(path, "magnitude"),
+                &pse_contract::boundary_projection::field_path(path, "magnitude"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#unit,
-                &crate::boundary_projection::field_path(path, "unit"),
+                &pse_contract::boundary_projection::field_path(path, "unit"),
                 &[],
             )?;
         }
@@ -1785,12 +1799,12 @@ impl PartialEq for ModelingCellValueReference {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueReference {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueReference {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1799,19 +1813,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueReference {
                 "ModelingCellValueReference",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "path",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1830,7 +1844,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueReference {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueReference {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellValueReference {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "path")];
     type Fields = (Vec<String>,);
@@ -1839,23 +1853,24 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueReference
     }
     fn from_projection_fields(
         (r#path,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#path })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueReference {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingCellValueReference {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#path,
-                &crate::boundary_projection::field_path(path, "path"),
+                &pse_contract::boundary_projection::field_path(path, "path"),
                 &[],
             )?;
         }
@@ -1883,12 +1898,12 @@ impl PartialEq for ModelingCellValueText {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellValueText {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellValueText {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1897,19 +1912,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueText {
                 "ModelingCellValueText",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "value",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -1923,7 +1938,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCellValueText {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCellValueText {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCellValueText {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "value")];
     type Fields = (String,);
@@ -1932,21 +1947,21 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCellValueText {
     }
     fn from_projection_fields(
         (r#value,): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#value })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellValueText {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellValueText {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#value,
-                &crate::boundary_projection::field_path(path, "value"),
+                &pse_contract::boundary_projection::field_path(path, "value"),
                 &[],
             )?;
         }
@@ -1982,12 +1997,12 @@ impl PartialEq for ModelingColumnStorage {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingColumnStorage {
+impl pse_contract::boundary_projection::ProjectionType for ModelingColumnStorage {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1996,19 +2011,19 @@ impl crate::boundary_projection::ProjectionType for ModelingColumnStorage {
                 "ModelingColumnStorage",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "name",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2016,13 +2031,13 @@ impl crate::boundary_projection::ProjectionType for ModelingColumnStorage {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<Vec<ModelingUnitFactor>>,
                             >(
                                     graph,
                                     "storage_unit",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2035,13 +2050,13 @@ impl crate::boundary_projection::ProjectionType for ModelingColumnStorage {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<Vec<String>>,
                             >(
                                     graph,
                                     "scheme",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2060,7 +2075,7 @@ impl crate::boundary_projection::ProjectionType for ModelingColumnStorage {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingColumnStorage {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingColumnStorage {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "name"),
@@ -2073,7 +2088,7 @@ impl crate::boundary_projection::ProjectionRecord for ModelingColumnStorage {
     }
     fn from_projection_fields(
         (r#name, r#storage_unit, r#scheme): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#name,
             r#storage_unit,
@@ -2081,35 +2096,35 @@ impl crate::boundary_projection::ProjectionRecord for ModelingColumnStorage {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingColumnStorage {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingColumnStorage {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             Vec<ModelingUnitFactor>,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             Vec<String>,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#name,
-                &crate::boundary_projection::field_path(path, "name"),
+                &pse_contract::boundary_projection::field_path(path, "name"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#storage_unit,
-                &crate::boundary_projection::field_path(path, "storage_unit"),
+                &pse_contract::boundary_projection::field_path(path, "storage_unit"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#scheme,
-                &crate::boundary_projection::field_path(path, "scheme"),
+                &pse_contract::boundary_projection::field_path(path, "scheme"),
                 &[],
             )?;
         }
@@ -2143,12 +2158,12 @@ impl PartialEq for ModelingCompleteness {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingCompleteness {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCompleteness {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2157,19 +2172,19 @@ impl crate::boundary_projection::ProjectionType for ModelingCompleteness {
                 "ModelingCompleteness",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "key",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2177,13 +2192,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCompleteness {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<Vec<String>>,
                             >(
                                     graph,
                                     "set",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2196,13 +2211,13 @@ impl crate::boundary_projection::ProjectionType for ModelingCompleteness {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<ModelingIntegerRange>,
                             >(
                                     graph,
                                     "range",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2225,7 +2240,7 @@ impl crate::boundary_projection::ProjectionType for ModelingCompleteness {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingCompleteness {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingCompleteness {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "key"),
@@ -2238,39 +2253,39 @@ impl crate::boundary_projection::ProjectionRecord for ModelingCompleteness {
     }
     fn from_projection_fields(
         (r#key, r#set, r#range): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#key, r#set, r#range })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCompleteness {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCompleteness {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             Vec<String>,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             ModelingIntegerRange,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#key,
-                &crate::boundary_projection::field_path(path, "key"),
+                &pse_contract::boundary_projection::field_path(path, "key"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#set,
-                &crate::boundary_projection::field_path(path, "set"),
+                &pse_contract::boundary_projection::field_path(path, "set"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#range,
-                &crate::boundary_projection::field_path(path, "range"),
+                &pse_contract::boundary_projection::field_path(path, "range"),
                 &[],
             )?;
         }
@@ -2307,12 +2322,12 @@ impl PartialEq for ModelingEnvelope {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
+impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelope {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2321,19 +2336,19 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
                 "ModelingEnvelope",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "name",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2341,13 +2356,13 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<ModelingTypeArenaNode>,
                             >(
                                     graph,
                                     "type",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2360,13 +2375,13 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "lower",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2374,13 +2389,13 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "upper",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2394,7 +2409,7 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingEnvelope {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingEnvelope {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "name"),
@@ -2408,7 +2423,7 @@ impl crate::boundary_projection::ProjectionRecord for ModelingEnvelope {
     }
     fn from_projection_fields(
         (r#name, r#type, r#lower, r#upper): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#name,
             r#type,
@@ -2417,40 +2432,40 @@ impl crate::boundary_projection::ProjectionRecord for ModelingEnvelope {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingEnvelope {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingEnvelope {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             ModelingTypeArenaNode,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#name,
-                &crate::boundary_projection::field_path(path, "name"),
+                &pse_contract::boundary_projection::field_path(path, "name"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#type,
-                &crate::boundary_projection::field_path(path, "type"),
+                &pse_contract::boundary_projection::field_path(path, "type"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#lower,
-                &crate::boundary_projection::field_path(path, "lower"),
+                &pse_contract::boundary_projection::field_path(path, "lower"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#upper,
-                &crate::boundary_projection::field_path(path, "upper"),
+                &pse_contract::boundary_projection::field_path(path, "upper"),
                 &[],
             )?;
         }
@@ -2487,12 +2502,12 @@ impl PartialEq for ModelingEnvelopeGuard {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
+impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2501,19 +2516,19 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
                 "ModelingEnvelopeGuard",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "carrier",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2521,13 +2536,13 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "envelope",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2535,13 +2550,13 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::ModelingEnvelopeExtent,
                             >(
                                     graph,
                                     "extent",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2554,13 +2569,13 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "arguments",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2579,7 +2594,7 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingEnvelopeGuard {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingEnvelopeGuard {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "carrier"),
@@ -2598,7 +2613,7 @@ impl crate::boundary_projection::ProjectionRecord for ModelingEnvelopeGuard {
     }
     fn from_projection_fields(
         (r#carrier, r#envelope, r#extent, r#arguments): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#carrier,
             r#envelope,
@@ -2607,40 +2622,40 @@ impl crate::boundary_projection::ProjectionRecord for ModelingEnvelopeGuard {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingEnvelopeGuard {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingEnvelopeGuard {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::ModelingEnvelopeExtent as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ModelingEnvelopeExtent as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#carrier,
-                &crate::boundary_projection::field_path(path, "carrier"),
+                &pse_contract::boundary_projection::field_path(path, "carrier"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#envelope,
-                &crate::boundary_projection::field_path(path, "envelope"),
+                &pse_contract::boundary_projection::field_path(path, "envelope"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#extent,
-                &crate::boundary_projection::field_path(path, "extent"),
+                &pse_contract::boundary_projection::field_path(path, "extent"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#arguments,
-                &crate::boundary_projection::field_path(path, "arguments"),
+                &pse_contract::boundary_projection::field_path(path, "arguments"),
                 &[],
             )?;
         }
@@ -2671,12 +2686,12 @@ impl PartialEq for ModelingIntegerRange {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingIntegerRange {
+impl pse_contract::boundary_projection::ProjectionType for ModelingIntegerRange {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2685,19 +2700,19 @@ impl crate::boundary_projection::ProjectionType for ModelingIntegerRange {
                 "ModelingIntegerRange",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i64,
                             >(
                                     graph,
                                     "lower",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2705,13 +2720,13 @@ impl crate::boundary_projection::ProjectionType for ModelingIntegerRange {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i64,
                             >(
                                     graph,
                                     "upper",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -2725,7 +2740,7 @@ impl crate::boundary_projection::ProjectionType for ModelingIntegerRange {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingIntegerRange {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingIntegerRange {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "lower"),
@@ -2737,28 +2752,28 @@ impl crate::boundary_projection::ProjectionRecord for ModelingIntegerRange {
     }
     fn from_projection_fields(
         (r#lower, r#upper): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#lower, r#upper })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingIntegerRange {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingIntegerRange {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#lower,
-                &crate::boundary_projection::field_path(path, "lower"),
+                &pse_contract::boundary_projection::field_path(path, "lower"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#upper,
-                &crate::boundary_projection::field_path(path, "upper"),
+                &pse_contract::boundary_projection::field_path(path, "upper"),
                 &[],
             )?;
         }
@@ -2928,12 +2943,12 @@ impl ModelingKeyCell {
         }
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionType for ModelingKeyCell {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2942,99 +2957,99 @@ impl crate::boundary_projection::ProjectionType for ModelingKeyCell {
                 "ModelingKeyCell",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Alternatives(
+                    pse_contract::boundary_projection::Shape::Alternatives(
                         vec![
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "boolean".into(),
                                 tag: 1u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueBoolean,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "identifier".into(),
                                 tag: 5u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueIdentifier,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "integer".into(),
                                 tag: 2u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueInteger,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "quantity".into(),
                                 tag: 3u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueQuantity,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "reference".into(),
                                 tag: 6u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueReference,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
-                            crate::boundary_projection::Alternative {
+                            pse_contract::boundary_projection::Alternative {
                                 name: "text".into(),
                                 tag: 4u32,
                                 fields: vec![
-                                    crate::boundary_projection::Field::of::<
+                                    pse_contract::boundary_projection::Field::of::<
                                         ModelingCellValueText,
                                     >(
                                         graph,
                                         "value",
                                         1,
-                                        crate::boundary_projection::Direction::Both,
-                                        vec![crate::boundary_projection::LocalRule::Required],
+                                        pse_contract::boundary_projection::Direction::Both,
+                                        vec![pse_contract::boundary_projection::LocalRule::Required],
                                     )?,
                                 ],
                             },
@@ -3044,59 +3059,59 @@ impl crate::boundary_projection::ProjectionType for ModelingKeyCell {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingKeyCell {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingKeyCell {
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         match self
             .selected()
-            .map_err(|_| crate::boundary_projection::ValidationError::Rule {
+            .map_err(|_| pse_contract::boundary_projection::ValidationError::Rule {
                 path: path.into(),
                 rule: "tagged_alternative",
                 reason: "native tag must select exactly its declared payload".into(),
             })?
         {
             ModelingKeyCellSelected::Boolean(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "boolean"),
+                    &pse_contract::boundary_projection::field_path(path, "boolean"),
                 )
             }
             ModelingKeyCellSelected::Identifier(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "identifier"),
+                    &pse_contract::boundary_projection::field_path(path, "identifier"),
                 )
             }
             ModelingKeyCellSelected::Integer(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "integer"),
+                    &pse_contract::boundary_projection::field_path(path, "integer"),
                 )
             }
             ModelingKeyCellSelected::Quantity(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "quantity"),
+                    &pse_contract::boundary_projection::field_path(path, "quantity"),
                 )
             }
             ModelingKeyCellSelected::Reference(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "reference"),
+                    &pse_contract::boundary_projection::field_path(path, "reference"),
                 )
             }
             ModelingKeyCellSelected::Text(value) => {
-                crate::boundary_projection::ValidateProjection::validate_at(
+                pse_contract::boundary_projection::ValidateProjection::validate_at(
                     value,
-                    &crate::boundary_projection::field_path(path, "text"),
+                    &pse_contract::boundary_projection::field_path(path, "text"),
                 )
             }
         }
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<1u32> for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionAlternative<1u32> for ModelingKeyCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueBoolean,);
@@ -3114,7 +3129,7 @@ impl crate::boundary_projection::ProjectionAlternative<1u32> for ModelingKeyCell
         Self::from_boolean(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<5u32> for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionAlternative<5u32> for ModelingKeyCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueIdentifier,);
@@ -3132,7 +3147,7 @@ impl crate::boundary_projection::ProjectionAlternative<5u32> for ModelingKeyCell
         Self::from_identifier(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<2u32> for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionAlternative<2u32> for ModelingKeyCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueInteger,);
@@ -3150,7 +3165,7 @@ impl crate::boundary_projection::ProjectionAlternative<2u32> for ModelingKeyCell
         Self::from_integer(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<3u32> for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionAlternative<3u32> for ModelingKeyCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueQuantity,);
@@ -3168,7 +3183,7 @@ impl crate::boundary_projection::ProjectionAlternative<3u32> for ModelingKeyCell
         Self::from_quantity(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<6u32> for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionAlternative<6u32> for ModelingKeyCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueReference,);
@@ -3186,7 +3201,7 @@ impl crate::boundary_projection::ProjectionAlternative<6u32> for ModelingKeyCell
         Self::from_reference(value)
     }
 }
-impl crate::boundary_projection::ProjectionAlternative<4u32> for ModelingKeyCell {
+impl pse_contract::boundary_projection::ProjectionAlternative<4u32> for ModelingKeyCell {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
     type Fields = (ModelingCellValueText,);
@@ -3335,12 +3350,12 @@ impl PartialEq for ModelingLineageEntry {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingLineageEntry {
+impl pse_contract::boundary_projection::ProjectionType for ModelingLineageEntry {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3349,19 +3364,19 @@ impl crate::boundary_projection::ProjectionType for ModelingLineageEntry {
                 "ModelingLineageEntry",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::ModelingLineageKind,
                             >(
                                     graph,
                                     "kind",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3374,13 +3389,13 @@ impl crate::boundary_projection::ProjectionType for ModelingLineageEntry {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "path",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3399,7 +3414,7 @@ impl crate::boundary_projection::ProjectionType for ModelingLineageEntry {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingLineageEntry {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingLineageEntry {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "kind"),
@@ -3411,30 +3426,30 @@ impl crate::boundary_projection::ProjectionRecord for ModelingLineageEntry {
     }
     fn from_projection_fields(
         (r#kind, r#path): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#kind, r#path })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingLineageEntry {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingLineageEntry {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingLineageKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ModelingLineageKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#kind,
-                &crate::boundary_projection::field_path(path, "kind"),
+                &pse_contract::boundary_projection::field_path(path, "kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#path,
-                &crate::boundary_projection::field_path(path, "path"),
+                &pse_contract::boundary_projection::field_path(path, "path"),
                 &[],
             )?;
         }
@@ -3468,12 +3483,12 @@ impl PartialEq for ModelingProvenance {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingProvenance {
+impl pse_contract::boundary_projection::ProjectionType for ModelingProvenance {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3482,19 +3497,19 @@ impl crate::boundary_projection::ProjectionType for ModelingProvenance {
                 "ModelingProvenance",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "source",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3507,13 +3522,13 @@ impl crate::boundary_projection::ProjectionType for ModelingProvenance {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<String>,
                             >(
                                     graph,
                                     "role",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3526,13 +3541,13 @@ impl crate::boundary_projection::ProjectionType for ModelingProvenance {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<ModelingLineageEntry>,
                             >(
                                     graph,
                                     "lineage",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3551,7 +3566,7 @@ impl crate::boundary_projection::ProjectionType for ModelingProvenance {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingProvenance {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingProvenance {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "source"),
@@ -3564,7 +3579,7 @@ impl crate::boundary_projection::ProjectionRecord for ModelingProvenance {
     }
     fn from_projection_fields(
         (r#source, r#role, r#lineage): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#source,
             r#role,
@@ -3572,37 +3587,37 @@ impl crate::boundary_projection::ProjectionRecord for ModelingProvenance {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingProvenance {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingProvenance {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             ModelingLineageEntry,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#source,
-                &crate::boundary_projection::field_path(path, "source"),
+                &pse_contract::boundary_projection::field_path(path, "source"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#role,
-                &crate::boundary_projection::field_path(path, "role"),
+                &pse_contract::boundary_projection::field_path(path, "role"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#lineage,
-                &crate::boundary_projection::field_path(path, "lineage"),
+                &pse_contract::boundary_projection::field_path(path, "lineage"),
                 &[],
             )?;
         }
@@ -3663,12 +3678,13 @@ impl PartialEq for ModelingTypeArenaNodeExponent {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNodeExponent {
+impl pse_contract::boundary_projection::ProjectionType
+for ModelingTypeArenaNodeExponent {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3677,19 +3693,19 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNodeExponen
                 "ModelingTypeArenaNodeExponent",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i16,
                             >(
                                     graph,
                                     "num",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3697,13 +3713,13 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNodeExponen
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i16,
                             >(
                                     graph,
                                     "den",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3717,7 +3733,8 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNodeExponen
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNodeExponent {
+impl pse_contract::boundary_projection::ProjectionRecord
+for ModelingTypeArenaNodeExponent {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "num"), (2u32, "den")];
     type Fields = (i16, i16);
@@ -3726,28 +3743,29 @@ impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNodeExpon
     }
     fn from_projection_fields(
         (r#num, r#den): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#num, r#den })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingTypeArenaNodeExponent {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingTypeArenaNodeExponent {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <i16 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <i16 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#num,
-                &crate::boundary_projection::field_path(path, "num"),
+                &pse_contract::boundary_projection::field_path(path, "num"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#den,
-                &crate::boundary_projection::field_path(path, "den"),
+                &pse_contract::boundary_projection::field_path(path, "den"),
                 &[],
             )?;
         }
@@ -3787,12 +3805,12 @@ impl PartialEq for ModelingTypeArenaNode {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
+impl pse_contract::boundary_projection::ProjectionType for ModelingTypeArenaNode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3801,19 +3819,19 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
                 "ModelingTypeArenaNode",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::ModelingTypeNode,
                             >(
                                     graph,
                                     "kind",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3823,13 +3841,13 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
                                         ("pse.domain.parameter".into(), "ModelingTypeNode".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<Vec<String>>,
                             >(
                                     graph,
                                     "path",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3842,13 +3860,13 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<String>,
                             >(
                                     graph,
                                     "name",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3856,13 +3874,13 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
                                         ("pse.domain.boundary.tag".into(), "3".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<ModelingTypeArenaNodeExponent>,
                             >(
                                     graph,
                                     "exponent",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3875,13 +3893,13 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
                                         ("pse.domain.boundary.tag".into(), "4".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Vec<u32>,
                             >(
                                     graph,
                                     "children",
                                     5u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -3900,7 +3918,7 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNode {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingTypeArenaNode {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "kind"),
@@ -3921,7 +3939,7 @@ impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNode {
     }
     fn from_projection_fields(
         (r#kind, r#path, r#name, r#exponent, r#children): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#kind,
             r#path,
@@ -3931,53 +3949,53 @@ impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNode {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingTypeArenaNode {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingTypeArenaNode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingTypeNode as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ModelingTypeNode as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             Vec<String>,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             String,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             ModelingTypeArenaNodeExponent,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Vec<
             u32,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#kind,
-                &crate::boundary_projection::field_path(path, "kind"),
+                &pse_contract::boundary_projection::field_path(path, "kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#path,
-                &crate::boundary_projection::field_path(path, "path"),
+                &pse_contract::boundary_projection::field_path(path, "path"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#name,
-                &crate::boundary_projection::field_path(path, "name"),
+                &pse_contract::boundary_projection::field_path(path, "name"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#exponent,
-                &crate::boundary_projection::field_path(path, "exponent"),
+                &pse_contract::boundary_projection::field_path(path, "exponent"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#children,
-                &crate::boundary_projection::field_path(path, "children"),
+                &pse_contract::boundary_projection::field_path(path, "children"),
                 &[],
             )?;
         }
@@ -4011,12 +4029,12 @@ impl PartialEq for ModelingUnitFactor {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ModelingUnitFactor {
+impl pse_contract::boundary_projection::ProjectionType for ModelingUnitFactor {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4025,19 +4043,19 @@ impl crate::boundary_projection::ProjectionType for ModelingUnitFactor {
                 "ModelingUnitFactor",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 27u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "symbol",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -4045,13 +4063,13 @@ impl crate::boundary_projection::ProjectionType for ModelingUnitFactor {
                                         ("pse.domain.boundary.tag".into(), "1".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i16,
                             >(
                                     graph,
                                     "num",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -4059,13 +4077,13 @@ impl crate::boundary_projection::ProjectionType for ModelingUnitFactor {
                                         ("pse.domain.boundary.tag".into(), "2".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i16,
                             >(
                                     graph,
                                     "den",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -4079,7 +4097,7 @@ impl crate::boundary_projection::ProjectionType for ModelingUnitFactor {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ModelingUnitFactor {
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingUnitFactor {
     const VERSION: u32 = 27u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "symbol"),
@@ -4092,35 +4110,35 @@ impl crate::boundary_projection::ProjectionRecord for ModelingUnitFactor {
     }
     fn from_projection_fields(
         (r#symbol, r#num, r#den): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#symbol, r#num, r#den })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingUnitFactor {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingUnitFactor {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <i16 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <i16 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#symbol,
-                &crate::boundary_projection::field_path(path, "symbol"),
+                &pse_contract::boundary_projection::field_path(path, "symbol"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#num,
-                &crate::boundary_projection::field_path(path, "num"),
+                &pse_contract::boundary_projection::field_path(path, "num"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#den,
-                &crate::boundary_projection::field_path(path, "den"),
+                &pse_contract::boundary_projection::field_path(path, "den"),
                 &[],
             )?;
         }
@@ -4184,12 +4202,12 @@ impl PartialEq for ScientificCoordinateValue {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ScientificCoordinateValue {
+impl pse_contract::boundary_projection::ProjectionType for ScientificCoordinateValue {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4198,19 +4216,19 @@ impl crate::boundary_projection::ProjectionType for ScientificCoordinateValue {
                 "ScientificCoordinateValue",
                 "crates/pse-schema/src/catalog/native_math.rs",
                 1u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "coordinate_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -4219,13 +4237,13 @@ impl crate::boundary_projection::ProjectionType for ScientificCoordinateValue {
                                         ("pse.domain.extension".into(), "pse.semantic_id".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::extension_values::QuantityValue,
                             >(
                                     graph,
                                     "value",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -4240,7 +4258,7 @@ impl crate::boundary_projection::ProjectionType for ScientificCoordinateValue {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ScientificCoordinateValue {
+impl pse_contract::boundary_projection::ProjectionRecord for ScientificCoordinateValue {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "coordinate_id"),
@@ -4255,28 +4273,29 @@ impl crate::boundary_projection::ProjectionRecord for ScientificCoordinateValue 
     }
     fn from_projection_fields(
         (r#coordinate_id, r#value): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self { r#coordinate_id, r#value })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ScientificCoordinateValue {
+impl pse_contract::boundary_projection::ValidateProjection
+for ScientificCoordinateValue {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::extension_values::QuantityValue as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <crate::generated::extension_values::QuantityValue as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#coordinate_id,
-                &crate::boundary_projection::field_path(path, "coordinate_id"),
+                &pse_contract::boundary_projection::field_path(path, "coordinate_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#value,
-                &crate::boundary_projection::field_path(path, "value"),
+                &pse_contract::boundary_projection::field_path(path, "value"),
                 &[],
             )?;
         }
@@ -4345,12 +4364,12 @@ impl PartialEq for VersionRequirement {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for VersionRequirement {
+impl pse_contract::boundary_projection::ProjectionType for VersionRequirement {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4359,19 +4378,19 @@ impl crate::boundary_projection::ProjectionType for VersionRequirement {
                 "VersionRequirement",
                 "crates/pse-schema/src/catalog/modeling.rs",
                 1u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::ModelingVersionOperator,
                             >(
                                     graph,
                                     "operator",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -4384,15 +4403,15 @@ impl crate::boundary_projection::ProjectionType for VersionRequirement {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i64,
                             >(
                                     graph,
                                     "major",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![
-                                        crate::boundary_projection::LocalRule::SignedRange {
+                                        pse_contract::boundary_projection::LocalRule::SignedRange {
                                             min: 0i64,
                                             max: 9223372036854775807i64,
                                         },
@@ -4407,15 +4426,15 @@ impl crate::boundary_projection::ProjectionType for VersionRequirement {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i64,
                             >(
                                     graph,
                                     "minor",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![
-                                        crate::boundary_projection::LocalRule::SignedRange {
+                                        pse_contract::boundary_projection::LocalRule::SignedRange {
                                             min: 0i64,
                                             max: 9223372036854775807i64,
                                         },
@@ -4430,15 +4449,15 @@ impl crate::boundary_projection::ProjectionType for VersionRequirement {
                                         ),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i64,
                             >(
                                     graph,
                                     "patch",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![
-                                        crate::boundary_projection::LocalRule::SignedRange {
+                                        pse_contract::boundary_projection::LocalRule::SignedRange {
                                             min: 0i64,
                                             max: 9223372036854775807i64,
                                         },
@@ -4459,7 +4478,7 @@ impl crate::boundary_projection::ProjectionType for VersionRequirement {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for VersionRequirement {
+impl pse_contract::boundary_projection::ProjectionRecord for VersionRequirement {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "operator"),
@@ -4473,7 +4492,7 @@ impl crate::boundary_projection::ProjectionRecord for VersionRequirement {
     }
     fn from_projection_fields(
         (r#operator, r#major, r#minor, r#patch): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#operator,
             r#major,
@@ -4482,50 +4501,50 @@ impl crate::boundary_projection::ProjectionRecord for VersionRequirement {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for VersionRequirement {
+impl pse_contract::boundary_projection::ValidateProjection for VersionRequirement {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::enums::ModelingVersionOperator as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::ModelingVersionOperator as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || true
-        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || true
-        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || true
-        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <i64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#operator,
-                &crate::boundary_projection::field_path(path, "operator"),
+                &pse_contract::boundary_projection::field_path(path, "operator"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#major,
-                &crate::boundary_projection::field_path(path, "major"),
+                &pse_contract::boundary_projection::field_path(path, "major"),
                 &[
-                    crate::boundary_projection::LocalRule::SignedRange {
+                    pse_contract::boundary_projection::LocalRule::SignedRange {
                         min: 0i64,
                         max: 9223372036854775807i64,
                     },
                 ],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#minor,
-                &crate::boundary_projection::field_path(path, "minor"),
+                &pse_contract::boundary_projection::field_path(path, "minor"),
                 &[
-                    crate::boundary_projection::LocalRule::SignedRange {
+                    pse_contract::boundary_projection::LocalRule::SignedRange {
                         min: 0i64,
                         max: 9223372036854775807i64,
                     },
                 ],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#patch,
-                &crate::boundary_projection::field_path(path, "patch"),
+                &pse_contract::boundary_projection::field_path(path, "patch"),
                 &[
-                    crate::boundary_projection::LocalRule::SignedRange {
+                    pse_contract::boundary_projection::LocalRule::SignedRange {
                         min: 0i64,
                         max: 9223372036854775807i64,
                     },

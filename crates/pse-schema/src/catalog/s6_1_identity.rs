@@ -133,7 +133,7 @@ fn declare_documents(builder: &mut RegistryBuilder) {
         ])
         .with_boundary_record(crate::model::BoundaryRecord {
             source: file!(), name: "AuthoredDocumentsRow", version: 2,
-            direction: pse_vocabulary::BoundaryDirection::Both,
+            direction: pse_contract::BoundaryDirection::Both,
             reserved_tags: &[], reserved_names: &[],
         }),
     );

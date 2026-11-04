@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Source-owned engineering service composition over actual native preparation records.
 
-use pse_model::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
+use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_model::engineering::OPERATION_ID_RULE;
 
 mod inspection;
@@ -16,7 +16,7 @@ pub use study::{
     EngineeringSubmitStudy,
 };
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Select one retained source for the original typed native discovery request.
     pub struct EngineeringDiscoverPreparation {
@@ -29,7 +29,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Select an exact retained package for the original one-file source reader.
     pub struct EngineeringReadSourceFile {
@@ -42,7 +42,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Select original physical meaning from the exact admitted source context.
     pub struct EngineeringInspectPhysical {
@@ -69,17 +69,17 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
             &mut graph,
             "DiscoverPreparation",
         )?
-        .effects(pse_model::operation_effects::EffectFacts::OBSERVATION)?
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?
         .unary::<EngineeringReadSourceFile, crate::workflow::OriginalSourceFile>(
             &mut graph,
             "ReadSourceFile",
         )?
-        .effects(pse_model::operation_effects::EffectFacts::OBSERVATION)?
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?
         .unary::<EngineeringInspectPhysical, crate::workflow::PhysicalInspectionDocument>(
             &mut graph,
             "InspectPhysical",
         )?
-        .effects(pse_model::operation_effects::EffectFacts::OBSERVATION)?;
+        .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?;
     let service = inspection::service(service, &mut graph)?;
     let service = study::service(service, &mut graph)?;
     graph.service(service)?;
@@ -91,7 +91,7 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
 /// Missing named owners or effects refuse instead of publishing invented metadata.
 pub fn methods() -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError>
 {
-    use pse_model::boundary_projection::TypeRef;
+    use pse_contract::boundary_projection::TypeRef;
     let graph = projection()?;
     let direction = |direction| match direction {
         Direction::Input => "input",

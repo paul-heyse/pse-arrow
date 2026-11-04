@@ -243,26 +243,26 @@ impl Oracle for ZeroResidualBridge {
         self.physical.oracle.jacobian_product(x, direction, out)
     }
 }
-const RECONSTRUCTION_ALLOWANCE_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Float64Domain(
-        pse_model::boundary_projection::Float64Domain::NonnegativeFinite,
+const RECONSTRUCTION_ALLOWANCE_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Float64Domain(
+        pse_contract::boundary_projection::Float64Domain::NonnegativeFinite,
     );
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Consumer-issued normalized allowances. Each actual point/action creates its own
 /// fully scoped demand; no default tolerance or default certificate is supplied.
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReconstructionAccuracy {
     projection: { name: "NativeReconstructionAccuracy", rust_path: crate::derived::ReconstructionAccuracy,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Actual consumer allowance for normalized reconstructed point error.
-    pub point: f64 => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [RECONSTRUCTION_ALLOWANCE_RULE] };
+    pub point: f64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [RECONSTRUCTION_ALLOWANCE_RULE] };
     /// Actual consumer allowance for each realized normalized action error.
-    pub action: f64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [RECONSTRUCTION_ALLOWANCE_RULE] };
+    pub action: f64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [RECONSTRUCTION_ALLOWANCE_RULE] };
     /// Required evidence class, independently supplied by the consumer.
-    pub class: AccuracyClass => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub class: AccuracyClass => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Explicit bounded work for each consumed point/action refinement.
-    pub refinement: math::RefinementLimits => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub refinement: math::RefinementLimits => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl ReconstructionAccuracy {
@@ -270,13 +270,13 @@ impl ReconstructionAccuracy {
     /// # Errors
     /// Invalid error budgets or absent refinement work.
     pub fn validate(self) -> Result<(), ProblemError> {
-        pse_model::boundary_projection::validate_field(
+        pse_contract::boundary_projection::validate_field(
             &self.point,
             "point",
             &[RECONSTRUCTION_ALLOWANCE_RULE],
         )
         .and_then(|()| {
-            pse_model::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.action,
                 "action",
                 &[RECONSTRUCTION_ALLOWANCE_RULE],
@@ -1008,7 +1008,7 @@ mod tests {
     }
     #[test]
     fn reconstruction_accuracy_projection_reuses_original_nonnegative_allowance_domain() {
-        use pse_model::boundary_projection::{ProjectionGraph, ValidateProjection as _};
+        use pse_contract::boundary_projection::{ProjectionGraph, ValidateProjection as _};
         let original = ReconstructionAccuracy {
             point: -0.0,
             action: f64::from_bits(1),

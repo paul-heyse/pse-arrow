@@ -2,10 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded generated scientific interchange. This codec never constructs reference answers.
 use crate::projection_support::*;
-use pse_model::{
-    boundary_projection::{AdapterError, AdapterFailure, ValidateProjection as _},
-    reference_exchange as native,
-};
+use pse_model::{reference_exchange as native};
+use pse_contract::{boundary_projection::{AdapterError, AdapterFailure, ValidateProjection as _}};
 
 mod case_contract;
 /// Source-generated messages and validators, with the complete imported descriptor world.

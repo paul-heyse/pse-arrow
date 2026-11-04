@@ -72,14 +72,14 @@ pub struct Part {
 )]
 #[serde(transparent)]
 pub struct BlockId(pub pse_ids::ContentHash);
-impl pse_model::boundary_projection::ProjectionType for BlockId {
+impl pse_contract::boundary_projection::ProjectionType for BlockId {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
-        use pse_model::boundary_projection::{Direction, Field, LocalRule, Shape};
+        use pse_contract::boundary_projection::{Direction, Field, LocalRule, Shape};
         graph.declare::<Self>(
             "StructuralBlockId",
             file!(),
@@ -99,7 +99,7 @@ impl pse_model::boundary_projection::ProjectionType for BlockId {
         )
     }
 }
-impl pse_model::boundary_projection::ProjectionRecord for BlockId {
+impl pse_contract::boundary_projection::ProjectionRecord for BlockId {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
     type Fields = (pse_ids::ContentHash,);
@@ -108,13 +108,13 @@ impl pse_model::boundary_projection::ProjectionRecord for BlockId {
     }
     fn from_projection_fields(
         (id,): Self::Fields,
-    ) -> Result<Self, pse_model::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self(id))
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for BlockId {
+impl pse_contract::boundary_projection::ValidateProjection for BlockId {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    fn validate_at(&self, _: &str) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

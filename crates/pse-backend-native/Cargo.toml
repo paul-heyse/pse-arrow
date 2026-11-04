@@ -76,6 +76,7 @@ native-solvers = [
 ]
 
 [dependencies]
+pse-contract.workspace = true
 coolprop-sys = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 pse-model.workspace = true

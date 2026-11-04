@@ -7,9 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
-mod diagnostics;
-#[cfg(test)]
-mod extension_values_tests;
+mod array;
 mod float_collections;
 mod float_domain;
 mod float_interval;
@@ -18,8 +16,6 @@ mod nominal;
 #[cfg(test)]
 mod optional_text_tests;
 mod public_alias_path;
-mod quantity;
-mod quantity_passive;
 mod remote;
 mod standard;
 mod tuple;
@@ -30,13 +26,13 @@ pub use access::{
     clone_adapter_field, validate_adapted,
 };
 pub use float_collections::NativeContainer;
-pub(crate) use float_collections::NominalFloat64;
+pub use float_collections::NominalFloat64;
 pub use float_domain::Float64Domain;
 pub use float_interval::Float64Interval;
 pub use generic::generic_argument;
 
 /// The shared public direction, independently of native Serde representation.
-pub use pse_vocabulary::BoundaryDirection as Direction;
+pub use crate::BoundaryDirection as Direction;
 
 /// Primitive wire meaning. Floating point values deliberately project their exact bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -374,6 +370,8 @@ impl Service {
 
 /// Invalid or unsupported owner projection.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(miette::Diagnostic)]
+#[diagnostic(code("validation.invariant"))]
 pub enum ProjectionError {
     /// A declaration cannot form an unambiguous supported boundary.
     #[error("invalid boundary projection `{owner}`: {reason}")]
@@ -384,12 +382,6 @@ pub enum ProjectionError {
         reason: String,
     },
 }
-pse_diagnostics::impl_diagnostic! {
-    ProjectionError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::ValidationInvariant) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
-}
-
 impl ProjectionError {
     /// Refuse an invalid owner or unsupported actual type.
     pub fn invalid(owner: impl Into<String>, reason: impl Into<String>) -> Self {
@@ -402,6 +394,8 @@ impl ProjectionError {
 
 /// A locally decidable rule violation, separate from contextual or infrastructure refusals.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(miette::Diagnostic)]
+#[diagnostic(code("workflow.input"))]
 pub enum ValidationError {
     /// A declared rule rejected the actual native value.
     #[error("boundary rule `{rule}` failed at `{path}`: {reason}")]
@@ -414,21 +408,6 @@ pub enum ValidationError {
         reason: String,
     },
 }
-pse_diagnostics::impl_diagnostic! {
-    ValidationError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::WorkflowInput) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
-    facts(this) {
-        let ValidationError::Rule { path, rule, reason } = this;
-        let mut facts = pse_diagnostics::DiagnosticFacts::default();
-        facts.observe("field_path", pse_diagnostics::DiagnosticObservation::Text(path.clone()));
-        facts.observe("local_rule", pse_diagnostics::DiagnosticObservation::Text((*rule).into()));
-        facts.observe("detail", pse_diagnostics::DiagnosticObservation::Text(reason.clone()));
-        facts
-    }
-}
-impl crate::diagnostic::DiagnosticProjection for ValidationError {}
-
 /// Native validation derived by the same owner declaration as protobuf rules.
 pub trait ValidateProjection {
     /// Whether this actual scalar/container declaration consists of binary64 leaves.
@@ -860,8 +839,7 @@ macro_rules! scalar_types { ($($ty:ty => $scalar:ident),* $(,)?) => { $(
     }
 )* }; }
 scalar_types!(bool => Bool, String => String, u8 => U8, u16 => U16, u32 => U32, u64 => U64, usize => U64, i16 => I16, i32 => I32,
-    i64 => I64, f32 => F32Bits, f64 => F64Bits, pse_ids::SemanticId => SemanticId,
-    pse_ids::ContentHash => ContentHash, crate::Bytes => Bytes);
+    i64 => I64, f32 => F32Bits, f64 => F64Bits);
 
 macro_rules! inline_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
@@ -884,24 +862,6 @@ macro_rules! signed_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProject
     fn projection_signed(&self) -> Option<i64> { Some(i64::from(*self)) }
 })* }; }
 signed_validation!(i16, i32, i64);
-impl ValidateProjection for pse_ids::SemanticId {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
-        Ok(())
-    }
-    fn projection_length(&self) -> Option<usize> {
-        Some(16)
-    }
-}
-impl ValidateProjection for pse_ids::ContentHash {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
-        Ok(())
-    }
-    fn projection_length(&self) -> Option<usize> {
-        Some(32)
-    }
-}
 macro_rules! unsigned_validation { ($($ty:ty),* $(,)?) => { $(impl ValidateProjection for $ty {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
@@ -927,15 +887,6 @@ impl ValidateProjection for String {
     }
     fn projection_utf8_bytes(&self) -> Option<usize> {
         Some(self.len())
-    }
-}
-impl ValidateProjection for crate::Bytes {
-    const NEEDS_RECURSIVE_VALIDATION: bool = false;
-    fn validate_at(&self, _: &str) -> Result<(), ValidationError> {
-        Ok(())
-    }
-    fn projection_length(&self) -> Option<usize> {
-        Some(self.as_slice().len())
     }
 }
 impl<T: ValidateProjection> ValidateProjection for Option<T> {
@@ -1123,40 +1074,6 @@ impl<T: ValidateProjection> ValidateProjection for std::sync::Arc<[T]> {
         Some(self.len())
     }
 }
-
-macro_rules! physical_identity_projection { ($($ty:ty => $name:literal),* $(,)?) => { $(
-    impl ProjectionType for $ty {
-        fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-            graph.declare::<Self>($name, "crates/pse-quantity/src/ids.rs", 1, Direction::Both, &[], &[], |graph| {
-                Ok(Shape::Record(vec![Field::of::<pse_ids::SemanticId>(graph, "id", 1, Direction::Both, vec![LocalRule::Required])?]))
-            })
-        }
-    }
-    impl ValidateProjection for $ty {
-        const NEEDS_RECURSIVE_VALIDATION: bool = false;
-        fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
-        fn projection_length(&self) -> Option<usize> { Some(16) }
-    }
-    impl ProjectionRecord for $ty {
-        const VERSION: u32 = 1;
-        const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
-        type Fields = (pse_ids::SemanticId,);
-        fn into_projection_fields(self) -> Self::Fields { (self.as_id(),) }
-        fn from_projection_fields((id,): Self::Fields) -> Result<Self, AdapterError> { Ok(Self::from_id(id)) }
-    }
-)* }; }
-// The trait owner supplies legal implementations across the quantity -> model dependency
-// boundary. These actual nominal types remain distinct named identity projections.
-physical_identity_projection!(
-    pse_quantity::EntityKindId => "EntityKindId",
-    pse_quantity::UnitId => "UnitId",
-    pse_quantity::QuantityKindId => "QuantityKindId",
-    pse_quantity::BasisId => "BasisId",
-    pse_quantity::QuantityTypeId => "QuantityTypeId",
-    pse_quantity::ReferenceStateId => "ReferenceStateId",
-    pse_quantity::DomainId => "DomainId",
-    pse_quantity::BoundIndexId => "BoundIndexId",
-);
 
 impl<K: ProjectionType + Ord, V: ProjectionType> ProjectionType for BTreeMap<K, V> {
     fn projection_argument_name(graph: &mut ProjectionGraph) -> Result<String, ProjectionError> {
@@ -1612,8 +1529,3 @@ macro_rules! projection_enum {
         }
     };
 }
-
-#[cfg(test)]
-mod float_collections_tests;
-#[cfg(test)]
-mod tests;

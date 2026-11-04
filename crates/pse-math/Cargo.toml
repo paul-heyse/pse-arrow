@@ -23,6 +23,7 @@ compiled-evaluator = [
 ]
 
 [dependencies]
+pse-contract.workspace = true
 tempfile = { workspace = true, optional = true }
 rustix = { workspace = true, optional = true }
 rayon.workspace = true

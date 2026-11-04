@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Finite readable projections of the admitted physical owner.
 use super::{PhysicalContext, WorkflowError, contract};
-use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
+use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 use pse_quantity::{QuantityTypeId, ReferenceStateId, UnitId};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ fn physical_page_limit_schema(schema: &mut schemars::Schema) {
     rule.transform(schema);
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// A bounded query against one immutable physical context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -37,7 +37,7 @@ impl PhysicalInspectionRequest {
         self.validate_projection().is_ok()
     }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Physical names are package-declared names, never global aliases.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -67,7 +67,7 @@ pub enum PhysicalInspectionQuery {
     } => 4;
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Original selected quantity and its complete physical interpretation.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -98,7 +98,7 @@ pub struct PhysicalQuantityDescription {
     pub subject: Option<pse_quantity::EntityKind> => { tag: 11, direction: Direction::Output, rules: [] };
 }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// One immutable context page. An extent refusal never returns truncated meaning.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]

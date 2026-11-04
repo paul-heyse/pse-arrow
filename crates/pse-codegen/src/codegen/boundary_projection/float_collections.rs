@@ -3,7 +3,7 @@
 //! Exact maintained CEL follows declared wire containers, not arbitrary record fields.
 
 use super::{error, protobuf_map_key};
-use pse_model::boundary_projection::{
+use pse_contract::boundary_projection::{
     Float64Domain, NativeContainer, ProjectionGraph, Scalar, TypeRef,
 };
 use pse_schema::SchemaError;

@@ -199,7 +199,7 @@ mod tests {
         .with_boundary_shape(crate::model::BoundaryShape::native(
             file!(),
             3,
-            pse_vocabulary::BoundaryDirection::Both,
+            pse_contract::BoundaryDirection::Both,
         ));
         assert!(
             crate::model::BoundaryShape::from_field(source.value_type().field())
@@ -227,7 +227,7 @@ mod tests {
             .with_boundary_shape(crate::model::BoundaryShape::native(
                 file!(),
                 3,
-                pse_vocabulary::BoundaryDirection::Both,
+                pse_contract::BoundaryDirection::Both,
             ))
         };
         let mut consistent = RegistryBuilder::new();
@@ -253,7 +253,7 @@ mod tests {
                     .with_boundary_shape(crate::model::BoundaryShape::native(
                         file!(),
                         version,
-                        pse_vocabulary::BoundaryDirection::Both,
+                        pse_contract::BoundaryDirection::Both,
                     )),
             ])
             .named("PresentedParent")

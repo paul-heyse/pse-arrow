@@ -3,11 +3,11 @@
 //! Typed crossings to original study admission, creation, observation and protected cohorts.
 
 use pse_ids::ContentHash;
-use pse_model::boundary_projection::{Direction, LocalRule};
+use pse_contract::boundary_projection::{Direction, LocalRule};
 use pse_model::engineering::{EngineeringFailure, EngineeringSourceSelection, OPERATION_ID_RULE};
 use pse_model::generated::identities::StudyId;
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Admit the complete native study vocabulary against one exact retained source.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -25,7 +25,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Immutable native admitted definition selection, without unbounded occurrence materialization.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -43,7 +43,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Retain an exact original portable definition for interrupted native creation reconciliation.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -59,7 +59,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Submit or reconcile exactly one original native study creation.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -77,7 +77,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Original study lookup coordinates. Decoding alone grants no execution or result authority.
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -91,7 +91,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Original native creation knowledge; an absent header does not establish completion.
     #[derive(Clone, Debug)]
     pub struct EngineeringStudyStatus {
@@ -108,7 +108,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Observe or reconnect the original bounded study observer; never owns its cancellation lease.
     #[derive(Clone, Debug)]
     pub struct EngineeringObserveStudy {
@@ -123,7 +123,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Retain a live original frozen-cohort capability independently of its serialized receipt.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -137,7 +137,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Read one compact header page from the exact retained live native capture.
     #[derive(Clone, Debug)]
     pub struct EngineeringStudyHeaderPage {
@@ -150,7 +150,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Read one finite page from the exact retained live native capture.
     #[derive(Clone, Debug)]
     pub struct EngineeringStudyCohortPage {
@@ -163,7 +163,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Read a selected original relation through its actual frozen-cohort result protection.
     #[derive(Clone, Debug)]
     pub struct EngineeringReadStudyResult {
@@ -184,7 +184,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Complete selected Arrow IPC response with exact original captured result attribution.
     #[derive(Clone, Debug)]
     pub struct EngineeringStudyResultPage {
@@ -213,7 +213,7 @@ pse_model::projection_struct! {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Local capture admission has closed; escaped native response owners may still retain it.
     #[derive(Clone, Debug)]
     pub struct EngineeringCohortRelease {
@@ -227,11 +227,12 @@ pse_model::projection_struct! {
 }
 
 pub(super) fn service(
-    service: pse_model::boundary_projection::Service,
-    graph: &mut pse_model::boundary_projection::ProjectionGraph,
-) -> Result<pse_model::boundary_projection::Service, pse_model::boundary_projection::ProjectionError>
+    service: pse_contract::boundary_projection::Service,
+    graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+) -> Result<pse_contract::boundary_projection::Service, pse_contract::boundary_projection::ProjectionError>
 {
-    use pse_model::{engineering::EngineeringOperationKey, operation_effects::EffectFacts};
+    use pse_model::{engineering::EngineeringOperationKey};
+use pse_contract::{operation_effects::EffectFacts};
     service
         .unary::<crate::workflow::StudyWorkbenchRequest, crate::workflow::StudyWorkbenchPage>(
             graph,

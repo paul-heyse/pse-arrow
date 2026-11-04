@@ -10,20 +10,20 @@ use pse_model::{
     study::OccurrenceKey,
 };
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Caller-issued coordinates fixed before any canonical creation or acknowledgement.
 /// Decoding this identity grants no authority to resume, cancel or read a study.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IssuedStudyIdentity {
     projection: { name: "IssuedStudyIdentity", rust_path: crate::workflow::IssuedStudyIdentity,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact original native study identity, distinct from its scientific content.
-    pub study: StudyId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub study: StudyId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Original caller operation bound by canonical registration.
-    pub operation: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [pse_model::engineering::OPERATION_ID_RULE] };
+    pub operation: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_model::engineering::OPERATION_ID_RULE] };
     /// Complete original submit envelope, including immutable preparation identity.
-    pub submission: ContentHash => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [pse_model::boundary_projection::LocalRule::Required] };
+    pub submission: ContentHash => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 
@@ -59,7 +59,7 @@ impl IssuedStudyIdentity {
     }
 
     pub(super) fn validate(&self) -> Result<(), WorkflowError> {
-        use pse_model::boundary_projection::ValidateProjection as _;
+        use pse_contract::boundary_projection::ValidateProjection as _;
         self.validate_projection().map_err(|error| {
             WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
         })

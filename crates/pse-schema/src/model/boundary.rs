@@ -12,7 +12,7 @@ pub struct BoundaryRecord {
     /// Scientific interpretation version, separate from the enclosing wire package major.
     pub version: u32,
     /// Public consumer direction.
-    pub direction: pse_vocabulary::BoundaryDirection,
+    pub direction: pse_contract::BoundaryDirection,
     /// Retired field numbers, never available for reuse.
     pub reserved_tags: &'static [u32],
     /// Retired public field names, never available for reuse.
@@ -41,7 +41,7 @@ mod tests {
             source: file!(),
             name: "SelectedBoundary",
             version: 1,
-            direction: pse_vocabulary::BoundaryDirection::Output,
+            direction: pse_contract::BoundaryDirection::Output,
             reserved_tags: &[2],
             reserved_names: &["removed"],
         })

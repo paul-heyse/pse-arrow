@@ -7,7 +7,7 @@ use pse_model::scalars::FiniteBound;
 use pse_quantity::{CanonicalConversionPlan, IndexSet, ResolvedPhysicalContract};
 use std::collections::BTreeMap;
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// A submitted reference; paths are attribution after admission.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -18,42 +18,42 @@ pse_model::projection_enum! {
 )]
 pub enum BindingTarget {
     projection: { name: "BindingTarget", rust_path: crate::workflow::BindingTarget, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Authored member path in the selected revision.
     Path(String) => 1;
     /// Stable instantiated member identity.
     Member(SemanticId) => 2;
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One finite quantity with complete declared physical meaning and a representation unit.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BindingQuantity {
     projection: { name: "BindingQuantity", rust_path: crate::workflow::BindingQuantity, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Supplied finite magnitude.
-    pub magnitude: FiniteBound => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub magnitude: FiniteBound => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete quantity type, including basis, datum and subject.
-    pub quantity: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub quantity: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Registered representation unit.
-    pub unit: pse_quantity::UnitId => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub unit: pse_quantity::UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// An assignment before contextual admission.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BindingAssignment {
     projection: { name: "BindingAssignment", rust_path: crate::workflow::BindingAssignment, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Supplied member reference.
-    pub target: BindingTarget => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub target: BindingTarget => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Physically typed value; bare numbers are not input values.
-    pub value: BindingQuantity => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub value: BindingQuantity => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Submitted replacements; the list preserves duplicate references for validation.
 #[derive(
     Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -61,47 +61,47 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct PointOverlay {
     projection: { name: "PointOverlay", rust_path: crate::workflow::PointOverlay, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Each assignment is admitted against the same selected revision.
     #[serde(default)]
-    pub assignments: Vec<BindingAssignment> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub assignments: Vec<BindingAssignment> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Canonical input with its expected physical contract and original attribution.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdmittedBindingEntry {
     projection: { name: "AdmittedBindingEntry", rust_path: crate::workflow::AdmittedBindingEntry, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Stable selected member.
-    pub member: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub member: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Expected complete physical quantity.
-    pub quantity: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub quantity: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Finite canonical coordinate.
-    pub canonical: FiniteBound => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub canonical: FiniteBound => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Whether the target is an authored parameter rather than a variable start/value.
-    pub parameter: bool => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub parameter: bool => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original input reference, retained only for attribution.
-    pub supplied: BindingTarget => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub supplied: BindingTarget => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original unit, retained only for attribution.
-    pub supplied_unit: pse_quantity::UnitId => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub supplied_unit: pse_quantity::UnitId => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Immutable selected-revision binding; attribution is excluded from content identity.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdmittedBinding {
     projection: { name: "AdmittedBinding", rust_path: crate::workflow::AdmittedBinding, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact revision that admitted member identity and role.
-    pub revision: pse_ids::roles::SourceRevisionHash => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub revision: pse_ids::roles::SourceRevisionHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Physical interpretation context.
-    pub context: ContentHash => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub context: ContentHash => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Entries in member identity order.
     #[schemars(with = "pse_ids::document::KeyedMap<SemanticId, AdmittedBindingEntry>")]
-    pub entries: BTreeMap<SemanticId, AdmittedBindingEntry> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub entries: BTreeMap<SemanticId, AdmittedBindingEntry> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl AdmittedBinding {

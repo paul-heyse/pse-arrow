@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Actual scientific worker operation owners and source-derived wire metadata.
 use pse_ids::{ContentHash, SemanticId};
-use pse_model::boundary_projection::{Direction, LocalRule};
+use pse_contract::boundary_projection::{Direction, LocalRule};
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// Exact attempt and child generation; this carries no owner-sealed proof.
     pub struct Handle {
@@ -17,7 +17,7 @@ pse_model::projection_struct! {
         pub generation: SemanticId => { tag: 3, direction: Direction::Both, rules: [] };
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// Ordered scalar physical port, resolved through actual quantity/unit identities.
     pub struct Port {
@@ -30,7 +30,7 @@ pse_model::projection_struct! {
         pub unit: SemanticId => { tag: 3, direction: Direction::Both, rules: [] };
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// Complete scalar-only descriptor of the selected water implementation.
     pub struct Spec {
@@ -53,7 +53,7 @@ pse_model::projection_struct! {
         pub smoothness: u32 => { tag: 8, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 0, max: 2 }] };
     }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// All kernel product kinds; transport availability does not imply native support.
     pub enum Demand {
@@ -70,7 +70,7 @@ pse_model::projection_enum! {
         WeightedSecondAction(u64) => 5;
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// One immutable preparation, carrying selected science and original remaining time.
     pub struct Prepare {
@@ -99,7 +99,7 @@ pse_model::projection_struct! {
         pub result_limit: u64 => { tag: 11, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: 1048576 }] };
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// Invocation-local numerical inputs; descriptors are already prepared.
     pub struct Evaluate {
@@ -118,7 +118,7 @@ pse_model::projection_struct! {
         pub weights: Vec<f64> => { tag: 6, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 64 }] };
     }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
     #[derive(Clone, Debug)]
     /// Distinct lifecycle and scientific operations on one authenticated channel.
     pub enum Request {
@@ -135,7 +135,7 @@ pse_model::projection_enum! {
         Shutdown => 5;
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// One complete selected numerical product; no linearization proof is exported.
     pub struct Values {
@@ -152,7 +152,7 @@ pse_model::projection_struct! {
         pub hessians: Vec<f64> => { tag: 5, direction: Direction::Output, rules: [LocalRule::Length { min: 0, max: 65536 }] };
     }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
     #[derive(Clone, Debug)]
     /// Owner-attributed outcomes; rendered text never selects a diagnostic class.
     pub enum Failure {
@@ -184,7 +184,7 @@ pse_model::projection_enum! {
         UnknownCompletion(String) => 8;
     }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
     #[derive(Clone, Debug)]
     /// Complete operation outcome on the original authenticated session.
     pub enum Response {

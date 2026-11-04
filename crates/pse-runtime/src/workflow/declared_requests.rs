@@ -166,7 +166,7 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<ModelingInspection, WorkflowError> {
         self.check_service_bindings(services)?;
-        pse_model::boundary_projection::ValidateProjection::validate_projection(request).map_err(
+        pse_contract::boundary_projection::ValidateProjection::validate_projection(request).map_err(
             |error| WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error)),
         )?;
         modeling::documents::bound_observation(

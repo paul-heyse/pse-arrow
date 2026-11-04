@@ -3,7 +3,7 @@
 //! Focused controls for the actual passive quantity bridge.
 
 use super::*;
-use pse_quantity::{
+use crate::{
     resolved::receipts::{ContractRecord, SchemeRecord},
     scheme::Scheme,
 };
@@ -63,11 +63,11 @@ fn passive_scheme_projection_preserves_ordinary_native_document_bytes() {
 fn passive_resolved_output_facts_are_readable_but_native_restoration_requires_receipt() {
     // Construct a real contract through the actual native quantity registry. A
     // handmade receipt or a duplicate Type AST would not establish this case.
-    let registry = pse_quantity::generated::standard_registry().unwrap();
+    let registry = crate::generated::standard_registry().unwrap();
     let quantity = registry.neutral_dimensionless().unwrap();
-    let contract = pse_quantity::ResolvedPhysicalContract::named(
+    let contract = crate::ResolvedPhysicalContract::named(
         quantity,
-        pse_quantity::IndexSet::new(),
+        crate::IndexSet::new(),
         &registry,
     )
     .unwrap();

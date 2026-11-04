@@ -10,7 +10,7 @@ use crate::{
         finite::{DomainKey, FamilyKey},
     },
 };
-use pse_model::boundary_projection::{
+use pse_contract::boundary_projection::{
     Direction, ProjectionAlternative, ProjectionGraph, ProjectionRecord, Shape, TypeRef,
     ValidateProjection,
 };

@@ -41,25 +41,25 @@ pub use pse_model::generated::enums::PounceMethod as Method;
 /// Complete native FERAL configuration, with thread/FMA policy applied at execution.
 pub type LinearSettings = pounce_feral::FeralConfig;
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// The POUNCE adapter's settings type. Its identity derives from serde.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 #[schemars(rename = "PounceSettings")]
 pub struct Settings {
-    projection: { name: "PounceSettings", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "PounceSettings", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// NLP method.
-    pub method: Method => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub method: Method => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Native linear settings.
     #[serde(with = "FeralIdentity")]
-    pub linear: LinearSettings => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [], adapter: FeralIdentity };
+    pub linear: LinearSettings => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [], adapter: FeralIdentity };
     /// Interior-point restart of a submitted primal-dual seed (L-N3).
-    pub restart: WarmRestart => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub restart: WarmRestart => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Library-owned partitioned curvature settings.
-    pub partitioned: PartitionedSettings => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub partitioned: PartitionedSettings => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Library-owned finite-difference curvature settings.
-    pub finite_difference: FiniteDifferenceSettings => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub finite_difference: FiniteDifferenceSettings => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl Default for Settings {
@@ -75,26 +75,26 @@ impl Default for Settings {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Typed partitioned update controls. An absent formula preserves the library's
 /// mode-dependent default and its option set-ness.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct PartitionedSettings {
-    projection: { name: "PouncePartitionedSettings", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "PouncePartitionedSettings", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Explicit element update, or the library default.
-    pub update_type: Option<PouncePartitionedUpdate> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub update_type: Option<PouncePartitionedUpdate> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Wider elements degrade to the library diagonal approximation.
-    pub max_element: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub max_element: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Element construction.
-    pub elements: PouncePartitionedElements => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub elements: PouncePartitionedElements => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Width of primal blocks.
-    pub block_size: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub block_size: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Finite positive curvature multiplier, absent for uncapped native updates.
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
-    pub curvature_cap: Option<f64> => { tag: 5, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::PositiveFinite)] };
+    pub curvature_cap: Option<f64> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::PositiveFinite)] };
 }
 }
 impl Default for PartitionedSettings {
@@ -108,21 +108,21 @@ impl Default for PartitionedSettings {
         }
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Typed finite-difference pattern, coloring and native reuse controls.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct FiniteDifferenceSettings {
-    projection: { name: "PounceFiniteDifferenceSettings", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "PounceFiniteDifferenceSettings", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Declared Hessian support, falling back to conservative Jacobian/objective support.
-    pub pattern: PounceFdPattern => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub pattern: PounceFdPattern => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Library coloring algorithm.
-    pub coloring: PounceFdColoring => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub coloring: PounceFdColoring => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Relative native iterate distance permitting Hessian reuse.
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
-    pub reuse_tolerance: f64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::NonnegativeFinite)] };
+    pub reuse_tolerance: f64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::NonnegativeFinite)] };
 }
 }
 impl Default for FiniteDifferenceSettings {
@@ -153,7 +153,7 @@ impl Settings {
                 .partitioned
                 .curvature_cap
                 .is_some_and(|v| !v.is_finite() || v <= 0.0)
-            || !pse_model::boundary_projection::Float64Domain::NonnegativeFinite
+            || !pse_contract::boundary_projection::Float64Domain::NonnegativeFinite
                 .contains(self.finite_difference.reuse_tolerance)
         {
             return Err(ProblemError::Contract(
@@ -257,7 +257,7 @@ impl Settings {
     }
 }
 
-pse_model::projection_remote! {
+pse_contract::projection_remote! {
 /// Complete original FERAL configuration binding, shared by Serde and typed projection.
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -269,34 +269,34 @@ pse_model::projection_remote! {
 pub struct FeralIdentity for pounce_feral::FeralConfig {
     projection: { name: "FeralSettings", rust_path: crate::settings::pounce::FeralIdentity,
         target_path: crate::settings::pounce::LinearSettings, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
-    bounded_storage_max_dimension: Option<usize> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    cascade_break: Option<bool> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    fma: bool => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    refine: bool => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    increase_quality: bool => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    refine_max_steps: usize => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    bounded_storage_max_dimension: Option<usize> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    cascade_break: Option<bool> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    fma: bool => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    refine: bool => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    increase_quality: bool => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    refine_max_steps: usize => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
-    refine_target: f64 => { tag: 7, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::Finite)] };
+    refine_target: f64 => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::Finite)] };
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
-    singular_pivot_floor: f64 => { tag: 8, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::Finite)] };
+    singular_pivot_floor: f64 => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::Finite)] };
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
-    inertia_pivot_floor: Option<f64> => { tag: 9, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::Finite)] };
+    inertia_pivot_floor: Option<f64> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::Finite)] };
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
-    pivtol: f64 => { tag: 10, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::Finite)] };
+    pivtol: f64 => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::Finite)] };
     #[serde(with = "ordering")]
     #[schemars(with = "FeralOrdering")]
-    ordering: OrderingMethod => { tag: 11, direction: pse_model::boundary_projection::Direction::Both, rules: [], adapter: OrderingProjection };
+    ordering: OrderingMethod => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [], adapter: OrderingProjection };
     #[serde(with = "scaling")]
     #[schemars(with = "FeralScaling")]
-    scaling: ScalingStrategy => { tag: 12, direction: pse_model::boundary_projection::Direction::Both, rules: [], adapter: ScalingProjection };
-    parallel: Option<bool> => { tag: 13, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    min_par_flops: Option<u64> => { tag: 14, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
-    static_pivoting: Option<bool> => { tag: 15, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    scaling: ScalingStrategy => { tag: 12, direction: pse_contract::boundary_projection::Direction::Both, rules: [], adapter: ScalingProjection };
+    parallel: Option<bool> => { tag: 13, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    min_par_flops: Option<u64> => { tag: 14, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    static_pivoting: Option<bool> => { tag: 15, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 

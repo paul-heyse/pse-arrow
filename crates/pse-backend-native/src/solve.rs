@@ -516,36 +516,36 @@ pub struct Event {
     /// among `values`.
     pub incumbent: Option<IncumbentEvent>,
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Owner-supplied semantics and pre-loss identity of a native checkpoint.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EventSource {
     projection: { name: "NativeProgressEventSource", rust_path: crate::solve::EventSource,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Explicit performing role; independent of family and display phase names.
-    pub role: pse_diagnostics::observation::ProducerRole => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub role: pse_diagnostics::observation::ProducerRole => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual method-specific event family, independent of display phase spelling.
-    pub family: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub family: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Attempt-local progress generation, assigned before publication.
-    pub generation: u64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub generation: u64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Monotone source sequence, assigned before any observer may drop this event.
-    pub sequence: u64 => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub sequence: u64 => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Owner-stated coordinate convention, absent when not supplied.
-    pub coordinates: Option<String> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub coordinates: Option<String> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Owner-stated norm convention, absent when not supplied.
-    pub norm: Option<String> => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub norm: Option<String> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Operation-associated producer, absent when operation collection is unavailable.
-    pub producer: Option<pse_diagnostics::observation::ProducerId> => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub producer: Option<pse_diagnostics::observation::ProducerId> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Reset generation of the producer population.
-    pub producer_generation: Option<u64> => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub producer_generation: Option<u64> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Per-producer sequence, distinct from this Progress stream's sequence.
-    pub producer_sequence: Option<u64> => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub producer_sequence: Option<u64> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Sequence within this exact versioned source family.
-    pub producer_family_sequence: Option<u64> => { tag: 10, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub producer_family_sequence: Option<u64> => { tag: 10, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual event time on the associated operation's process clock.
     #[schemars(with = "Option<pse_diagnostics::ClosedDuration>")]
-    pub observed_at: Option<Duration> => { tag: 11, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub observed_at: Option<Duration> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 impl EventSource {
@@ -1498,7 +1498,7 @@ pub struct Basis {
     /// Native row basis statuses.
     pub rows: Vec<i32>,
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
 /// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses
 /// most of its benefit, so a restart states its barrier and its pushes. Absent fields take
@@ -1508,24 +1508,24 @@ pse_model::projection_struct! {
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct WarmRestart {
-    projection: { name: "NativeWarmRestart", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "NativeWarmRestart", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Initial barrier parameter of the restart (`mu_init`).
-    pub barrier: RestartBarrier => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub barrier: RestartBarrier => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Absolute push of the primal seed from its bounds (`warm_start_bound_push`).
-    pub bound_push: Tolerance => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub bound_push: Tolerance => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Relative push of the primal seed from its bounds (`warm_start_bound_frac`); at most
     /// one half.
-    pub bound_frac: Fraction => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(RELATIVE_PUSH_DOMAIN)] };
+    pub bound_frac: Fraction => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(RELATIVE_PUSH_DOMAIN)] };
     /// Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`).
-    pub slack_bound_push: Tolerance => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub slack_bound_push: Tolerance => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`); at
     /// most one half.
-    pub slack_bound_frac: Fraction => { tag: 5, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(RELATIVE_PUSH_DOMAIN)] };
+    pub slack_bound_frac: Fraction => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::Float64Domain(RELATIVE_PUSH_DOMAIN)] };
     /// Push of the bound multipliers from zero (`warm_start_mult_bound_push`).
-    pub mult_bound_push: Tolerance => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub mult_bound_push: Tolerance => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl Default for WarmRestart {
@@ -1541,14 +1541,14 @@ impl Default for WarmRestart {
         }
     }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// The initial barrier parameter of an interior-point restart.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RestartBarrier {
-    projection: { name: "NativeRestartBarrier", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "NativeRestartBarrier", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// The final barrier value the producing interior-point solve recorded with the seed. A
     /// seed without one (an authored seed) leaves the native default in force, and the
@@ -1557,7 +1557,7 @@ pub enum RestartBarrier {
     /// A stated positive value.
     Value {
         /// The initial barrier parameter.
-        value: Tolerance => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        value: Tolerance => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 2;
 }
 }

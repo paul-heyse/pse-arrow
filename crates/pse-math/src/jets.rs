@@ -125,25 +125,25 @@ impl ProductValues<'_> {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Explicit resource allowance for one compiled body and its worker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvaluationLimits {
-    projection: { name: "MathEvaluationLimits", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "MathEvaluationLimits", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Maximum Taylor components per scalar.
-    pub derivative_components: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    pub derivative_components: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Maximum scalar arithmetic operations per compiled demand.
-    pub operations: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    pub operations: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Maximum owned numeric scratch bytes per worker.
-    pub scratch_bytes: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    pub scratch_bytes: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Maximum provider calls in the admitted control schedule.
-    pub provider_calls: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    pub provider_calls: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
 }
 }
 impl Default for EvaluationLimits {

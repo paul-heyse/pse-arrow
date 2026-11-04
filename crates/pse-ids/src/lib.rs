@@ -34,3 +34,5 @@ pub use schemars as __schemars;
 
 /// Declaration-key steps in authored instance paths.
 pub mod source_path;
+
+mod contract_projection;

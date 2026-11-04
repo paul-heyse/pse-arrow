@@ -39,12 +39,12 @@ pub enum EvidenceCoverage {
     #[strum(serialize = "partial")]
     Partial,
 }
-impl pse_model::boundary_projection::ProjectionType for EvidenceCoverage {
+impl pse_contract::boundary_projection::ProjectionType for EvidenceCoverage {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -53,12 +53,12 @@ impl pse_model::boundary_projection::ProjectionType for EvidenceCoverage {
                 "EvidenceCoverage",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -69,12 +69,12 @@ impl pse_model::boundary_projection::ProjectionType for EvidenceCoverage {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for EvidenceCoverage {
+impl pse_contract::boundary_projection::ValidateProjection for EvidenceCoverage {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -176,12 +176,12 @@ pub enum EvidenceGenerationState {
     #[strum(serialize = "active")]
     Active,
 }
-impl pse_model::boundary_projection::ProjectionType for EvidenceGenerationState {
+impl pse_contract::boundary_projection::ProjectionType for EvidenceGenerationState {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -190,12 +190,12 @@ impl pse_model::boundary_projection::ProjectionType for EvidenceGenerationState 
                 "EvidenceGenerationState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -206,12 +206,12 @@ impl pse_model::boundary_projection::ProjectionType for EvidenceGenerationState 
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for EvidenceGenerationState {
+impl pse_contract::boundary_projection::ValidateProjection for EvidenceGenerationState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -335,12 +335,12 @@ pub enum KnowledgeBasis {
     #[strum(serialize = "user-question")]
     UserQuestion,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeBasis {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeBasis {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -349,12 +349,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeBasis {
                 "KnowledgeBasis",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -365,12 +365,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeBasis {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeBasis {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeBasis {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -485,12 +485,12 @@ pub enum KnowledgeDirection {
     #[strum(serialize = "output")]
     Output,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeDirection {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeDirection {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -499,12 +499,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeDirection {
                 "KnowledgeDirection",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -515,12 +515,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeDirection {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeDirection {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeDirection {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -648,12 +648,12 @@ pub enum KnowledgeDocumentRole {
     #[strum(serialize = "index")]
     Index,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeDocumentRole {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeDocumentRole {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -662,12 +662,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeDocumentRole {
                 "KnowledgeDocumentRole",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -678,12 +678,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeDocumentRole {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeDocumentRole {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeDocumentRole {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -802,12 +802,12 @@ pub enum KnowledgeGenerationState {
     #[strum(serialize = "active")]
     Active,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeGenerationState {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeGenerationState {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -816,12 +816,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeGenerationState
                 "KnowledgeGenerationState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -832,12 +832,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeGenerationState
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeGenerationState {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeGenerationState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -973,12 +973,12 @@ pub enum KnowledgeRelationKind {
     #[strum(serialize = "references")]
     References,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeRelationKind {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeRelationKind {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -987,12 +987,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeRelationKind {
                 "KnowledgeRelationKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1003,12 +1003,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeRelationKind {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeRelationKind {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeRelationKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1160,12 +1160,12 @@ pub enum KnowledgeSourceRole {
     #[strum(serialize = "interpretation_policy")]
     InterpretationPolicy,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceRole {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeSourceRole {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1174,12 +1174,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceRole {
                 "KnowledgeSourceRole",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1190,12 +1190,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceRole {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeSourceRole {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeSourceRole {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1333,12 +1333,12 @@ pub enum KnowledgeSourceStatus {
     #[strum(serialize = "unknown")]
     Unknown,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceStatus {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeSourceStatus {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1347,12 +1347,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceStatus {
                 "KnowledgeSourceStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1363,12 +1363,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeSourceStatus {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeSourceStatus {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeSourceStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1519,12 +1519,12 @@ pub enum KnowledgeSubjectKind {
     #[strum(serialize = "research_question")]
     ResearchQuestion,
 }
-impl pse_model::boundary_projection::ProjectionType for KnowledgeSubjectKind {
+impl pse_contract::boundary_projection::ProjectionType for KnowledgeSubjectKind {
     fn projection(
-        graph: &mut pse_model::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        pse_model::boundary_projection::TypeRef,
-        pse_model::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1533,12 +1533,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeSubjectKind {
                 "KnowledgeSubjectKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                pse_model::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        pse_model::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1549,12 +1549,12 @@ impl pse_model::boundary_projection::ProjectionType for KnowledgeSubjectKind {
             )
     }
 }
-impl pse_model::boundary_projection::ValidateProjection for KnowledgeSubjectKind {
+impl pse_contract::boundary_projection::ValidateProjection for KnowledgeSubjectKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), pse_model::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

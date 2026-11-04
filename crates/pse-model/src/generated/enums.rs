@@ -50,12 +50,12 @@ pub enum AccuracyCriterionStatus {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyCriterionStatus {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyCriterionStatus {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -64,12 +64,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyCriterionStatus {
                 "AccuracyCriterionStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -80,12 +80,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyCriterionStatus {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyCriterionStatus {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyCriterionStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -212,12 +212,13 @@ pub enum AccuracyEvidenceInterpretation {
     #[strum(serialize = "objective_interval")]
     ObjectiveInterval,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyEvidenceInterpretation {
+impl pse_contract::boundary_projection::ProjectionType
+for AccuracyEvidenceInterpretation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -226,12 +227,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyEvidenceInterpretati
                 "AccuracyEvidenceInterpretation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -242,12 +243,13 @@ impl crate::boundary_projection::ProjectionType for AccuracyEvidenceInterpretati
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyEvidenceInterpretation {
+impl pse_contract::boundary_projection::ValidateProjection
+for AccuracyEvidenceInterpretation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -379,12 +381,12 @@ pub enum AccuracyEvidenceMethod {
     #[strum(serialize = "composed_output")]
     ComposedOutput,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyEvidenceMethod {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyEvidenceMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -393,12 +395,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyEvidenceMethod {
                 "AccuracyEvidenceMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -409,12 +411,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyEvidenceMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyEvidenceMethod {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyEvidenceMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -538,12 +540,12 @@ pub enum AccuracyGoalStatus {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyGoalStatus {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyGoalStatus {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -552,12 +554,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalStatus {
                 "AccuracyGoalStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -568,12 +570,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalStatus {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyGoalStatus {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyGoalStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -684,12 +686,12 @@ pub enum AccuracyGoalSubject {
     #[strum(serialize = "optimal_objective")]
     OptimalObjective,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyGoalSubject {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyGoalSubject {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -698,12 +700,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalSubject {
                 "AccuracyGoalSubject",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -714,12 +716,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalSubject {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyGoalSubject {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyGoalSubject {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -825,12 +827,12 @@ pub enum AccuracyGoalUse {
     #[strum(serialize = "require_satisfied")]
     RequireSatisfied,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyGoalUse {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyGoalUse {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -839,12 +841,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalUse {
                 "AccuracyGoalUse",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -855,12 +857,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyGoalUse {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyGoalUse {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyGoalUse {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -972,12 +974,12 @@ pub enum AccuracyObservation {
     #[strum(serialize = "integrated")]
     Integrated,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyObservation {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyObservation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -986,12 +988,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyObservation {
                 "AccuracyObservation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1002,12 +1004,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyObservation {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyObservation {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyObservation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1126,12 +1128,12 @@ pub enum AccuracyResolutionStatus {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyResolutionStatus {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyResolutionStatus {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1140,12 +1142,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyResolutionStatus {
                 "AccuracyResolutionStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1156,12 +1158,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyResolutionStatus {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyResolutionStatus {
+impl pse_contract::boundary_projection::ValidateProjection for AccuracyResolutionStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1344,12 +1346,12 @@ pub enum AccuracyUnavailableReason {
     #[strum(serialize = "failed")]
     Failed,
 }
-impl crate::boundary_projection::ProjectionType for AccuracyUnavailableReason {
+impl pse_contract::boundary_projection::ProjectionType for AccuracyUnavailableReason {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1358,12 +1360,12 @@ impl crate::boundary_projection::ProjectionType for AccuracyUnavailableReason {
                 "AccuracyUnavailableReason",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1374,12 +1376,13 @@ impl crate::boundary_projection::ProjectionType for AccuracyUnavailableReason {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AccuracyUnavailableReason {
+impl pse_contract::boundary_projection::ValidateProjection
+for AccuracyUnavailableReason {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1530,12 +1533,12 @@ pub enum ArtifactOwnerKind {
     #[strum(serialize = "audit")]
     Audit,
 }
-impl crate::boundary_projection::ProjectionType for ArtifactOwnerKind {
+impl pse_contract::boundary_projection::ProjectionType for ArtifactOwnerKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1544,12 +1547,12 @@ impl crate::boundary_projection::ProjectionType for ArtifactOwnerKind {
                 "ArtifactOwnerKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1560,12 +1563,12 @@ impl crate::boundary_projection::ProjectionType for ArtifactOwnerKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ArtifactOwnerKind {
+impl pse_contract::boundary_projection::ValidateProjection for ArtifactOwnerKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1675,12 +1678,12 @@ pub enum AssertionStatus {
     #[strum(serialize = "obsolete")]
     Obsolete,
 }
-impl crate::boundary_projection::ProjectionType for AssertionStatus {
+impl pse_contract::boundary_projection::ProjectionType for AssertionStatus {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1689,12 +1692,12 @@ impl crate::boundary_projection::ProjectionType for AssertionStatus {
                 "AssertionStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1705,12 +1708,12 @@ impl crate::boundary_projection::ProjectionType for AssertionStatus {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AssertionStatus {
+impl pse_contract::boundary_projection::ValidateProjection for AssertionStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -1844,12 +1847,12 @@ pub enum AttemptState {
     #[strum(serialize = "superseded")]
     Superseded,
 }
-impl crate::boundary_projection::ProjectionType for AttemptState {
+impl pse_contract::boundary_projection::ProjectionType for AttemptState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -1858,12 +1861,12 @@ impl crate::boundary_projection::ProjectionType for AttemptState {
                 "AttemptState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -1874,12 +1877,12 @@ impl crate::boundary_projection::ProjectionType for AttemptState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for AttemptState {
+impl pse_contract::boundary_projection::ValidateProjection for AttemptState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2057,12 +2060,12 @@ pub enum BoundActivity {
     #[strum(serialize = "fixed")]
     Fixed,
 }
-impl crate::boundary_projection::ProjectionType for BoundActivity {
+impl pse_contract::boundary_projection::ProjectionType for BoundActivity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2071,12 +2074,12 @@ impl crate::boundary_projection::ProjectionType for BoundActivity {
                 "BoundActivity",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -2087,12 +2090,12 @@ impl crate::boundary_projection::ProjectionType for BoundActivity {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for BoundActivity {
+impl pse_contract::boundary_projection::ValidateProjection for BoundActivity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2200,12 +2203,12 @@ pub enum BoundKind {
     #[strum(serialize = "unbounded")]
     Unbounded,
 }
-impl crate::boundary_projection::ProjectionType for BoundKind {
+impl pse_contract::boundary_projection::ProjectionType for BoundKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2214,12 +2217,12 @@ impl crate::boundary_projection::ProjectionType for BoundKind {
                 "BoundKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -2230,12 +2233,12 @@ impl crate::boundary_projection::ProjectionType for BoundKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for BoundKind {
+impl pse_contract::boundary_projection::ValidateProjection for BoundKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2345,12 +2348,12 @@ pub enum BoundStatus {
     #[strum(serialize = "violated")]
     Violated,
 }
-impl crate::boundary_projection::ProjectionType for BoundStatus {
+impl pse_contract::boundary_projection::ProjectionType for BoundStatus {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2359,12 +2362,12 @@ impl crate::boundary_projection::ProjectionType for BoundStatus {
                 "BoundStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -2375,12 +2378,12 @@ impl crate::boundary_projection::ProjectionType for BoundStatus {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for BoundStatus {
+impl pse_contract::boundary_projection::ValidateProjection for BoundStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2497,12 +2500,12 @@ pub enum CandidateBoundOrigin {
     #[strum(serialize = "conic_program")]
     ConicProgram,
 }
-impl crate::boundary_projection::ProjectionType for CandidateBoundOrigin {
+impl pse_contract::boundary_projection::ProjectionType for CandidateBoundOrigin {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2511,12 +2514,12 @@ impl crate::boundary_projection::ProjectionType for CandidateBoundOrigin {
                 "CandidateBoundOrigin",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -2527,12 +2530,12 @@ impl crate::boundary_projection::ProjectionType for CandidateBoundOrigin {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CandidateBoundOrigin {
+impl pse_contract::boundary_projection::ValidateProjection for CandidateBoundOrigin {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2667,12 +2670,12 @@ pub enum CandidateQualifier {
     #[strum(serialize = "engineering_canonical_fallback")]
     EngineeringCanonicalFallback,
 }
-impl crate::boundary_projection::ProjectionType for CandidateQualifier {
+impl pse_contract::boundary_projection::ProjectionType for CandidateQualifier {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2681,12 +2684,12 @@ impl crate::boundary_projection::ProjectionType for CandidateQualifier {
                 "CandidateQualifier",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -2697,12 +2700,12 @@ impl crate::boundary_projection::ProjectionType for CandidateQualifier {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CandidateQualifier {
+impl pse_contract::boundary_projection::ValidateProjection for CandidateQualifier {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -2896,12 +2899,12 @@ pub enum CandidateRefusal {
     #[strum(serialize = "accuracy_violated")]
     AccuracyViolated,
 }
-impl crate::boundary_projection::ProjectionType for CandidateRefusal {
+impl pse_contract::boundary_projection::ProjectionType for CandidateRefusal {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -2910,12 +2913,12 @@ impl crate::boundary_projection::ProjectionType for CandidateRefusal {
                 "CandidateRefusal",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -2926,12 +2929,12 @@ impl crate::boundary_projection::ProjectionType for CandidateRefusal {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CandidateRefusal {
+impl pse_contract::boundary_projection::ValidateProjection for CandidateRefusal {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3089,12 +3092,12 @@ pub enum CandidateUse {
     #[strum(serialize = "unusable")]
     Unusable,
 }
-impl crate::boundary_projection::ProjectionType for CandidateUse {
+impl pse_contract::boundary_projection::ProjectionType for CandidateUse {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3103,12 +3106,12 @@ impl crate::boundary_projection::ProjectionType for CandidateUse {
                 "CandidateUse",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -3119,12 +3122,12 @@ impl crate::boundary_projection::ProjectionType for CandidateUse {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CandidateUse {
+impl pse_contract::boundary_projection::ValidateProjection for CandidateUse {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3247,12 +3250,12 @@ pub enum CanonicalArtifactHolderKind {
     #[strum(serialize = "audit")]
     Audit,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalArtifactHolderKind {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalArtifactHolderKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3261,12 +3264,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalArtifactHolderKind 
                 "CanonicalArtifactHolderKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -3277,12 +3280,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalArtifactHolderKind 
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalArtifactHolderKind {
+impl pse_contract::boundary_projection::ValidateProjection
+for CanonicalArtifactHolderKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3457,12 +3461,12 @@ pub enum CanonicalAttemptPhase {
     #[strum(serialize = "terminal_compacted")]
     TerminalCompacted,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalAttemptPhase {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalAttemptPhase {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3471,12 +3475,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalAttemptPhase {
                 "CanonicalAttemptPhase",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -3487,12 +3491,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalAttemptPhase {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalAttemptPhase {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalAttemptPhase {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3605,12 +3609,12 @@ pub enum CanonicalFileOwnerKind {
     #[strum(serialize = "artifact")]
     Artifact,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalFileOwnerKind {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalFileOwnerKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3619,12 +3623,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalFileOwnerKind {
                 "CanonicalFileOwnerKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -3635,12 +3639,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalFileOwnerKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalFileOwnerKind {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalFileOwnerKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3760,12 +3764,12 @@ pub enum CanonicalFileState {
     #[strum(serialize = "collected")]
     Collected,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalFileState {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalFileState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3774,12 +3778,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalFileState {
                 "CanonicalFileState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -3790,12 +3794,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalFileState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalFileState {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalFileState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -3930,12 +3934,12 @@ pub enum CanonicalHistoryOwnerKind {
     #[strum(serialize = "audit")]
     Audit,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalHistoryOwnerKind {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalHistoryOwnerKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -3944,12 +3948,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalHistoryOwnerKind {
                 "CanonicalHistoryOwnerKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -3960,12 +3964,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalHistoryOwnerKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalHistoryOwnerKind {
+impl pse_contract::boundary_projection::ValidateProjection
+for CanonicalHistoryOwnerKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4086,12 +4091,12 @@ pub enum CanonicalPayloadEncoding {
     #[strum(serialize = "opaque-bytes")]
     OpaqueBytes,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalPayloadEncoding {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalPayloadEncoding {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4100,12 +4105,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalPayloadEncoding {
                 "CanonicalPayloadEncoding",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -4116,12 +4121,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalPayloadEncoding {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalPayloadEncoding {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalPayloadEncoding {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4230,12 +4235,12 @@ pub enum CanonicalPayloadPlacement {
     #[strum(serialize = "sealed")]
     Sealed,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalPayloadPlacement {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalPayloadPlacement {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4244,12 +4249,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalPayloadPlacement {
                 "CanonicalPayloadPlacement",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -4260,12 +4265,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalPayloadPlacement {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalPayloadPlacement {
+impl pse_contract::boundary_projection::ValidateProjection
+for CanonicalPayloadPlacement {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4383,12 +4389,12 @@ pub enum CanonicalProducerClass {
     #[strum(serialize = "local_scientific_replay")]
     LocalScientificReplay,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalProducerClass {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalProducerClass {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4397,12 +4403,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalProducerClass {
                 "CanonicalProducerClass",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -4413,12 +4419,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalProducerClass {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalProducerClass {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalProducerClass {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4531,12 +4537,13 @@ pub enum CanonicalProjectPublicationKind {
     #[strum(serialize = "publish")]
     Publish,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalProjectPublicationKind {
+impl pse_contract::boundary_projection::ProjectionType
+for CanonicalProjectPublicationKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4545,12 +4552,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalProjectPublicationK
                 "CanonicalProjectPublicationKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -4561,12 +4568,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalProjectPublicationK
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalProjectPublicationKind {
+impl pse_contract::boundary_projection::ValidateProjection
+for CanonicalProjectPublicationKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4674,12 +4682,12 @@ pub enum CanonicalRunPurpose {
     #[strum(serialize = "study_admission")]
     StudyAdmission,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalRunPurpose {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalRunPurpose {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4688,12 +4696,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalRunPurpose {
                 "CanonicalRunPurpose",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -4704,12 +4712,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalRunPurpose {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalRunPurpose {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalRunPurpose {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4829,12 +4837,12 @@ pub enum CanonicalStudyCaptureState {
     #[strum(serialize = "released")]
     Released,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalStudyCaptureState {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalStudyCaptureState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4843,12 +4851,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalStudyCaptureState {
                 "CanonicalStudyCaptureState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -4859,12 +4867,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalStudyCaptureState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalStudyCaptureState {
+impl pse_contract::boundary_projection::ValidateProjection
+for CanonicalStudyCaptureState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -4979,12 +4988,13 @@ pub enum CanonicalStudyInstallationPageState {
     #[strum(serialize = "committed")]
     Committed,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPageState {
+impl pse_contract::boundary_projection::ProjectionType
+for CanonicalStudyInstallationPageState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -4993,12 +5003,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPa
                 "CanonicalStudyInstallationPageState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5009,13 +5019,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPa
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection
+impl pse_contract::boundary_projection::ValidateProjection
 for CanonicalStudyInstallationPageState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5135,12 +5145,13 @@ pub enum CanonicalStudyInstallationPhase {
     #[strum(serialize = "active")]
     Active,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPhase {
+impl pse_contract::boundary_projection::ProjectionType
+for CanonicalStudyInstallationPhase {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5149,12 +5160,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPh
                 "CanonicalStudyInstallationPhase",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5165,12 +5176,13 @@ impl crate::boundary_projection::ProjectionType for CanonicalStudyInstallationPh
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalStudyInstallationPhase {
+impl pse_contract::boundary_projection::ValidateProjection
+for CanonicalStudyInstallationPhase {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5314,12 +5326,12 @@ pub enum CanonicalTerminalOutcome {
     #[strum(serialize = "cancelled")]
     Cancelled,
 }
-impl crate::boundary_projection::ProjectionType for CanonicalTerminalOutcome {
+impl pse_contract::boundary_projection::ProjectionType for CanonicalTerminalOutcome {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5328,12 +5340,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalTerminalOutcome {
                 "CanonicalTerminalOutcome",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5344,12 +5356,12 @@ impl crate::boundary_projection::ProjectionType for CanonicalTerminalOutcome {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CanonicalTerminalOutcome {
+impl pse_contract::boundary_projection::ValidateProjection for CanonicalTerminalOutcome {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5511,12 +5523,12 @@ pub enum ClarabelDirect {
     #[strum(serialize = "mkl_pardiso")]
     MklPardiso,
 }
-impl crate::boundary_projection::ProjectionType for ClarabelDirect {
+impl pse_contract::boundary_projection::ProjectionType for ClarabelDirect {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5525,12 +5537,12 @@ impl crate::boundary_projection::ProjectionType for ClarabelDirect {
                 "ClarabelDirect",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5541,12 +5553,12 @@ impl crate::boundary_projection::ProjectionType for ClarabelDirect {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ClarabelDirect {
+impl pse_contract::boundary_projection::ValidateProjection for ClarabelDirect {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5652,12 +5664,12 @@ pub enum ClarabelMergeMethod {
     #[strum(serialize = "clique_graph")]
     CliqueGraph,
 }
-impl crate::boundary_projection::ProjectionType for ClarabelMergeMethod {
+impl pse_contract::boundary_projection::ProjectionType for ClarabelMergeMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5666,12 +5678,12 @@ impl crate::boundary_projection::ProjectionType for ClarabelMergeMethod {
                 "ClarabelMergeMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5682,12 +5694,12 @@ impl crate::boundary_projection::ProjectionType for ClarabelMergeMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ClarabelMergeMethod {
+impl pse_contract::boundary_projection::ValidateProjection for ClarabelMergeMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5795,12 +5807,12 @@ pub enum ClarabelMode {
     #[strum(serialize = "reusable_data")]
     ReusableData,
 }
-impl crate::boundary_projection::ProjectionType for ClarabelMode {
+impl pse_contract::boundary_projection::ProjectionType for ClarabelMode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5809,12 +5821,12 @@ impl crate::boundary_projection::ProjectionType for ClarabelMode {
                 "ClarabelMode",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5825,12 +5837,12 @@ impl crate::boundary_projection::ProjectionType for ClarabelMode {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ClarabelMode {
+impl pse_contract::boundary_projection::ValidateProjection for ClarabelMode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -5942,12 +5954,12 @@ pub enum ClosureAssessment {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
-impl crate::boundary_projection::ProjectionType for ClosureAssessment {
+impl pse_contract::boundary_projection::ProjectionType for ClosureAssessment {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -5956,12 +5968,12 @@ impl crate::boundary_projection::ProjectionType for ClosureAssessment {
                 "ClosureAssessment",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -5972,12 +5984,12 @@ impl crate::boundary_projection::ProjectionType for ClosureAssessment {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ClosureAssessment {
+impl pse_contract::boundary_projection::ValidateProjection for ClosureAssessment {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6086,12 +6098,12 @@ pub enum ClosurePolicy {
     #[strum(serialize = "allow_unclosed")]
     AllowUnclosed,
 }
-impl crate::boundary_projection::ProjectionType for ClosurePolicy {
+impl pse_contract::boundary_projection::ProjectionType for ClosurePolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -6100,12 +6112,12 @@ impl crate::boundary_projection::ProjectionType for ClosurePolicy {
                 "ClosurePolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -6116,12 +6128,12 @@ impl crate::boundary_projection::ProjectionType for ClosurePolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ClosurePolicy {
+impl pse_contract::boundary_projection::ValidateProjection for ClosurePolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6263,12 +6275,12 @@ pub enum ComputationKind {
     #[strum(serialize = "shooting")]
     Shooting,
 }
-impl crate::boundary_projection::ProjectionType for ComputationKind {
+impl pse_contract::boundary_projection::ProjectionType for ComputationKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -6277,12 +6289,12 @@ impl crate::boundary_projection::ProjectionType for ComputationKind {
                 "ComputationKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -6293,12 +6305,12 @@ impl crate::boundary_projection::ProjectionType for ComputationKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ComputationKind {
+impl pse_contract::boundary_projection::ValidateProjection for ComputationKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6404,12 +6416,12 @@ pub enum ConformanceExecution {
     #[strum(serialize = "pure")]
     Pure,
 }
-impl crate::boundary_projection::ProjectionType for ConformanceExecution {
+impl pse_contract::boundary_projection::ProjectionType for ConformanceExecution {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -6418,12 +6430,12 @@ impl crate::boundary_projection::ProjectionType for ConformanceExecution {
                 "ConformanceExecution",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -6434,12 +6446,12 @@ impl crate::boundary_projection::ProjectionType for ConformanceExecution {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ConformanceExecution {
+impl pse_contract::boundary_projection::ValidateProjection for ConformanceExecution {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6543,12 +6555,12 @@ pub enum ConformancePresolve {
     #[strum(serialize = "off")]
     Off,
 }
-impl crate::boundary_projection::ProjectionType for ConformancePresolve {
+impl pse_contract::boundary_projection::ProjectionType for ConformancePresolve {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -6557,12 +6569,12 @@ impl crate::boundary_projection::ProjectionType for ConformancePresolve {
                 "ConformancePresolve",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -6573,12 +6585,12 @@ impl crate::boundary_projection::ProjectionType for ConformancePresolve {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ConformancePresolve {
+impl pse_contract::boundary_projection::ValidateProjection for ConformancePresolve {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6694,12 +6706,12 @@ pub enum ConstraintScalingScheme {
     #[strum(serialize = "inverseMinimum")]
     InverseMinimum,
 }
-impl crate::boundary_projection::ProjectionType for ConstraintScalingScheme {
+impl pse_contract::boundary_projection::ProjectionType for ConstraintScalingScheme {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -6708,12 +6720,12 @@ impl crate::boundary_projection::ProjectionType for ConstraintScalingScheme {
                 "ConstraintScalingScheme",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -6724,12 +6736,12 @@ impl crate::boundary_projection::ProjectionType for ConstraintScalingScheme {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ConstraintScalingScheme {
+impl pse_contract::boundary_projection::ValidateProjection for ConstraintScalingScheme {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6859,12 +6871,12 @@ pub enum CovarianceApproximation {
     #[strum(serialize = "gauss_newton")]
     GaussNewton,
 }
-impl crate::boundary_projection::ProjectionType for CovarianceApproximation {
+impl pse_contract::boundary_projection::ProjectionType for CovarianceApproximation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -6873,12 +6885,12 @@ impl crate::boundary_projection::ProjectionType for CovarianceApproximation {
                 "CovarianceApproximation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -6889,12 +6901,12 @@ impl crate::boundary_projection::ProjectionType for CovarianceApproximation {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CovarianceApproximation {
+impl pse_contract::boundary_projection::ValidateProjection for CovarianceApproximation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -6998,12 +7010,12 @@ pub enum CovarianceInputOrigin {
     #[strum(serialize = "external")]
     External,
 }
-impl crate::boundary_projection::ProjectionType for CovarianceInputOrigin {
+impl pse_contract::boundary_projection::ProjectionType for CovarianceInputOrigin {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -7012,12 +7024,12 @@ impl crate::boundary_projection::ProjectionType for CovarianceInputOrigin {
                 "CovarianceInputOrigin",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -7028,12 +7040,12 @@ impl crate::boundary_projection::ProjectionType for CovarianceInputOrigin {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for CovarianceInputOrigin {
+impl pse_contract::boundary_projection::ValidateProjection for CovarianceInputOrigin {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -7172,12 +7184,12 @@ pub enum DerivedQuantity {
     #[strum(serialize = "propagated_covariance")]
     PropagatedCovariance,
 }
-impl crate::boundary_projection::ProjectionType for DerivedQuantity {
+impl pse_contract::boundary_projection::ProjectionType for DerivedQuantity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -7186,12 +7198,12 @@ impl crate::boundary_projection::ProjectionType for DerivedQuantity {
                 "DerivedQuantity",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -7202,12 +7214,12 @@ impl crate::boundary_projection::ProjectionType for DerivedQuantity {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DerivedQuantity {
+impl pse_contract::boundary_projection::ValidateProjection for DerivedQuantity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -7359,12 +7371,13 @@ pub enum DiagnosticNonfiniteObservation {
     #[strum(serialize = "negative_infinity")]
     NegativeInfinity,
 }
-impl crate::boundary_projection::ProjectionType for DiagnosticNonfiniteObservation {
+impl pse_contract::boundary_projection::ProjectionType
+for DiagnosticNonfiniteObservation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -7373,12 +7386,12 @@ impl crate::boundary_projection::ProjectionType for DiagnosticNonfiniteObservati
                 "DiagnosticNonfiniteObservation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -7389,12 +7402,13 @@ impl crate::boundary_projection::ProjectionType for DiagnosticNonfiniteObservati
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DiagnosticNonfiniteObservation {
+impl pse_contract::boundary_projection::ValidateProjection
+for DiagnosticNonfiniteObservation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -7541,12 +7555,12 @@ pub enum DiagnosticSeverity {
     #[strum(serialize = "info")]
     Info,
 }
-impl crate::boundary_projection::ProjectionType for DiagnosticSeverity {
+impl pse_contract::boundary_projection::ProjectionType for DiagnosticSeverity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -7555,12 +7569,12 @@ impl crate::boundary_projection::ProjectionType for DiagnosticSeverity {
                 "DiagnosticSeverity",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -7571,12 +7585,12 @@ impl crate::boundary_projection::ProjectionType for DiagnosticSeverity {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DiagnosticSeverity {
+impl pse_contract::boundary_projection::ValidateProjection for DiagnosticSeverity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -7701,12 +7715,12 @@ pub enum DiffsolLinear {
     #[strum(serialize = "klu")]
     Klu,
 }
-impl crate::boundary_projection::ProjectionType for DiffsolLinear {
+impl pse_contract::boundary_projection::ProjectionType for DiffsolLinear {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -7715,12 +7729,12 @@ impl crate::boundary_projection::ProjectionType for DiffsolLinear {
                 "DiffsolLinear",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -7731,12 +7745,12 @@ impl crate::boundary_projection::ProjectionType for DiffsolLinear {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DiffsolLinear {
+impl pse_contract::boundary_projection::ValidateProjection for DiffsolLinear {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -7846,12 +7860,12 @@ pub enum DiffsolMethod {
     #[strum(serialize = "tsit45")]
     Tsit45,
 }
-impl crate::boundary_projection::ProjectionType for DiffsolMethod {
+impl pse_contract::boundary_projection::ProjectionType for DiffsolMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -7860,12 +7874,12 @@ impl crate::boundary_projection::ProjectionType for DiffsolMethod {
                 "DiffsolMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -7876,12 +7890,12 @@ impl crate::boundary_projection::ProjectionType for DiffsolMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DiffsolMethod {
+impl pse_contract::boundary_projection::ValidateProjection for DiffsolMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8001,12 +8015,12 @@ pub enum DualQualification {
     #[strum(serialize = "sensitivity_certified")]
     SensitivityCertified,
 }
-impl crate::boundary_projection::ProjectionType for DualQualification {
+impl pse_contract::boundary_projection::ProjectionType for DualQualification {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8015,12 +8029,12 @@ impl crate::boundary_projection::ProjectionType for DualQualification {
                 "DualQualification",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8031,12 +8045,12 @@ impl crate::boundary_projection::ProjectionType for DualQualification {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DualQualification {
+impl pse_contract::boundary_projection::ValidateProjection for DualQualification {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8152,12 +8166,12 @@ pub enum DynamicSensitivity {
     #[strum(serialize = "adjoint")]
     Adjoint,
 }
-impl crate::boundary_projection::ProjectionType for DynamicSensitivity {
+impl pse_contract::boundary_projection::ProjectionType for DynamicSensitivity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8166,12 +8180,12 @@ impl crate::boundary_projection::ProjectionType for DynamicSensitivity {
                 "DynamicSensitivity",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8182,12 +8196,12 @@ impl crate::boundary_projection::ProjectionType for DynamicSensitivity {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DynamicSensitivity {
+impl pse_contract::boundary_projection::ValidateProjection for DynamicSensitivity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8299,12 +8313,12 @@ pub enum DynamicsMethod {
     #[strum(serialize = "idas")]
     Idas,
 }
-impl crate::boundary_projection::ProjectionType for DynamicsMethod {
+impl pse_contract::boundary_projection::ProjectionType for DynamicsMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8313,12 +8327,12 @@ impl crate::boundary_projection::ProjectionType for DynamicsMethod {
                 "DynamicsMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8329,12 +8343,12 @@ impl crate::boundary_projection::ProjectionType for DynamicsMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for DynamicsMethod {
+impl pse_contract::boundary_projection::ValidateProjection for DynamicsMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8440,12 +8454,12 @@ pub enum EndpointPolicy {
     #[strum(serialize = "declared_terminal_event")]
     DeclaredTerminalEvent,
 }
-impl crate::boundary_projection::ProjectionType for EndpointPolicy {
+impl pse_contract::boundary_projection::ProjectionType for EndpointPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8454,12 +8468,12 @@ impl crate::boundary_projection::ProjectionType for EndpointPolicy {
                 "EndpointPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8470,12 +8484,12 @@ impl crate::boundary_projection::ProjectionType for EndpointPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EndpointPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for EndpointPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8583,12 +8597,12 @@ pub enum EngineeringScaleKind {
     #[strum(serialize = "reference_difference")]
     ReferenceDifference,
 }
-impl crate::boundary_projection::ProjectionType for EngineeringScaleKind {
+impl pse_contract::boundary_projection::ProjectionType for EngineeringScaleKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8597,12 +8611,12 @@ impl crate::boundary_projection::ProjectionType for EngineeringScaleKind {
                 "EngineeringScaleKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8613,12 +8627,12 @@ impl crate::boundary_projection::ProjectionType for EngineeringScaleKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EngineeringScaleKind {
+impl pse_contract::boundary_projection::ValidateProjection for EngineeringScaleKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8743,12 +8757,12 @@ pub enum EntityKind {
     #[strum(serialize = "dataset")]
     Dataset,
 }
-impl crate::boundary_projection::ProjectionType for EntityKind {
+impl pse_contract::boundary_projection::ProjectionType for EntityKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8757,12 +8771,12 @@ impl crate::boundary_projection::ProjectionType for EntityKind {
                 "EntityKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8773,12 +8787,12 @@ impl crate::boundary_projection::ProjectionType for EntityKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EntityKind {
+impl pse_contract::boundary_projection::ValidateProjection for EntityKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -8895,12 +8909,12 @@ pub enum EventDirection {
     #[strum(serialize = "falling")]
     Falling,
 }
-impl crate::boundary_projection::ProjectionType for EventDirection {
+impl pse_contract::boundary_projection::ProjectionType for EventDirection {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -8909,12 +8923,12 @@ impl crate::boundary_projection::ProjectionType for EventDirection {
                 "EventDirection",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -8925,12 +8939,12 @@ impl crate::boundary_projection::ProjectionType for EventDirection {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EventDirection {
+impl pse_contract::boundary_projection::ValidateProjection for EventDirection {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -9056,12 +9070,12 @@ pub enum EvidenceUnavailableReason {
     #[strum(serialize = "nonfinite")]
     Nonfinite,
 }
-impl crate::boundary_projection::ProjectionType for EvidenceUnavailableReason {
+impl pse_contract::boundary_projection::ProjectionType for EvidenceUnavailableReason {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -9070,12 +9084,12 @@ impl crate::boundary_projection::ProjectionType for EvidenceUnavailableReason {
                 "EvidenceUnavailableReason",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -9086,12 +9100,13 @@ impl crate::boundary_projection::ProjectionType for EvidenceUnavailableReason {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for EvidenceUnavailableReason {
+impl pse_contract::boundary_projection::ValidateProjection
+for EvidenceUnavailableReason {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -9237,12 +9252,12 @@ pub enum ExternalDerivativeSource {
     #[strum(serialize = "implicit")]
     Implicit,
 }
-impl crate::boundary_projection::ProjectionType for ExternalDerivativeSource {
+impl pse_contract::boundary_projection::ProjectionType for ExternalDerivativeSource {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -9251,12 +9266,12 @@ impl crate::boundary_projection::ProjectionType for ExternalDerivativeSource {
                 "ExternalDerivativeSource",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -9267,12 +9282,12 @@ impl crate::boundary_projection::ProjectionType for ExternalDerivativeSource {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ExternalDerivativeSource {
+impl pse_contract::boundary_projection::ValidateProjection for ExternalDerivativeSource {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -9422,12 +9437,12 @@ pub enum FeralOrdering {
     #[strum(serialize = "auto_race")]
     AutoRace,
 }
-impl crate::boundary_projection::ProjectionType for FeralOrdering {
+impl pse_contract::boundary_projection::ProjectionType for FeralOrdering {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -9436,12 +9451,12 @@ impl crate::boundary_projection::ProjectionType for FeralOrdering {
                 "FeralOrdering",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -9452,12 +9467,12 @@ impl crate::boundary_projection::ProjectionType for FeralOrdering {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for FeralOrdering {
+impl pse_contract::boundary_projection::ValidateProjection for FeralOrdering {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -9580,12 +9595,12 @@ pub enum FeralScaling {
     #[strum(serialize = "auto")]
     Auto,
 }
-impl crate::boundary_projection::ProjectionType for FeralScaling {
+impl pse_contract::boundary_projection::ProjectionType for FeralScaling {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -9594,12 +9609,12 @@ impl crate::boundary_projection::ProjectionType for FeralScaling {
                 "FeralScaling",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -9610,12 +9625,12 @@ impl crate::boundary_projection::ProjectionType for FeralScaling {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for FeralScaling {
+impl pse_contract::boundary_projection::ValidateProjection for FeralScaling {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -9724,12 +9739,12 @@ pub enum FindingSeverity {
     #[strum(serialize = "warning")]
     Warning,
 }
-impl crate::boundary_projection::ProjectionType for FindingSeverity {
+impl pse_contract::boundary_projection::ProjectionType for FindingSeverity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -9738,12 +9753,12 @@ impl crate::boundary_projection::ProjectionType for FindingSeverity {
                 "FindingSeverity",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -9754,12 +9769,12 @@ impl crate::boundary_projection::ProjectionType for FindingSeverity {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for FindingSeverity {
+impl pse_contract::boundary_projection::ValidateProjection for FindingSeverity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -9861,12 +9876,12 @@ pub enum FitDerivatives {
     #[strum(serialize = "gradient")]
     Gradient,
 }
-impl crate::boundary_projection::ProjectionType for FitDerivatives {
+impl pse_contract::boundary_projection::ProjectionType for FitDerivatives {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -9875,12 +9890,12 @@ impl crate::boundary_projection::ProjectionType for FitDerivatives {
                 "FitDerivatives",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -9891,12 +9906,12 @@ impl crate::boundary_projection::ProjectionType for FitDerivatives {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for FitDerivatives {
+impl pse_contract::boundary_projection::ValidateProjection for FitDerivatives {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10014,12 +10029,12 @@ pub enum HessianMode {
     #[strum(serialize = "gauss_newton")]
     GaussNewton,
 }
-impl crate::boundary_projection::ProjectionType for HessianMode {
+impl pse_contract::boundary_projection::ProjectionType for HessianMode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10028,12 +10043,12 @@ impl crate::boundary_projection::ProjectionType for HessianMode {
                 "HessianMode",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10044,12 +10059,12 @@ impl crate::boundary_projection::ProjectionType for HessianMode {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for HessianMode {
+impl pse_contract::boundary_projection::ValidateProjection for HessianMode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10170,12 +10185,12 @@ pub enum HighsMethod {
     #[strum(serialize = "pdlp")]
     Pdlp,
 }
-impl crate::boundary_projection::ProjectionType for HighsMethod {
+impl pse_contract::boundary_projection::ProjectionType for HighsMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10184,12 +10199,12 @@ impl crate::boundary_projection::ProjectionType for HighsMethod {
                 "HighsMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10200,12 +10215,12 @@ impl crate::boundary_projection::ProjectionType for HighsMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for HighsMethod {
+impl pse_contract::boundary_projection::ValidateProjection for HighsMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10313,12 +10328,12 @@ pub enum IdPolicy {
     #[strum(serialize = "named")]
     Named,
 }
-impl crate::boundary_projection::ProjectionType for IdPolicy {
+impl pse_contract::boundary_projection::ProjectionType for IdPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10327,12 +10342,12 @@ impl crate::boundary_projection::ProjectionType for IdPolicy {
                 "IdPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10343,12 +10358,12 @@ impl crate::boundary_projection::ProjectionType for IdPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IdPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for IdPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10450,12 +10465,12 @@ pub enum IdasInitialization {
     #[strum(serialize = "steady_states")]
     SteadyStates,
 }
-impl crate::boundary_projection::ProjectionType for IdasInitialization {
+impl pse_contract::boundary_projection::ProjectionType for IdasInitialization {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10464,12 +10479,12 @@ impl crate::boundary_projection::ProjectionType for IdasInitialization {
                 "IdasInitialization",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10480,12 +10495,12 @@ impl crate::boundary_projection::ProjectionType for IdasInitialization {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IdasInitialization {
+impl pse_contract::boundary_projection::ValidateProjection for IdasInitialization {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10595,12 +10610,12 @@ pub enum IncumbentPolicy {
     #[strum(serialize = "accept_within_gap")]
     AcceptWithinGap,
 }
-impl crate::boundary_projection::ProjectionType for IncumbentPolicy {
+impl pse_contract::boundary_projection::ProjectionType for IncumbentPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10609,12 +10624,12 @@ impl crate::boundary_projection::ProjectionType for IncumbentPolicy {
                 "IncumbentPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10625,12 +10640,12 @@ impl crate::boundary_projection::ProjectionType for IncumbentPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IncumbentPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for IncumbentPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10737,12 +10752,12 @@ pub enum InputConsumptionKind {
     #[strum(serialize = "columns")]
     Columns,
 }
-impl crate::boundary_projection::ProjectionType for InputConsumptionKind {
+impl pse_contract::boundary_projection::ProjectionType for InputConsumptionKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10751,12 +10766,12 @@ impl crate::boundary_projection::ProjectionType for InputConsumptionKind {
                 "InputConsumptionKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10767,12 +10782,12 @@ impl crate::boundary_projection::ProjectionType for InputConsumptionKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for InputConsumptionKind {
+impl pse_contract::boundary_projection::ValidateProjection for InputConsumptionKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -10876,12 +10891,12 @@ pub enum IntervalEnd {
     #[strum(serialize = "upper")]
     Upper,
 }
-impl crate::boundary_projection::ProjectionType for IntervalEnd {
+impl pse_contract::boundary_projection::ProjectionType for IntervalEnd {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -10890,12 +10905,12 @@ impl crate::boundary_projection::ProjectionType for IntervalEnd {
                 "IntervalEnd",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -10906,12 +10921,12 @@ impl crate::boundary_projection::ProjectionType for IntervalEnd {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IntervalEnd {
+impl pse_contract::boundary_projection::ValidateProjection for IntervalEnd {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11013,12 +11028,12 @@ pub enum IntervalMethod {
     #[strum(serialize = "profile_likelihood")]
     ProfileLikelihood,
 }
-impl crate::boundary_projection::ProjectionType for IntervalMethod {
+impl pse_contract::boundary_projection::ProjectionType for IntervalMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11027,12 +11042,12 @@ impl crate::boundary_projection::ProjectionType for IntervalMethod {
                 "IntervalMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11043,12 +11058,12 @@ impl crate::boundary_projection::ProjectionType for IntervalMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IntervalMethod {
+impl pse_contract::boundary_projection::ValidateProjection for IntervalMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11156,12 +11171,12 @@ pub enum IntervalOutcome {
     #[strum(serialize = "stopped")]
     Stopped,
 }
-impl crate::boundary_projection::ProjectionType for IntervalOutcome {
+impl pse_contract::boundary_projection::ProjectionType for IntervalOutcome {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11170,12 +11185,12 @@ impl crate::boundary_projection::ProjectionType for IntervalOutcome {
                 "IntervalOutcome",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11186,12 +11201,12 @@ impl crate::boundary_projection::ProjectionType for IntervalOutcome {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IntervalOutcome {
+impl pse_contract::boundary_projection::ValidateProjection for IntervalOutcome {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11318,12 +11333,12 @@ pub enum IpoptLinearSolver {
     #[strum(serialize = "pardisomkl")]
     Pardisomkl,
 }
-impl crate::boundary_projection::ProjectionType for IpoptLinearSolver {
+impl pse_contract::boundary_projection::ProjectionType for IpoptLinearSolver {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11332,12 +11347,12 @@ impl crate::boundary_projection::ProjectionType for IpoptLinearSolver {
                 "IpoptLinearSolver",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11348,12 +11363,12 @@ impl crate::boundary_projection::ProjectionType for IpoptLinearSolver {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for IpoptLinearSolver {
+impl pse_contract::boundary_projection::ValidateProjection for IpoptLinearSolver {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11467,12 +11482,12 @@ pub enum KinsolOrthogonalization {
     #[strum(serialize = "delayed_classical_gram_schmidt2")]
     DelayedClassicalGramSchmidt2,
 }
-impl crate::boundary_projection::ProjectionType for KinsolOrthogonalization {
+impl pse_contract::boundary_projection::ProjectionType for KinsolOrthogonalization {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11481,12 +11496,12 @@ impl crate::boundary_projection::ProjectionType for KinsolOrthogonalization {
                 "KinsolOrthogonalization",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11497,12 +11512,12 @@ impl crate::boundary_projection::ProjectionType for KinsolOrthogonalization {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for KinsolOrthogonalization {
+impl pse_contract::boundary_projection::ValidateProjection for KinsolOrthogonalization {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11621,12 +11636,12 @@ pub enum KinsolStrategy {
     #[strum(serialize = "fixed_point")]
     FixedPoint,
 }
-impl crate::boundary_projection::ProjectionType for KinsolStrategy {
+impl pse_contract::boundary_projection::ProjectionType for KinsolStrategy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11635,12 +11650,12 @@ impl crate::boundary_projection::ProjectionType for KinsolStrategy {
                 "KinsolStrategy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11651,12 +11666,12 @@ impl crate::boundary_projection::ProjectionType for KinsolStrategy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for KinsolStrategy {
+impl pse_contract::boundary_projection::ValidateProjection for KinsolStrategy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11785,12 +11800,12 @@ pub enum LiveSimulationEventKind {
     #[strum(serialize = "joined")]
     Joined,
 }
-impl crate::boundary_projection::ProjectionType for LiveSimulationEventKind {
+impl pse_contract::boundary_projection::ProjectionType for LiveSimulationEventKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11799,12 +11814,12 @@ impl crate::boundary_projection::ProjectionType for LiveSimulationEventKind {
                 "LiveSimulationEventKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11815,12 +11830,12 @@ impl crate::boundary_projection::ProjectionType for LiveSimulationEventKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for LiveSimulationEventKind {
+impl pse_contract::boundary_projection::ValidateProjection for LiveSimulationEventKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -11953,12 +11968,12 @@ pub enum MigrationOp {
     #[strum(serialize = "map_reference_key")]
     MapReferenceKey,
 }
-impl crate::boundary_projection::ProjectionType for MigrationOp {
+impl pse_contract::boundary_projection::ProjectionType for MigrationOp {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -11967,12 +11982,12 @@ impl crate::boundary_projection::ProjectionType for MigrationOp {
                 "MigrationOp",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -11983,12 +11998,12 @@ impl crate::boundary_projection::ProjectionType for MigrationOp {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for MigrationOp {
+impl pse_contract::boundary_projection::ValidateProjection for MigrationOp {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -12105,12 +12120,12 @@ pub enum ModelingAccumulatorMode {
     #[strum(serialize = "observation")]
     Observation,
 }
-impl crate::boundary_projection::ProjectionType for ModelingAccumulatorMode {
+impl pse_contract::boundary_projection::ProjectionType for ModelingAccumulatorMode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -12119,12 +12134,12 @@ impl crate::boundary_projection::ProjectionType for ModelingAccumulatorMode {
                 "ModelingAccumulatorMode",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -12135,12 +12150,12 @@ impl crate::boundary_projection::ProjectionType for ModelingAccumulatorMode {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingAccumulatorMode {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingAccumulatorMode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -12252,12 +12267,12 @@ pub enum ModelingAnalysisRoute {
     #[strum(serialize = "simultaneous")]
     Simultaneous,
 }
-impl crate::boundary_projection::ProjectionType for ModelingAnalysisRoute {
+impl pse_contract::boundary_projection::ProjectionType for ModelingAnalysisRoute {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -12266,12 +12281,12 @@ impl crate::boundary_projection::ProjectionType for ModelingAnalysisRoute {
                 "ModelingAnalysisRoute",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -12282,12 +12297,12 @@ impl crate::boundary_projection::ProjectionType for ModelingAnalysisRoute {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingAnalysisRoute {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingAnalysisRoute {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -12447,12 +12462,12 @@ pub enum ModelingAnnotationKind {
     #[strum(serialize = "engineering_rule")]
     EngineeringRule,
 }
-impl crate::boundary_projection::ProjectionType for ModelingAnnotationKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingAnnotationKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -12461,12 +12476,12 @@ impl crate::boundary_projection::ProjectionType for ModelingAnnotationKind {
                 "ModelingAnnotationKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -12477,12 +12492,12 @@ impl crate::boundary_projection::ProjectionType for ModelingAnnotationKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingAnnotationKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingAnnotationKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -12625,12 +12640,12 @@ pub enum ModelingApplicabilityBasis {
     #[strum(serialize = "reported")]
     Reported,
 }
-impl crate::boundary_projection::ProjectionType for ModelingApplicabilityBasis {
+impl pse_contract::boundary_projection::ProjectionType for ModelingApplicabilityBasis {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -12639,12 +12654,12 @@ impl crate::boundary_projection::ProjectionType for ModelingApplicabilityBasis {
                 "ModelingApplicabilityBasis",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -12655,12 +12670,13 @@ impl crate::boundary_projection::ProjectionType for ModelingApplicabilityBasis {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingApplicabilityBasis {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingApplicabilityBasis {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -12783,12 +12799,12 @@ pub enum ModelingApplicabilityKind {
     #[strum(serialize = "union")]
     Union,
 }
-impl crate::boundary_projection::ProjectionType for ModelingApplicabilityKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingApplicabilityKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -12797,12 +12813,12 @@ impl crate::boundary_projection::ProjectionType for ModelingApplicabilityKind {
                 "ModelingApplicabilityKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -12813,12 +12829,13 @@ impl crate::boundary_projection::ProjectionType for ModelingApplicabilityKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingApplicabilityKind {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingApplicabilityKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -12935,12 +12952,12 @@ pub enum ModelingApplicabilityOutcome {
     #[strum(serialize = "unknown_evidence")]
     UnknownEvidence,
 }
-impl crate::boundary_projection::ProjectionType for ModelingApplicabilityOutcome {
+impl pse_contract::boundary_projection::ProjectionType for ModelingApplicabilityOutcome {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -12949,12 +12966,12 @@ impl crate::boundary_projection::ProjectionType for ModelingApplicabilityOutcome
                 "ModelingApplicabilityOutcome",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -12965,12 +12982,13 @@ impl crate::boundary_projection::ProjectionType for ModelingApplicabilityOutcome
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingApplicabilityOutcome {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingApplicabilityOutcome {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -13107,12 +13125,12 @@ pub enum ModelingCellKind {
     #[strum(serialize = "missing")]
     Missing,
 }
-impl crate::boundary_projection::ProjectionType for ModelingCellKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCellKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -13121,12 +13139,12 @@ impl crate::boundary_projection::ProjectionType for ModelingCellKind {
                 "ModelingCellKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -13137,12 +13155,12 @@ impl crate::boundary_projection::ProjectionType for ModelingCellKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCellKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCellKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -13261,12 +13279,12 @@ pub enum ModelingCheckBasis {
     #[strum(serialize = "global_bound")]
     GlobalBound,
 }
-impl crate::boundary_projection::ProjectionType for ModelingCheckBasis {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCheckBasis {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -13275,12 +13293,12 @@ impl crate::boundary_projection::ProjectionType for ModelingCheckBasis {
                 "ModelingCheckBasis",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -13291,12 +13309,12 @@ impl crate::boundary_projection::ProjectionType for ModelingCheckBasis {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCheckBasis {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCheckBasis {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -13416,12 +13434,12 @@ pub enum ModelingCheckKind {
     #[strum(serialize = "applicability")]
     Applicability,
 }
-impl crate::boundary_projection::ProjectionType for ModelingCheckKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingCheckKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -13430,12 +13448,12 @@ impl crate::boundary_projection::ProjectionType for ModelingCheckKind {
                 "ModelingCheckKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -13446,12 +13464,12 @@ impl crate::boundary_projection::ProjectionType for ModelingCheckKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingCheckKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingCheckKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -13592,12 +13610,12 @@ pub enum ModelingConformanceKind {
     #[strum(serialize = "check")]
     Check,
 }
-impl crate::boundary_projection::ProjectionType for ModelingConformanceKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingConformanceKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -13606,12 +13624,12 @@ impl crate::boundary_projection::ProjectionType for ModelingConformanceKind {
                 "ModelingConformanceKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -13622,12 +13640,12 @@ impl crate::boundary_projection::ProjectionType for ModelingConformanceKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingConformanceKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingConformanceKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -13765,12 +13783,12 @@ pub enum ModelingConformanceStatus {
     #[strum(serialize = "unattempted")]
     Unattempted,
 }
-impl crate::boundary_projection::ProjectionType for ModelingConformanceStatus {
+impl pse_contract::boundary_projection::ProjectionType for ModelingConformanceStatus {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -13779,12 +13797,12 @@ impl crate::boundary_projection::ProjectionType for ModelingConformanceStatus {
                 "ModelingConformanceStatus",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -13795,12 +13813,13 @@ impl crate::boundary_projection::ProjectionType for ModelingConformanceStatus {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingConformanceStatus {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingConformanceStatus {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -13939,12 +13958,12 @@ pub enum ModelingContributionRole {
     #[strum(serialize = "directed")]
     Directed,
 }
-impl crate::boundary_projection::ProjectionType for ModelingContributionRole {
+impl pse_contract::boundary_projection::ProjectionType for ModelingContributionRole {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -13953,12 +13972,12 @@ impl crate::boundary_projection::ProjectionType for ModelingContributionRole {
                 "ModelingContributionRole",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -13969,12 +13988,12 @@ impl crate::boundary_projection::ProjectionType for ModelingContributionRole {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingContributionRole {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingContributionRole {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -14101,12 +14120,12 @@ pub enum ModelingDataFacet {
     #[strum(serialize = "requires_fit")]
     RequiresFit,
 }
-impl crate::boundary_projection::ProjectionType for ModelingDataFacet {
+impl pse_contract::boundary_projection::ProjectionType for ModelingDataFacet {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -14115,12 +14134,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDataFacet {
                 "ModelingDataFacet",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -14131,12 +14150,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDataFacet {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingDataFacet {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingDataFacet {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -14501,12 +14520,12 @@ pub enum ModelingDeclarationKind {
     #[strum(serialize = "identifier_scheme")]
     IdentifierScheme,
 }
-impl crate::boundary_projection::ProjectionType for ModelingDeclarationKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingDeclarationKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -14515,12 +14534,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDeclarationKind {
                 "ModelingDeclarationKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -14531,12 +14550,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDeclarationKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingDeclarationKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingDeclarationKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -14794,12 +14813,12 @@ pub enum ModelingDiagnosticSampleStop {
     #[strum(serialize = "cancelled")]
     Cancelled,
 }
-impl crate::boundary_projection::ProjectionType for ModelingDiagnosticSampleStop {
+impl pse_contract::boundary_projection::ProjectionType for ModelingDiagnosticSampleStop {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -14808,12 +14827,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDiagnosticSampleStop
                 "ModelingDiagnosticSampleStop",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -14824,12 +14843,13 @@ impl crate::boundary_projection::ProjectionType for ModelingDiagnosticSampleStop
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingDiagnosticSampleStop {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingDiagnosticSampleStop {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -14942,12 +14962,12 @@ pub enum ModelingDiagonalPolicy {
     #[strum(serialize = "excluded")]
     Excluded,
 }
-impl crate::boundary_projection::ProjectionType for ModelingDiagonalPolicy {
+impl pse_contract::boundary_projection::ProjectionType for ModelingDiagonalPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -14956,12 +14976,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDiagonalPolicy {
                 "ModelingDiagonalPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -14972,12 +14992,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDiagonalPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingDiagonalPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingDiagonalPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15085,12 +15105,13 @@ pub enum ModelingDiscreteInitialization {
     #[strum(serialize = "fix_at")]
     FixAt,
 }
-impl crate::boundary_projection::ProjectionType for ModelingDiscreteInitialization {
+impl pse_contract::boundary_projection::ProjectionType
+for ModelingDiscreteInitialization {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15099,12 +15120,12 @@ impl crate::boundary_projection::ProjectionType for ModelingDiscreteInitializati
                 "ModelingDiscreteInitialization",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -15115,12 +15136,13 @@ impl crate::boundary_projection::ProjectionType for ModelingDiscreteInitializati
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingDiscreteInitialization {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingDiscreteInitialization {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15232,12 +15254,12 @@ pub enum ModelingElasticObservation {
     #[strum(serialize = "inconclusive")]
     Inconclusive,
 }
-impl crate::boundary_projection::ProjectionType for ModelingElasticObservation {
+impl pse_contract::boundary_projection::ProjectionType for ModelingElasticObservation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15246,12 +15268,12 @@ impl crate::boundary_projection::ProjectionType for ModelingElasticObservation {
                 "ModelingElasticObservation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -15262,12 +15284,13 @@ impl crate::boundary_projection::ProjectionType for ModelingElasticObservation {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingElasticObservation {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingElasticObservation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15376,12 +15399,12 @@ pub enum ModelingEnvelopeExtent {
     #[strum(serialize = "interval")]
     Interval,
 }
-impl crate::boundary_projection::ProjectionType for ModelingEnvelopeExtent {
+impl pse_contract::boundary_projection::ProjectionType for ModelingEnvelopeExtent {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15390,12 +15413,12 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeExtent {
                 "ModelingEnvelopeExtent",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -15406,12 +15429,12 @@ impl crate::boundary_projection::ProjectionType for ModelingEnvelopeExtent {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingEnvelopeExtent {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingEnvelopeExtent {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15519,12 +15542,12 @@ pub enum ModelingFactNamespace {
     #[strum(serialize = "stage")]
     Stage,
 }
-impl crate::boundary_projection::ProjectionType for ModelingFactNamespace {
+impl pse_contract::boundary_projection::ProjectionType for ModelingFactNamespace {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15533,12 +15556,12 @@ impl crate::boundary_projection::ProjectionType for ModelingFactNamespace {
                 "ModelingFactNamespace",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -15549,12 +15572,12 @@ impl crate::boundary_projection::ProjectionType for ModelingFactNamespace {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingFactNamespace {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingFactNamespace {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15674,12 +15697,12 @@ pub enum ModelingFixtureBinding {
     #[strum(serialize = "upper")]
     Upper,
 }
-impl crate::boundary_projection::ProjectionType for ModelingFixtureBinding {
+impl pse_contract::boundary_projection::ProjectionType for ModelingFixtureBinding {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15688,12 +15711,12 @@ impl crate::boundary_projection::ProjectionType for ModelingFixtureBinding {
                 "ModelingFixtureBinding",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -15704,12 +15727,12 @@ impl crate::boundary_projection::ProjectionType for ModelingFixtureBinding {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingFixtureBinding {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingFixtureBinding {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15825,12 +15848,12 @@ pub enum ModelingInitializationStep {
     #[strum(serialize = "original")]
     Original,
 }
-impl crate::boundary_projection::ProjectionType for ModelingInitializationStep {
+impl pse_contract::boundary_projection::ProjectionType for ModelingInitializationStep {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15839,12 +15862,12 @@ impl crate::boundary_projection::ProjectionType for ModelingInitializationStep {
                 "ModelingInitializationStep",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -15855,12 +15878,13 @@ impl crate::boundary_projection::ProjectionType for ModelingInitializationStep {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingInitializationStep {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingInitializationStep {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -15984,12 +16008,12 @@ pub enum ModelingKeyCellKind {
     #[strum(serialize = "reference")]
     Reference,
 }
-impl crate::boundary_projection::ProjectionType for ModelingKeyCellKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingKeyCellKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -15998,12 +16022,12 @@ impl crate::boundary_projection::ProjectionType for ModelingKeyCellKind {
                 "ModelingKeyCellKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16014,12 +16038,12 @@ impl crate::boundary_projection::ProjectionType for ModelingKeyCellKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingKeyCellKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingKeyCellKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -16138,12 +16162,12 @@ pub enum ModelingKindFacet {
     #[strum(serialize = "abstract")]
     Abstract,
 }
-impl crate::boundary_projection::ProjectionType for ModelingKindFacet {
+impl pse_contract::boundary_projection::ProjectionType for ModelingKindFacet {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -16152,12 +16176,12 @@ impl crate::boundary_projection::ProjectionType for ModelingKindFacet {
                 "ModelingKindFacet",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16168,12 +16192,12 @@ impl crate::boundary_projection::ProjectionType for ModelingKindFacet {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingKindFacet {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingKindFacet {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -16335,12 +16359,12 @@ pub enum ModelingKnowledgeValueKind {
     #[strum(serialize = "reference_state")]
     ReferenceState,
 }
-impl crate::boundary_projection::ProjectionType for ModelingKnowledgeValueKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingKnowledgeValueKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -16349,12 +16373,12 @@ impl crate::boundary_projection::ProjectionType for ModelingKnowledgeValueKind {
                 "ModelingKnowledgeValueKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16365,12 +16389,13 @@ impl crate::boundary_projection::ProjectionType for ModelingKnowledgeValueKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingKnowledgeValueKind {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingKnowledgeValueKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -16510,12 +16535,12 @@ pub enum ModelingLineageKind {
     #[strum(serialize = "fit")]
     Fit,
 }
-impl crate::boundary_projection::ProjectionType for ModelingLineageKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingLineageKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -16524,12 +16549,12 @@ impl crate::boundary_projection::ProjectionType for ModelingLineageKind {
                 "ModelingLineageKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16540,12 +16565,12 @@ impl crate::boundary_projection::ProjectionType for ModelingLineageKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingLineageKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingLineageKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -16657,12 +16682,12 @@ pub enum ModelingMissingPolicy {
     #[strum(serialize = "default")]
     Default,
 }
-impl crate::boundary_projection::ProjectionType for ModelingMissingPolicy {
+impl pse_contract::boundary_projection::ProjectionType for ModelingMissingPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -16671,12 +16696,12 @@ impl crate::boundary_projection::ProjectionType for ModelingMissingPolicy {
                 "ModelingMissingPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16687,12 +16712,12 @@ impl crate::boundary_projection::ProjectionType for ModelingMissingPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingMissingPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingMissingPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -16800,12 +16825,12 @@ pub enum ModelingObjectiveRoute {
     #[strum(serialize = "staged")]
     Staged,
 }
-impl crate::boundary_projection::ProjectionType for ModelingObjectiveRoute {
+impl pse_contract::boundary_projection::ProjectionType for ModelingObjectiveRoute {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -16814,12 +16839,12 @@ impl crate::boundary_projection::ProjectionType for ModelingObjectiveRoute {
                 "ModelingObjectiveRoute",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16830,12 +16855,12 @@ impl crate::boundary_projection::ProjectionType for ModelingObjectiveRoute {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingObjectiveRoute {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingObjectiveRoute {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -16939,12 +16964,12 @@ pub enum ModelingPermissionTarget {
     #[strum(serialize = "families")]
     Families,
 }
-impl crate::boundary_projection::ProjectionType for ModelingPermissionTarget {
+impl pse_contract::boundary_projection::ProjectionType for ModelingPermissionTarget {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -16953,12 +16978,12 @@ impl crate::boundary_projection::ProjectionType for ModelingPermissionTarget {
                 "ModelingPermissionTarget",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -16969,12 +16994,12 @@ impl crate::boundary_projection::ProjectionType for ModelingPermissionTarget {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingPermissionTarget {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingPermissionTarget {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -17090,12 +17115,12 @@ pub enum ModelingProcedure {
     #[strum(serialize = "shooting")]
     Shooting,
 }
-impl crate::boundary_projection::ProjectionType for ModelingProcedure {
+impl pse_contract::boundary_projection::ProjectionType for ModelingProcedure {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -17104,12 +17129,12 @@ impl crate::boundary_projection::ProjectionType for ModelingProcedure {
                 "ModelingProcedure",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -17120,12 +17145,12 @@ impl crate::boundary_projection::ProjectionType for ModelingProcedure {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingProcedure {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingProcedure {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -17244,12 +17269,12 @@ pub enum ModelingRealValueKind {
     #[strum(serialize = "indeterminate")]
     Indeterminate,
 }
-impl crate::boundary_projection::ProjectionType for ModelingRealValueKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingRealValueKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -17258,12 +17283,12 @@ impl crate::boundary_projection::ProjectionType for ModelingRealValueKind {
                 "ModelingRealValueKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -17274,12 +17299,12 @@ impl crate::boundary_projection::ProjectionType for ModelingRealValueKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingRealValueKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingRealValueKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -17438,12 +17463,12 @@ pub enum ModelingRealizationPolicy {
     #[strum(serialize = "disjunctive")]
     Disjunctive,
 }
-impl crate::boundary_projection::ProjectionType for ModelingRealizationPolicy {
+impl pse_contract::boundary_projection::ProjectionType for ModelingRealizationPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -17452,12 +17477,12 @@ impl crate::boundary_projection::ProjectionType for ModelingRealizationPolicy {
                 "ModelingRealizationPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -17468,12 +17493,13 @@ impl crate::boundary_projection::ProjectionType for ModelingRealizationPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingRealizationPolicy {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingRealizationPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -17601,12 +17627,13 @@ pub enum ModelingStructuralRequirement {
     #[strum(serialize = "l1_exact_penalty")]
     L1ExactPenalty,
 }
-impl crate::boundary_projection::ProjectionType for ModelingStructuralRequirement {
+impl pse_contract::boundary_projection::ProjectionType
+for ModelingStructuralRequirement {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -17615,12 +17642,12 @@ impl crate::boundary_projection::ProjectionType for ModelingStructuralRequiremen
                 "ModelingStructuralRequirement",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -17631,12 +17658,13 @@ impl crate::boundary_projection::ProjectionType for ModelingStructuralRequiremen
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingStructuralRequirement {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingStructuralRequirement {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -17738,12 +17766,12 @@ pub enum ModelingTransferDirection {
     #[strum(serialize = "out_of")]
     OutOf,
 }
-impl crate::boundary_projection::ProjectionType for ModelingTransferDirection {
+impl pse_contract::boundary_projection::ProjectionType for ModelingTransferDirection {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -17752,12 +17780,12 @@ impl crate::boundary_projection::ProjectionType for ModelingTransferDirection {
                 "ModelingTransferDirection",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -17768,12 +17796,13 @@ impl crate::boundary_projection::ProjectionType for ModelingTransferDirection {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingTransferDirection {
+impl pse_contract::boundary_projection::ValidateProjection
+for ModelingTransferDirection {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -17965,12 +17994,12 @@ pub enum ModelingTypeNode {
     #[strum(serialize = "transfer")]
     Transfer,
 }
-impl crate::boundary_projection::ProjectionType for ModelingTypeNode {
+impl pse_contract::boundary_projection::ProjectionType for ModelingTypeNode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -17979,12 +18008,12 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeNode {
                 "ModelingTypeNode",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -17995,12 +18024,12 @@ impl crate::boundary_projection::ProjectionType for ModelingTypeNode {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingTypeNode {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingTypeNode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -18156,12 +18185,12 @@ pub enum ModelingUncertaintyKind {
     #[strum(serialize = "bound")]
     Bound,
 }
-impl crate::boundary_projection::ProjectionType for ModelingUncertaintyKind {
+impl pse_contract::boundary_projection::ProjectionType for ModelingUncertaintyKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -18170,12 +18199,12 @@ impl crate::boundary_projection::ProjectionType for ModelingUncertaintyKind {
                 "ModelingUncertaintyKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -18186,12 +18215,12 @@ impl crate::boundary_projection::ProjectionType for ModelingUncertaintyKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingUncertaintyKind {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingUncertaintyKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -18303,12 +18332,12 @@ pub enum ModelingValidityLayer {
     #[strum(serialize = "closure")]
     Closure,
 }
-impl crate::boundary_projection::ProjectionType for ModelingValidityLayer {
+impl pse_contract::boundary_projection::ProjectionType for ModelingValidityLayer {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -18317,12 +18346,12 @@ impl crate::boundary_projection::ProjectionType for ModelingValidityLayer {
                 "ModelingValidityLayer",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -18333,12 +18362,12 @@ impl crate::boundary_projection::ProjectionType for ModelingValidityLayer {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingValidityLayer {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingValidityLayer {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -18458,12 +18487,12 @@ pub enum ModelingVariableDomain {
     #[strum(serialize = "semiinteger")]
     Semiinteger,
 }
-impl crate::boundary_projection::ProjectionType for ModelingVariableDomain {
+impl pse_contract::boundary_projection::ProjectionType for ModelingVariableDomain {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -18472,12 +18501,12 @@ impl crate::boundary_projection::ProjectionType for ModelingVariableDomain {
                 "ModelingVariableDomain",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -18488,12 +18517,12 @@ impl crate::boundary_projection::ProjectionType for ModelingVariableDomain {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingVariableDomain {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingVariableDomain {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -18602,12 +18631,12 @@ pub enum ModelingVersionOperator {
     #[strum(serialize = "exact")]
     Exact,
 }
-impl crate::boundary_projection::ProjectionType for ModelingVersionOperator {
+impl pse_contract::boundary_projection::ProjectionType for ModelingVersionOperator {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -18616,12 +18645,12 @@ impl crate::boundary_projection::ProjectionType for ModelingVersionOperator {
                 "ModelingVersionOperator",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -18632,12 +18661,12 @@ impl crate::boundary_projection::ProjectionType for ModelingVersionOperator {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ModelingVersionOperator {
+impl pse_contract::boundary_projection::ValidateProjection for ModelingVersionOperator {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -18739,12 +18768,12 @@ pub enum MuStrategy {
     #[strum(serialize = "adaptive")]
     Adaptive,
 }
-impl crate::boundary_projection::ProjectionType for MuStrategy {
+impl pse_contract::boundary_projection::ProjectionType for MuStrategy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -18753,12 +18782,12 @@ impl crate::boundary_projection::ProjectionType for MuStrategy {
                 "MuStrategy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -18769,12 +18798,12 @@ impl crate::boundary_projection::ProjectionType for MuStrategy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for MuStrategy {
+impl pse_contract::boundary_projection::ValidateProjection for MuStrategy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -18888,12 +18917,12 @@ pub enum MumpsOrdering {
     #[strum(serialize = "qamd")]
     Qamd,
 }
-impl crate::boundary_projection::ProjectionType for MumpsOrdering {
+impl pse_contract::boundary_projection::ProjectionType for MumpsOrdering {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -18902,12 +18931,12 @@ impl crate::boundary_projection::ProjectionType for MumpsOrdering {
                 "MumpsOrdering",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -18918,12 +18947,12 @@ impl crate::boundary_projection::ProjectionType for MumpsOrdering {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for MumpsOrdering {
+impl pse_contract::boundary_projection::ValidateProjection for MumpsOrdering {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -19054,12 +19083,12 @@ pub enum NativeArtifactDemand {
     #[strum(serialize = "representation")]
     Representation,
 }
-impl crate::boundary_projection::ProjectionType for NativeArtifactDemand {
+impl pse_contract::boundary_projection::ProjectionType for NativeArtifactDemand {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -19068,12 +19097,12 @@ impl crate::boundary_projection::ProjectionType for NativeArtifactDemand {
                 "NativeArtifactDemand",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -19084,12 +19113,12 @@ impl crate::boundary_projection::ProjectionType for NativeArtifactDemand {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeArtifactDemand {
+impl pse_contract::boundary_projection::ValidateProjection for NativeArtifactDemand {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -19206,12 +19235,12 @@ pub enum NativeAssessmentState {
     #[strum(serialize = "ready")]
     Ready,
 }
-impl crate::boundary_projection::ProjectionType for NativeAssessmentState {
+impl pse_contract::boundary_projection::ProjectionType for NativeAssessmentState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -19220,12 +19249,12 @@ impl crate::boundary_projection::ProjectionType for NativeAssessmentState {
                 "NativeAssessmentState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -19236,12 +19265,12 @@ impl crate::boundary_projection::ProjectionType for NativeAssessmentState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeAssessmentState {
+impl pse_contract::boundary_projection::ValidateProjection for NativeAssessmentState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -19380,12 +19409,12 @@ pub enum NativeAssurance {
     #[strum(serialize = "sos_bound_nonrigorous")]
     SosBoundNonrigorous,
 }
-impl crate::boundary_projection::ProjectionType for NativeAssurance {
+impl pse_contract::boundary_projection::ProjectionType for NativeAssurance {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -19394,12 +19423,12 @@ impl crate::boundary_projection::ProjectionType for NativeAssurance {
                 "NativeAssurance",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -19410,12 +19439,12 @@ impl crate::boundary_projection::ProjectionType for NativeAssurance {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeAssurance {
+impl pse_contract::boundary_projection::ValidateProjection for NativeAssurance {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -19571,12 +19600,12 @@ pub enum NativeBackend {
     #[strum(serialize = "petsc")]
     Petsc,
 }
-impl crate::boundary_projection::ProjectionType for NativeBackend {
+impl pse_contract::boundary_projection::ProjectionType for NativeBackend {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -19585,12 +19614,12 @@ impl crate::boundary_projection::ProjectionType for NativeBackend {
                 "NativeBackend",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -19601,12 +19630,12 @@ impl crate::boundary_projection::ProjectionType for NativeBackend {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeBackend {
+impl pse_contract::boundary_projection::ValidateProjection for NativeBackend {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -19769,12 +19798,12 @@ pub enum NativeBoundaryClass {
     #[strum(serialize = "inconclusive")]
     Inconclusive,
 }
-impl crate::boundary_projection::ProjectionType for NativeBoundaryClass {
+impl pse_contract::boundary_projection::ProjectionType for NativeBoundaryClass {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -19783,12 +19812,12 @@ impl crate::boundary_projection::ProjectionType for NativeBoundaryClass {
                 "NativeBoundaryClass",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -19799,12 +19828,12 @@ impl crate::boundary_projection::ProjectionType for NativeBoundaryClass {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeBoundaryClass {
+impl pse_contract::boundary_projection::ValidateProjection for NativeBoundaryClass {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -19941,12 +19970,12 @@ pub enum NativeCandidateKind {
     #[strum(serialize = "constant_evaluation")]
     ConstantEvaluation,
 }
-impl crate::boundary_projection::ProjectionType for NativeCandidateKind {
+impl pse_contract::boundary_projection::ProjectionType for NativeCandidateKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -19955,12 +19984,12 @@ impl crate::boundary_projection::ProjectionType for NativeCandidateKind {
                 "NativeCandidateKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -19971,12 +20000,12 @@ impl crate::boundary_projection::ProjectionType for NativeCandidateKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeCandidateKind {
+impl pse_contract::boundary_projection::ValidateProjection for NativeCandidateKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -20087,12 +20116,12 @@ pub enum NativeCertificateAccuracy {
     #[strum(serialize = "reduced")]
     Reduced,
 }
-impl crate::boundary_projection::ProjectionType for NativeCertificateAccuracy {
+impl pse_contract::boundary_projection::ProjectionType for NativeCertificateAccuracy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -20101,12 +20130,12 @@ impl crate::boundary_projection::ProjectionType for NativeCertificateAccuracy {
                 "NativeCertificateAccuracy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -20117,12 +20146,13 @@ impl crate::boundary_projection::ProjectionType for NativeCertificateAccuracy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeCertificateAccuracy {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativeCertificateAccuracy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -20226,12 +20256,12 @@ pub enum NativeCertificateKind {
     #[strum(serialize = "dual_infeasible")]
     DualInfeasible,
 }
-impl crate::boundary_projection::ProjectionType for NativeCertificateKind {
+impl pse_contract::boundary_projection::ProjectionType for NativeCertificateKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -20240,12 +20270,12 @@ impl crate::boundary_projection::ProjectionType for NativeCertificateKind {
                 "NativeCertificateKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -20256,12 +20286,12 @@ impl crate::boundary_projection::ProjectionType for NativeCertificateKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeCertificateKind {
+impl pse_contract::boundary_projection::ValidateProjection for NativeCertificateKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -20387,12 +20417,12 @@ pub enum NativeConstraintForm {
     #[strum(serialize = "cardinality")]
     Cardinality,
 }
-impl crate::boundary_projection::ProjectionType for NativeConstraintForm {
+impl pse_contract::boundary_projection::ProjectionType for NativeConstraintForm {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -20401,12 +20431,12 @@ impl crate::boundary_projection::ProjectionType for NativeConstraintForm {
                 "NativeConstraintForm",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -20417,12 +20447,12 @@ impl crate::boundary_projection::ProjectionType for NativeConstraintForm {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeConstraintForm {
+impl pse_contract::boundary_projection::ValidateProjection for NativeConstraintForm {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -20563,12 +20593,12 @@ pub enum NativeDerivativeCapability {
     #[strum(serialize = "factorable")]
     Factorable,
 }
-impl crate::boundary_projection::ProjectionType for NativeDerivativeCapability {
+impl pse_contract::boundary_projection::ProjectionType for NativeDerivativeCapability {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -20577,12 +20607,12 @@ impl crate::boundary_projection::ProjectionType for NativeDerivativeCapability {
                 "NativeDerivativeCapability",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -20593,12 +20623,13 @@ impl crate::boundary_projection::ProjectionType for NativeDerivativeCapability {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeDerivativeCapability {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativeDerivativeCapability {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -20735,12 +20766,12 @@ pub enum NativeEvidenceDemand {
     #[strum(serialize = "factorable")]
     Factorable,
 }
-impl crate::boundary_projection::ProjectionType for NativeEvidenceDemand {
+impl pse_contract::boundary_projection::ProjectionType for NativeEvidenceDemand {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -20749,12 +20780,12 @@ impl crate::boundary_projection::ProjectionType for NativeEvidenceDemand {
                 "NativeEvidenceDemand",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -20765,12 +20796,12 @@ impl crate::boundary_projection::ProjectionType for NativeEvidenceDemand {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeEvidenceDemand {
+impl pse_contract::boundary_projection::ValidateProjection for NativeEvidenceDemand {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -20933,12 +20964,12 @@ pub enum NativeIneligibility {
     #[strum(serialize = "structural")]
     Structural,
 }
-impl crate::boundary_projection::ProjectionType for NativeIneligibility {
+impl pse_contract::boundary_projection::ProjectionType for NativeIneligibility {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -20947,12 +20978,12 @@ impl crate::boundary_projection::ProjectionType for NativeIneligibility {
                 "NativeIneligibility",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -20963,12 +20994,12 @@ impl crate::boundary_projection::ProjectionType for NativeIneligibility {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeIneligibility {
+impl pse_contract::boundary_projection::ValidateProjection for NativeIneligibility {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21117,12 +21148,12 @@ pub enum NativeInfeasibilityWitness {
     #[strum(serialize = "local_solution")]
     LocalSolution,
 }
-impl crate::boundary_projection::ProjectionType for NativeInfeasibilityWitness {
+impl pse_contract::boundary_projection::ProjectionType for NativeInfeasibilityWitness {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -21131,12 +21162,12 @@ impl crate::boundary_projection::ProjectionType for NativeInfeasibilityWitness {
                 "NativeInfeasibilityWitness",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -21147,12 +21178,13 @@ impl crate::boundary_projection::ProjectionType for NativeInfeasibilityWitness {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeInfeasibilityWitness {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativeInfeasibilityWitness {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21267,12 +21299,13 @@ pub enum NativeLexicographicDegradation {
     #[strum(serialize = "single_nonzero")]
     SingleNonzero,
 }
-impl crate::boundary_projection::ProjectionType for NativeLexicographicDegradation {
+impl pse_contract::boundary_projection::ProjectionType
+for NativeLexicographicDegradation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -21281,12 +21314,12 @@ impl crate::boundary_projection::ProjectionType for NativeLexicographicDegradati
                 "NativeLexicographicDegradation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -21297,12 +21330,13 @@ impl crate::boundary_projection::ProjectionType for NativeLexicographicDegradati
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeLexicographicDegradation {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativeLexicographicDegradation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21406,12 +21440,13 @@ pub enum NativeLexicographicRealization {
     #[strum(serialize = "staged")]
     Staged,
 }
-impl crate::boundary_projection::ProjectionType for NativeLexicographicRealization {
+impl pse_contract::boundary_projection::ProjectionType
+for NativeLexicographicRealization {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -21420,12 +21455,12 @@ impl crate::boundary_projection::ProjectionType for NativeLexicographicRealizati
                 "NativeLexicographicRealization",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -21436,12 +21471,13 @@ impl crate::boundary_projection::ProjectionType for NativeLexicographicRealizati
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeLexicographicRealization {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativeLexicographicRealization {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21557,12 +21593,12 @@ pub enum NativeMetricKind {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
-impl crate::boundary_projection::ProjectionType for NativeMetricKind {
+impl pse_contract::boundary_projection::ProjectionType for NativeMetricKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -21571,12 +21607,12 @@ impl crate::boundary_projection::ProjectionType for NativeMetricKind {
                 "NativeMetricKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -21587,12 +21623,12 @@ impl crate::boundary_projection::ProjectionType for NativeMetricKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeMetricKind {
+impl pse_contract::boundary_projection::ValidateProjection for NativeMetricKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21703,12 +21739,12 @@ pub enum NativeObjectiveSense {
     #[strum(serialize = "maximize")]
     Maximize,
 }
-impl crate::boundary_projection::ProjectionType for NativeObjectiveSense {
+impl pse_contract::boundary_projection::ProjectionType for NativeObjectiveSense {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -21717,12 +21753,12 @@ impl crate::boundary_projection::ProjectionType for NativeObjectiveSense {
                 "NativeObjectiveSense",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -21733,12 +21769,12 @@ impl crate::boundary_projection::ProjectionType for NativeObjectiveSense {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeObjectiveSense {
+impl pse_contract::boundary_projection::ValidateProjection for NativeObjectiveSense {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21850,12 +21886,12 @@ pub enum NativePetscLinear {
     #[strum(serialize = "preonly")]
     Preonly,
 }
-impl crate::boundary_projection::ProjectionType for NativePetscLinear {
+impl pse_contract::boundary_projection::ProjectionType for NativePetscLinear {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -21864,12 +21900,12 @@ impl crate::boundary_projection::ProjectionType for NativePetscLinear {
                 "NativePetscLinear",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -21880,12 +21916,12 @@ impl crate::boundary_projection::ProjectionType for NativePetscLinear {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativePetscLinear {
+impl pse_contract::boundary_projection::ValidateProjection for NativePetscLinear {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -21989,12 +22025,12 @@ pub enum NativePetscMethod {
     #[strum(serialize = "newton_trust_region")]
     NewtonTrustRegion,
 }
-impl crate::boundary_projection::ProjectionType for NativePetscMethod {
+impl pse_contract::boundary_projection::ProjectionType for NativePetscMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22003,12 +22039,12 @@ impl crate::boundary_projection::ProjectionType for NativePetscMethod {
                 "NativePetscMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22019,12 +22055,12 @@ impl crate::boundary_projection::ProjectionType for NativePetscMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativePetscMethod {
+impl pse_contract::boundary_projection::ValidateProjection for NativePetscMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -22132,12 +22168,12 @@ pub enum NativePetscPreconditioner {
     #[strum(serialize = "lu")]
     Lu,
 }
-impl crate::boundary_projection::ProjectionType for NativePetscPreconditioner {
+impl pse_contract::boundary_projection::ProjectionType for NativePetscPreconditioner {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22146,12 +22182,12 @@ impl crate::boundary_projection::ProjectionType for NativePetscPreconditioner {
                 "NativePetscPreconditioner",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22162,12 +22198,13 @@ impl crate::boundary_projection::ProjectionType for NativePetscPreconditioner {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativePetscPreconditioner {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativePetscPreconditioner {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -22277,12 +22314,12 @@ pub enum NativePrimalCoordinateRole {
     #[strum(serialize = "auxiliary")]
     Auxiliary,
 }
-impl crate::boundary_projection::ProjectionType for NativePrimalCoordinateRole {
+impl pse_contract::boundary_projection::ProjectionType for NativePrimalCoordinateRole {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22291,12 +22328,12 @@ impl crate::boundary_projection::ProjectionType for NativePrimalCoordinateRole {
                 "NativePrimalCoordinateRole",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22307,12 +22344,13 @@ impl crate::boundary_projection::ProjectionType for NativePrimalCoordinateRole {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativePrimalCoordinateRole {
+impl pse_contract::boundary_projection::ValidateProjection
+for NativePrimalCoordinateRole {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -22456,12 +22494,12 @@ pub enum NativeProblemClass {
     #[strum(serialize = "mixed_integer_nonlinear")]
     MixedIntegerNonlinear,
 }
-impl crate::boundary_projection::ProjectionType for NativeProblemClass {
+impl pse_contract::boundary_projection::ProjectionType for NativeProblemClass {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22470,12 +22508,12 @@ impl crate::boundary_projection::ProjectionType for NativeProblemClass {
                 "NativeProblemClass",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22486,12 +22524,12 @@ impl crate::boundary_projection::ProjectionType for NativeProblemClass {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeProblemClass {
+impl pse_contract::boundary_projection::ValidateProjection for NativeProblemClass {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -22632,12 +22670,12 @@ pub enum NativeQualification {
     #[strum(serialize = "gap_qualified")]
     GapQualified,
 }
-impl crate::boundary_projection::ProjectionType for NativeQualification {
+impl pse_contract::boundary_projection::ProjectionType for NativeQualification {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22646,12 +22684,12 @@ impl crate::boundary_projection::ProjectionType for NativeQualification {
                 "NativeQualification",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22662,12 +22700,12 @@ impl crate::boundary_projection::ProjectionType for NativeQualification {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeQualification {
+impl pse_contract::boundary_projection::ValidateProjection for NativeQualification {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -22796,12 +22834,12 @@ pub enum NativeRayCoordinate {
     #[strum(serialize = "variable")]
     Variable,
 }
-impl crate::boundary_projection::ProjectionType for NativeRayCoordinate {
+impl pse_contract::boundary_projection::ProjectionType for NativeRayCoordinate {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22810,12 +22848,12 @@ impl crate::boundary_projection::ProjectionType for NativeRayCoordinate {
                 "NativeRayCoordinate",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22826,12 +22864,12 @@ impl crate::boundary_projection::ProjectionType for NativeRayCoordinate {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeRayCoordinate {
+impl pse_contract::boundary_projection::ValidateProjection for NativeRayCoordinate {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -22962,12 +23000,12 @@ pub enum NativeRepresentation {
     #[strum(serialize = "trajectory")]
     Trajectory,
 }
-impl crate::boundary_projection::ProjectionType for NativeRepresentation {
+impl pse_contract::boundary_projection::ProjectionType for NativeRepresentation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -22976,12 +23014,12 @@ impl crate::boundary_projection::ProjectionType for NativeRepresentation {
                 "NativeRepresentation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -22992,12 +23030,12 @@ impl crate::boundary_projection::ProjectionType for NativeRepresentation {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeRepresentation {
+impl pse_contract::boundary_projection::ValidateProjection for NativeRepresentation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -23112,12 +23150,12 @@ pub enum NativeRouteKind {
     #[strum(serialize = "native")]
     Native,
 }
-impl crate::boundary_projection::ProjectionType for NativeRouteKind {
+impl pse_contract::boundary_projection::ProjectionType for NativeRouteKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -23126,12 +23164,12 @@ impl crate::boundary_projection::ProjectionType for NativeRouteKind {
                 "NativeRouteKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -23142,12 +23180,12 @@ impl crate::boundary_projection::ProjectionType for NativeRouteKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeRouteKind {
+impl pse_contract::boundary_projection::ValidateProjection for NativeRouteKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -23265,12 +23303,12 @@ pub enum NativeRouteRefusal {
     #[strum(serialize = "structure")]
     Structure,
 }
-impl crate::boundary_projection::ProjectionType for NativeRouteRefusal {
+impl pse_contract::boundary_projection::ProjectionType for NativeRouteRefusal {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -23279,12 +23317,12 @@ impl crate::boundary_projection::ProjectionType for NativeRouteRefusal {
                 "NativeRouteRefusal",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -23295,12 +23333,12 @@ impl crate::boundary_projection::ProjectionType for NativeRouteRefusal {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeRouteRefusal {
+impl pse_contract::boundary_projection::ValidateProjection for NativeRouteRefusal {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -23415,12 +23453,12 @@ pub enum NativeRouteSelection {
     #[strum(serialize = "explicit")]
     Explicit,
 }
-impl crate::boundary_projection::ProjectionType for NativeRouteSelection {
+impl pse_contract::boundary_projection::ProjectionType for NativeRouteSelection {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -23429,12 +23467,12 @@ impl crate::boundary_projection::ProjectionType for NativeRouteSelection {
                 "NativeRouteSelection",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -23445,12 +23483,12 @@ impl crate::boundary_projection::ProjectionType for NativeRouteSelection {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeRouteSelection {
+impl pse_contract::boundary_projection::ValidateProjection for NativeRouteSelection {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -23562,12 +23600,12 @@ pub enum NativeRunState {
     #[strum(serialize = "unattempted")]
     Unattempted,
 }
-impl crate::boundary_projection::ProjectionType for NativeRunState {
+impl pse_contract::boundary_projection::ProjectionType for NativeRunState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -23576,12 +23614,12 @@ impl crate::boundary_projection::ProjectionType for NativeRunState {
                 "NativeRunState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -23592,12 +23630,12 @@ impl crate::boundary_projection::ProjectionType for NativeRunState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeRunState {
+impl pse_contract::boundary_projection::ValidateProjection for NativeRunState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -23718,12 +23756,12 @@ pub enum NativeSolveIntent {
     #[strum(serialize = "certify")]
     Certify,
 }
-impl crate::boundary_projection::ProjectionType for NativeSolveIntent {
+impl pse_contract::boundary_projection::ProjectionType for NativeSolveIntent {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -23732,12 +23770,12 @@ impl crate::boundary_projection::ProjectionType for NativeSolveIntent {
                 "NativeSolveIntent",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -23748,12 +23786,12 @@ impl crate::boundary_projection::ProjectionType for NativeSolveIntent {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeSolveIntent {
+impl pse_contract::boundary_projection::ValidateProjection for NativeSolveIntent {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -23868,12 +23906,12 @@ pub enum NativeStartPolicy {
     #[strum(serialize = "explicit")]
     Explicit,
 }
-impl crate::boundary_projection::ProjectionType for NativeStartPolicy {
+impl pse_contract::boundary_projection::ProjectionType for NativeStartPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -23882,12 +23920,12 @@ impl crate::boundary_projection::ProjectionType for NativeStartPolicy {
                 "NativeStartPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -23898,12 +23936,12 @@ impl crate::boundary_projection::ProjectionType for NativeStartPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeStartPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for NativeStartPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -24018,12 +24056,12 @@ pub enum NativeStructuralMode {
     #[strum(serialize = "point_evaluation")]
     PointEvaluation,
 }
-impl crate::boundary_projection::ProjectionType for NativeStructuralMode {
+impl pse_contract::boundary_projection::ProjectionType for NativeStructuralMode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -24032,12 +24070,12 @@ impl crate::boundary_projection::ProjectionType for NativeStructuralMode {
                 "NativeStructuralMode",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -24048,12 +24086,12 @@ impl crate::boundary_projection::ProjectionType for NativeStructuralMode {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeStructuralMode {
+impl pse_contract::boundary_projection::ValidateProjection for NativeStructuralMode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -24172,12 +24210,12 @@ pub enum NativeStructuralPolicy {
     #[strum(serialize = "factorable")]
     Factorable,
 }
-impl crate::boundary_projection::ProjectionType for NativeStructuralPolicy {
+impl pse_contract::boundary_projection::ProjectionType for NativeStructuralPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -24186,12 +24224,12 @@ impl crate::boundary_projection::ProjectionType for NativeStructuralPolicy {
                 "NativeStructuralPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -24202,12 +24240,12 @@ impl crate::boundary_projection::ProjectionType for NativeStructuralPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeStructuralPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for NativeStructuralPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -24403,12 +24441,12 @@ pub enum NativeTermination {
     #[strum(serialize = "invalid")]
     Invalid,
 }
-impl crate::boundary_projection::ProjectionType for NativeTermination {
+impl pse_contract::boundary_projection::ProjectionType for NativeTermination {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -24417,12 +24455,12 @@ impl crate::boundary_projection::ProjectionType for NativeTermination {
                 "NativeTermination",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -24433,12 +24471,12 @@ impl crate::boundary_projection::ProjectionType for NativeTermination {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeTermination {
+impl pse_contract::boundary_projection::ValidateProjection for NativeTermination {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -24580,12 +24618,12 @@ pub enum NativeUnoMethod {
     #[strum(serialize = "slp")]
     Slp,
 }
-impl crate::boundary_projection::ProjectionType for NativeUnoMethod {
+impl pse_contract::boundary_projection::ProjectionType for NativeUnoMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -24594,12 +24632,12 @@ impl crate::boundary_projection::ProjectionType for NativeUnoMethod {
                 "NativeUnoMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -24610,12 +24648,12 @@ impl crate::boundary_projection::ProjectionType for NativeUnoMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeUnoMethod {
+impl pse_contract::boundary_projection::ValidateProjection for NativeUnoMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -24729,12 +24767,12 @@ pub enum NativeWarmCapability {
     #[strum(serialize = "primal_dual_and_basis")]
     PrimalDualAndBasis,
 }
-impl crate::boundary_projection::ProjectionType for NativeWarmCapability {
+impl pse_contract::boundary_projection::ProjectionType for NativeWarmCapability {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -24743,12 +24781,12 @@ impl crate::boundary_projection::ProjectionType for NativeWarmCapability {
                 "NativeWarmCapability",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -24759,12 +24797,12 @@ impl crate::boundary_projection::ProjectionType for NativeWarmCapability {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NativeWarmCapability {
+impl pse_contract::boundary_projection::ValidateProjection for NativeWarmCapability {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -24915,12 +24953,12 @@ pub enum NumericalAccuracyClass {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
-impl crate::boundary_projection::ProjectionType for NumericalAccuracyClass {
+impl pse_contract::boundary_projection::ProjectionType for NumericalAccuracyClass {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -24929,12 +24967,12 @@ impl crate::boundary_projection::ProjectionType for NumericalAccuracyClass {
                 "NumericalAccuracyClass",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -24945,12 +24983,12 @@ impl crate::boundary_projection::ProjectionType for NumericalAccuracyClass {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalAccuracyClass {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalAccuracyClass {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -25098,12 +25136,12 @@ pub enum NumericalAttemptObservation {
     #[strum(serialize = "infeasible")]
     Infeasible,
 }
-impl crate::boundary_projection::ProjectionType for NumericalAttemptObservation {
+impl pse_contract::boundary_projection::ProjectionType for NumericalAttemptObservation {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -25112,12 +25150,12 @@ impl crate::boundary_projection::ProjectionType for NumericalAttemptObservation 
                 "NumericalAttemptObservation",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -25128,12 +25166,13 @@ impl crate::boundary_projection::ProjectionType for NumericalAttemptObservation 
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalAttemptObservation {
+impl pse_contract::boundary_projection::ValidateProjection
+for NumericalAttemptObservation {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -25262,12 +25301,12 @@ pub enum NumericalBranchPolicy {
     #[strum(serialize = "connected")]
     Connected,
 }
-impl crate::boundary_projection::ProjectionType for NumericalBranchPolicy {
+impl pse_contract::boundary_projection::ProjectionType for NumericalBranchPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -25276,12 +25315,12 @@ impl crate::boundary_projection::ProjectionType for NumericalBranchPolicy {
                 "NumericalBranchPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -25292,12 +25331,12 @@ impl crate::boundary_projection::ProjectionType for NumericalBranchPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalBranchPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalBranchPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -25403,12 +25442,12 @@ pub enum NumericalCompositionPolicy {
     #[strum(serialize = "declared")]
     Declared,
 }
-impl crate::boundary_projection::ProjectionType for NumericalCompositionPolicy {
+impl pse_contract::boundary_projection::ProjectionType for NumericalCompositionPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -25417,12 +25456,12 @@ impl crate::boundary_projection::ProjectionType for NumericalCompositionPolicy {
                 "NumericalCompositionPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -25433,12 +25472,13 @@ impl crate::boundary_projection::ProjectionType for NumericalCompositionPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalCompositionPolicy {
+impl pse_contract::boundary_projection::ValidateProjection
+for NumericalCompositionPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -25542,12 +25582,12 @@ pub enum NumericalCoordinates {
     #[strum(serialize = "normalized")]
     Normalized,
 }
-impl crate::boundary_projection::ProjectionType for NumericalCoordinates {
+impl pse_contract::boundary_projection::ProjectionType for NumericalCoordinates {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -25556,12 +25596,12 @@ impl crate::boundary_projection::ProjectionType for NumericalCoordinates {
                 "NumericalCoordinates",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -25572,12 +25612,12 @@ impl crate::boundary_projection::ProjectionType for NumericalCoordinates {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalCoordinates {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalCoordinates {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -25695,12 +25735,12 @@ pub enum NumericalEventKind {
     #[strum(serialize = "abandoned")]
     Abandoned,
 }
-impl crate::boundary_projection::ProjectionType for NumericalEventKind {
+impl pse_contract::boundary_projection::ProjectionType for NumericalEventKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -25709,12 +25749,12 @@ impl crate::boundary_projection::ProjectionType for NumericalEventKind {
                 "NumericalEventKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -25725,12 +25765,12 @@ impl crate::boundary_projection::ProjectionType for NumericalEventKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalEventKind {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalEventKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -25935,12 +25975,12 @@ pub enum NumericalMechanism {
     #[strum(serialize = "least_deviation")]
     LeastDeviation,
 }
-impl crate::boundary_projection::ProjectionType for NumericalMechanism {
+impl pse_contract::boundary_projection::ProjectionType for NumericalMechanism {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -25949,12 +25989,12 @@ impl crate::boundary_projection::ProjectionType for NumericalMechanism {
                 "NumericalMechanism",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -25965,12 +26005,12 @@ impl crate::boundary_projection::ProjectionType for NumericalMechanism {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalMechanism {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalMechanism {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -26132,12 +26172,12 @@ pub enum NumericalOriginalConclusion {
     #[strum(serialize = "unavailable")]
     Unavailable,
 }
-impl crate::boundary_projection::ProjectionType for NumericalOriginalConclusion {
+impl pse_contract::boundary_projection::ProjectionType for NumericalOriginalConclusion {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -26146,12 +26186,12 @@ impl crate::boundary_projection::ProjectionType for NumericalOriginalConclusion 
                 "NumericalOriginalConclusion",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -26162,12 +26202,13 @@ impl crate::boundary_projection::ProjectionType for NumericalOriginalConclusion 
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalOriginalConclusion {
+impl pse_contract::boundary_projection::ValidateProjection
+for NumericalOriginalConclusion {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -26279,12 +26320,12 @@ pub enum NumericalPathEventKind {
     #[strum(serialize = "unresolved")]
     Unresolved,
 }
-impl crate::boundary_projection::ProjectionType for NumericalPathEventKind {
+impl pse_contract::boundary_projection::ProjectionType for NumericalPathEventKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -26293,12 +26334,12 @@ impl crate::boundary_projection::ProjectionType for NumericalPathEventKind {
                 "NumericalPathEventKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -26309,12 +26350,12 @@ impl crate::boundary_projection::ProjectionType for NumericalPathEventKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalPathEventKind {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalPathEventKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -26438,12 +26479,12 @@ pub enum NumericalPhase {
     #[strum(serialize = "assessment")]
     Assessment,
 }
-impl crate::boundary_projection::ProjectionType for NumericalPhase {
+impl pse_contract::boundary_projection::ProjectionType for NumericalPhase {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -26452,12 +26493,12 @@ impl crate::boundary_projection::ProjectionType for NumericalPhase {
                 "NumericalPhase",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -26468,12 +26509,12 @@ impl crate::boundary_projection::ProjectionType for NumericalPhase {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalPhase {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalPhase {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -26590,12 +26631,12 @@ pub enum NumericalPosition {
     #[strum(serialize = "recovery")]
     Recovery,
 }
-impl crate::boundary_projection::ProjectionType for NumericalPosition {
+impl pse_contract::boundary_projection::ProjectionType for NumericalPosition {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -26604,12 +26645,12 @@ impl crate::boundary_projection::ProjectionType for NumericalPosition {
                 "NumericalPosition",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -26620,12 +26661,12 @@ impl crate::boundary_projection::ProjectionType for NumericalPosition {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalPosition {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalPosition {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -26739,12 +26780,12 @@ pub enum NumericalProvenanceField {
     #[strum(serialize = "coordinate_scale")]
     CoordinateScale,
 }
-impl crate::boundary_projection::ProjectionType for NumericalProvenanceField {
+impl pse_contract::boundary_projection::ProjectionType for NumericalProvenanceField {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -26753,12 +26794,12 @@ impl crate::boundary_projection::ProjectionType for NumericalProvenanceField {
                 "NumericalProvenanceField",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -26769,12 +26810,12 @@ impl crate::boundary_projection::ProjectionType for NumericalProvenanceField {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalProvenanceField {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalProvenanceField {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -26893,12 +26934,12 @@ pub enum NumericalScope {
     #[strum(serialize = "attempt")]
     Attempt,
 }
-impl crate::boundary_projection::ProjectionType for NumericalScope {
+impl pse_contract::boundary_projection::ProjectionType for NumericalScope {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -26907,12 +26948,12 @@ impl crate::boundary_projection::ProjectionType for NumericalScope {
                 "NumericalScope",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -26923,12 +26964,12 @@ impl crate::boundary_projection::ProjectionType for NumericalScope {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalScope {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalScope {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -27061,12 +27102,12 @@ pub enum NumericalSource {
     #[strum(serialize = "canonical_fallback")]
     CanonicalFallback,
 }
-impl crate::boundary_projection::ProjectionType for NumericalSource {
+impl pse_contract::boundary_projection::ProjectionType for NumericalSource {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -27075,12 +27116,12 @@ impl crate::boundary_projection::ProjectionType for NumericalSource {
                 "NumericalSource",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -27091,12 +27132,12 @@ impl crate::boundary_projection::ProjectionType for NumericalSource {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalSource {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalSource {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -27238,12 +27279,12 @@ pub enum NumericalStartOrigin {
     #[strum(serialize = "surrogate")]
     Surrogate,
 }
-impl crate::boundary_projection::ProjectionType for NumericalStartOrigin {
+impl pse_contract::boundary_projection::ProjectionType for NumericalStartOrigin {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -27252,12 +27293,12 @@ impl crate::boundary_projection::ProjectionType for NumericalStartOrigin {
                 "NumericalStartOrigin",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -27268,12 +27309,12 @@ impl crate::boundary_projection::ProjectionType for NumericalStartOrigin {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalStartOrigin {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalStartOrigin {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -27404,12 +27445,12 @@ pub enum NumericalTarget {
     #[strum(serialize = "closure")]
     Closure,
 }
-impl crate::boundary_projection::ProjectionType for NumericalTarget {
+impl pse_contract::boundary_projection::ProjectionType for NumericalTarget {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -27418,12 +27459,12 @@ impl crate::boundary_projection::ProjectionType for NumericalTarget {
                 "NumericalTarget",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -27434,12 +27475,12 @@ impl crate::boundary_projection::ProjectionType for NumericalTarget {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalTarget {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalTarget {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -27562,12 +27603,12 @@ pub enum NumericalTransition {
     #[strum(serialize = "stop")]
     Stop,
 }
-impl crate::boundary_projection::ProjectionType for NumericalTransition {
+impl pse_contract::boundary_projection::ProjectionType for NumericalTransition {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -27576,12 +27617,12 @@ impl crate::boundary_projection::ProjectionType for NumericalTransition {
                 "NumericalTransition",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -27592,12 +27633,12 @@ impl crate::boundary_projection::ProjectionType for NumericalTransition {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for NumericalTransition {
+impl pse_contract::boundary_projection::ValidateProjection for NumericalTransition {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -27710,12 +27751,12 @@ pub enum ObservationTimeBasis {
     #[strum(serialize = "model_clock")]
     ModelClock,
 }
-impl crate::boundary_projection::ProjectionType for ObservationTimeBasis {
+impl pse_contract::boundary_projection::ProjectionType for ObservationTimeBasis {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -27724,12 +27765,12 @@ impl crate::boundary_projection::ProjectionType for ObservationTimeBasis {
                 "ObservationTimeBasis",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -27740,12 +27781,12 @@ impl crate::boundary_projection::ProjectionType for ObservationTimeBasis {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ObservationTimeBasis {
+impl pse_contract::boundary_projection::ValidateProjection for ObservationTimeBasis {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -27910,12 +27951,12 @@ pub enum PackageKind {
     #[strum(serialize = "case")]
     Case,
 }
-impl crate::boundary_projection::ProjectionType for PackageKind {
+impl pse_contract::boundary_projection::ProjectionType for PackageKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -27924,12 +27965,12 @@ impl crate::boundary_projection::ProjectionType for PackageKind {
                 "PackageKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -27940,12 +27981,12 @@ impl crate::boundary_projection::ProjectionType for PackageKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PackageKind {
+impl pse_contract::boundary_projection::ValidateProjection for PackageKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28057,12 +28098,12 @@ pub enum PardisoMatching {
     #[strum(serialize = "constraints")]
     Constraints,
 }
-impl crate::boundary_projection::ProjectionType for PardisoMatching {
+impl pse_contract::boundary_projection::ProjectionType for PardisoMatching {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28071,12 +28112,12 @@ impl crate::boundary_projection::ProjectionType for PardisoMatching {
                 "PardisoMatching",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28087,12 +28128,12 @@ impl crate::boundary_projection::ProjectionType for PardisoMatching {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PardisoMatching {
+impl pse_contract::boundary_projection::ValidateProjection for PardisoMatching {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28203,12 +28244,12 @@ pub enum PardisoOrdering {
     #[strum(serialize = "parallel_metis")]
     ParallelMetis,
 }
-impl crate::boundary_projection::ProjectionType for PardisoOrdering {
+impl pse_contract::boundary_projection::ProjectionType for PardisoOrdering {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28217,12 +28258,12 @@ impl crate::boundary_projection::ProjectionType for PardisoOrdering {
                 "PardisoOrdering",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28233,12 +28274,12 @@ impl crate::boundary_projection::ProjectionType for PardisoOrdering {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PardisoOrdering {
+impl pse_contract::boundary_projection::ValidateProjection for PardisoOrdering {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28352,12 +28393,12 @@ pub enum PhysicalInputKind {
     #[strum(serialize = "state_tolerances")]
     StateTolerances,
 }
-impl crate::boundary_projection::ProjectionType for PhysicalInputKind {
+impl pse_contract::boundary_projection::ProjectionType for PhysicalInputKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28366,12 +28407,12 @@ impl crate::boundary_projection::ProjectionType for PhysicalInputKind {
                 "PhysicalInputKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28382,12 +28423,12 @@ impl crate::boundary_projection::ProjectionType for PhysicalInputKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PhysicalInputKind {
+impl pse_contract::boundary_projection::ValidateProjection for PhysicalInputKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28496,12 +28537,12 @@ pub enum PounceFdColoring {
     #[strum(serialize = "star")]
     Star,
 }
-impl crate::boundary_projection::ProjectionType for PounceFdColoring {
+impl pse_contract::boundary_projection::ProjectionType for PounceFdColoring {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28510,12 +28551,12 @@ impl crate::boundary_projection::ProjectionType for PounceFdColoring {
                 "PounceFdColoring",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28526,12 +28567,12 @@ impl crate::boundary_projection::ProjectionType for PounceFdColoring {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PounceFdColoring {
+impl pse_contract::boundary_projection::ValidateProjection for PounceFdColoring {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28633,12 +28674,12 @@ pub enum PounceFdPattern {
     #[strum(serialize = "jacobian")]
     Jacobian,
 }
-impl crate::boundary_projection::ProjectionType for PounceFdPattern {
+impl pse_contract::boundary_projection::ProjectionType for PounceFdPattern {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28647,12 +28688,12 @@ impl crate::boundary_projection::ProjectionType for PounceFdPattern {
                 "PounceFdPattern",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28663,12 +28704,12 @@ impl crate::boundary_projection::ProjectionType for PounceFdPattern {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PounceFdPattern {
+impl pse_contract::boundary_projection::ValidateProjection for PounceFdPattern {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28774,12 +28815,12 @@ pub enum PounceMethod {
     #[strum(serialize = "l1_exact_penalty")]
     L1ExactPenalty,
 }
-impl crate::boundary_projection::ProjectionType for PounceMethod {
+impl pse_contract::boundary_projection::ProjectionType for PounceMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28788,12 +28829,12 @@ impl crate::boundary_projection::ProjectionType for PounceMethod {
                 "PounceMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28804,12 +28845,12 @@ impl crate::boundary_projection::ProjectionType for PounceMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PounceMethod {
+impl pse_contract::boundary_projection::ValidateProjection for PounceMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -28916,12 +28957,12 @@ pub enum PouncePartitionedElements {
     #[strum(serialize = "primal_block")]
     PrimalBlock,
 }
-impl crate::boundary_projection::ProjectionType for PouncePartitionedElements {
+impl pse_contract::boundary_projection::ProjectionType for PouncePartitionedElements {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -28930,12 +28971,12 @@ impl crate::boundary_projection::ProjectionType for PouncePartitionedElements {
                 "PouncePartitionedElements",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -28946,12 +28987,13 @@ impl crate::boundary_projection::ProjectionType for PouncePartitionedElements {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PouncePartitionedElements {
+impl pse_contract::boundary_projection::ValidateProjection
+for PouncePartitionedElements {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29057,12 +29099,12 @@ pub enum PouncePartitionedUpdate {
     #[strum(serialize = "sr1")]
     Sr1,
 }
-impl crate::boundary_projection::ProjectionType for PouncePartitionedUpdate {
+impl pse_contract::boundary_projection::ProjectionType for PouncePartitionedUpdate {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29071,12 +29113,12 @@ impl crate::boundary_projection::ProjectionType for PouncePartitionedUpdate {
                 "PouncePartitionedUpdate",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29087,12 +29129,12 @@ impl crate::boundary_projection::ProjectionType for PouncePartitionedUpdate {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PouncePartitionedUpdate {
+impl pse_contract::boundary_projection::ValidateProjection for PouncePartitionedUpdate {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29200,12 +29242,12 @@ pub enum Preconditioner {
     #[strum(serialize = "block_factor")]
     BlockFactor,
 }
-impl crate::boundary_projection::ProjectionType for Preconditioner {
+impl pse_contract::boundary_projection::ProjectionType for Preconditioner {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29214,12 +29256,12 @@ impl crate::boundary_projection::ProjectionType for Preconditioner {
                 "Preconditioner",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29230,12 +29272,12 @@ impl crate::boundary_projection::ProjectionType for Preconditioner {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for Preconditioner {
+impl pse_contract::boundary_projection::ValidateProjection for Preconditioner {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29345,12 +29387,12 @@ pub enum PreparationEligibility {
     #[strum(serialize = "unchecked")]
     Unchecked,
 }
-impl crate::boundary_projection::ProjectionType for PreparationEligibility {
+impl pse_contract::boundary_projection::ProjectionType for PreparationEligibility {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29359,12 +29401,12 @@ impl crate::boundary_projection::ProjectionType for PreparationEligibility {
                 "PreparationEligibility",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29375,12 +29417,12 @@ impl crate::boundary_projection::ProjectionType for PreparationEligibility {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PreparationEligibility {
+impl pse_contract::boundary_projection::ValidateProjection for PreparationEligibility {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29500,12 +29542,12 @@ pub enum PreparationProductKind {
     #[strum(serialize = "basis")]
     Basis,
 }
-impl crate::boundary_projection::ProjectionType for PreparationProductKind {
+impl pse_contract::boundary_projection::ProjectionType for PreparationProductKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29514,12 +29556,12 @@ impl crate::boundary_projection::ProjectionType for PreparationProductKind {
                 "PreparationProductKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29530,12 +29572,12 @@ impl crate::boundary_projection::ProjectionType for PreparationProductKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PreparationProductKind {
+impl pse_contract::boundary_projection::ValidateProjection for PreparationProductKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29664,12 +29706,12 @@ pub enum PresolvePass {
     #[strum(serialize = "auxiliary")]
     Auxiliary,
 }
-impl crate::boundary_projection::ProjectionType for PresolvePass {
+impl pse_contract::boundary_projection::ProjectionType for PresolvePass {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29678,12 +29720,12 @@ impl crate::boundary_projection::ProjectionType for PresolvePass {
                 "PresolvePass",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29694,12 +29736,12 @@ impl crate::boundary_projection::ProjectionType for PresolvePass {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PresolvePass {
+impl pse_contract::boundary_projection::ValidateProjection for PresolvePass {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29816,12 +29858,12 @@ pub enum PresolvePolicyKind {
     #[strum(serialize = "explicit")]
     Explicit,
 }
-impl crate::boundary_projection::ProjectionType for PresolvePolicyKind {
+impl pse_contract::boundary_projection::ProjectionType for PresolvePolicyKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29830,12 +29872,12 @@ impl crate::boundary_projection::ProjectionType for PresolvePolicyKind {
                 "PresolvePolicyKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29846,12 +29888,12 @@ impl crate::boundary_projection::ProjectionType for PresolvePolicyKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for PresolvePolicyKind {
+impl pse_contract::boundary_projection::ValidateProjection for PresolvePolicyKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -29959,12 +30001,12 @@ pub enum ProductUseScope {
     #[strum(serialize = "point")]
     Point,
 }
-impl crate::boundary_projection::ProjectionType for ProductUseScope {
+impl pse_contract::boundary_projection::ProjectionType for ProductUseScope {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -29973,12 +30015,12 @@ impl crate::boundary_projection::ProjectionType for ProductUseScope {
                 "ProductUseScope",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -29989,12 +30031,12 @@ impl crate::boundary_projection::ProjectionType for ProductUseScope {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ProductUseScope {
+impl pse_contract::boundary_projection::ValidateProjection for ProductUseScope {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -30104,12 +30146,12 @@ pub enum ProjectChangeImpact {
     #[strum(serialize = "unknown")]
     Unknown,
 }
-impl crate::boundary_projection::ProjectionType for ProjectChangeImpact {
+impl pse_contract::boundary_projection::ProjectionType for ProjectChangeImpact {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -30118,12 +30160,12 @@ impl crate::boundary_projection::ProjectionType for ProjectChangeImpact {
                 "ProjectChangeImpact",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -30134,12 +30176,12 @@ impl crate::boundary_projection::ProjectionType for ProjectChangeImpact {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ProjectChangeImpact {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectChangeImpact {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -30257,12 +30299,12 @@ pub enum ProjectMergeChoice {
     #[strum(serialize = "delete")]
     Delete,
 }
-impl crate::boundary_projection::ProjectionType for ProjectMergeChoice {
+impl pse_contract::boundary_projection::ProjectionType for ProjectMergeChoice {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -30271,12 +30313,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMergeChoice {
                 "ProjectMergeChoice",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -30287,12 +30329,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMergeChoice {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ProjectMergeChoice {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectMergeChoice {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -30406,12 +30448,12 @@ pub enum ProjectMergeConflictKind {
     #[strum(serialize = "different_edits")]
     DifferentEdits,
 }
-impl crate::boundary_projection::ProjectionType for ProjectMergeConflictKind {
+impl pse_contract::boundary_projection::ProjectionType for ProjectMergeConflictKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -30420,12 +30462,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMergeConflictKind {
                 "ProjectMergeConflictKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -30436,12 +30478,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMergeConflictKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ProjectMergeConflictKind {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectMergeConflictKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -30550,12 +30592,12 @@ pub enum ProjectMergeMode {
     #[strum(serialize = "undo")]
     Undo,
 }
-impl crate::boundary_projection::ProjectionType for ProjectMergeMode {
+impl pse_contract::boundary_projection::ProjectionType for ProjectMergeMode {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -30564,12 +30606,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMergeMode {
                 "ProjectMergeMode",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -30580,12 +30622,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMergeMode {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ProjectMergeMode {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectMergeMode {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -30699,12 +30741,12 @@ pub enum ProjectMetadataKind {
     #[strum(serialize = "diagnostics")]
     Diagnostics,
 }
-impl crate::boundary_projection::ProjectionType for ProjectMetadataKind {
+impl pse_contract::boundary_projection::ProjectionType for ProjectMetadataKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -30713,12 +30755,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMetadataKind {
                 "ProjectMetadataKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -30729,12 +30771,12 @@ impl crate::boundary_projection::ProjectionType for ProjectMetadataKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ProjectMetadataKind {
+impl pse_contract::boundary_projection::ValidateProjection for ProjectMetadataKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -30885,12 +30927,12 @@ pub enum QuantityPreconditionKind {
     #[strum(serialize = "same_reference_differences")]
     SameReferenceDifferences,
 }
-impl crate::boundary_projection::ProjectionType for QuantityPreconditionKind {
+impl pse_contract::boundary_projection::ProjectionType for QuantityPreconditionKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -30899,12 +30941,12 @@ impl crate::boundary_projection::ProjectionType for QuantityPreconditionKind {
                 "QuantityPreconditionKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -30915,12 +30957,12 @@ impl crate::boundary_projection::ProjectionType for QuantityPreconditionKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for QuantityPreconditionKind {
+impl pse_contract::boundary_projection::ValidateProjection for QuantityPreconditionKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -31152,12 +31194,12 @@ pub enum ReusePolicy {
     #[strum(serialize = "require_reuse")]
     RequireReuse,
 }
-impl crate::boundary_projection::ProjectionType for ReusePolicy {
+impl pse_contract::boundary_projection::ProjectionType for ReusePolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -31166,12 +31208,12 @@ impl crate::boundary_projection::ProjectionType for ReusePolicy {
                 "ReusePolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -31182,12 +31224,12 @@ impl crate::boundary_projection::ProjectionType for ReusePolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ReusePolicy {
+impl pse_contract::boundary_projection::ValidateProjection for ReusePolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -31301,12 +31343,12 @@ pub enum RowActivity {
     #[strum(serialize = "equality")]
     Equality,
 }
-impl crate::boundary_projection::ProjectionType for RowActivity {
+impl pse_contract::boundary_projection::ProjectionType for RowActivity {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -31315,12 +31357,12 @@ impl crate::boundary_projection::ProjectionType for RowActivity {
                 "RowActivity",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -31331,12 +31373,12 @@ impl crate::boundary_projection::ProjectionType for RowActivity {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for RowActivity {
+impl pse_contract::boundary_projection::ValidateProjection for RowActivity {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -31466,12 +31508,12 @@ pub enum ScientificArtifactFamily {
     #[strum(serialize = "fit")]
     Fit,
 }
-impl crate::boundary_projection::ProjectionType for ScientificArtifactFamily {
+impl pse_contract::boundary_projection::ProjectionType for ScientificArtifactFamily {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -31480,12 +31522,12 @@ impl crate::boundary_projection::ProjectionType for ScientificArtifactFamily {
                 "ScientificArtifactFamily",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -31496,12 +31538,12 @@ impl crate::boundary_projection::ProjectionType for ScientificArtifactFamily {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ScientificArtifactFamily {
+impl pse_contract::boundary_projection::ValidateProjection for ScientificArtifactFamily {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -31613,12 +31655,12 @@ pub enum ScientificArtifactKind {
     #[strum(serialize = "local-analysis")]
     LocalAnalysis,
 }
-impl crate::boundary_projection::ProjectionType for ScientificArtifactKind {
+impl pse_contract::boundary_projection::ProjectionType for ScientificArtifactKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -31627,12 +31669,12 @@ impl crate::boundary_projection::ProjectionType for ScientificArtifactKind {
                 "ScientificArtifactKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -31643,12 +31685,12 @@ impl crate::boundary_projection::ProjectionType for ScientificArtifactKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ScientificArtifactKind {
+impl pse_contract::boundary_projection::ValidateProjection for ScientificArtifactKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -31757,12 +31799,12 @@ pub enum SensitivityCorrector {
     #[strum(serialize = "staggered")]
     Staggered,
 }
-impl crate::boundary_projection::ProjectionType for SensitivityCorrector {
+impl pse_contract::boundary_projection::ProjectionType for SensitivityCorrector {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -31771,12 +31813,12 @@ impl crate::boundary_projection::ProjectionType for SensitivityCorrector {
                 "SensitivityCorrector",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -31787,12 +31829,12 @@ impl crate::boundary_projection::ProjectionType for SensitivityCorrector {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for SensitivityCorrector {
+impl pse_contract::boundary_projection::ValidateProjection for SensitivityCorrector {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -31915,12 +31957,12 @@ pub enum ShootingMethod {
     #[strum(serialize = "multiple")]
     Multiple,
 }
-impl crate::boundary_projection::ProjectionType for ShootingMethod {
+impl pse_contract::boundary_projection::ProjectionType for ShootingMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -31929,12 +31971,12 @@ impl crate::boundary_projection::ProjectionType for ShootingMethod {
                 "ShootingMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -31945,12 +31987,12 @@ impl crate::boundary_projection::ProjectionType for ShootingMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for ShootingMethod {
+impl pse_contract::boundary_projection::ValidateProjection for ShootingMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -32069,12 +32111,12 @@ pub enum SpralOrdering {
     #[strum(serialize = "matching")]
     Matching,
 }
-impl crate::boundary_projection::ProjectionType for SpralOrdering {
+impl pse_contract::boundary_projection::ProjectionType for SpralOrdering {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -32083,12 +32125,12 @@ impl crate::boundary_projection::ProjectionType for SpralOrdering {
                 "SpralOrdering",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -32099,12 +32141,12 @@ impl crate::boundary_projection::ProjectionType for SpralOrdering {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for SpralOrdering {
+impl pse_contract::boundary_projection::ValidateProjection for SpralOrdering {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -32210,12 +32252,12 @@ pub enum SpralPivot {
     #[strum(serialize = "threshold")]
     Threshold,
 }
-impl crate::boundary_projection::ProjectionType for SpralPivot {
+impl pse_contract::boundary_projection::ProjectionType for SpralPivot {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -32224,12 +32266,12 @@ impl crate::boundary_projection::ProjectionType for SpralPivot {
                 "SpralPivot",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -32240,12 +32282,12 @@ impl crate::boundary_projection::ProjectionType for SpralPivot {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for SpralPivot {
+impl pse_contract::boundary_projection::ValidateProjection for SpralPivot {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -32363,12 +32405,12 @@ pub enum SpralScaling {
     #[strum(serialize = "ruiz")]
     Ruiz,
 }
-impl crate::boundary_projection::ProjectionType for SpralScaling {
+impl pse_contract::boundary_projection::ProjectionType for SpralScaling {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -32377,12 +32419,12 @@ impl crate::boundary_projection::ProjectionType for SpralScaling {
                 "SpralScaling",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -32393,12 +32435,12 @@ impl crate::boundary_projection::ProjectionType for SpralScaling {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for SpralScaling {
+impl pse_contract::boundary_projection::ValidateProjection for SpralScaling {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -32538,12 +32580,12 @@ pub enum StateSign {
     #[strum(serialize = "negative")]
     Negative,
 }
-impl crate::boundary_projection::ProjectionType for StateSign {
+impl pse_contract::boundary_projection::ProjectionType for StateSign {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -32552,12 +32594,12 @@ impl crate::boundary_projection::ProjectionType for StateSign {
                 "StateSign",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -32568,12 +32610,12 @@ impl crate::boundary_projection::ProjectionType for StateSign {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StateSign {
+impl pse_contract::boundary_projection::ValidateProjection for StateSign {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -32709,12 +32751,12 @@ pub enum StructuralScopeKind {
     #[strum(serialize = "partial")]
     Partial,
 }
-impl crate::boundary_projection::ProjectionType for StructuralScopeKind {
+impl pse_contract::boundary_projection::ProjectionType for StructuralScopeKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -32723,12 +32765,12 @@ impl crate::boundary_projection::ProjectionType for StructuralScopeKind {
                 "StructuralScopeKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -32739,12 +32781,12 @@ impl crate::boundary_projection::ProjectionType for StructuralScopeKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StructuralScopeKind {
+impl pse_contract::boundary_projection::ValidateProjection for StructuralScopeKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -32859,12 +32901,12 @@ pub enum StudyAvailability {
     #[strum(serialize = "complete")]
     Complete,
 }
-impl crate::boundary_projection::ProjectionType for StudyAvailability {
+impl pse_contract::boundary_projection::ProjectionType for StudyAvailability {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -32873,12 +32915,12 @@ impl crate::boundary_projection::ProjectionType for StudyAvailability {
                 "StudyAvailability",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -32889,12 +32931,12 @@ impl crate::boundary_projection::ProjectionType for StudyAvailability {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyAvailability {
+impl pse_contract::boundary_projection::ValidateProjection for StudyAvailability {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33002,12 +33044,12 @@ pub enum StudyContinuationPermission {
     #[strum(serialize = "allow_seed_only")]
     AllowSeedOnly,
 }
-impl crate::boundary_projection::ProjectionType for StudyContinuationPermission {
+impl pse_contract::boundary_projection::ProjectionType for StudyContinuationPermission {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33016,12 +33058,12 @@ impl crate::boundary_projection::ProjectionType for StudyContinuationPermission 
                 "StudyContinuationPermission",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33032,12 +33074,13 @@ impl crate::boundary_projection::ProjectionType for StudyContinuationPermission 
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyContinuationPermission {
+impl pse_contract::boundary_projection::ValidateProjection
+for StudyContinuationPermission {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33151,12 +33194,12 @@ pub enum StudyEffectState {
     #[strum(serialize = "idempotent")]
     Idempotent,
 }
-impl crate::boundary_projection::ProjectionType for StudyEffectState {
+impl pse_contract::boundary_projection::ProjectionType for StudyEffectState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33165,12 +33208,12 @@ impl crate::boundary_projection::ProjectionType for StudyEffectState {
                 "StudyEffectState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33181,12 +33224,12 @@ impl crate::boundary_projection::ProjectionType for StudyEffectState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyEffectState {
+impl pse_contract::boundary_projection::ValidateProjection for StudyEffectState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33291,12 +33334,12 @@ pub enum StudyLegacyKind {
     #[strum(serialize = "legacy_unavailable")]
     LegacyUnavailable,
 }
-impl crate::boundary_projection::ProjectionType for StudyLegacyKind {
+impl pse_contract::boundary_projection::ProjectionType for StudyLegacyKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33305,12 +33348,12 @@ impl crate::boundary_projection::ProjectionType for StudyLegacyKind {
                 "StudyLegacyKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33321,12 +33364,12 @@ impl crate::boundary_projection::ProjectionType for StudyLegacyKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyLegacyKind {
+impl pse_contract::boundary_projection::ValidateProjection for StudyLegacyKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33430,12 +33473,12 @@ pub enum StudyLifecycle {
     #[strum(serialize = "cancelled")]
     Cancelled,
 }
-impl crate::boundary_projection::ProjectionType for StudyLifecycle {
+impl pse_contract::boundary_projection::ProjectionType for StudyLifecycle {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33444,12 +33487,12 @@ impl crate::boundary_projection::ProjectionType for StudyLifecycle {
                 "StudyLifecycle",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33460,12 +33503,12 @@ impl crate::boundary_projection::ProjectionType for StudyLifecycle {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyLifecycle {
+impl pse_contract::boundary_projection::ValidateProjection for StudyLifecycle {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33583,12 +33626,12 @@ pub enum StudyPointState {
     #[strum(serialize = "cancelled")]
     Cancelled,
 }
-impl crate::boundary_projection::ProjectionType for StudyPointState {
+impl pse_contract::boundary_projection::ProjectionType for StudyPointState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33597,12 +33640,12 @@ impl crate::boundary_projection::ProjectionType for StudyPointState {
                 "StudyPointState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33613,12 +33656,12 @@ impl crate::boundary_projection::ProjectionType for StudyPointState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyPointState {
+impl pse_contract::boundary_projection::ValidateProjection for StudyPointState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33745,12 +33788,12 @@ pub enum StudyResultRole {
     #[strum(serialize = "horizon_history")]
     HorizonHistory,
 }
-impl crate::boundary_projection::ProjectionType for StudyResultRole {
+impl pse_contract::boundary_projection::ProjectionType for StudyResultRole {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33759,12 +33802,12 @@ impl crate::boundary_projection::ProjectionType for StudyResultRole {
                 "StudyResultRole",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33775,12 +33818,12 @@ impl crate::boundary_projection::ProjectionType for StudyResultRole {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyResultRole {
+impl pse_contract::boundary_projection::ValidateProjection for StudyResultRole {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -33894,12 +33937,12 @@ pub enum StudyRetryFailure {
     #[strum(serialize = "deterministic")]
     Deterministic,
 }
-impl crate::boundary_projection::ProjectionType for StudyRetryFailure {
+impl pse_contract::boundary_projection::ProjectionType for StudyRetryFailure {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -33908,12 +33951,12 @@ impl crate::boundary_projection::ProjectionType for StudyRetryFailure {
                 "StudyRetryFailure",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -33924,12 +33967,12 @@ impl crate::boundary_projection::ProjectionType for StudyRetryFailure {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyRetryFailure {
+impl pse_contract::boundary_projection::ValidateProjection for StudyRetryFailure {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34037,12 +34080,12 @@ pub enum StudySeedNeed {
     #[strum(serialize = "required")]
     Required,
 }
-impl crate::boundary_projection::ProjectionType for StudySeedNeed {
+impl pse_contract::boundary_projection::ProjectionType for StudySeedNeed {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34051,12 +34094,12 @@ impl crate::boundary_projection::ProjectionType for StudySeedNeed {
                 "StudySeedNeed",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34067,12 +34110,12 @@ impl crate::boundary_projection::ProjectionType for StudySeedNeed {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudySeedNeed {
+impl pse_contract::boundary_projection::ValidateProjection for StudySeedNeed {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34186,12 +34229,12 @@ pub enum StudySeedRole {
     #[strum(serialize = "horizon_state")]
     HorizonState,
 }
-impl crate::boundary_projection::ProjectionType for StudySeedRole {
+impl pse_contract::boundary_projection::ProjectionType for StudySeedRole {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34200,12 +34243,12 @@ impl crate::boundary_projection::ProjectionType for StudySeedRole {
                 "StudySeedRole",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34216,12 +34259,12 @@ impl crate::boundary_projection::ProjectionType for StudySeedRole {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudySeedRole {
+impl pse_contract::boundary_projection::ValidateProjection for StudySeedRole {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34330,12 +34373,12 @@ pub enum StudySeedUnavailable {
     #[strum(serialize = "incompatible")]
     Incompatible,
 }
-impl crate::boundary_projection::ProjectionType for StudySeedUnavailable {
+impl pse_contract::boundary_projection::ProjectionType for StudySeedUnavailable {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34344,12 +34387,12 @@ impl crate::boundary_projection::ProjectionType for StudySeedUnavailable {
                 "StudySeedUnavailable",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34360,12 +34403,12 @@ impl crate::boundary_projection::ProjectionType for StudySeedUnavailable {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudySeedUnavailable {
+impl pse_contract::boundary_projection::ValidateProjection for StudySeedUnavailable {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34483,12 +34526,12 @@ pub enum StudyStartKind {
     #[strum(serialize = "fresh_fallback")]
     FreshFallback,
 }
-impl crate::boundary_projection::ProjectionType for StudyStartKind {
+impl pse_contract::boundary_projection::ProjectionType for StudyStartKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34497,12 +34540,12 @@ impl crate::boundary_projection::ProjectionType for StudyStartKind {
                 "StudyStartKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34513,12 +34556,12 @@ impl crate::boundary_projection::ProjectionType for StudyStartKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyStartKind {
+impl pse_contract::boundary_projection::ValidateProjection for StudyStartKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34629,12 +34672,12 @@ pub enum StudyState {
     #[strum(serialize = "concluded")]
     Concluded,
 }
-impl crate::boundary_projection::ProjectionType for StudyState {
+impl pse_contract::boundary_projection::ProjectionType for StudyState {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34643,12 +34686,12 @@ impl crate::boundary_projection::ProjectionType for StudyState {
                 "StudyState",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34659,12 +34702,12 @@ impl crate::boundary_projection::ProjectionType for StudyState {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyState {
+impl pse_contract::boundary_projection::ValidateProjection for StudyState {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34768,12 +34811,12 @@ pub enum StudyUnavailableSeedPolicy {
     #[strum(serialize = "fresh_on_unavailable")]
     FreshOnUnavailable,
 }
-impl crate::boundary_projection::ProjectionType for StudyUnavailableSeedPolicy {
+impl pse_contract::boundary_projection::ProjectionType for StudyUnavailableSeedPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34782,12 +34825,12 @@ impl crate::boundary_projection::ProjectionType for StudyUnavailableSeedPolicy {
                 "StudyUnavailableSeedPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34798,12 +34841,13 @@ impl crate::boundary_projection::ProjectionType for StudyUnavailableSeedPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for StudyUnavailableSeedPolicy {
+impl pse_contract::boundary_projection::ValidateProjection
+for StudyUnavailableSeedPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -34943,12 +34987,12 @@ pub enum TearMethod {
     #[strum(serialize = "unweighted_heuristic")]
     UnweightedHeuristic,
 }
-impl crate::boundary_projection::ProjectionType for TearMethod {
+impl pse_contract::boundary_projection::ProjectionType for TearMethod {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -34957,12 +35001,12 @@ impl crate::boundary_projection::ProjectionType for TearMethod {
                 "TearMethod",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -34973,12 +35017,12 @@ impl crate::boundary_projection::ProjectionType for TearMethod {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for TearMethod {
+impl pse_contract::boundary_projection::ValidateProjection for TearMethod {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -35086,12 +35130,12 @@ pub enum TearPolicy {
     #[strum(serialize = "forbidden")]
     Forbidden,
 }
-impl crate::boundary_projection::ProjectionType for TearPolicy {
+impl pse_contract::boundary_projection::ProjectionType for TearPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -35100,12 +35144,12 @@ impl crate::boundary_projection::ProjectionType for TearPolicy {
                 "TearPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -35116,12 +35160,12 @@ impl crate::boundary_projection::ProjectionType for TearPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for TearPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for TearPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -35227,12 +35271,12 @@ pub enum TimeCoordinateKind {
     #[strum(serialize = "elapsed_duration")]
     ElapsedDuration,
 }
-impl crate::boundary_projection::ProjectionType for TimeCoordinateKind {
+impl pse_contract::boundary_projection::ProjectionType for TimeCoordinateKind {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -35241,12 +35285,12 @@ impl crate::boundary_projection::ProjectionType for TimeCoordinateKind {
                 "TimeCoordinateKind",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -35257,12 +35301,12 @@ impl crate::boundary_projection::ProjectionType for TimeCoordinateKind {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for TimeCoordinateKind {
+impl pse_contract::boundary_projection::ValidateProjection for TimeCoordinateKind {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -35392,12 +35436,12 @@ pub enum TrajectoryTermination {
     #[strum(serialize = "panic")]
     Panic,
 }
-impl crate::boundary_projection::ProjectionType for TrajectoryTermination {
+impl pse_contract::boundary_projection::ProjectionType for TrajectoryTermination {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -35406,12 +35450,12 @@ impl crate::boundary_projection::ProjectionType for TrajectoryTermination {
                 "TrajectoryTermination",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -35422,12 +35466,12 @@ impl crate::boundary_projection::ProjectionType for TrajectoryTermination {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for TrajectoryTermination {
+impl pse_contract::boundary_projection::ValidateProjection for TrajectoryTermination {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -35546,12 +35590,12 @@ pub enum TrialPolicy {
     #[strum(serialize = "recoverable")]
     Recoverable,
 }
-impl crate::boundary_projection::ProjectionType for TrialPolicy {
+impl pse_contract::boundary_projection::ProjectionType for TrialPolicy {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -35560,12 +35604,12 @@ impl crate::boundary_projection::ProjectionType for TrialPolicy {
                 "TrialPolicy",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -35576,12 +35620,12 @@ impl crate::boundary_projection::ProjectionType for TrialPolicy {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for TrialPolicy {
+impl pse_contract::boundary_projection::ValidateProjection for TrialPolicy {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -35693,12 +35737,12 @@ pub enum TruthValue {
     #[strum(serialize = "conflict")]
     Conflict,
 }
-impl crate::boundary_projection::ProjectionType for TruthValue {
+impl pse_contract::boundary_projection::ProjectionType for TruthValue {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -35707,12 +35751,12 @@ impl crate::boundary_projection::ProjectionType for TruthValue {
                 "TruthValue",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -35723,12 +35767,12 @@ impl crate::boundary_projection::ProjectionType for TruthValue {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for TruthValue {
+impl pse_contract::boundary_projection::ValidateProjection for TruthValue {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }
@@ -35917,12 +35961,12 @@ pub enum WithheldReason {
     #[strum(serialize = "upstream_withheld")]
     UpstreamWithheld,
 }
-impl crate::boundary_projection::ProjectionType for WithheldReason {
+impl pse_contract::boundary_projection::ProjectionType for WithheldReason {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -35931,12 +35975,12 @@ impl crate::boundary_projection::ProjectionType for WithheldReason {
                 "WithheldReason",
                 "crates/pse-model/src/generated/enums.rs",
                 1,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |_| {
                     Ok(
-                        crate::boundary_projection::Shape::StringEnum(
+                        pse_contract::boundary_projection::Shape::StringEnum(
                             Self::ALL
                                 .iter()
                                 .map(|value| value.as_str().to_owned())
@@ -35947,12 +35991,12 @@ impl crate::boundary_projection::ProjectionType for WithheldReason {
             )
     }
 }
-impl crate::boundary_projection::ValidateProjection for WithheldReason {
+impl pse_contract::boundary_projection::ValidateProjection for WithheldReason {
     const NEEDS_RECURSIVE_VALIDATION: bool = false;
     fn validate_at(
         &self,
         _: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         Ok(())
     }
 }

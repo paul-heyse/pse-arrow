@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::workflow::{ModelingPackage, OperationSource, PreparationSettings, Runtime};
-use pse_model::boundary_projection::{ProjectionGraph, Shape, ValidateProjection as _};
+use pse_contract::boundary_projection::{ProjectionGraph, Shape, ValidateProjection as _};
 use pse_modeling::{Type, resolved::CarrierKind, specialize::Value};
 
 pub(super) const FINITE: &str = "package p {
@@ -199,8 +199,8 @@ async fn modeling_inspection_enforces_shared_limits_and_original_attribution_for
             panic!("preserve original local rule")
         };
         assert!(
-            matches!(cause.as_error().downcast_ref::<pse_model::boundary_projection::ValidationError>(),
-            Some(pse_model::boundary_projection::ValidationError::Rule { path, rule: "unsigned.range", .. }) if path == "limit")
+            matches!(cause.as_error().downcast_ref::<pse_contract::boundary_projection::ValidationError>(),
+            Some(pse_contract::boundary_projection::ValidationError::Rule { path, rule: "unsigned.range", .. }) if path == "limit")
         );
     }
     let mut foreign = OperationSource::of(&package);

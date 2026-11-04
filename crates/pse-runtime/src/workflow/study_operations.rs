@@ -29,7 +29,7 @@ pub use intent::{ControllerMove, ControllerPrediction, EstimatorMeasurement};
 
 pub(in crate::workflow) type StudyBindingKey = (ContentHash, Vec<String>, Vec<SemanticId>);
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact source/context required when reconstructing an operation from stored bundles.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -37,15 +37,15 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct OperationSource {
     projection: { name: "OperationSource", rust_path: crate::workflow::OperationSource, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Frozen research attribution consumed by this exact operation.
-    pub research: Option<super::ResearchSource> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub research: Option<super::ResearchSource> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original effective-time and recorded-cut selection, if explicitly selected.
-    pub context: Option<pse_operations::canonical_contexts::ContextSelection> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub context: Option<pse_operations::canonical_contexts::ContextSelection> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Immutable modeling revision, including included scientific data.
-    pub revision: pse_ids::roles::SourceRevisionHash => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub revision: pse_ids::roles::SourceRevisionHash => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete admitted physical context identity.
-    pub physical_context: ContentHash => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub physical_context: ContentHash => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl OperationSource {
@@ -74,17 +74,17 @@ impl OperationSource {
     }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Serialization of the existing compiler/expansion controls, with no second defaults.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PreparationSettings {
     projection: { name: "PreparationSettings", rust_path: crate::workflow::PreparationSettings, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing evaluator profile, encoded by its actual source declaration.
-    pub compiler: Profile => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub compiler: Profile => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Existing expansion admission limits.
-    pub limits: Limits => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub limits: Limits => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl PreparationSettings {
@@ -98,20 +98,20 @@ impl PreparationSettings {
 }
 include!("study_operations/declarations.rs");
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Serializes the existing horizon signal vocabulary without replacing its semantics.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HorizonBinding {
     projection: { name: "HorizonBinding", rust_path: crate::workflow::HorizonBinding, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Controller case target path, resolved by the horizon owner.
-    pub target: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub target: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Existing horizon signal.
-    pub signal: HorizonSignalDocument => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub signal: HorizonSignalDocument => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Physically typed public signal intent; canonical numerical signals are admitted once.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -122,7 +122,7 @@ pse_model::projection_enum! {
 )]
 pub enum HorizonSignalDocument {
     projection: { name: "HorizonSignalDocument", rust_path: crate::workflow::HorizonSignalDocument, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing measured plant output.
     Measured(SemanticId) => 1;
     /// Existing estimated case path.
@@ -133,48 +133,48 @@ pub enum HorizonSignalDocument {
     Trajectory(Vec<super::BindingQuantity>) => 4;
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// A plant input projected into the existing horizon owner.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HorizonInputDocument {
     projection: { name: "HorizonInputDocument", rust_path: crate::workflow::HorizonInputDocument, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing plant parameter identity.
-    pub parameter: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub parameter: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Initial held quantity with complete physical meaning.
-    pub initial: super::BindingQuantity => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub initial: super::BindingQuantity => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Existing estimator window input intent.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EstimatorInput {
     projection: { name: "EstimatorInput", rust_path: crate::workflow::EstimatorInput, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Driven input index.
-    pub input: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub input: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Existing whole-window or per-period bindings.
     #[serde(with = "WindowWire")]
     #[schemars(with = "WindowWire")]
-    pub binding: WindowInput => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub binding: WindowInput => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Existing arrival cost intent with a checked finite initial prior.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArrivalDocument {
     projection: { name: "ArrivalDocument", rust_path: crate::workflow::ArrivalDocument, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Existing prior case path.
-    pub prior: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub prior: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Existing next-prior solution path.
-    pub next: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub next: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Initial prior quantity with complete physical meaning.
-    pub initial: super::BindingQuantity => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub initial: super::BindingQuantity => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 
@@ -1603,7 +1603,7 @@ mod study_operation_unit {
 
     #[test]
     fn operation_request_projects_all_four_actual_native_families() {
-        use pse_model::boundary_projection::{ProjectionGraph, Shape};
+        use pse_contract::boundary_projection::{ProjectionGraph, Shape};
         let graph = ProjectionGraph::of::<OperationRequest>().unwrap();
         let Shape::Alternatives(alternatives) = &graph.definitions()["OperationRequest"].shape
         else {

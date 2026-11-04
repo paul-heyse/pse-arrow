@@ -37,6 +37,7 @@ canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 native-service = ["dep:pse-host"]
 
 [dependencies]
+pse-contract.workspace = true
 datafusion-execution.workspace = true
 clap.workspace = true
 hex.workspace = true

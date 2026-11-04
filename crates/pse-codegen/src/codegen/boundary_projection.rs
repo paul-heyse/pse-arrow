@@ -21,7 +21,7 @@ use protovalidate_buffa_protos::buf::validate::{
     BytesRules, FieldRules, Fixed64Rules, MapRules, OneofRules, RepeatedRules, Rule, SInt32Rules,
     SInt64Rules, StringRules, UInt32Rules, UInt64Rules,
 };
-use pse_model::boundary_projection::{
+use pse_contract::boundary_projection::{
     Direction, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 use pse_schema::error::SchemaError;
@@ -801,7 +801,7 @@ fn apply_rule(
             let TypeRef::Named(name) = ty else {
                 return Err(error("positive duration requires its actual named owner"));
             };
-            let Some(pse_model::boundary_projection::NativeContainer::Duration {
+            let Some(pse_contract::boundary_projection::NativeContainer::Duration {
                 seconds_field,
                 nanoseconds_field,
             }) = graph
@@ -853,10 +853,10 @@ fn apply_rule(
                 }
                 _ => {
                     let (id, message) = match domain {
-                        pse_model::boundary_projection::Float64Domain::Finite => {
+                        pse_contract::boundary_projection::Float64Domain::Finite => {
                             ("float64.finite", "binary64 value must be finite")
                         }
-                        pse_model::boundary_projection::Float64Domain::NonnegativeFinite => (
+                        pse_contract::boundary_projection::Float64Domain::NonnegativeFinite => (
                             "float64.nonnegative_finite",
                             "binary64 value must be finite and nonnegative",
                         ),

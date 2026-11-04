@@ -61,7 +61,7 @@ pub(super) fn poll_worker_action<F: Future + ?Sized>(
     work.poll(context)
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact canonical physical source receipt, separate from compiler physical context identity.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -69,11 +69,11 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct PhysicalSource {
     projection: { name: "PhysicalSource", rust_path: crate::workflow::PhysicalSource, version: 1,
-        direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact immutable revision in its declared canonical source kind.
-    pub revision: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub revision: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Source interpretation checksum, distinct from the compiler context identity.
-    pub identity: ContentHash => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub identity: ContentHash => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 /// One bounded worker scheduling action; no native reports accumulate in the supervisor.

@@ -36,82 +36,82 @@ pub(in crate::workflow) fn bound_observation<T: serde::Serialize>(
         .map_err(|error| super::super::contract(error.to_string()))?;
     Ok(value)
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Authored declarations submitted for contextual revision admission."]
 pub struct DeclarationEdit {
     projection: { name: "DeclarationEdit", version: 1,
-        direction: pse_model::boundary_projection::Direction::Input,
+        direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     #[doc = "Declarations from the selected authored revision."]
-    pub declarations: Vec<pse_authoring::language::Declaration> => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub declarations: Vec<pse_authoring::language::Declaration> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// An atomic source edit against one exact locally admitted receiver. Omission retains
 /// inherited objects; deletion must be named explicitly.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDelta {
     projection: { name: "SourceDelta", version: 1,
-        direction: pse_model::boundary_projection::Direction::Input,
+        direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// Exact revision_id of the receiver; actual publication separately checks its canonical origin.
-    pub parent: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub parent: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// New declarations, appended in this order after retained parent rows.
     #[serde(default)]
-    pub additions: Vec<pse_authoring::language::Declaration> => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub additions: Vec<pse_authoring::language::Declaration> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Existing declarations replaced in their original ordered positions.
     #[serde(default)]
-    pub replacements: Vec<pse_authoring::language::Declaration> => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub replacements: Vec<pse_authoring::language::Declaration> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Existing declarations explicitly removed.
     #[serde(default)]
-    pub removals: Vec<DeclarationId> => { tag: 4, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub removals: Vec<DeclarationId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Explicit document ownership changes, including their data payloads.
     #[serde(default)]
-    pub documents: SourceDocumentDelta => { tag: 5, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub documents: SourceDocumentDelta => { tag: 5, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Explicit fit ownership changes; omitted fits remain inherited.
     #[serde(default)]
-    pub fits: SourceFitDelta => { tag: 6, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub fits: SourceFitDelta => { tag: 6, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Parent-qualified document additions, replacements and removals.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDocumentDelta {
     projection: { name: "SourceDocumentDelta", version: 1,
-        direction: pse_model::boundary_projection::Direction::Input,
+        direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// Newly owned documents.
     #[serde(default)]
-    pub additions: Vec<pse_model::generated::authored::documents::Row> => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub additions: Vec<pse_model::generated::authored::documents::Row> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Complete replacement of an existing document and its optional data bytes.
     #[serde(default)]
-    pub replacements: Vec<pse_model::generated::authored::documents::Row> => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub replacements: Vec<pse_model::generated::authored::documents::Row> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Documents whose ownership and optional data payload are explicitly removed.
     #[serde(default)]
-    pub removals: Vec<SemanticId> => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub removals: Vec<SemanticId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Parent-qualified fitting declaration changes.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceFitDelta {
     projection: { name: "SourceFitDelta", version: 1,
-        direction: pse_model::boundary_projection::Direction::Input,
+        direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// New fitting declarations.
     #[serde(default)]
-    pub additions: Vec<pse_model::generated::authored::fit_cases::Row> => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub additions: Vec<pse_model::generated::authored::fit_cases::Row> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Existing fitting declarations replaced in full.
     #[serde(default)]
-    pub replacements: Vec<pse_model::generated::authored::fit_cases::Row> => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub replacements: Vec<pse_model::generated::authored::fit_cases::Row> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Explicitly removed fit identities.
     #[serde(default)]
-    pub removals: Vec<pse_model::generated::identities::FitId> => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub removals: Vec<pse_model::generated::identities::FitId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
 }
 }
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -121,27 +121,27 @@ pub struct DeclarationInventory {
     #[doc = "Declarations from the selected authored revision."]
     pub declarations: Vec<pse_authoring::language::Declaration>,
 }
-const DECLARATION_PAGE_LIMIT: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 128 };
+const DECLARATION_PAGE_LIMIT: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 128 };
 
 fn declaration_page_limit_schema(schema: &mut schemars::Schema) {
     let mut rule = DECLARATION_PAGE_LIMIT;
     schemars::transform::Transform::transform(&mut rule, schema);
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     /// Finite original declaration inventory selection.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct ModelingDeclarationRequest {
         projection: { name: "ModelingDeclarationRequest", version: 1,
-            direction: pse_model::boundary_projection::Direction::Input,
+            direction: pse_contract::boundary_projection::Direction::Input,
             reserved_tags: [], reserved_names: [] };
         /// Original source inventory offset.
-        pub offset: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+        pub offset: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
         /// One to128 declarations, shared by native admission and protobuf validation.
         #[schemars(transform = declaration_page_limit_schema)]
-        pub limit: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Input,
+        pub limit: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Input,
             rules: [DECLARATION_PAGE_LIMIT] };
     }
 }
@@ -170,7 +170,7 @@ impl super::ModelingPackage {
         request: &ModelingDeclarationRequest,
     ) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
         self.check_service_bindings(services)?;
-        use pse_model::boundary_projection::ValidateProjection;
+        use pse_contract::boundary_projection::ValidateProjection;
         request.validate_projection().map_err(|error| {
             super::super::WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
         })?;
@@ -192,13 +192,13 @@ impl super::ModelingPackage {
     }
 }
 const MAXIMUM_INSPECTION_MEMBERS: u64 = 128;
-const INSPECTION_PAGE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::UnsignedRange {
+const INSPECTION_PAGE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::UnsignedRange {
         min: 1,
         max: MAXIMUM_INSPECTION_MEMBERS,
     };
-const INSPECTION_MEMBERS: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const INSPECTION_MEMBERS: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: 0,
         max: MAXIMUM_INSPECTION_MEMBERS,
     };
@@ -207,14 +207,14 @@ fn inspection_page_schema(schema: &mut schemars::Schema) {
     schemars::transform::Transform::transform(&mut rule, schema);
 }
 fn inspection_members_schema(schema: &mut schemars::Schema) {
-    if let pse_model::boundary_projection::LocalRule::Length { min, max } = INSPECTION_MEMBERS {
+    if let pse_contract::boundary_projection::LocalRule::Length { min, max } = INSPECTION_MEMBERS {
         schema.ensure_object().insert("minItems".into(), min.into());
         schema.ensure_object().insert("maxItems".into(), max.into());
     } else {
         *schema = schemars::Schema::from(false);
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Finite selection of an admitted model observation, with explicit preparation policy.
 /// The schema example's declaration identity is illustrative, not a runtime admission claim.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -222,19 +222,19 @@ pse_model::projection_struct! {
 #[schemars(example = inspection_request_example())]
 pub struct ModelingInspectionRequest {
     projection: { name: "ModelingInspectionRequest", rust_path: crate::workflow::ModelingInspectionRequest,
-        version: 1, direction: pse_model::boundary_projection::Direction::Input,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Input,
         reserved_tags: [], reserved_names: [] };
     /// Exact authored case declaration.
-    pub case: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub case: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Complete policy used by contextual admission, never inferred from host limits.
-    pub preparation: super::super::PreparationSettings => { tag: 2, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub preparation: super::super::PreparationSettings => { tag: 2, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Original solve/route policy; inspection does not dispatch its procedure.
-    pub settings: crate::math::settings::SolveSettings => { tag: 3, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub settings: crate::math::settings::SolveSettings => { tag: 3, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// Same finite offset applied independently to each original observation population.
-    pub offset: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Input, rules: [] };
+    pub offset: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Input, rules: [] };
     /// At most 128 members of each population.
     #[schemars(transform = inspection_page_schema)]
-    pub limit: usize => { tag: 5, direction: pse_model::boundary_projection::Direction::Input, rules: [INSPECTION_PAGE] };
+    pub limit: usize => { tag: 5, direction: pse_contract::boundary_projection::Direction::Input, rules: [INSPECTION_PAGE] };
 }
 }
 fn inspection_request_example() -> ModelingInspectionRequest {
@@ -247,65 +247,65 @@ fn inspection_request_example() -> ModelingInspectionRequest {
         limit: 16,
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Independent total populations, distinct from the number of returned observations.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InspectionPopulation {
     projection: { name: "InspectionPopulation", rust_path: crate::workflow::InspectionPopulation,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Total instantiated definitions.
-    pub instances: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub instances: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Total instantiated members.
-    pub members: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub members: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Total selected ports.
-    pub ports: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub ports: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Total connections.
-    pub connections: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub connections: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Complete original finite-domain occurrence population, including empty carriers.
-    pub domains: usize => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub domains: usize => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Nonexecuting observation of the selected model."]
 pub struct ModelingInspection {
     projection: { name: "ModelingInspection", rust_path: crate::workflow::ModelingInspection,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Exact source and physical context of this observation.
-    pub source: super::super::OperationSource => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub source: super::super::OperationSource => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Complete native preparation policy that admitted the observed case.
-    pub preparation: super::super::PreparationSettings => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub preparation: super::super::PreparationSettings => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original population sizes before finite projection.
-    pub population: InspectionPopulation => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub population: InspectionPopulation => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Original population offset.
-    pub offset: usize => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub offset: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Next common offset, if any original population has more records.
-    pub next_offset: Option<usize> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub next_offset: Option<usize> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Selected route and procedure before execution."]
-    pub execution: InspectionExecution => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub execution: InspectionExecution => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Instantiated authored definitions."]
     #[schemars(transform = inspection_members_schema)]
-    pub instances: Vec<InspectionInstance> => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
+    pub instances: Vec<InspectionInstance> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
     #[doc = "Instantiated model members and their provenance."]
     #[schemars(transform = inspection_members_schema)]
-    pub members: Vec<InspectionMember> => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
+    pub members: Vec<InspectionMember> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
     #[doc = "Selected authored ports."]
     #[schemars(transform = inspection_members_schema)]
-    pub ports: Vec<InspectionPort> => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
+    pub ports: Vec<InspectionPort> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
     #[doc = "Selected authored connections."]
     #[schemars(transform = inspection_members_schema)]
-    pub connections: Vec<InspectionConnection> => { tag: 10, direction: pse_model::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
+    pub connections: Vec<InspectionConnection> => { tag: 10, direction: pse_contract::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
     /// Original contextual finite carriers, preserving kind, exact values and semantic order.
     #[schemars(transform = inspection_members_schema)]
-    pub domains: Vec<InspectionDomain> => { tag: 11, direction: pse_model::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
+    pub domains: Vec<InspectionDomain> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Output, rules: [INSPECTION_MEMBERS] };
     @local {
     /// Original selected metadata allocation, retained locally through boundary encoding.
     #[serde(skip)]
     #[schemars(skip)]
     pub(crate) owner: Option<std::sync::Arc<pse_columnar::AllocationLease>> = None
-        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+        => check: |_, _| Ok::<(), pse_contract::boundary_projection::ValidationError>(());
     }
 }
 }
@@ -316,42 +316,42 @@ impl ModelingInspection {
         self.owner.clone()
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Selected declared execution before native preparation."]
 pub struct InspectionExecution {
     projection: { name: "InspectionExecution", rust_path: crate::workflow::InspectionExecution,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     #[doc = "Native analysis route."]
-    pub route: ModelingAnalysisRoute => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub route: ModelingAnalysisRoute => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Declared execution procedure."]
-    pub procedure: ModelingProcedure => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub procedure: ModelingProcedure => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Requested retained-start policy."]
-    pub requested_start: pse_backend_native::solve::StartPolicy => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub requested_start: pse_backend_native::solve::StartPolicy => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Retained authored provenance of an instantiated member."]
 pub struct InspectionLineage {
     projection: { name: "InspectionLineage", rust_path: crate::workflow::InspectionLineage,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     #[doc = "Originating authored declaration."]
-    pub declaration: DeclarationId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Selected instance identity."]
-    pub instance: InstanceId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub instance: InstanceId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Authored qualified path."]
-    pub path: String => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub path: String => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Declarations that demanded this specialization."]
-    pub demand: Vec<DeclarationId> => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub demand: Vec<DeclarationId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Declaration supplying the selected default."]
-    pub default_owner: Option<DeclarationId> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub default_owner: Option<DeclarationId> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Whether this member overrides an inherited default."]
-    pub is_override: bool => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub is_override: bool => { tag: 6, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Applied authored presets."]
-    pub presets: Vec<DeclarationId> => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub presets: Vec<DeclarationId> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 impl From<&pse_modeling::specialize::Lineage> for InspectionLineage {
@@ -367,86 +367,86 @@ impl From<&pse_modeling::specialize::Lineage> for InspectionLineage {
         }
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "One selected instantiated definition."]
 pub struct InspectionInstance {
     projection: { name: "InspectionInstance", rust_path: crate::workflow::InspectionInstance,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     #[doc = "Identity retained from the admitted source."]
-    pub id: InstanceId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub id: InstanceId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Originating definition identity."]
-    pub definition: DeclarationId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub definition: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Containing instance, when present."]
-    pub parent: Option<InstanceId> => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub parent: Option<InstanceId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Authored qualified path."]
-    pub path: String => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub path: String => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Instantiated model members and their provenance."]
-    pub members: BTreeMap<String, DeclarationId> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub members: BTreeMap<String, DeclarationId> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "One selected model member."]
 pub struct InspectionMember {
     projection: { name: "InspectionMember", rust_path: crate::workflow::InspectionMember,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     #[doc = "Identity retained from the admitted source."]
-    pub id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Authored declaration role."]
-    pub role: ModelingDeclarationKind => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub role: ModelingDeclarationKind => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Provenance of this selected member."]
-    pub lineage: InspectionLineage => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub lineage: InspectionLineage => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Complete original admitted physical type; nominal roles remain explicit.
-    pub ty: pse_modeling::Type => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub ty: pse_modeling::Type => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// An actual finite-domain occurrence and its complete contextual carrier.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InspectionDomain {
     projection: { name: "InspectionDomain", rust_path: crate::workflow::InspectionDomain,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output,
         reserved_tags: [], reserved_names: [] };
     /// Original family, outer context, axis position and preceding ragged coordinates.
-    pub key: pse_modeling::specialize::finite::DomainKey => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub key: pse_modeling::specialize::finite::DomainKey => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     /// Actual typed membership issued by specialization, including explicit empty domains.
-    pub carrier: pse_modeling::resolved::Carrier => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub carrier: pse_modeling::resolved::Carrier => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "One selected declared port."]
 pub struct InspectionPort {
     projection: { name: "InspectionPort", rust_path: crate::workflow::InspectionPort,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     #[doc = "Identity retained from the admitted source."]
-    pub id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Selected symbol carried by this port."]
-    pub symbol: SemanticId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub symbol: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Provenance of this selected member."]
-    pub lineage: InspectionLineage => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub lineage: InspectionLineage => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "One selected declared connection."]
 pub struct InspectionConnection {
     projection: { name: "InspectionConnection", rust_path: crate::workflow::InspectionConnection,
-        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     #[doc = "Identity retained from the admitted source."]
-    pub id: SemanticId => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Source endpoint identity."]
-    pub from: SemanticId => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub from: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Destination endpoint identity."]
-    pub to: SemanticId => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub to: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
     #[doc = "Provenance of this selected member."]
-    pub lineage: InspectionLineage => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+    pub lineage: InspectionLineage => { tag: 4, direction: pse_contract::boundary_projection::Direction::Output, rules: [] };
 }
 }
 impl super::DeclaredExecution {
@@ -461,7 +461,7 @@ impl super::DeclaredExecution {
     ) -> Result<ModelingInspection, super::super::WorkflowError> {
         // This public producer enforces the same finite selection as request
         // admission, including direct typed native calls outside a service.
-        pse_model::boundary_projection::validate_field(&limit, "limit", &[INSPECTION_PAGE])
+        pse_contract::boundary_projection::validate_field(&limit, "limit", &[INSPECTION_PAGE])
             .map_err(|error| {
                 super::super::WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(
                     error,
@@ -921,7 +921,7 @@ mod boundary_unit {
     use super::*;
     #[test]
     fn declaration_page_rule_is_shared_by_native_json_schema_and_projection() {
-        use pse_model::boundary_projection::{ProjectionGraph, Shape, ValidateProjection};
+        use pse_contract::boundary_projection::{ProjectionGraph, Shape, ValidateProjection};
         let schema = schemars::schema_for!(ModelingDeclarationRequest).to_value();
         assert_eq!(schema["properties"]["limit"]["minimum"], 1);
         assert_eq!(schema["properties"]["limit"]["maximum"], 128);
@@ -940,7 +940,7 @@ mod boundary_unit {
                 .validate_projection()
                 .unwrap_err();
             assert!(
-                matches!(error, pse_model::boundary_projection::ValidationError::Rule { path, rule: "unsigned.range", .. } if path == "limit")
+                matches!(error, pse_contract::boundary_projection::ValidationError::Rule { path, rule: "unsigned.range", .. } if path == "limit")
             );
         }
     }

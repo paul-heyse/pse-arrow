@@ -19,7 +19,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -35,7 +35,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -51,7 +51,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/pse.reference.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -67,7 +67,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -83,7 +83,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -99,7 +99,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/validation/pse.reference.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -115,7 +115,7 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/reference-exchange/validation/reference.rs",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },
@@ -131,7 +131,7 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.reference.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-model/src/boundary_projection/quantity.rs",
+      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
       "source_role": "semantic_owner",
       "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
     },

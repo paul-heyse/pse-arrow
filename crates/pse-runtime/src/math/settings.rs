@@ -19,22 +19,22 @@ use std::collections::{BTreeMap, BTreeSet};
 include!("settings/declarations.rs");
 
 const MINIMUM_SENSITIVITY_IDENTITIES: usize = 1;
-const SENSITIVITY_IDENTITIES_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::Length {
+const SENSITIVITY_IDENTITIES_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::Length {
         min: MINIMUM_SENSITIVITY_IDENTITIES as u64,
         max: u64::MAX,
     };
 fn sensitivity_identities_schema(schema: &mut schemars::Schema) {
     // This owner knows the field is an array; generic Length also applies to strings/maps.
     match SENSITIVITY_IDENTITIES_RULE {
-        pse_model::boundary_projection::LocalRule::Length { min, max } => {
+        pse_contract::boundary_projection::LocalRule::Length { min, max } => {
             schema.ensure_object().insert("minItems".into(), min.into());
             schema.ensure_object().insert("maxItems".into(), max.into());
         }
         _ => *schema = schemars::Schema::from(false),
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Physical parameter sensitivities at a regular square Root or an optimization's local
 /// solution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;
 /// optimization uses KKT-point analysis. Results use original physical coordinates and
@@ -43,22 +43,22 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct SensitivityRequest {
     projection: { name: "NativeSensitivityRequest", rust_path: crate::math::settings::SensitivityRequest,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Declared parameters of the solved case by identity, in the order results report
     /// them; at least one, none repeated.
     #[schemars(transform = sensitivity_identities_schema)]
-    pub parameters: Vec<pse_ids::SemanticId> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
+    pub parameters: Vec<pse_ids::SemanticId> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
     /// Also compute the reduced Hessian over the parameters: the second derivative of the
     /// optimal value.
     #[serde(default)]
-    pub reduced_hessian: bool => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub reduced_hessian: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Also propagate a fit's parameter covariance through the sensitivities to named
     /// variables (Plan 22 S4); absent propagates none and is not encoded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub propagation: Option<Propagation> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub propagation: Option<Propagation> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the
 /// step's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds
 /// while the sensitivities do: its validity is theirs, and the covariance's, which a fit
@@ -67,82 +67,82 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct Propagation {
     projection: { name: "NativeCovariancePropagation", rust_path: crate::math::settings::Propagation,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// The covariance to propagate, as a fit run published it.
-    pub covariance: ParameterCovariance => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub covariance: ParameterCovariance => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Solved variables of the case by identity, in the order of the result; at least one,
     /// none repeated.
     #[schemars(transform = sensitivity_identities_schema)]
-    pub outputs: Vec<pse_ids::SemanticId> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
+    pub outputs: Vec<pse_ids::SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// A parameter covariance as `runtime.parameter_covariances` publishes it.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ParameterCovariance {
     projection: { name: "NativeParameterCovariance", rust_path: crate::math::settings::ParameterCovariance,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Covariance input interpretation; required before decoding its body.
-    pub version: Version<1> => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub version: Version<1> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// A qualified fit reference or explicit external statistical assumptions.
-    pub origin: CovarianceOrigin => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub origin: CovarianceOrigin => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The fitted parameters by identity, in the order of `values`.
     #[schemars(transform = sensitivity_identities_schema)]
-    pub parameters: Vec<pse_ids::SemanticId> => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
+    pub parameters: Vec<pse_ids::SemanticId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [SENSITIVITY_IDENTITIES_RULE] };
     /// `Σ_θ` row-major, in the parameters' units.
-    pub values: Vec<FiniteBound> => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub values: Vec<FiniteBound> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Positive coordinate scales in those same units, in parameter order.
     /// Fit inputs use their recorded scales; external inputs declare their scales.
-    pub scales: Vec<FiniteBound> => { tag: 5, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub scales: Vec<FiniteBound> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete quantity contracts and representation units, in parameter order.
-    pub parameter_quantities: Vec<pse_ids::SemanticId> => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub parameter_quantities: Vec<pse_ids::SemanticId> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Representation unit of each matrix row/column and its coordinate scale.
-    pub parameter_units: Vec<pse_ids::SemanticId> => { tag: 7, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub parameter_units: Vec<pse_ids::SemanticId> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     // Deserialization cannot create evidence. A fit payload is reconciled against
     // actual immutable results before this process-local authority is issued.
     @local {
     #[serde(skip)]
     #[schemars(skip)]
     pub(crate) verified: Option<std::sync::Arc<VerifiedFitCovariance>> = None
-        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+        => check: |_, _| Ok::<(), pse_contract::boundary_projection::ValidationError>(());
     }
 }
 }
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Exact canonical selection of the fit that owns the covariance.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FitCovarianceRecord {
     projection: { name: "NativeFitCovarianceRecord", rust_path: crate::math::settings::FitCovarianceRecord,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Native canonical run key.
-    pub run: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub run: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact native attempt key; latest-result substitution is not allowed.
-    pub attempt: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub attempt: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Statistical provenance is independent of matrix admissibility.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CovarianceOrigin {
     projection: { name: "NativeCovarianceOrigin", rust_path: crate::math::settings::CovarianceOrigin,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Resolve or reconcile actual qualified fit content and its local validity.
     QualifiedFit {
         /// Scientific run identity, checked against the selected actual fit.
-        run_id: pse_model::generated::identities::RunId => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        run_id: pse_model::generated::identities::RunId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Absent only for a still-owned in-process fit; a decoded reference then refuses.
-        record: Option<FitCovarianceRecord> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        record: Option<FitCovarianceRecord> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 1;
     /// Caller-declared covariance with uncertified statistical provenance.
     External {
         /// Attribution label; it never identifies a certified fit.
-        label: String => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        label: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Explicit statistical assumptions of this external input.
-        assumptions: Vec<String> => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        assumptions: Vec<String> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 2;
 }
 }
@@ -163,7 +163,7 @@ mod covariance_projection_tests {
         reason = "source-owned passive covariance codec controls"
     )]
     use super::*;
-    use pse_model::boundary_projection::{
+    use pse_contract::boundary_projection::{
         ProjectionGraph, ProjectionRecord, ValidateProjection as _,
     };
 

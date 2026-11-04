@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 // Actual source declarations; original native methods and admission remain beside the owner.
 
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
     /// Fitting owns selection between its residual method and native NLP methods.
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(rename_all = "snake_case")]
     pub enum FitOptimizer {
         projection: {name:"FitOptimizer",rust_path:crate::workflow::FitOptimizer,version:1,
-            direction:pse_model::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
+            direction:pse_contract::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
         /// Use residual LM only when native preparation establishes complete eligibility.
         #[default]
         Automatic => 1;

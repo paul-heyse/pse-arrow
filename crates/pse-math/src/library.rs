@@ -134,7 +134,7 @@ pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
         environment: crate::linked_environment()?,
     })
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Explicit evaluator implementation. Scalar C++ compilation is opt-in for eligible
 /// demanded arithmetic products; provider calls and ordered guards remain host-owned.
 #[derive(
@@ -151,7 +151,7 @@ pse_model::projection_enum! {
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Evaluator {
-    projection: { name: "MathEvaluator", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "MathEvaluator", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Portable library instruction interpretation.
     #[default]
@@ -162,7 +162,7 @@ pub enum Evaluator {
     /// remains independently charged from the exported stack.
     CompiledScalar {
         /// Prepaid complete native preparation/module capacity for each arithmetic block.
-        module_bytes: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+        module_bytes: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 2;
 }
 }
@@ -188,24 +188,24 @@ impl Evaluator {
 const MAX_OPTIMIZER_CORES: usize = 64;
 const MAX_HORNER_ITERATIONS: usize = 1000;
 const MAX_CPE_ITERATIONS: usize = 32;
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Explicit optimizer controls; no target-dependent or unbounded defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Optimization {
-    projection: { name: "MathOptimization", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+    projection: { name: "MathOptimization", version: 1, direction: pse_contract::boundary_projection::Direction::Both,
         reserved_tags: [], reserved_names: [] };
     /// Positive bounded optimizer concurrency.
-    pub cores: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: MAX_OPTIMIZER_CORES as u64 }] };
+    pub cores: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: MAX_OPTIMIZER_CORES as u64 }] };
     /// Horner search budget.
-    pub horner_iterations: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 0, max: MAX_HORNER_ITERATIONS as u64 }] };
+    pub horner_iterations: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 0, max: MAX_HORNER_ITERATIONS as u64 }] };
     /// Common-pair elimination rounds.
-    pub cpe_iterations: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 0, max: MAX_CPE_ITERATIONS as u64 }] };
+    pub cpe_iterations: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both,
+        rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 0, max: MAX_CPE_ITERATIONS as u64 }] };
     /// Explicit implementation for scalar Value arithmetic blocks.
-    pub evaluator: Evaluator => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub evaluator: Evaluator => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
 }
 impl Optimization {

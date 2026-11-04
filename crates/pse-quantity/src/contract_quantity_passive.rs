@@ -4,8 +4,8 @@
 //! These implementations expose documents; native physical receipt restoration stays
 //! exclusively with the original quantity owner.
 
-use super::*;
-use pse_quantity::boundary::{
+use pse_contract::boundary_projection::*;
+use crate::boundary::{
     BoundaryAlternative, BoundaryAlternativeField, BoundaryAlternatives, BoundaryDocument,
     BoundaryField, BoundaryFieldEncoding, BoundaryRecord, PassiveFieldEncoding,
 };
@@ -107,18 +107,18 @@ macro_rules! passive_quantity_alternatives {
 
 // Selection only: every original field, tag, type and exact-bit interpretation
 // comes from its lower source callback, including fields private to that owner.
-pse_quantity::physical_contract_record_boundary!(passive_quantity_record);
-pse_quantity::physical_scheme_record_boundary!(passive_quantity_record);
-pse_quantity::physical_contract_facts_boundary!(passive_quantity_record);
-pse_quantity::physical_qualified_factor_boundary!(passive_quantity_record);
-pse_quantity::physical_formula_facts_boundary!(passive_quantity_record);
-pse_quantity::bound_index_reference_boundary!(passive_quantity_record);
-pse_quantity::physical_scheme_shape_boundary!(passive_quantity_alternatives);
+physical_contract_record_boundary!(passive_quantity_record);
+physical_scheme_record_boundary!(passive_quantity_record);
+physical_contract_facts_boundary!(passive_quantity_record);
+physical_qualified_factor_boundary!(passive_quantity_record);
+physical_formula_facts_boundary!(passive_quantity_record);
+bound_index_reference_boundary!(passive_quantity_record);
+physical_scheme_shape_boundary!(passive_quantity_alternatives);
 
 // The sole intrinsic document-view field is a typed link to the original record,
 // rather than a second declaration of Scheme alternatives or physical facts.
 const SCHEME_DOCUMENT: (u32, &str) = (1, "document");
-impl ProjectionType for pse_quantity::scheme::Scheme {
+impl ProjectionType for crate::scheme::Scheme {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
         graph.declare::<Self>(
             <Self as BoundaryDocument>::NAME,
@@ -141,7 +141,7 @@ impl ProjectionType for pse_quantity::scheme::Scheme {
         )
     }
 }
-impl ProjectionRecord for pse_quantity::scheme::Scheme {
+impl ProjectionRecord for crate::scheme::Scheme {
     const VERSION: u32 = <Self as BoundaryDocument>::VERSION;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[SCHEME_DOCUMENT];
     type Fields = (<Self as BoundaryDocument>::Document,);
@@ -158,7 +158,7 @@ impl ProjectionRecord for pse_quantity::scheme::Scheme {
         })
     }
 }
-impl ValidateProjection for pse_quantity::scheme::Scheme {
+impl ValidateProjection for crate::scheme::Scheme {
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         // Capture is passive. In particular, outgoing Resolved contracts need not
         // satisfy a new recipe-membership check merely to publish their facts.
@@ -168,5 +168,5 @@ impl ValidateProjection for pse_quantity::scheme::Scheme {
 }
 
 #[cfg(test)]
-#[path = "quantity_passive_tests.rs"]
+#[path = "contract_quantity_passive_tests.rs"]
 mod tests;

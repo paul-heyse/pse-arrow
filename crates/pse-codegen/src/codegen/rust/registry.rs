@@ -161,7 +161,7 @@ fn relation(pool: &NativeJsonPool, value: &RelationSpec) -> Result<TokenStream, 
         let name = record.name;
         let source = record.source;
         let version = record.version;
-        let direction = unit("pse_vocabulary::BoundaryDirection", record.direction)?;
+        let direction = unit("pse_contract::BoundaryDirection", record.direction)?;
         let tags = record.reserved_tags;
         let names = record.reserved_names;
         Ok(quote!(.with_boundary_record(BoundaryRecord {source:#source,name:#name,version:#version,direction:#direction,

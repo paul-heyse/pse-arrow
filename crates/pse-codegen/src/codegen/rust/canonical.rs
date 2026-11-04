@@ -49,27 +49,27 @@ pub(super) fn emit(
             impl crate::SemanticEq for #name { fn semantic_eq(&self, other: &Self) -> bool { self == other } }
             impl crate::HeapUsage for #name { fn heap_bytes(&self) -> usize { self.0.capacity() } }
             impl crate::SemanticFrame for #name { fn frame(&self, hash: &mut pse_ids::FramedHasher) { hash.str(&self.0); } }
-            impl crate::boundary_projection::ProjectionType for #name {
-                fn projection(graph:&mut crate::boundary_projection::ProjectionGraph) -> Result<crate::boundary_projection::TypeRef,crate::boundary_projection::ProjectionError> {
+            impl pse_contract::boundary_projection::ProjectionType for #name {
+                fn projection(graph:&mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef,pse_contract::boundary_projection::ProjectionError> {
                     graph.declare::<Self>(#wire_name,"crates/pse-schema/src/model/canonical.rs",1,
-                        crate::boundary_projection::Direction::Both,&[],&[],|graph| {
-                            Ok(crate::boundary_projection::Shape::Record(vec![
-                                crate::boundary_projection::Field::of::<String>(graph,"value",1,
-                                    crate::boundary_projection::Direction::Both,vec![])?
+                        pse_contract::boundary_projection::Direction::Both,&[],&[],|graph| {
+                            Ok(pse_contract::boundary_projection::Shape::Record(vec![
+                                pse_contract::boundary_projection::Field::of::<String>(graph,"value",1,
+                                    pse_contract::boundary_projection::Direction::Both,vec![])?
                             ]))
                         })
                 }
             }
-            impl crate::boundary_projection::ProjectionRecord for #name {
+            impl pse_contract::boundary_projection::ProjectionRecord for #name {
                 const VERSION:u32=1;
                 const FIELD_LAYOUT:&'static[(u32,&'static str)] = &[(1,"value")];
                 type Fields=(String,);
                 fn into_projection_fields(self)->Self::Fields { (self.0,) }
-                fn from_projection_fields((value,):Self::Fields)->Result<Self,crate::boundary_projection::AdapterError> { Ok(Self(value)) }
+                fn from_projection_fields((value,):Self::Fields)->Result<Self,pse_contract::boundary_projection::AdapterError> { Ok(Self(value)) }
             }
-            impl crate::boundary_projection::ValidateProjection for #name {
+            impl pse_contract::boundary_projection::ValidateProjection for #name {
                 const NEEDS_RECURSIVE_VALIDATION:bool=false;
-                fn validate_at(&self,_:&str)->Result<(),crate::boundary_projection::ValidationError> { Ok(()) }
+                fn validate_at(&self,_:&str)->Result<(),pse_contract::boundary_projection::ValidationError> { Ok(()) }
             }
         }
     });

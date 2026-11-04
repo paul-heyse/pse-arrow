@@ -9,7 +9,7 @@ use buffa_descriptor::generated::{
     descriptor::FileDescriptorSet,
 };
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
-use pse_model::boundary_projection::{ProjectionGraph, Service, TypeRef};
+use pse_contract::boundary_projection::{ProjectionGraph, Service, TypeRef};
 use std::{
     collections::BTreeSet,
     io::Write as _,

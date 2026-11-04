@@ -604,13 +604,13 @@ pub enum RefinementRefusal {
     /// Actual controls or interval uncertainty cannot represent this allowance.
     Precision,
 }
-const REFINEMENT_ROUNDS_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::UnsignedRange {
+const REFINEMENT_ROUNDS_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::UnsignedRange {
         min: 1,
         max: usize::MAX as u64,
     };
-const REFINEMENT_PROOF_CELLS_RULE: pse_model::boundary_projection::LocalRule =
-    pse_model::boundary_projection::LocalRule::UnsignedRange {
+const REFINEMENT_PROOF_CELLS_RULE: pse_contract::boundary_projection::LocalRule =
+    pse_contract::boundary_projection::LocalRule::UnsignedRange {
         min: 1,
         max: u64::MAX,
     };
@@ -624,7 +624,7 @@ fn refinement_proof_cells_schema(schema: &mut schemars::Schema) {
     let mut rule = REFINEMENT_PROOF_CELLS_RULE;
     rule.transform(schema);
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Explicit consumer allowance for one point or one realized action product.
 /// Proof cells are shared across its rounds; the original task clock is unchanged.
 #[derive(
@@ -633,19 +633,19 @@ pse_model::projection_struct! {
 #[serde(deny_unknown_fields)]
 pub struct RefinementLimits {
     projection: { name: "ReconstructionRefinementLimits", rust_path: crate::derived::RefinementLimits,
-        version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Maximum complete enclosure/correction rounds for this consumed product.
     #[schemars(transform = refinement_rounds_schema)]
-    pub rounds: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [REFINEMENT_ROUNDS_RULE] };
+    pub rounds: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [REFINEMENT_ROUNDS_RULE] };
     /// Maximum actual interval proof cells across all those rounds.
     #[schemars(transform = refinement_proof_cells_schema)]
-    pub proof_cells: u64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [REFINEMENT_PROOF_CELLS_RULE] };
+    pub proof_cells: u64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [REFINEMENT_PROOF_CELLS_RULE] };
 }
 }
 impl RefinementLimits {
     /// Refuse absent finite work rather than choose implicit numerical defaults.
     pub fn validate(self) -> Result<(), MathError> {
-        use pse_model::boundary_projection::ValidateProjection as _;
+        use pse_contract::boundary_projection::ValidateProjection as _;
         self.validate_projection().map_err(|_| {
             MathError::Contract(
                 "positive explicit reconstruction refinement allowances required".into(),
@@ -658,7 +658,7 @@ impl RefinementLimits {
 mod refinement_projection_tests {
     #![allow(clippy::unwrap_used, reason = "original finite-work boundary controls")]
     use super::*;
-    use pse_model::boundary_projection::{ProjectionGraph, ValidateProjection as _};
+    use pse_contract::boundary_projection::{ProjectionGraph, ValidateProjection as _};
 
     #[test]
     fn reconstruction_refinement_projection_preserves_full_native_work_domain() {

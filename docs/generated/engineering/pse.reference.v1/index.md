@@ -5,7 +5,7 @@ Generated from actual typed declarations. Registry and contextual scientific adm
 
 ## `Array8PhysicalRatio`
 
-Rust owner: `[pse_quantity::dimension::Ratio; 8]`. Source: `crates/pse-model/src/boundary_projection/quantity.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `[pse_quantity::dimension::Ratio; 8]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 

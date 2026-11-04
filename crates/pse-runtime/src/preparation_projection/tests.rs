@@ -4,7 +4,7 @@
 use super::*;
 use crate::host_operations::engineering::generated::pb::pse::engineering::v1 as wire;
 use buffa::Message;
-use pse_model::boundary_projection::ProjectionRecord;
+use pse_contract::boundary_projection::ProjectionRecord;
 use pse_modeling::specialize::Value;
 
 fn request() -> crate::workflow::PreparationDiscoveryRequest {
@@ -188,7 +188,7 @@ fn outgoing_native_envelope_violation_is_an_internal_producer_failure() {
     };
     let error = encode_preparation_discovery_report(native).unwrap_err();
     assert!(matches!(&error, BoundaryProjectionError::OutgoingNative(
-        pse_model::boundary_projection::ValidationError::Rule { path, rule: "length", .. }) if path == "resident"));
+        pse_contract::boundary_projection::ValidationError::Rule { path, rule: "length", .. }) if path == "resident"));
     assert_eq!(
         pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
         Some(pse_diagnostics::DiagnosticCode::WorkflowInternal)

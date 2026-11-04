@@ -303,8 +303,8 @@ mod native_value_tests {
     fn development_owner_paths_relocate_nested_macro_paths_without_rewriting_literals_or_hygiene() {
         let mut source: syn::File = syn::parse_quote! {
             fn example() {
-                let _ = vec![crate::boundary_projection::Field::of::<String>(),
-                    (::pse_model::generated::canonical::ProblemKey::from_text("crate::boundary_projection"))];
+                let _ = vec![pse_contract::boundary_projection::Field::of::<String>(),
+                    (::pse_model::generated::canonical::ProblemKey::from_text("pse_contract::boundary_projection"))];
                 let _ = matches!(None, Some(crate::generated::enums::NativeBackend::Ipopt));
                 macro_rules! keep { () => { $crate::generated::unchanged() }; }
             }
@@ -315,10 +315,10 @@ mod native_value_tests {
         }
         .visit_file_mut(&mut source);
         let output = quote::quote!(#source).to_string();
-        assert!(output.contains("pse_model :: boundary_projection :: Field"));
+        assert!(output.contains("pse_contract :: boundary_projection :: Field"));
         assert!(output.contains("crate :: generated :: model :: canonical :: ProblemKey"));
         assert!(output.contains("crate :: generated :: model :: enums :: NativeBackend"));
-        assert!(output.contains("\"crate::boundary_projection\""));
+        assert!(output.contains("\"pse_contract::boundary_projection\""));
         assert!(output.contains("$ crate :: generated :: unchanged"));
         assert!(!output.contains(":: crate"));
         let mut relation: syn::File = syn::parse_quote! {

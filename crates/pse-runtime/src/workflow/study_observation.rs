@@ -7,7 +7,7 @@ use super::{
     StudyCohortRequest, StudyWorkbenchFilter, StudyWorkbenchHeader, WorkflowError, contract,
 };
 use pse_columnar::CancellationToken;
-use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
+use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 const OBSERVED_MEMBERS: LocalRule = LocalRule::UnsignedRange { min: 1, max: 64 };
 const OBSERVED_EVENTS: LocalRule = LocalRule::UnsignedRange { min: 1, max: 512 };
@@ -37,7 +37,7 @@ fn observed_offset_schema(schema: &mut schemars::Schema) {
     let mut rule = OBSERVED_EVENT_OFFSET;
     rule.transform(schema);
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Selected study and bounded observation allowance. These controls never govern science.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -63,7 +63,7 @@ impl StudyObservationRequest {
         })
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Original immutable selection binds a cursor independently from mutable metadata revisions.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -84,7 +84,7 @@ pub struct StudyObservationContext {
     pub context: Option<String> => { tag: 5, direction: Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Position in one exact attempt, with separate native source and durable batch clocks.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -114,7 +114,7 @@ pub struct StudyObservationPosition {
     pub history_complete: bool => { tag: 10, direction: Direction::Both, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// Portable reconnect coordinates; decoding grants no result or cancellation authority.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -132,7 +132,7 @@ pub struct StudyObservationCursor {
     pub sources: Vec<StudyObservationPosition> => { tag: 4, direction: Direction::Both, rules: [OBSERVED_SOURCES] };
 }
 }
-pse_model::projection_enum! {
+pse_contract::projection_enum! {
 /// Explicit continuity statement for one selected source in this poll.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -151,7 +151,7 @@ pub enum StudyObservationContinuity {
     HistoryUnavailable => 4;
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// A source-local page; ordering across sources has no global causal interpretation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -172,7 +172,7 @@ pub struct StudyObservedSource {
     pub history_refusal: Option<String> => { tag: 6, direction: Direction::Output, rules: [] };
 }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One explicitly bounded observer status page; never a complete analytical document.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -189,7 +189,7 @@ pub struct StudyObservationStatus {
     #[serde(skip)]
     #[schemars(skip)]
     _custody: Option<Arc<dyn std::fmt::Debug + Send + Sync>> = None
-        => check: |_, _| Ok::<(), pse_model::boundary_projection::ValidationError>(());
+        => check: |_, _| Ok::<(), pse_contract::boundary_projection::ValidationError>(());
     }
 }
 }
@@ -226,7 +226,7 @@ async fn status_page(
         _custody: Some(Arc::new((headers._owner, cohort))),
     })
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
 /// One bounded read-only poll and its exact reconnect position.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

@@ -3,7 +3,7 @@
 //! Source-owned typed access for downstream boundary projections, without a wire dependency.
 
 /// Shared boundary direction without depending on any model or protobuf implementation.
-pub use pse_vocabulary::BoundaryDirection as Direction;
+pub use pse_contract::BoundaryDirection as Direction;
 
 mod passive;
 pub use passive::{

@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write;
 
-use pse_model::boundary_projection::{
+use pse_contract::boundary_projection::{
     ConstructionRole, Definition, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 
@@ -91,7 +91,7 @@ fn generate(
         let visibility = if retained_wire { "pub(super)" } else { "pub" };
         if definition.construction == ConstructionRole::ObservationOnly {
             let _ = writeln!(out,
-                "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_model::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = native_into(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
+                "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = native_into(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
             );
             continue;
         }
@@ -272,7 +272,7 @@ impl Generator<'_> {
             .collect::<Vec<_>>()
             .join(",");
         format!(
-            "layout(<{native} as pse_model::boundary_projection::{accessor}>::VERSION, <{native} as pse_model::boundary_projection::{accessor}>::FIELD_LAYOUT, {version}, &[{layout}], path)?;"
+            "layout(<{native} as pse_contract::boundary_projection::{accessor}>::VERSION, <{native} as pse_contract::boundary_projection::{accessor}>::FIELD_LAYOUT, {version}, &[{layout}], path)?;"
         )
     }
 
@@ -330,7 +330,7 @@ impl Generator<'_> {
                 let observation = owner.construction == ConstructionRole::ObservationOnly;
                 let layout = if observation {
                     let layout = fields.iter().map(|field| format!("({}, {:?})", field.tag, field.name)).collect::<Vec<_>>().join(",");
-                    format!("layout(<{native} as pse_model::boundary_projection::ProjectionObservationRecord>::VERSION, <{native} as pse_model::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT, {}, &[{layout}], path)?;", owner.version)
+                    format!("layout(<{native} as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION, <{native} as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT, {}, &[{layout}], path)?;", owner.version)
                 } else {
                     self.layout(&native, fields, owner.version, None, owner.checked_record)
                 };
@@ -342,14 +342,14 @@ impl Generator<'_> {
                     "ProjectionRecord"
                 };
                 let extract = if observation {
-                    format!("pse_model::boundary_projection::{accessor}::observation_fields(self).map_err(|error| error.at(path))?")
+                    format!("pse_contract::boundary_projection::{accessor}::observation_fields(self).map_err(|error| error.at(path))?")
                 } else if owner.checked_record {
                     format!(
-                        "pse_model::boundary_projection::{accessor}::try_into_projection_fields(self).map_err(|error| error.at(path))?"
+                        "pse_contract::boundary_projection::{accessor}::try_into_projection_fields(self).map_err(|error| error.at(path))?"
                     )
                 } else {
                     format!(
-                        "pse_model::boundary_projection::{accessor}::into_projection_fields(self)"
+                        "pse_contract::boundary_projection::{accessor}::into_projection_fields(self)"
                     )
                 };
                 let encode = self.fields_encode(fields, &message)?;
@@ -367,7 +367,7 @@ impl Generator<'_> {
                 );
                 let _ = writeln!(
                     out,
-                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} {layout} let fields = {decode}; pse_model::boundary_projection::{accessor}::from_projection_fields(fields).map_err(|error| error.at(path)) }} }}"
+                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} {layout} let fields = {decode}; pse_contract::boundary_projection::{accessor}::from_projection_fields(fields).map_err(|error| error.at(path)) }} }}"
                 );
             }
             Shape::Alternatives(alternatives) => {
@@ -411,7 +411,7 @@ impl Generator<'_> {
                     };
                     let _ = writeln!(
                         out,
-                        "{layout} let value = match <{native} as pse_model::boundary_projection::ProjectionAlternative<{tag}>>::into_projection_alternative(value) {{ Ok(({bindings})) => {{ {path_setup} return Ok({wire} {{ kind: Some({kind}::{variant}(Box::new({payload} {{ {encode} ..Default::default() }}))), ..Default::default() }}) }}, Err(value) => value }};"
+                        "{layout} let value = match <{native} as pse_contract::boundary_projection::ProjectionAlternative<{tag}>>::into_projection_alternative(value) {{ Ok(({bindings})) => {{ {path_setup} return Ok({wire} {{ kind: Some({kind}::{variant}(Box::new({payload} {{ {encode} ..Default::default() }}))), ..Default::default() }}) }}, Err(value) => value }};"
                     );
                 }
                 let _ = writeln!(
@@ -441,7 +441,7 @@ impl Generator<'_> {
                     let unknown = self.unknown_guard("wire", "path");
                     let _ = writeln!(
                         out,
-                        "{kind}::{variant}(wire) => {{ let alternative_path = child_path(path, {alternative_name:?}); let path = alternative_path.as_str(); let wire = *wire; {unknown} {layout} let fields = {decode}; Ok(<{native} as pse_model::boundary_projection::ProjectionAlternative<{tag}>>::from_projection_alternative(fields)) }},"
+                        "{kind}::{variant}(wire) => {{ let alternative_path = child_path(path, {alternative_name:?}); let path = alternative_path.as_str(); let wire = *wire; {unknown} {layout} let fields = {decode}; Ok(<{native} as pse_contract::boundary_projection::ProjectionAlternative<{tag}>>::from_projection_alternative(fields)) }},"
                     );
                 }
                 let _ = writeln!(out, "}} }} }}");

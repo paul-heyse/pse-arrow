@@ -105,6 +105,7 @@ property-coolprop = [
 ]
 
 [dependencies]
+pse-contract.workspace = true
 buffa.workspace = true
 buffa-descriptor.workspace = true
 bytes.workspace = true

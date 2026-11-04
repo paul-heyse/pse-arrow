@@ -301,12 +301,12 @@ pub(super) fn contract_to_pb(value: native::EngineeringContract) -> pb::Engineer
     }
 }
 
-fn effects_to_pb(value: pse_model::operation_effects::EffectFacts) -> pb::EffectFacts {
+fn effects_to_pb(value: pse_contract::operation_effects::EffectFacts) -> pb::EffectFacts {
     use pb::effect_scope::{
         Alternative1, Alternative2, Alternative3, Alternative4, Alternative5, Alternative6,
         Alternative7, Kind,
     };
-    use pse_model::operation_effects::EffectScope;
+    use pse_contract::operation_effects::EffectScope;
     let kind = match value.scope {
         EffectScope::Observation => Kind::Observation(Box::new(Alternative1::default())),
         EffectScope::SourceAdmission => Kind::SourceAdmission(Box::new(Alternative2::default())),

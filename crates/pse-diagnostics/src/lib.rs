@@ -20,10 +20,12 @@ pub use supervised_child::{DrainFailurePolicy, StderrCapture, SupervisedChild, S
 
 pub mod boundary;
 pub mod inspection;
+#[macro_use]
 pub mod observation;
 /// SDK-independent process-host telemetry settings.
 pub mod telemetry_settings;
 
+#[macro_use]
 mod vocabulary;
 pub use vocabulary::{
     CaptureKind, CaptureOutputKind, CaptureStatus, DiagnosticCode, DiagnosticObservationKind,
@@ -290,3 +292,6 @@ pub mod stop;
 
 /// Owner-independent execution lifecycle vocabulary.
 pub mod lifecycle;
+
+mod contract_projection;
+mod contract_errors;

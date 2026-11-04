@@ -42,12 +42,12 @@ impl PartialEq for ReferenceBasesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
+impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -56,19 +56,19 @@ impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
                 "RegistryPhysicalBasis",
                 "crates/pse-schema/src/catalog/s6_2_physical.rs",
                 1u32,
-                crate::boundary_projection::Direction::Output,
+                pse_contract::boundary_projection::Direction::Output,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::identities::BasisId,
                             >(
                                     graph,
                                     "basis_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -80,13 +80,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
                                         ("pse.domain.role".into(), "key".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::BasisKind,
                             >(
                                     graph,
                                     "kind",
                                     2u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -98,13 +98,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::enums::CompositionBasis>,
                             >(
                                     graph,
                                     "composition_basis",
                                     3u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -116,13 +116,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::enums::RateBasis>,
                             >(
                                     graph,
                                     "rate_basis",
                                     4u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -134,13 +134,13 @@ impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::ReferenceStateId>,
                             >(
                                     graph,
                                     "reference_conditions_id",
                                     5u32,
-                                    crate::boundary_projection::Direction::Output,
+                                    pse_contract::boundary_projection::Direction::Output,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -166,7 +166,7 @@ impl crate::boundary_projection::ProjectionType for ReferenceBasesRow {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for ReferenceBasesRow {
+impl pse_contract::boundary_projection::ProjectionRecord for ReferenceBasesRow {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "basis_id"),
@@ -199,7 +199,7 @@ impl crate::boundary_projection::ProjectionRecord for ReferenceBasesRow {
             r#rate_basis,
             r#reference_conditions_id,
         ): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#basis_id,
             r#kind,
@@ -209,51 +209,57 @@ impl crate::boundary_projection::ProjectionRecord for ReferenceBasesRow {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for ReferenceBasesRow {
+impl pse_contract::boundary_projection::ValidateProjection for ReferenceBasesRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::BasisId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::BasisId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::BasisKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::BasisKind as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::enums::CompositionBasis,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::enums::RateBasis,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::ReferenceStateId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#basis_id,
-                &crate::boundary_projection::field_path(path, "basis_id"),
+                &pse_contract::boundary_projection::field_path(path, "basis_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#kind,
-                &crate::boundary_projection::field_path(path, "kind"),
+                &pse_contract::boundary_projection::field_path(path, "kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#composition_basis,
-                &crate::boundary_projection::field_path(path, "composition_basis"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "composition_basis",
+                ),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#rate_basis,
-                &crate::boundary_projection::field_path(path, "rate_basis"),
+                &pse_contract::boundary_projection::field_path(path, "rate_basis"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#reference_conditions_id,
-                &crate::boundary_projection::field_path(path, "reference_conditions_id"),
+                &pse_contract::boundary_projection::field_path(
+                    path,
+                    "reference_conditions_id",
+                ),
                 &[],
             )?;
         }

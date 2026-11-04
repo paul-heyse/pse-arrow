@@ -111,33 +111,6 @@ impl ValidateProjection for std::time::Duration {
     }
 }
 
-macro_rules! hash_role_projection {
-    ($($ty:path => $name:literal),* $(,)?) => { $(
-        impl ProjectionType for $ty {
-            fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-                graph.declare::<Self>($name, "crates/pse-ids/src/roles.rs", 1, Direction::Both, &[], &[], |graph|
-                    Ok(Shape::Record(vec![Field::of::<pse_ids::ContentHash>(graph, "id", 1,
-                        Direction::Both, vec![LocalRule::Required])?])))
-            }
-        }
-        impl ProjectionRecord for $ty {
-            const VERSION: u32 = 1;
-            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "id")];
-            type Fields = (pse_ids::ContentHash,);
-            fn into_projection_fields(self) -> Self::Fields { (self.as_id(),) }
-            fn from_projection_fields((id,): Self::Fields) -> Result<Self, AdapterError> { Ok(Self::from_id(id)) }
-        }
-        impl ValidateProjection for $ty {
-            const NEEDS_RECURSIVE_VALIDATION: bool = false;
-            fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
-        }
-    )* };
-}
-hash_role_projection!(
-    pse_ids::roles::SourceRevisionHash => "SourceRevisionHash",
-    pse_ids::roles::BindingHash => "BindingHash",
-);
-
 #[cfg(test)]
 mod tests {
     use super::*;

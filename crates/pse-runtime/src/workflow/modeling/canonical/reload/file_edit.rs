@@ -2,10 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit file intent delegates membership, source spans and fit/data changes to parsed reload.
 use super::*;
-use pse_model::{
-    boundary_projection::ValidateProjection as _,
-    engineering::{SourceFileChange, SourceFileDelta},
-};
+use pse_model::{engineering::{SourceFileChange, SourceFileDelta}};
+use pse_contract::{boundary_projection::ValidateProjection as _};
 
 impl ModelingPackage {
     /// Apply explicit file edits against this exact parent using the original parsed reload owner.

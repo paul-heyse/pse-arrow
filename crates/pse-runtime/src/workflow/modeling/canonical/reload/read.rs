@@ -3,10 +3,10 @@
 //! Select exact original document bytes before copying, without rebuilding a source inventory.
 
 use super::*;
-use pse_model::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
+use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
 use pse_model::engineering::{LOCAL_REVISION_RULE, SOURCE_FILE_PATH_RULE};
 
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(deny_unknown_fields)]
     /// One exact-parent original document read; no path addresses the host filesystem.
@@ -23,7 +23,7 @@ pse_model::projection_struct! {
         pub maximum_bytes: u64 => { tag: 4, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: 16777216 }] };
     }
 }
-pse_model::projection_struct! {
+pse_contract::projection_struct! {
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
     #[serde(deny_unknown_fields)]
     /// Original selected source/data bytes and their actual immutable document attribution.

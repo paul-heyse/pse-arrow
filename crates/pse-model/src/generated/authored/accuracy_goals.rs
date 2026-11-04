@@ -91,12 +91,12 @@ impl PartialEq for AuthoredAccuracyGoalsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
-impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
+impl pse_contract::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
     fn projection(
-        graph: &mut crate::boundary_projection::ProjectionGraph,
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
     ) -> Result<
-        crate::boundary_projection::TypeRef,
-        crate::boundary_projection::ProjectionError,
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
     > {
         graph
             .declare::<
@@ -105,19 +105,19 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                 "AuthoredAccuracyGoalsRow",
                 "crates/pse-schema/src/catalog/native_math.rs",
                 1u32,
-                crate::boundary_projection::Direction::Both,
+                pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
                 |graph| Ok(
-                    crate::boundary_projection::Shape::Record(
+                    pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::identities::AccuracyGoalId,
                             >(
                                     graph,
                                     "goal_id",
                                     1u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -130,13 +130,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "key".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::DeclarationId>,
                             >(
                                     graph,
                                     "model_id",
                                     2u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -151,13 +151,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::DeclarationId>,
                             >(
                                     graph,
                                     "case_id",
                                     3u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -172,13 +172,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::InstanceId>,
                             >(
                                     graph,
                                     "instance_id",
                                     4u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -193,13 +193,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<crate::generated::identities::FitId>,
                             >(
                                     graph,
                                     "fit_id",
                                     5u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -214,13 +214,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "target_id",
                                     6u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -231,13 +231,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalTarget,
                             >(
                                     graph,
                                     "target_kind",
                                     7u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -249,13 +249,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "quantity_id",
                                     8u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -266,13 +266,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 pse_ids::SemanticId,
                             >(
                                     graph,
                                     "unit_id",
                                     9u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -283,13 +283,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::AccuracyGoalSubject,
                             >(
                                     graph,
                                     "subject",
                                     10u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -304,13 +304,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::AccuracyObservation,
                             >(
                                     graph,
                                     "observation",
                                     11u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -325,13 +325,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "time",
                                     12u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -341,13 +341,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "resolution",
                                     13u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -357,13 +357,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "criterion_lower",
                                     14u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -373,13 +373,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 Option<f64>,
                             >(
                                     graph,
                                     "criterion_upper",
                                     15u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -389,13 +389,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalAccuracyClass,
                             >(
                                     graph,
                                     "required_class",
                                     16u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -410,13 +410,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::AccuracyGoalUse,
                             >(
                                     graph,
                                     "use_policy",
                                     17u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -428,13 +428,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 bool,
                             >(
                                     graph,
                                     "refine",
                                     18u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -444,13 +444,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 crate::generated::enums::NumericalSource,
                             >(
                                     graph,
                                     "source",
                                     19u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -462,13 +462,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 i32,
                             >(
                                     graph,
                                     "priority",
                                     20u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -478,13 +478,13 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
                                         ("pse.domain.role".into(), "payload".into()),
                                     ]),
                                 ),
-                            crate::boundary_projection::Field::of::<
+                            pse_contract::boundary_projection::Field::of::<
                                 String,
                             >(
                                     graph,
                                     "provenance",
                                     21u32,
-                                    crate::boundary_projection::Direction::Both,
+                                    pse_contract::boundary_projection::Direction::Both,
                                     vec![],
                                 )?
                                 .with_named_facets(
@@ -500,7 +500,7 @@ impl crate::boundary_projection::ProjectionType for AuthoredAccuracyGoalsRow {
             )
     }
 }
-impl crate::boundary_projection::ProjectionRecord for AuthoredAccuracyGoalsRow {
+impl pse_contract::boundary_projection::ProjectionRecord for AuthoredAccuracyGoalsRow {
     const VERSION: u32 = 1u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "goal_id"),
@@ -597,7 +597,7 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredAccuracyGoalsRow {
             r#priority,
             r#provenance,
         ): Self::Fields,
-    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
         Ok(Self {
             r#goal_id,
             r#model_id,
@@ -623,173 +623,173 @@ impl crate::boundary_projection::ProjectionRecord for AuthoredAccuracyGoalsRow {
         })
     }
 }
-impl crate::boundary_projection::ValidateProjection for AuthoredAccuracyGoalsRow {
+impl pse_contract::boundary_projection::ValidateProjection for AuthoredAccuracyGoalsRow {
     const NEEDS_RECURSIVE_VALIDATION: bool = false || false
-        || <crate::generated::identities::AccuracyGoalId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::AccuracyGoalId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::DeclarationId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::DeclarationId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::InstanceId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             crate::generated::identities::FitId,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalTarget as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalTarget as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::AccuracyGoalSubject as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::AccuracyGoalSubject as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::AccuracyObservation as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || false
-        || <Option<
-            f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::AccuracyObservation as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <Option<
             f64,
-        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalAccuracyClass as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::AccuracyGoalUse as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalAccuracyClass as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::AccuracyGoalUse as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <crate::generated::enums::NumericalSource as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <bool as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <i32 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::enums::NumericalSource as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
-        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <i32 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
-    ) -> Result<(), crate::boundary_projection::ValidationError> {
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
         if Self::NEEDS_RECURSIVE_VALIDATION {
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#goal_id,
-                &crate::boundary_projection::field_path(path, "goal_id"),
+                &pse_contract::boundary_projection::field_path(path, "goal_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#model_id,
-                &crate::boundary_projection::field_path(path, "model_id"),
+                &pse_contract::boundary_projection::field_path(path, "model_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#case_id,
-                &crate::boundary_projection::field_path(path, "case_id"),
+                &pse_contract::boundary_projection::field_path(path, "case_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#instance_id,
-                &crate::boundary_projection::field_path(path, "instance_id"),
+                &pse_contract::boundary_projection::field_path(path, "instance_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#fit_id,
-                &crate::boundary_projection::field_path(path, "fit_id"),
+                &pse_contract::boundary_projection::field_path(path, "fit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_id,
-                &crate::boundary_projection::field_path(path, "target_id"),
+                &pse_contract::boundary_projection::field_path(path, "target_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#target_kind,
-                &crate::boundary_projection::field_path(path, "target_kind"),
+                &pse_contract::boundary_projection::field_path(path, "target_kind"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#quantity_id,
-                &crate::boundary_projection::field_path(path, "quantity_id"),
+                &pse_contract::boundary_projection::field_path(path, "quantity_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#unit_id,
-                &crate::boundary_projection::field_path(path, "unit_id"),
+                &pse_contract::boundary_projection::field_path(path, "unit_id"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#subject,
-                &crate::boundary_projection::field_path(path, "subject"),
+                &pse_contract::boundary_projection::field_path(path, "subject"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#observation,
-                &crate::boundary_projection::field_path(path, "observation"),
+                &pse_contract::boundary_projection::field_path(path, "observation"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#time,
-                &crate::boundary_projection::field_path(path, "time"),
+                &pse_contract::boundary_projection::field_path(path, "time"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#resolution,
-                &crate::boundary_projection::field_path(path, "resolution"),
+                &pse_contract::boundary_projection::field_path(path, "resolution"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#criterion_lower,
-                &crate::boundary_projection::field_path(path, "criterion_lower"),
+                &pse_contract::boundary_projection::field_path(path, "criterion_lower"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#criterion_upper,
-                &crate::boundary_projection::field_path(path, "criterion_upper"),
+                &pse_contract::boundary_projection::field_path(path, "criterion_upper"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#required_class,
-                &crate::boundary_projection::field_path(path, "required_class"),
+                &pse_contract::boundary_projection::field_path(path, "required_class"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#use_policy,
-                &crate::boundary_projection::field_path(path, "use_policy"),
+                &pse_contract::boundary_projection::field_path(path, "use_policy"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#refine,
-                &crate::boundary_projection::field_path(path, "refine"),
+                &pse_contract::boundary_projection::field_path(path, "refine"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#source,
-                &crate::boundary_projection::field_path(path, "source"),
+                &pse_contract::boundary_projection::field_path(path, "source"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#priority,
-                &crate::boundary_projection::field_path(path, "priority"),
+                &pse_contract::boundary_projection::field_path(path, "priority"),
                 &[],
             )?;
-            crate::boundary_projection::validate_field(
+            pse_contract::boundary_projection::validate_field(
                 &self.r#provenance,
-                &crate::boundary_projection::field_path(path, "provenance"),
+                &pse_contract::boundary_projection::field_path(path, "provenance"),
                 &[],
             )?;
         }
