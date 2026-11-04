@@ -7,6 +7,11 @@ use serde::Serialize;
 use serde_json::Value;
 use std::{collections::BTreeSet, sync::Arc};
 
+// ADR-0245 prerequisite only. JSON v3 remains the sole production authority route
+// until the compiler's same-root receivers and complete workspace admission exist.
+#[cfg(test)]
+mod structural_v1;
+
 /// The compiler-owned admitted description wire interpretation.
 pub const ADMITTED_RECIPE_INTERPRETATION: &str = "pse.admitted-body.v3";
 /// Logical admitted-description bound, independent of storage RPC block sizes.
