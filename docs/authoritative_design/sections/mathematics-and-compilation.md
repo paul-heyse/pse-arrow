@@ -596,6 +596,19 @@ and runtime `workflow/physical.rs`.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0245](../../adr/0245-bound-native-recipe-membership.md) (proposed;
+> Accept-scoped prerequisite architecture, not full protobuf activation).
+
+The selected native-recipe receiver verifies immutable exact bytes, decodes once into a
+private compiler owner, indexes that root by borrow and consumes the same root for strict
+reconstruction. Canonical/private monomorphic unsafe entries retain their original origin,
+receiving context and request obligations; callers cannot supply an independent root/index.
+One existing operation workspace owns lazy-probe, eager borrowed view, complete validation,
+native adoption, surviving-node index, receipt/query and restoration peaks through original
+drain. Actual source-profile expansion, including scalar function formal counts, is admitted
+before allocation. Decoded DTOs grant no workspace or scientific authority. Plan65e retains
+the full activation obligations; current JSON qualification remains until replacement passes.
+
 > Decision: [ADR-0217](../../adr/0217-project-editing-and-historical-context.md) (proposed; Plan51b owns passive discovery implementation).
 
 Preparation discovery exposes bounded metadata from existing resident products and canonical

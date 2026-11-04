@@ -164,6 +164,18 @@ observations; it does not constitute a separate publication or certify numerical
 
 ### 5.3 Canonical framing and hashing
 
+> Decision: [ADR-0245](../../adr/0245-bound-native-recipe-membership.md) (proposed;
+> Accept-scoped prerequisite architecture). Plan65e owns implementation and activation.
+
+The selected future protobuf admitted recipe is `pse.admitted-body.v4`. Exact payload
+bytes, original qualification/request and fixed source kind still determine its scope;
+different encoding produces a different artifact digest. Structural membership V1 uses
+native Serde traversal with the pinned JSON normalization profile, including last-key-wins
+surviving subtrees. Unsupported numeric/raw sentinel interpretations refuse explicitly.
+This proposed route does not reinterpret historical identities or make whole-payload
+integrity a substitute for record membership. Existing JSON v3 remains the production
+route until complete receiving, extent and reconstruction controls pass (§14.3).
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Resolved body/derived identities use explicit version/domain frames and canonical local roles, with instance bindings separate. Plan49 retires the unconsumed relation canonicalizer and its dedicated API, while retaining shared allocation/admission helpers, canonical float bits, framing and surviving content/encoding identities.

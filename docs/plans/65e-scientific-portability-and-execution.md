@@ -2,7 +2,7 @@
 title: "Plan65e: Scientific portability and execution"
 status: proposed
 date: 2026-11-03
-adrs: []
+adrs: [ADR-0242, ADR-0243, ADR-0245]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -521,16 +521,24 @@ prepared calls, selected provider joins, direct graph/function/support products,
 evidence and nominal type/value records. Raw protobuf fields cannot replace their native
 membership interpretation by accident.
 
-**Proposed direction, not accepted for cutover:** prefer DOM-free native Serde traversal
+**Selected prerequisite direction, not accepted for full cutover:** prefer DOM-free native Serde traversal
 preserving the existing structural membership V1 over adding a second typed membership
 visitor. Serde's `Serializer::Ok` and compound serializer traits support native traversal
 without a JSON value tree; the exact pinned `serde_json` number, map-key, variant and
 surviving-subtree semantics remain part of the consumed contract. The
 [independent scoped review](../design_review/reviews/design_review_plan65_native_replay_membership_2026-11-04.md)
-does not accept the current proposal until F01 exact authenticated-payload/native-root
-binding, F02 normalization and overwritten-map membership, and F03 complete protobuf/native/
-index/receipt admission have concrete designs. The old JSON byte multiplier does not establish
-those new bounds. A versioned owner/tag/bit membership scheme remains a different semantic
+now accepts the prerequisite architecture at Proposed strength in its follow-up assessment.
+[Proposed ADR-0245](../adr/0245-bound-native-recipe-membership.md) records RC01/RC02 before
+affected authority/hash implementation: monomorphic exact-byte decode-once receivers index
+and consume the same native root; deferred postorder range removal preserves overwritten-map
+survival; source-derived lazy-probe/eager-view/complete-validation/native-adoption/index/receipt/
+restoration phases use the original workspace. The selected adapter is borrowed eager-view
+adoption with preadmitted complete validation, rather than an unspecified owned/sink alternative.
+Future admitted protobuf interpretation is `pse.admitted-body.v4`; exact encoding changes its
+digest and binding without silently redefining structural V1. Unsupported integer/raw sentinel
+normalization refuses explicitly. F01–F03 remain open for implementation and original evidence;
+full protobuf activation remains Not Accept. The old JSON byte multiplier does not establish
+these new bounds. A versioned owner/tag/bit membership scheme remains a different semantic
 option, requiring deliberate complete-consumer migration rather than a claim of V1 preservation.
 Retain exact qualification/request binding and complete original receipt draining; ordinary
 decoded records must still lack authority. A staged DOM-backed native-root index is an
