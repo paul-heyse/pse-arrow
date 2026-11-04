@@ -276,6 +276,87 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
         .read_results(&run, &attempt)
         .await
         .unwrap();
+    #[cfg(feature = "engineering-service")]
+    {
+        use buffa::Message;
+        use buffa_descriptor::{DescriptorPool, DynamicMessage, ReflectMessage, Value};
+        use std::sync::Arc;
+
+        // Observe the actual protected reader, then independently decode by the
+        // published descriptor. The original reader still owns every payload read below.
+        let bytes =
+            crate::engineering_projection::encode_canonical_protected_result_snapshot(&selection)
+                .unwrap()
+                .encode_to_vec();
+        let pool = Arc::new(
+            DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+                .unwrap(),
+        );
+        let index = pool
+            .message_index("pse.engineering.v1.CanonicalProtectedResultSnapshot")
+            .unwrap();
+        let observed = DynamicMessage::decode(pool, index, &bytes).unwrap();
+        let Some(Value::Message(observed_run)) = observed.field_by_number(1) else {
+            panic!("the original run is absent from its snapshot")
+        };
+        assert_eq!(
+            observed_run.field_by_number(1),
+            Some(&Value::String(run.clone()))
+        );
+        let Some(Value::Message(observed_attempt)) = observed.field_by_number(2) else {
+            panic!("the original attempt is absent from its snapshot")
+        };
+        assert_eq!(
+            observed_attempt.field_by_number(1),
+            Some(&Value::String(attempt.clone()))
+        );
+        assert_eq!(
+            observed_attempt.field_by_number(2),
+            Some(&Value::String(run.clone()))
+        );
+        let Some(Value::Message(observed_manifest)) = observed.field_by_number(3) else {
+            panic!("the original closed manifest is absent from its snapshot")
+        };
+        assert_eq!(
+            observed_manifest.field_by_number(1),
+            Some(&Value::String(selection.manifest().key.clone()))
+        );
+        assert_eq!(
+            observed_manifest.field_by_number(2),
+            Some(&Value::String(attempt.clone()))
+        );
+        let Some(Value::List(sets)) = observed.field_by_number(4) else {
+            panic!("the original closed set population is absent from its snapshot")
+        };
+        assert_eq!(sets.len(), selection.sets().len());
+        for (set, original) in sets.iter().zip(selection.sets()) {
+            let Value::Message(set) = set else {
+                panic!("a set descriptor must remain a message")
+            };
+            assert_eq!(
+                set.field_by_number(1),
+                Some(&Value::String(original.key.clone()))
+            );
+            assert_eq!(
+                set.field_by_number(2),
+                Some(&Value::String(original.name.clone()))
+            );
+            for (tag, expected) in [(3, original.batch_count), (4, original.row_count)] {
+                let field = set
+                    .message_descriptor()
+                    .fields()
+                    .iter()
+                    .find(|field| field.number() == tag)
+                    .unwrap();
+                // Empty sets legitimately omit implicit zero scalars on the wire.
+                assert_eq!(set.get(field).to_owned(), Value::U64(expected));
+            }
+            assert_eq!(
+                set.field_by_number(5),
+                Some(&Value::String(original.batches_digest.clone()))
+            );
+        }
+    }
     let tables = result.tables().unwrap();
     assert!(!tables.is_empty());
     let mut empty_sets = 0;

@@ -203,8 +203,10 @@ borrowed `CanonicalProtectedResultSnapshot`; its live protection owner stays loc
 no generated inverse. The initial publication refusal exposed unsupported canonical lifecycle
 facets. Shared native canonical-policy interpretation and original-world field correspondence
 now support those facets, and combined generation publishes all 13 targets on main. No native
-transaction predicate moved into wire validation. The actual protected readback journey and
-the complete C02 population remain open.
+transaction predicate moved into wire validation. The actual constant-completion fixture now
+observes its protected reader through the published descriptor, including closed empty/nonempty
+set counts, then successfully reads the original payloads through that same native reader.
+The complete C02 population and broader retained-policy/readback obligations remain open.
 
 **Tested, targeted on main, 2026-11-04:** `scripts/pse test pse-runtime --lib --features
 engineering-service -E 'test(result_metadata_projection_tests)'` passed four selected controls,
@@ -216,12 +218,19 @@ completion bytes; it grants no closed-manifest or live result-reader authority. 
 'test(result_wire_presentation_preserves_native_semantics_and_encoding)'` passed one selected
 control with the same zero-failure/warning baseline, preserving native semantic/encoding
 identity for all seven selected metadata tables while detecting a real scalar-type change.
-These controls do not establish protected database readback or assembled storage acceptance.
+The targeted `canonical_durable_constant_completion_reopens_exact_manifest` control with
+`canonical-tests,engineering-service` also passed on main, one selected test and zero failures,
+pending records or build warnings, with its actual native fixture and capture fully settled.
+Its independent descriptor read covers the original run/attempt/manifest and every closed set;
+subsequent payload reads retain the original protection owner. The first probe failed one
+assertion by treating an omitted implicit zero count as missing semantic data; descriptor-based
+`ReflectMessage::get` now reads the declared default and still detects lost nonzero values.
+These controls do not establish the entire retained-policy population or assembled storage acceptance.
 
 | ID | Status | Prerequisite | Result and completion obligation |
 | --- | --- | --- | --- |
 | C01 | in-progress | Actual native server/codec baseline; working 65a declarations/options and 65b fidelity policy | Result manifest/block metadata now has source-owned native/Proto mappings and explicit tags; source semantic/encoding preservation and three independent value controls pass. Complete protected readback and remaining exact field-policy controls; existing native transaction predicates remain authoritative. |
-| C02 | in-progress | C01 working generator; 65a usable contract graph and emitted adapters | Source-owned original run/attempt and result set/batch/output mappings plus the borrowed protected-result snapshot are generated on main with typed canonical lifecycle facets. Complete actual protected readback and the selected scientific/runtime metadata and canonical request/result population, preserving transaction predicates and preflight until equivalence; delete replaced mechanical copies with consumers and fixtures. |
+| C02 | in-progress | C01 working generator; 65a usable contract graph and emitted adapters | Source-owned original run/attempt and result set/batch/output mappings plus the borrowed protected-result snapshot are generated on main with typed canonical lifecycle facets; the actual constant-completion protected snapshot/payload control passes. Complete the selected scientific/runtime metadata and canonical request/result population, preserving transaction predicates and preflight until equivalence; delete replaced mechanical copies with consumers and fixtures. |
 | C03 | planned | C01; 65b original-policy/adoption; 65i product-use and 65j evidence design; 65f evidence shape | Deliver retained artifact headers, complete family-specific context/descriptor/policy/mapping resolution and optional hybrid storage. Historical read, forwarding and current scientific use remain distinct. Test absent/expired/incomplete/incompatible/corrupt dependencies and active-reader protection; no retention of live fixture/worker readiness. Delete replaced ad hoc headers and repeated interpretation lookup. |
 | C04 | planned | C02/C03 schemas and protected publication; 65i dependency-validity contract | Implement coherent rebuild/activation and selected retained-data migration using shared option-evolution decisions. Separate artifact rebuilding from scientific invalidation and renewed admission. Attack interruption before/after publication, uncertain ACK, stale membership and unavailable original policy. Delete the replaced write path after complete cutover; retain only deliberately supported historical readers. |
 | C05 | planned | Actual graph/query consumers from C02; C04 interpretation generation | Migrate graph/query projections to explicit pair/occurrence identity and complete freshness dependencies. Prefer native access paths; repair initial/update identity and related-record invalidation controls. Remove redundant adjacency/materialization machinery where replaced. |
