@@ -5,6 +5,8 @@ use std::{collections::{BTreeMap, BTreeSet}, sync::Arc};
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidateProjection};
 mod retained;
 mod signed_integer;
+mod borrowed;
+pub use borrowed::{decode_view_root, unknown_fields_view};
 pub use retained::RetainedExtentError;
 
 /// Original typed crossing failure; native permission and consumer presentation stay external.

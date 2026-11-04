@@ -35,7 +35,7 @@ mod adapters;
 mod float_collections;
 mod source_metadata;
 mod registry_facets;
-pub use adapters::{AdapterVisibility, native_adapters, native_adapters_retaining_wire, native_adapters_scoped};
+pub use adapters::{AdapterVisibility, NativeViewTarget, native_view_adapters, native_adapters, native_adapters_retaining_wire, native_adapters_scoped};
 
 /// One complete generation closure. The caller owns publication and generated roots.
 #[derive(Debug)]

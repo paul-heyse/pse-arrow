@@ -18,6 +18,10 @@ macro_rules! identity_bytes { ($($ty:ty),* $(,)?) => { $(
             let bytes = bytes.try_into().map_err(|_| AdapterError::refused(path, AdapterFailure::InvalidValue, "identity byte width does not match its actual nominal owner"))?;
             Ok(Self::from_bytes(bytes))
         }
+        fn from_projection_slice(bytes: &[u8], path: &str) -> Result<Self, AdapterError> {
+            let bytes = bytes.try_into().map_err(|_| AdapterError::refused(path, AdapterFailure::InvalidValue, "identity byte width does not match its actual nominal owner"))?;
+            Ok(Self::from_bytes(bytes))
+        }
     }
 )* }; }
 identity_bytes!(crate::SemanticId, crate::ContentHash);
@@ -29,9 +33,12 @@ mod byte_tests {
         let id = crate::SemanticId::from_bytes([17; 16]);
         let bytes = id.into_projection_bytes();
         assert_eq!(crate::SemanticId::from_projection_bytes(bytes.clone(), "request.id").unwrap(), id);
+        assert_eq!(crate::SemanticId::from_projection_slice(&bytes, "request.id").unwrap(), id);
+        assert!(matches!(crate::SemanticId::from_projection_slice(&bytes[..15], "request.id"), Err(AdapterError::Refused {kind:AdapterFailure::InvalidValue,..})));
         assert!(matches!(crate::SemanticId::from_projection_bytes(bytes[..bytes.len()-1].to_vec(), "request.id"), Err(AdapterError::Refused { path, kind: AdapterFailure::InvalidValue, .. }) if path == "request.id"));
         let hash = crate::ContentHash::from_bytes([29; 32]);
         assert_eq!(Box::<crate::ContentHash>::from_projection_bytes(hash.into_projection_bytes(), "hash").unwrap().into_projection_bytes(), hash.as_bytes());
+        assert_eq!(Box::<crate::ContentHash>::from_projection_slice(hash.as_bytes(), "hash").unwrap().into_projection_bytes(), hash.as_bytes());
     }
 }
 impl ValidateProjection for crate::SemanticId {

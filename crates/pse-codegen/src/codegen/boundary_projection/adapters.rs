@@ -11,6 +11,8 @@ use pse_contract::boundary_projection::{
 
 use super::{error, protobuf_map_key, snake_case};
 use super::ProjectionCodegenError;
+mod borrowed;
+pub use borrowed::{NativeViewTarget, native_view_adapters};
 
 /// Reachability of generated root wrappers, independent of unknown-field adoption.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

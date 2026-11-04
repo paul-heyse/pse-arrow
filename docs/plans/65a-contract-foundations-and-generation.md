@@ -275,6 +275,31 @@ membership normalization separately refuses values outside its supported `i64`/`
 Actual signed-octet fields use `Scalar::I8` (`NATIVE_SCALAR_I8 = 16`) through checked
 `sint32` adoption and standard signed bounds `[-128, 127]`; the native field remains `i8`.
 
+Borrowed native adoption is explicitly selected through `native_view_adapters` and
+`NativeViewTarget`, carrying the actual full descriptors, requested file and matching
+`CodeGenConfig`. It requires eager-view generation and preserved unknown fields; it does
+not enable views or extra adapters in other worlds. Buffa 0.9.2
+[`CodeGenContext::for_generate`](https://docs.rs/buffa-codegen/0.9.2/buffa_codegen/context/struct.CodeGenContext.html#method.for_generate)
+and [`rust_type_relative_split`](https://docs.rs/buffa-codegen/0.9.2/buffa_codegen/context/struct.CodeGenContext.html#method.rust_type_relative_split)
+provide actual view and nested-wrapper naming. Each selected Data owner gets
+`NativeFrom<&FooView>` and an explicitly scoped root wrapper. Observation-only owners
+refuse this inverse regardless of direction. The wrapper validates the eager view with
+the maintained generated `Validate` implementation, constructs actual native fields through
+their existing checked record/alternative accessors, then applies native validation. It
+never constructs an owned protobuf message tree or a dynamic-message intermediate.
+Borrowed strings and bytes allocate only for the actual owning native value; fixed-width
+ID owners copy checked slices directly into their arrays through the pure byte-access trait.
+
+For real protobuf maps, pinned
+[`MapView::iter_unique`](https://docs.rs/buffa/0.9.2/buffa/struct.MapView.html#method.iter_unique)
+provides the same last-write-wins logical map as owned protobuf decoding. Source custom
+repeated-entry maps retain native duplicate refusal through `unique_pairs`. Original frame
+bytes remain independently retained, and raw/eager extent accounting must include all wire
+entries, including overwritten values. Unknown-field, missing-value, vocabulary and native
+cause handling retain the owned crossing's contracts. The actual private scientific Recipe
+consumer owns the generated-adapter compile/roundtrip controls before this route is treated
+as qualified for that consumer; emitter and shared-library controls alone do not establish it.
+
 The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
 and the independent host. It depends on pure `pse-contract`, the selected Buffa family
 and native error support; registry, Arrow, runtime and scientific libraries remain
