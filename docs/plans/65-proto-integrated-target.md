@@ -2,7 +2,7 @@
 title: "Plan65: Integrated Proto target alongside Plan64"
 status: in-progress
 date: 2026-11-03
-adrs: []
+adrs: [ADR-0241, ADR-0242]
 review_sources: [docs/library_leverage/reviews/proto/README.md, docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md]
 doc_role: plan
 doc_owner: docs/plans/65-proto-integrated-target.md
@@ -28,8 +28,8 @@ an extension without an existing caller; library availability alone does not jus
 
 Inspected source `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb` on 2026-11-03, including
 concurrent dirty projection/codegen changes as observations only. Plan64 remains in progress.
-Its eventual implementation and qualification are **assumed prerequisites**, not established
-by this series. P01 reconciles that completed implementation before execution. The supplied
+Its eventual implementation and qualification were original assumed prerequisites, superseded
+by the 2026-11-04 execution instruction above. P01 reconciles actual capabilities. The supplied
 eight reference documents were read end to end, including original sections, addenda and
 source appendices; SurrealDB v4 was not read. The
 [discovery suite](../library_leverage/libraries/proto/briefing.md),
@@ -278,8 +278,6 @@ against a ready record contract without waiting for all services. E consumes com
 custody capabilities without depending on an engineering dispatcher. Shared declarations,
 manifests, generated inventory and integration have one coordinated writer. No full-catalogue
 or whole-plan barrier replaces these actual dependencies.
-
-## Verification and authoring outcome
 
 ## Execution checkpoint — 2026-11-04
 

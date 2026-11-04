@@ -6,7 +6,7 @@ date: 2026-11-04
 deciders: [paul-heyse]
 level: decision
 principles: [AP-04, DP-01, DP-24, PS-13]
-blueprint: [§18.15, §21.7]
+blueprint: [§9.11, §21.7]
 review: docs/plan_improvement_reviews/plan65-integrated-proto-and-simulation-extensibility-2026-11-03.md
 evidence: Proposed
 supersedes: []
