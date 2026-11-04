@@ -19,7 +19,7 @@ scientific references. One reusable inspection/adoption infrastructure serves th
 their domain meaning, permissions and lifetimes remain explicit. The independent host must
 not import product mathematics, Arrow or runtime merely to understand a contract.
 
-The assumed execution baseline is completed Plan64. This series may replace its interfaces,
+Joint execution uses the current native baseline alongside unfinished Plan64. This series may replace its interfaces,
 schemas and code wherever the complete target improves. Inspected source at
 `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb`, including dirty projection changes and supplied
 reference additions, is **Interface-checked** only. No compiler/client/reference journey or

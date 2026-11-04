@@ -199,9 +199,10 @@ checks, complete observation/capture coverage and G08's atomic transaction remai
 
 ## Current implementation checkpoint — 2026-11-04
 
-Complete Proto execution is authorized. The committed foundation reaches `1de457d87`;
-additional runtime/settings/reference integration remains in the working tree. The graph
-stays in `pse-model`, independent of Arrow, Buffa and runtime dependencies.
+Complete Proto execution is authorized. The joint baseline is clean main `83485d6f6`.
+Plan65 has extracted the pure graph into `pse-contract` and shared wire support into
+`pse-contract-proto`; product owners implement their contracts without moving science into
+generic tooling. The earlier snapshots below retain their original qualification scope.
 
 **Implemented and targeted Tested:** source-owner macros and the resolved graph declare
 stable tags, recursive types, directions, versions and local rules. Registry generation now
@@ -234,17 +235,17 @@ later additions. Reference encoding/source custody now has bounded preflight and
 controls; [64h](64h-reference-coverage-and-qualification.md#proto-reference-implementation-checkpoint--2026-11-04)
 owns the remaining real native/reference correspondence.
 
-**Current failing acceptance:** the full-feature engineering generation command compiled
+**Historical failure, subsequently repaired by Plan65:** the full-feature engineering generation command compiled
 the runtime/xtask graph, then failed maintained CEL preflight for
 `pse.engineering.v1.HighsSettings.sparse_start`, rule `float64.collection_domain`, with
 `unknown field: value` (one refused rule, zero-failure target). The generated collection
 accessor must match the actual optional map layout without weakening finite-value admission.
-Earlier successful generation covers the earlier descriptor population only. The expanded
-engineering descriptors, adapters, service bindings and documentation are not published and
-accepted merely because their Rust owners compile.
+The map-wrapper lowering and intrinsic integer-bound emission were corrected subsequently.
+The integrated Plan65 baseline publishes all thirteen generation targets with zero warnings
+or errors. This resolves that generation blocker, not full consumer or scientific acceptance.
 
-Remaining I work is to repair that lowering and add a maintained-validator regression;
-regenerate the complete selected worlds; integrate and test all consumers, versions and
+Remaining I work consumes the maintained lowering controls and current generated worlds;
+integrate and test all consumers, versions and
 outgoing/ingress validation; complete selection/lifetime negative controls through J's real
 responses; and delete every replaced mapping/check after equivalent protection is proven.
 I01/I02/I06 remain in progress. No whole-lifetime performance benefit or assembled scientific

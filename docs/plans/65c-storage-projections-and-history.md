@@ -20,8 +20,8 @@ authority. Original bytes are retained only for an identified forwarding, archiv
 reference consumer; a second copy of every row is not the target.
 
 This companion implements the storage portion of the [combined target](65-proto-integrated-target.md).
-It assumes Plan64 has been implemented before execution. Its design, schema and code may all
-be replaced where this target is better. No other historical plan supplies work ownership or
+Execution now proceeds alongside unfinished Plan64 under the joint Proto-first approach.
+Its design, schema and code may all be replaced where this target is better. No other historical plan supplies work ownership or
 limits this scope. Current source inspection is at `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb`,
 including the concurrent projection changes as provisional evidence. The post-Plan64 delta
 must be reconciled at execution entry, not mistaken for current completion.

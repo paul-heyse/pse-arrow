@@ -4,7 +4,8 @@ title: "Current work and plans"
 
 # Current work and plans
 
-Native package tables own current status and remaining decisions. Index inclusion does not
+Plan64 and Plan65 now execute under one coordinator, with Proto delivery first and scientific
+input fixes/census progressing where needed for its acceptance. Native package tables own current status and remaining decisions. Index inclusion does not
 resume stopped work or establish implementation, qualification or measured benefit.
 
 | Plan | Work and status owner |

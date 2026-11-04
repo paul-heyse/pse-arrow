@@ -341,6 +341,13 @@ integrated as the narrow F/I slice, with exact conditions and limits in 65f.
 
 ### Consolidated handoff — 2026-11-04
 
+Joint execution of both remaining series is authorized from this handoff. One coordinator
+owns integration on main, with Proto delivery first. Scientific/input repairs necessary for
+Proto acceptance and the finite population census may progress alongside shared contracts,
+Recipe qualification and protected capture. Broader Plan64 scientific expansion follows the
+working Proto milestone; final assembled qualification covers both series after functional
+delivery. Temporary isolation is used only for actual concurrent edit conflicts.
+
 The final seven-file scientific handoff is integrated as `f0cba8780`, preserving main's
 formatting and earlier improvements. It completes the passive native Recipe source graph;
 65e owns the two passing main-branch compiler controls and the remaining codec/qualification

@@ -233,6 +233,13 @@ authoritative typed declaration and retains the wrong-CAS refusal. It has not be
 with a freshly captured scientific-input capsule and an equipment rerun. Earlier missing-data
 and predicate failures remain historical attempts, not evidence of a passing repair.
 
+Joint execution at main `83485d6f6` consumes Plan65 E04/E05's current shared protocol:
+process-wide explicit Shutdown, handle-scoped Stop/Close and capability-declared EvaluateBatch.
+Their targeted controls and publication supersede the earlier protocol assumptions; K01–K04
+must be reconciled against these owners rather than creating another worker/batch path.
+Those controls do not discharge the equipment, independent-science or matched-measurement
+obligations below.
+
 Next work is fresh capsule/image preparation and all six equipment controls; independent
 water/datum/derivative and original equipment-balance evidence; interruption and settled
 cleanup; and the required matched cold/warm complete equipment measurements. The earlier

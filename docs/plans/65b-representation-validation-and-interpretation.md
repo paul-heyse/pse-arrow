@@ -18,8 +18,9 @@ implemented by library capability plus only the remaining domain gap. Binary for
 exact-byte archival, native adoption, transformation and human inspection are different
 operations; they must not inherit one undifferentiated unknown-field or strictness policy.
 
-Execution starts after Plan64 is implemented and may replace its representation/validation
-decisions. The [coordinator](65-proto-integrated-target.md) owns combined scope; B01–B07 below
+Execution proceeds alongside unfinished Plan64 under the joint Proto-first approach and may
+replace its representation/validation decisions. Each consumer needs its actual prerequisites,
+not whole-Plan64 completion. The [coordinator](65-proto-integrated-target.md) owns combined scope; B01–B07 below
 own this companion's progress. Observed source at `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb`
 plus dirty projection changes is **Interface-checked**, not tested post-Plan64 behavior.
 Core 3.4, efficient-architecture heuristics 1.0 and process-simulator 1.5 govern the design.

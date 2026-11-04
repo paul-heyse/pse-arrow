@@ -20,8 +20,9 @@ own receipt/stream bounds; native owners retain effects, original operation iden
 admission and actual settlement. No RPC is required merely to invoke an internal function.
 
 This is the runtime companion to the [combined target](65-proto-integrated-target.md). Assume
-Plan64's local services and first scientific-worker delivery have been implemented before this
-series executes. Their design and the same code are fully eligible for replacement. No other
+only the actual native service/worker capabilities a consumer requires: joint execution now
+proceeds alongside unfinished Plan64, with Proto delivery first. Their design and the same
+code are fully eligible for replacement. No other
 historical plan is an owner or prerequisite. Inspection at
 `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb` and the supplied dirty references establishes
 **Interface-checked** mechanisms, not that the assumed post-Plan64 delivery is already complete.
@@ -157,7 +158,7 @@ evaluation semantics are detailed by 65e; this companion owns only reusable tran
 
 ## Packages
 
-All statuses are **planned**. This table owns D-package progress; 65h owns assembled evidence.
+This table owns D-package progress, including the delivered D05 slice; 65h owns assembled evidence.
 
 | ID | Status | Prerequisite | Delivered behavior, migration and discriminating acceptance |
 | --- | --- | --- | --- |

@@ -16,7 +16,9 @@ doc_topics: [current-work, validation, performance]
 **Proposed:** establish that the combined [Plan65 target](65-proto-integrated-target.md)
 works across declaration, generation, admission, execution, persistence and independent
 inspection. This document owns assembled acceptance; companion tables own local delivery.
-Source baseline and the assumed completed-Plan64 prerequisite are recorded in the coordinator.
+The coordinator records the current baseline and joint Proto-first ordering. Final acceptance
+consumes the actual completed scientific population; no whole-Plan64 barrier blocks independent
+contract implementation or targeted functional slices.
 No current product/scientific/performance qualification is claimed by this document.
 
 Architecture, component behavior, scientific adequacy and measured benefit are distinct

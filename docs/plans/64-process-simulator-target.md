@@ -225,8 +225,8 @@ A–D complete only when ordinary source closure, edits, full success/failure jo
 
 ### Current completion and remaining scope — 2026-11-04
 
-The implementation baseline is `1de457d87` plus the current uncommitted Plan64 integration
-work. Source drafts, compiled owners, generated publication and actual-process acceptance
+Joint execution resumes from clean main `83485d6f6`, incorporating the Plan65 deliveries
+and consolidated worker handoffs. Source drafts, compiled owners, generated publication and actual-process acceptance
 are distinguished below; no percentage or package completion is inferred from file counts.
 
 - **Completed:** A02–A04's design/disposition work and B01–B05/C01–C09's original native
@@ -239,9 +239,9 @@ are distinguished below; no percentage or package completion is inferred from fi
   and prepared water-worker transport, native custody and actual-process controls in
   [64k](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04).
   Each owner distinguishes its passing snapshot from later unverified source changes.
-- **Proto integration still required:** repair the expanded engineering descriptor's
-  maintained CEL preflight failure for `HighsSettings.sparse_start`; regenerate and
-  integrate full Study/model/provider RPCs and all selected operation families; prove
+- **Proto integration still required:** the earlier `HighsSettings.sparse_start` CEL
+  lowering failure is repaired and complete generation now passes through Plan65's shared
+  foundation. Complete full Study/model/provider RPCs and all selected operation families; prove
   original Study identity, frontend replacement, protected cohorts and native settlement;
   complete the worker equipment and independent binary reference comparisons. I01–I06
   remain scheduled, with their resolution criteria unchanged.
@@ -265,9 +265,14 @@ assertions must consume the original quantity/unit and analytically meaningful e
 error budgets. Scaled solver stopping tolerances and a successful termination are separate
 facts, not certificates of physical output error.
 
-Next work is the I generation failure and J integration, followed by the selected K/H
-scientific journeys and affected consumer deletion. Complete the remaining A–H scope after
-the Proto delivery. Plan65 remains separately proposed and is not included in this execution.
+One coordinator now executes both series with Proto delivery first. The shared publisher and
+actual Recipe codec/qualification, protected capture/recovery, scientific input closure and
+service/client integration are the first work packages. Scientific fixes needed to prove
+the Proto paths and the finite input/configuration census proceed alongside them; broad
+D–G feature expansion follows the Proto delivery milestone. Consume Plan65's current pure
+foundation, metadata, completion observations, explicit worker Shutdown and batching instead
+of recreating older mechanisms. Companions retain their native status/evidence ownership;
+the Plan65 coordinator owns the shared delivery and remaining activation boundaries.
 
 ### Completed B/C evidence checkpoint — 2026-11-03
 
