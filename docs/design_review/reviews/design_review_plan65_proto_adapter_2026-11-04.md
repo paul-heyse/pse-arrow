@@ -126,3 +126,66 @@ and public interface documentation during extraction. ADR-0244's crate/dependenc
 architecture revision is the rule impact; no change to pure model authority or native
 custody is recommended. No product tests or qualification campaigns were run for this
 assessment.
+
+## Addendum: shared native crossing mechanics
+
+**Accept the scope amendment as a proposed design, with the preservation constraints
+below.** This addendum assesses ADR-0244 at `f158cb399`, after the host consumer exposed
+its dependency on `pse-runtime::projection_support`. It does not revise the earlier
+descriptor-adapter assessment or promote the amendment to runtime acceptance. The
+reviewer has not authored the proposed helper move or pure scalar-access mechanism.
+
+The inspected runtime module combines general scalar/container conversion, duplicate and
+layout checks, generated-validator errors, native identity/buffer bindings, and runtime
+diagnostic presentation. Copying it into the host would replicate consequential
+crossing behavior. Importing it from the runtime would defeat the independent host's
+dependency direction. Moving the generic mechanics to the existing transport owner
+has the same concrete consumers and reason for change as the approved adapter seam.
+The actual scalar owns its byte representation and checked construction; the transport
+helper owns protobuf conversion; native presentation owns diagnostic categorization.
+
+This split satisfies AP-01–AP-06 and preserves their earlier judgments. It removes
+incidental runtime ownership without making identities depend on Buffa or moving a
+scientific interpretation into transport code. AP-07 remains satisfied at proposal
+level: source-generated typed crossings share the existing operations, with no new
+erased value tree, service, pool or persistence lifecycle. Native borrowed observations
+still require an encode-only route, and the approved pure checker still owns metadata
+judgment. No new core gate gap is identified; G8 specifically favors the maintained
+validator's actual result over a bespoke substitute. G1–G7/G9 acceptance remains about
+this proposed boundary, not the unexecuted migration.
+
+The following constraints distinguish the correction from relocation or weaker behavior:
+
+- Move generic scalar/container mechanics and their tests once; delete the runtime-only
+  copy after runtime and host call sites migrate. Transport code must import no native
+  model, identity, runtime or registry crate merely to convert a nominal value.
+- Put wire-independent byte access and checked reconstruction at the actual scalar
+  owner, through `pse-contract` contracts if a shared trait is needed. Semantic IDs,
+  content hashes and owned byte buffers retain their distinct native widths and
+  constructors. No Buffa dependency belongs in the identity crate, and no byte-access
+  contract belongs on a live verdict, readiness, custody or settlement capability.
+- Resolve Rust coherence at the typed boundary. A shared conversion trait cannot simply
+  receive the previous runtime-local implementations for two external types. Generated
+  scalar arms can call the pure owner's access/constructor contract; they must not
+  recreate nominal IDs with unchecked casts or add consumer-local identity mirrors.
+- Preserve exact byte/float representations, optional absence, ordered collections,
+  fixed extents and map/set duplicate refusal. A generic helper must not silently
+  truncate a fixed identity, overwrite a repeated key or turn an unavailable alternative
+  into a default. Keep strict adoption and original-wire-retaining interpretation
+  separate where those policies already differ.
+- Keep the maintained validator's typed error as the cause, including compilation,
+  evaluation and individual violations. Incoming data rejection, outgoing native
+  producer failure and outgoing wire validation remain distinguishable. Consumer
+  wrappers may assign native diagnostic classes; transport must not flatten the cause
+  into a string or import the model's presentation trait to reproduce runtime policy.
+- Generated observation-only roots must remain borrowed encode-only through every
+  helper entry point. A new shared scalar or container helper cannot introduce an
+  inverse constructor for sealed owners or a reconstructible parent containing one.
+
+The settling implementation checks are focused helper controls for exact extents,
+absence, duplicate refusal and typed validator causes, plus compilation of the generated
+runtime and host consumers. Existing one-way generation countercontrols must continue
+to distinguish observation from native construction. The amendment's value is a single
+shared implementation and correct dependency direction; no speed, allocation or full
+workflow qualification claim is made. Formal ADR acceptance and the Plan65 implementation
+disposition remain separate from this assessment.
