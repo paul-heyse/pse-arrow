@@ -931,6 +931,11 @@ fn complete_services_generate_one_shared_root_and_reproducible_rust() {
     );
     assert!(first.sources["mod.rs"].contains("shared-root.rs"));
     assert!(first.sources["shared-root.rs"].contains("pub mod __buffa_fds"));
+    assert!(first.sources["shared-root.rs"].contains("include_bytes!(\"descriptor.bin\")"));
+    assert!(
+        first.sources["shared-root.rs"].len() < first.descriptor_bytes.len(),
+        "the root references the published descriptor instead of spelling its bytes as Rust"
+    );
     for source in first.sources.values() {
         syn::parse_file(source).expect("generated Rust parses");
     }

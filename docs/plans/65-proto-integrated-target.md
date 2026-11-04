@@ -294,7 +294,9 @@ Shared generator/adoption changes have one continuing foundation owner; the coor
 shared publication and integration. Completed coherent commits are integrated into main promptly.
 Shared maintained-validator lowering, unique governing scientific permission lookup and passive
 retained-report interpretation are integrated. Proposed ADR-0241–0244 and bounded assessments
-preceded the affected foundation, worker and shared-adapter changes. P03 now consumes working
+preceded the affected foundation, worker and shared-adapter changes. Proposed ADR-0245 and
+the independent Accept-scoped prerequisite assessment now precede native recipe membership
+work; full protobuf recipe activation remains withheld. P03 now consumes working
 typed publication; complete scientific and developer readback slices remain in progress.
 
 Missing Plan64 scientific families constrain their specific positive acceptance, not independent
@@ -312,8 +314,9 @@ do not close the complete scientific population or H qualification.
 
 The combined main-branch publication includes typed options across engineering, scientific-worker,
 reference, native-child and developer-evidence worlds, all selected native facet keys, and genuine
-native batch framing. Full `just codegen` published all 13 targets; two developer count-accessor
-warnings remain with the active native-count rename. It removes synthetic machine-policy
+native batch framing. Full `just codegen` publishes all 13 targets, with the native-count
+rename and scoped generated roots resolving the earlier developer accessor/visibility warnings.
+It removes synthetic machine-policy
 comments and the redundant action-effects sidecar. The shared
 lossless descriptor adapter has moved from product-dependent codegen into `pse-contract-proto`;
 consumer-local source/domain policies and the pure semantic checker retain their authority.
@@ -323,12 +326,13 @@ test-only nonexistent method and qualification warning; the corrected assertion 
 native admission counters to be present and zero. This targeted delivery leaves the broader
 portable, storage, reporting, domain-extension and H obligations open.
 
-The first retained-result native/Proto value slice passed
-`scripts/pse test pse-runtime --lib --features engineering-service -E 'test(result_metadata_projection_tests)'`
-on main: three selected controls, zero failures and zero build warnings, configured unbounded
-placement/cache off, original capture and native settlement complete. This verifies exact
-values, presence and strict adoption through the generated mappings and existing native storage
-codecs; it does not establish protected publication/recovery or complete C/F delivery.
+The expanded retained-result slice has source-owned run/attempt and set/batch/manifest/block/
+output metadata, plus a borrowed protected-reader snapshot with no inverse constructor.
+Native value/semantic controls and the actual constant-completion protected readback pass on
+main; 65c owns their conditions and complete-population obligations. A03 now references the
+five byte-identical descriptor sidecars instead of repeating escaped Rust literals; effective
+feature handling and full/runtime world separation remain open. Complete C/F delivery,
+scientific recipe cutover, developer dependency closure and H qualification remain in progress.
 
 ## Verification boundary
 

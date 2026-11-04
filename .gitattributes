@@ -13,6 +13,7 @@ justfile text eol=lf
 *.sol text eol=lf
 
 # Binary artifacts
+*.bin binary
 *.arrow binary
 *.feather binary
 *.ipc binary

@@ -42,7 +42,8 @@ pub use adapters::{AdapterVisibility, native_adapters, native_adapters_retaining
 pub struct ProjectionOutput {
     /// Complete descriptor world, including transitive imports and services.
     pub descriptor_set: FileDescriptorSet,
-    /// Exact encoded descriptor set embedded by the shared reflection root.
+    /// Exact descriptor bytes; publish as `descriptor.bin` beside the Rust sources.
+    /// The shared reflection root embeds this sidecar with `include_bytes!`.
     pub descriptor_bytes: Vec<u8>,
     /// Buffa-generated filenames and Rust source, plus `shared-root.rs`.
     pub sources: BTreeMap<String, String>,
@@ -366,7 +367,14 @@ pub fn generate_with_config(
         .collect::<BTreeMap<_, _>>();
     sources.insert(
         "shared-root.rs".into(),
-        buffa_codegen::shared_descriptor_root_module(&descriptor_bytes, FdsEmbedding::Inline, None),
+        buffa_codegen::shared_descriptor_root_module(
+            &descriptor_bytes,
+            FdsEmbedding::Sidecar {
+                file_name: "descriptor.bin",
+                mode: IncludeMode::Relative(""),
+            },
+            None,
+        ),
     );
     sources.insert("mod.rs".into(), module_tree);
     Ok(ProjectionOutput {

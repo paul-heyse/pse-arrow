@@ -415,6 +415,17 @@ A03 produces two deliberate artifacts from one effective world:
 - An effective runtime artifact with the same relevant feature and custom-option semantics,
   omitting source-only material after typed metadata no longer depends on comments.
 
+The first integrated A03 slice uses Buffa 0.9.2
+[`FdsEmbedding::Sidecar`](https://docs.rs/buffa-codegen/0.9.2/buffa_codegen/enum.FdsEmbedding.html)
+with `IncludeMode::Relative("")` in `shared_descriptor_root_module`. Each actual publisher
+already writes the exact `descriptor.bin`; the generated shared root now references that
+file with `include_bytes!`, and Git marks `.bin` artifacts binary. All five source-derived
+worlds retain byte-identical descriptor files. Their combined shared-root Rust source falls
+from 5,660,088 to 12,245 bytes; this is a generated-source size observation, not a runtime,
+compile-time or resident-memory benefit measurement. Combined publication still covers all
+13 targets. Effective feature application, source/runtime artifact separation and runtime
+compaction remain open; changing embedding alone does not discharge those obligations.
+
 Normalize effective feature handling once. Generated code, validation, reflection and client
 schemas must interpret the same feature settings. Use `encode_descriptor_set` for its supported
 runtime transformation, with independent checks that relevant custom options survive. Do not
@@ -439,7 +450,7 @@ All statuses are **planned**. Dependencies describe available products, not whol
 | --- | --- | --- | --- |
 | A01 | complete | Actual native baseline, 65i I01/65j J01 design inputs, proposed ADR-0241 and scoped independent assessment | Pure source-owned graph/macros/adoption extracted; owner implementations and all callers/generators moved; old foundation and temporary aliases deleted. Tests: contract 8/8, model 27/27, codegen 25/25, diagnostics 2/2; workspace all-target check zero errors/warnings. Integrated snapshot is 7e35abae2; H qualification remains separate. |
 | A02 | in-progress | Working A01 field/method semantics → versioned typed metadata option schema and owner emission | All three selected worlds publish typed owner/field/action/method options and all 20 native facet keys. Shared lossless acquisition/checking and native crossing helpers moved to independent pse-contract-proto; replaced implementation/comments/sidecar removed. Source-selected coverage, unknown policy/schema and original-pool controls pass. Native field-shape meaning, domain semantic normalization and independent host policy/readback remain in progress with A05/G02/J02. |
-| A03 | planned | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Replace direct full-byte runtime embedding and inconsistent override handling. Test nondefault feature changes against generated/reflected semantics, runtime compaction preserving typed options, full-source retention and immutable old-world readers. |
+| A03 | in-progress | A02 metadata plus declared effective feature settings → complete and runtime contract-world artifacts | Five source-derived worlds now reference their byte-identical published binary descriptors instead of escaped Rust literals. Complete effective feature application and separate full/runtime artifact publication. Test nondefault features against generated/reflected semantics, runtime compaction preserving typed options, full-source retention and immutable old-world readers. |
 | A04 | planned | A03 closed worlds → shared generation composition for all four initial boundary populations | Integrate Buffa, packaging, validation, Connect and selected external Prost generation. Remove repeated module/descriptor assembly and hand-kept plugin naming maps. Test warning/refusal propagation, orphan companions, duplicate filenames, excluded packages and exact import identity. |
 | A05 | planned | A01–A04 narrow working slice plus B01/B02 adoption policy → complete native/protocol correspondence for selected populations | Migrate host native request/fact families, engineering/worker/reference structural adapters, domain-owned document boundaries, and c/f/g consumer projections. Inventory actual remaining maps at implementation baseline; classify semantic checks explicitly and remove all replaced mechanical maps. Test native→wire→native against independently constructed expected meaning, raw paths and missing/unknown alternatives. |
 | A06 | planned | Current registry/function owners plus A02/A03 → source-declared selected storage/Arrow projection metadata consumed by C packages | Reuse source facts without decoding ProtoJSON or inferring database behavior from field spelling. Delete duplicate selected field/schema declarations with producer/consumer migration. Preserve transactional/domain-specific logic; test precise numeric, relationship and mapping-version changes. |
