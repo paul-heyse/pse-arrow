@@ -26,6 +26,8 @@ use std::{
     time::Duration,
 };
 
+#[path = "support/native-stack.rs"]
+mod native_stack;
 #[path = "support/signals.rs"]
 mod signals;
 
@@ -266,10 +268,19 @@ async fn run(args: Args) -> Result<(), Error> {
 fn main() -> std::process::ExitCode {
     let result: Result<(), Error> = (|| {
         let args = Args::parse();
-        let executor = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()?;
-        executor.block_on(run(args))
+        let stack = native_stack::selected()?;
+        // Like the existing scientific worker, construct and poll the actual
+        // native application root on its qualified stack; block_on's caller is
+        // not resized by RUST_MIN_STACK or Tokio's worker configuration.
+        std::thread::Builder::new()
+            .name("pse-engineering-root".into())
+            .stack_size(stack)
+            .spawn(move || -> Result<(), Error> {
+                let executor = native_stack::runtime(stack)?;
+                executor.block_on(run(args))
+            })?
+            .join()
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
     })();
     match result {
         Ok(()) => std::process::ExitCode::SUCCESS,

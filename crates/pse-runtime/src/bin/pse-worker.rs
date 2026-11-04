@@ -18,6 +18,8 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[path = "support/native-stack.rs"]
+mod native_stack;
 #[path = "support/signals.rs"]
 mod signals;
 
@@ -502,19 +504,10 @@ fn main() -> ExitCode {
     // block_on polls its root on the calling thread. RUST_MIN_STACK does not
     // resize the OS main stack: give the actual application root the same
     // qualified stack as native structural work, preserving a larger selection.
-    let stack = match std::env::var("RUST_MIN_STACK") {
-        Ok(value) => match value.parse::<usize>() {
-            Ok(value) if value > 0 => {
-                value.max(pse_runtime::math::MathPolicy::default().stack_bytes)
-            }
-            _ => {
-                eprintln!("error: RUST_MIN_STACK must be a positive byte count");
-                return ExitCode::FAILURE;
-            }
-        },
-        Err(std::env::VarError::NotPresent) => pse_runtime::math::MathPolicy::default().stack_bytes,
+    let stack = match native_stack::selected() {
+        Ok(stack) => stack,
         Err(error) => {
-            eprintln!("error: RUST_MIN_STACK: {error}");
+            eprintln!("error: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -548,11 +541,7 @@ fn run(stack: usize) -> ExitCode {
             }
         };
     let cli = Cli::parse();
-    let executor = match tokio::runtime::Builder::new_multi_thread()
-        .thread_stack_size(stack)
-        .enable_all()
-        .build()
-    {
+    let executor = match native_stack::runtime(stack) {
         Ok(executor) => executor,
         Err(error) => {
             eprintln!("error: executor: {error}");

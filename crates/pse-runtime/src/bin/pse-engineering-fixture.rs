@@ -23,7 +23,28 @@ mod signals;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
+fn error_report(error: &(dyn std::error::Error + 'static)) -> String {
+    let Some(error) = error.downcast_ref::<NativeServiceError>() else {
+        return error.to_string();
+    };
+    let mut rendered = String::new();
+    // The native owner exposes every independent settlement through Diagnostic::related.
+    // Its privileged bootstrap cause intentionally ends at its credential-safe Display;
+    // never use Debug or reopen the private original SQL-bearing bootstrap failure.
+    if miette::NarratableReportHandler::new()
+        .render_report(&mut rendered, error)
+        .is_err()
+    {
+        return format!("{error}\nnative diagnostic rendering failed");
+    }
+    rendered
+}
+
 #[derive(Debug, Parser)]
+#[command(
+    about = "Retain a disposable canonical fixture in a foreground native application scope",
+    long_about = "Run through scripts/pse-env from an application scope and retain that foreground lifetime. The original canonical owner launches and drains its bound service; a detached managed payload is not the required scope. This keeper never grants engineering-service peer authentication."
+)]
 struct Args {
     /// Explicit already-built canonical process helper.
     #[arg(long)]
@@ -134,8 +155,68 @@ fn main() -> std::process::ExitCode {
     match result {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("pse-engineering-fixture: {error}");
+            eprintln!("pse-engineering-fixture: {}", error_report(error.as_ref()));
             std::process::ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "credential-safe original diagnostic controls"
+    )]
+    use super::*;
+
+    #[test]
+    fn fixture_diagnostic_preserves_nested_independent_settlement_failures() {
+        let error = NativeServiceError::Settlement {
+            state: PathBuf::from("retained-state"),
+            failures: vec![
+                NativeServiceError::Host(pse_host::HostError::Ownership(
+                    "bound service requires this process's original native workload scope".into(),
+                )),
+                NativeServiceError::Settlement {
+                    state: PathBuf::from("retained-state"),
+                    failures: vec![NativeServiceError::Refused(
+                        "original launch remains uncertain; no physical release was established",
+                    )],
+                },
+            ],
+        };
+        let rendered = error_report(&error);
+        assert!(
+            rendered.contains("after 2 settlement failures"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("requires this process's original native workload scope"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("no physical release was established"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("runtime::infrastructure"), "{rendered}");
+    }
+
+    #[test]
+    fn fixture_diagnostic_uses_public_display_without_debugging_private_causes() {
+        struct Private;
+        impl std::fmt::Debug for Private {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("private-credential-and-SQL")
+            }
+        }
+        impl std::fmt::Display for Private {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("credential-safe original failure")
+            }
+        }
+        impl std::error::Error for Private {}
+        let rendered = error_report(&Private);
+        assert_eq!(rendered, "credential-safe original failure");
+        assert!(!rendered.contains("private-credential-and-SQL"));
     }
 }
