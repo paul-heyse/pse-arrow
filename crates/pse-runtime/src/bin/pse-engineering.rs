@@ -14,7 +14,10 @@ use pse_operations::canonical::{CanonicalOptions, CanonicalStore};
 use pse_runtime::{
     CancelSource, SharedRuntime,
     host_operations::{
-        engineering::{EngineeringService, EngineeringServiceError, LocalAccessPolicy, serve},
+        engineering::{
+            EngineeringFrontendReady, EngineeringService, EngineeringServiceError,
+            LocalAccessPolicy, serve,
+        },
         project::PROJECT_OPERATOR_DEFAULTS,
     },
     workflow::{CanonicalDeployment, OuterAttestation, Runtime},
@@ -141,17 +144,7 @@ impl Drop for SocketOwner {
     }
 }
 
-#[derive(serde::Serialize)]
-struct Ready<'a> {
-    version: pse_model::document::Version<1>,
-    root: &'a Path,
-    invocation: &'a pse_host::envelope::CliInvocationId,
-    socket: &'a Path,
-    process: u32,
-    build: pse_ids::ContentHash,
-    artifact: &'a pse_buildinfo::FileObservation,
-}
-fn publish_ready(path: &Path, ready: &Ready<'_>) -> Result<(), Error> {
+fn publish_ready(path: &Path, ready: &EngineeringFrontendReady) -> Result<(), Error> {
     let parent = path
         .parent()
         .ok_or("readiness output needs an existing parent")?;
@@ -211,14 +204,14 @@ async fn run(args: Args) -> Result<(), Error> {
             std::fs::set_permissions(&args.socket, std::fs::Permissions::from_mode(0o600))?;
             publish_ready(
                 &args.ready,
-                &Ready {
+                &EngineeringFrontendReady {
                     version: Default::default(),
-                    root: &root,
-                    invocation: &invocation,
-                    socket: &args.socket,
+                    root: root.clone(),
+                    invocation: invocation.clone(),
+                    socket: args.socket.clone(),
                     process: std::process::id(),
                     build,
-                    artifact: &image,
+                    artifact: image.clone(),
                 },
             )?;
             Ok((listener, socket))

@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit local engineering service; scientific policy stays with native workflow owners.
 
+mod readiness;
 mod session;
+pub use readiness::{EngineeringFixtureReady, EngineeringFrontendReady};
 pub use session::{
     EngineeringModelingOutput, EngineeringPhysicalOutput, EngineeringResultOutput,
     EngineeringService, EngineeringServiceError, EngineeringStudyOutput,

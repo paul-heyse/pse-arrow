@@ -16,6 +16,7 @@ use pse_operations::{
 };
 use pse_runtime::{
     CancelSource,
+    host_operations::engineering::EngineeringFixtureReady,
     workflow::{NativeAllocation, NativeStudyWorker, NativeStudyWorkerSpec, WorkerSettings},
 };
 use std::{
@@ -24,6 +25,8 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
+#[path = "support/engineering-study-qualification.rs"]
+mod qualification;
 #[path = "support/signals.rs"]
 mod signals;
 
@@ -49,7 +52,8 @@ fn error_report(error: &(dyn std::error::Error + 'static)) -> String {
 #[derive(Debug, Parser)]
 #[command(
     about = "Retain a disposable canonical fixture in a foreground native application scope",
-    long_about = "Run through scripts/pse-env from an application scope and retain that foreground lifetime. The original canonical owner launches and drains its bound service; a detached managed payload is not the required scope. This keeper never grants engineering-service peer authentication."
+    long_about = "Run through scripts/pse-env from an application scope and retain that foreground lifetime. The original canonical owner launches and drains its bound service; a detached managed payload is not the required scope. This keeper never grants engineering-service peer authentication.",
+    after_help = "For Rust-owned three-phase client coordination, use: pse-engineering-fixture qualify-study --help. That coordination mode runs outside an enclosing native workload."
 )]
 struct Args {
     /// Explicit already-built canonical process helper.
@@ -67,6 +71,12 @@ struct Args {
     /// Fresh atomic receipt published only after the original worker launch completes.
     #[arg(long, requires = "study_worker_start")]
     study_worker_started: Option<PathBuf>,
+    /// Fresh private request for this keeper's normal worker/service shutdown.
+    #[arg(long)]
+    finish_request: Option<PathBuf>,
+    /// When selected, disposal requires this fresh request after dependent owners settle.
+    #[arg(long)]
+    dispose_request: Option<PathBuf>,
     /// Explicit already-prepared production module receipt.
     #[arg(
         long,
@@ -94,14 +104,6 @@ struct Args {
     lifetime_ms: u64,
     #[arg(long, default_value_t = 30_000)]
     shutdown_ms: u64,
-}
-
-#[derive(serde::Serialize)]
-struct Ready<'a> {
-    version: pse_model::document::Version<1>,
-    state: &'a std::path::Path,
-    database: String,
-    fixture: pse_operations::native_fixture::FixtureSelection,
 }
 
 struct Failures(Vec<Error>);
@@ -168,6 +170,19 @@ fn start_requested(path: &std::path::Path) -> Result<bool, Error> {
     Ok(true)
 }
 
+fn take_requested_worker<T>(
+    pending: &mut Option<T>,
+    gate: Option<&std::path::Path>,
+) -> Result<Option<T>, Error> {
+    if pending.is_some()
+        && let Some(gate) = gate
+        && start_requested(gate)?
+    {
+        return Ok(pending.take());
+    }
+    Ok(None)
+}
+
 fn publish_worker_started(path: &std::path::Path) -> Result<(), Error> {
     let parent = path
         .parent()
@@ -201,6 +216,27 @@ async fn run(args: Args) -> Result<(), Error> {
         .as_deref()
         .map(worker_allocation)
         .transpose()?;
+    if let Some(finish) = &args.finish_request {
+        if !finish.is_absolute()
+            || finish.try_exists()?
+            || args.study_worker_start.as_ref() == Some(finish)
+            || args.study_worker_started.as_ref() == Some(finish)
+            || &args.ready == finish
+        {
+            return Err("keeper finish request requires a fresh distinct absolute path".into());
+        }
+    }
+    if let Some(dispose) = &args.dispose_request {
+        if !dispose.is_absolute()
+            || dispose.try_exists()?
+            || args.finish_request.as_ref() == Some(dispose)
+            || args.study_worker_start.as_ref() == Some(dispose)
+            || args.study_worker_started.as_ref() == Some(dispose)
+            || &args.ready == dispose
+        {
+            return Err("keeper disposal request requires a fresh distinct absolute path".into());
+        }
+    }
     if let Some(gate) = &args.study_worker_start {
         let started = args
             .study_worker_started
@@ -248,7 +284,7 @@ async fn run(args: Args) -> Result<(), Error> {
             worker.as_mut().ok_or("original worker owner unavailable")?.launch(startup).await?;
         }
         let options = CanonicalOptions::from_state(service.state())?;
-        let receipt = Ready { version: Default::default(), state: service.state(), database: options.database, fixture: service.fixture_selection()? };
+        let receipt = EngineeringFixtureReady { version: Default::default(), state: service.state().to_owned(), database: options.database, fixture: service.fixture_selection()? };
         let parent = args.ready.parent().ok_or(NativeServiceError::Refused("ready receipt needs an existing parent"))?;
         let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
         serde_json::to_writer(temporary.as_file_mut(), &receipt).map_err(|_| NativeServiceError::Refused("ready receipt encoding failed"))?;
@@ -260,9 +296,11 @@ async fn run(args: Args) -> Result<(), Error> {
             tokio::select! {
                 _ = stop.cancelled() => break,
                 _ = tokio::time::sleep_until(active_until.into()) => break,
-                _ = tokio::time::sleep(Duration::from_millis(25)), if pending_worker.is_some() => {
-                    if let Some(gate) = &args.study_worker_start && start_requested(gate)? {
-                        let spec = pending_worker.take().ok_or("original pending worker configuration absent")?;
+                _ = tokio::time::sleep(Duration::from_millis(25)), if pending_worker.is_some() || args.finish_request.is_some() => {
+                    if let Some(finish) = &args.finish_request && start_requested(finish)? {
+                        break;
+                    }
+                    if let Some(spec) = take_requested_worker(&mut pending_worker, args.study_worker_start.as_deref())? {
                         worker = Some(NativeStudyWorker::new(spec)?);
                         // A late gate receives the original startup allowance only
                         // within this keeper's predeclared active/terminal window.
@@ -276,6 +314,11 @@ async fn run(args: Args) -> Result<(), Error> {
         }
         Ok::<(), Error>(())
     })).catch_unwind().await;
+    // Early finish gets only the declared settlement allowance, bounded by the
+    // original lifetime. A late request cannot restart or extend that clock.
+    let terminal = Instant::now()
+        .checked_add(Duration::from_millis(args.shutdown_ms))
+        .map_or(terminal, |deadline| deadline.min(terminal));
     // Every independent teardown is attempted even after launch ambiguity, body
     // failure or panic. The frontend never receives this performing worker owner.
     let mut failures: Vec<Error> = Vec::new();
@@ -316,6 +359,17 @@ async fn run(args: Args) -> Result<(), Error> {
             Err(error) => failures.push(Box::new(error)),
         }
     }
+    if failures.is_empty()
+        && let Some(dispose) = &args.dispose_request
+    {
+        match start_requested(dispose) {
+            Ok(true) => {}
+            Ok(false) => failures.push(
+                "dependent owner disposal request absent; stopped original fixture retained".into(),
+            ),
+            Err(error) => failures.push(error),
+        }
+    }
     if failures.is_empty() {
         if let Some(worker) = &mut worker {
             if let Err(error) = worker.dispose() {
@@ -344,17 +398,33 @@ async fn run(args: Args) -> Result<(), Error> {
 }
 fn main() -> std::process::ExitCode {
     let result: Result<(), Error> = (|| {
-        let args = Args::parse();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
-        runtime.block_on(run(args))
+        if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("qualify-study")) {
+            let args = qualification::Args::parse_from(
+                std::iter::once(std::ffi::OsString::from(
+                    "pse-engineering-fixture qualify-study",
+                ))
+                .chain(std::env::args_os().skip(2)),
+            );
+            runtime.block_on(qualification::run(args))
+        } else {
+            runtime.block_on(run(Args::parse()))
+        }
     })();
     match result {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("pse-engineering-fixture: {}", error_report(error.as_ref()));
-            std::process::ExitCode::FAILURE
+            if error
+                .downcast_ref::<qualification::Failure>()
+                .is_some_and(|failure| failure.interrupted)
+            {
+                std::process::ExitCode::from(130)
+            } else {
+                std::process::ExitCode::FAILURE
+            }
         }
     }
 }
@@ -457,6 +527,35 @@ mod tests {
         assert_eq!(original, br#"{"version":1}"#);
         assert!(publish_worker_started(&started).is_err());
         assert_eq!(std::fs::read(&started).unwrap(), original);
+    }
+
+    #[test]
+    fn scientific_keeper_persistent_gate_hands_off_original_worker_only_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let gate = directory.path().join("start.json");
+        let mut pending = Some("original worker configuration");
+        assert!(
+            take_requested_worker(&mut pending, Some(&gate))
+                .unwrap()
+                .is_none()
+        );
+        assert!(pending.is_some());
+        publish_worker_started(&gate).unwrap();
+        let original = std::fs::read(&gate).unwrap();
+        assert_eq!(
+            take_requested_worker(&mut pending, Some(&gate)).unwrap(),
+            Some("original worker configuration")
+        );
+        // Finish polling continues after the successful launch. Its next ticks
+        // must neither relaunch nor consume the persistent original gate.
+        for _ in 0..3 {
+            assert!(
+                take_requested_worker(&mut pending, Some(&gate))
+                    .unwrap()
+                    .is_none()
+            );
+        }
+        assert_eq!(std::fs::read(&gate).unwrap(), original);
     }
 
     #[test]

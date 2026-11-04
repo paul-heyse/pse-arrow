@@ -10,7 +10,8 @@
 )]
 
 use pse_runtime::host_operations::engineering::{
-    EngineeringClient, EngineeringEndpoint, generated::pb::pse::engineering::v1 as pb,
+    EngineeringClient, EngineeringEndpoint, EngineeringFixtureReady, EngineeringFrontendReady,
+    generated::pb::pse::engineering::v1 as pb,
 };
 use std::{
     collections::BTreeMap,
@@ -18,21 +19,41 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Ready {
-    version: pse_model::document::Version<1>,
-    root: PathBuf,
-    invocation: pse_host::envelope::CliInvocationId,
-    socket: PathBuf,
-    process: u32,
-    build: pse_ids::ContentHash,
-    artifact: pse_buildinfo::FileObservation,
+#[path = "engineering_service/study.rs"]
+mod study;
+
+fn failure(error: connectrpc::ConnectError) -> pb::EngineeringFailure {
+    use base64::{
+        Engine as _,
+        engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
+    };
+    use buffa::Message as _;
+    let detail = error
+        .details
+        .iter()
+        .find(|detail| {
+            matches!(
+                detail.type_url.as_str(),
+                "pse.engineering.v1.EngineeringFailure"
+                    | "type.googleapis.com/pse.engineering.v1.EngineeringFailure"
+            )
+        })
+        .expect("retain original typed owner refusal");
+    let encoded = detail.value.as_ref().unwrap();
+    let bytes = STANDARD_NO_PAD
+        .decode(encoded)
+        .or_else(|_| STANDARD.decode(encoded))
+        .unwrap();
+    let failure = pb::EngineeringFailure::decode_from_slice(&bytes).unwrap();
+    assert!(!failure.code.is_empty());
+    failure
 }
+
 fn endpoint() -> EngineeringEndpoint {
     let path = std::env::var_os("PSE_ENGINEERING_ENDPOINT")
         .expect("explicit fixture owner must prepare an engineering payload before this client; reads never launch it");
-    let ready: Ready = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let ready: EngineeringFrontendReady =
+        serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let _version = ready.version;
     assert!(ready.process > 0 && ready.build != pse_ids::ContentHash::NIL);
     EngineeringEndpoint {
