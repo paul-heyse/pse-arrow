@@ -398,17 +398,6 @@ pub(super) fn serve_with_preparation(
     use services::ScientificWorkerExt as _;
     use tower_service::Service as _;
 
-    #[test]
-    fn abandoned_observer_does_not_release_a_native_job_admission() {
-        let lane = Arc::new(tokio::sync::Semaphore::new(1));
-        let permit = lane.clone().try_acquire_owned().unwrap();
-        let (response, observer) = tokio::sync::oneshot::channel();
-        let job = Job { request: p::Request::Shutdown, response, _work: Some(permit) };
-        drop(observer);
-        assert!(lane.clone().try_acquire_owned().is_err());
-        drop(job);
-        assert!(lane.try_acquire_owned().is_ok());
-    }
     let _parent = ParentGuard::start(parent)?;
     let listener = std::os::unix::net::UnixListener::bind(&endpoint).map_err(infrastructure)?;
     std::fs::set_permissions(
@@ -601,6 +590,18 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
 mod tests {
     use super::*;
     use tower_service::Service as _;
+
+    #[test]
+    fn abandoned_observer_does_not_release_a_native_job_admission() {
+        let lane = Arc::new(tokio::sync::Semaphore::new(1));
+        let permit = lane.clone().try_acquire_owned().unwrap();
+        let (response, observer) = tokio::sync::oneshot::channel();
+        let job = Job { request: p::Request::Shutdown, response, _work: Some(permit) };
+        drop(observer);
+        assert!(lane.clone().try_acquire_owned().is_err());
+        drop(job);
+        assert!(lane.try_acquire_owned().is_ok());
+    }
 
     #[test]
     fn handle_controls_cancel_only_exact_context_and_shutdown_closes_admission() {
