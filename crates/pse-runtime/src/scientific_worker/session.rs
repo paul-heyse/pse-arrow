@@ -168,6 +168,13 @@ impl PreparedSession {
         };
         result.map_err(Into::into)
     }
+    /// Request cancellation for this handle's scope, then retire its settled native state.
+    /// The caller must run this on the same native lane after its invocation has joined;
+    /// requesting cancellation alone does not establish physical settlement.
+    pub fn stop(&mut self) {
+        self.scope.cancellation_control().cancel();
+        self.close();
+    }
     /// Stop admission and destroy settled state without changing the original stop cause.
     /// The caller must run this on the same native lane after its invocation.
     pub fn close(&mut self) {

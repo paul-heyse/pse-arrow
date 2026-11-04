@@ -275,8 +275,49 @@ struct Job {
     request: p::Request,
     response: tokio::sync::oneshot::Sender<p::Response>,
 }
+#[derive(Default)]
+struct HandleControls {
+    closed: bool,
+    handles: BTreeMap<SemanticId, (p::Handle, pse_diagnostics::Cancellation)>,
+}
+impl HandleControls {
+    fn admit(&mut self, request: &p::Request) -> Result<(), WorkerError> {
+        if self.closed {
+            return Err(ProviderError::Contract("scientific worker admission is closed".into()).into());
+        }
+        match request {
+            p::Request::Prepare(value) => {
+                if self.handles.len() >= 64 || self.handles.contains_key(&value.handle.generation) {
+                    return Err(ProviderError::Contract("scientific worker duplicate/excess preparation".into()).into());
+                }
+                self.handles.insert(value.handle.generation, (value.handle.clone(), Default::default()));
+            }
+            p::Request::Evaluate(value) => { self.control(&value.handle)?; }
+            p::Request::Close(handle) => { self.control(handle)?; }
+            p::Request::Stop(handle) => self.control(handle)?.cancel(),
+            p::Request::Shutdown => {
+                self.closed = true;
+                for (_, cancellation) in self.handles.values() {
+                    cancellation.cancel();
+                }
+            }
+        }
+        Ok(())
+    }
+    fn control(&self, handle: &p::Handle) -> Result<&pse_diagnostics::Cancellation, WorkerError> {
+        self.handles.get(&handle.generation)
+            .filter(|(actual, _)| actual == handle)
+            .map(|(_, cancellation)| cancellation)
+            .ok_or_else(|| ProviderError::Contract("scientific worker unknown or foreign handle".into()).into())
+    }
+}
+type SharedControls = Arc<std::sync::Mutex<HandleControls>>;
+fn controls_lock(controls: &SharedControls) -> Result<std::sync::MutexGuard<'_, HandleControls>, WorkerError> {
+    controls.lock().map_err(|_| infrastructure("scientific worker controls poisoned"))
+}
 struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
+    controls: SharedControls,
 }
 impl services::ScientificWorker for Server {
     async fn exchange<'a>(
@@ -297,6 +338,12 @@ impl services::ScientificWorker for Server {
                 )));
             }
         };
+        let admitted = controls_lock(&self.controls).and_then(|mut controls| controls.admit(&request));
+        if let Err(error) = admitted {
+            return Ok(connectrpc::Response::new(pb::Response::from(
+                p::Response::Failure(handler::failure(error)),
+            )));
+        }
         let (response, received) = tokio::sync::oneshot::channel();
         self.jobs
             .send(Job { request, response })
@@ -336,8 +383,8 @@ pub(super) fn serve_with_preparation(
     )
     .map_err(infrastructure)?;
     listener.set_nonblocking(true).map_err(infrastructure)?;
-    let cancellation = pse_diagnostics::Cancellation::default();
-    let cancel = cancellation.clone();
+    let controls = SharedControls::default();
+    let native_controls = controls.clone();
     let closed = Arc::new(AtomicBool::new(false));
     let drained = closed.clone();
     let (jobs, mut receiving) = tokio::sync::mpsc::channel::<Job>(1);
@@ -347,7 +394,12 @@ pub(super) fn serve_with_preparation(
         .spawn(move || {
             let mut sessions = BTreeMap::<SemanticId, PreparedSession>::new();
             while let Some(job) = receiving.blocking_recv() {
-                let stopping = matches!(&job.request, p::Request::Stop(_));
+                let handle = match &job.request {
+                    p::Request::Prepare(value) => Some(value.handle.clone()),
+                    p::Request::Evaluate(value) => Some(value.handle.clone()),
+                    p::Request::Stop(handle) | p::Request::Close(handle) => Some(handle.clone()),
+                    p::Request::Shutdown => None,
+                };
                 let result: Result<p::Response, WorkerError> = (|| match job.request {
                     p::Request::Prepare(value) => {
                         if drained.load(Ordering::Acquire)
@@ -359,7 +411,8 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
-                        let prepared = prepare(value, cancel.clone())?;
+                        let cancellation = controls_lock(&native_controls)?.control(&value.handle)?.clone();
+                        let prepared = prepare(value, cancellation)?;
                         let handle = p::Handle::from(prepared.handle());
                         sessions.insert(handle.generation, prepared);
                         Ok(p::Response::Prepared(handle))
@@ -373,8 +426,8 @@ pub(super) fn serve_with_preparation(
                             })?;
                         Ok(p::Response::Values(handler::evaluate(owner, value)?))
                     }
-                    p::Request::Stop(handle) | p::Request::Close(handle) => {
-                        let actual = sessions.get(&handle.generation).ok_or_else(|| {
+                    p::Request::Stop(handle) => {
+                        let actual = sessions.get_mut(&handle.generation).ok_or_else(|| {
                             ProviderError::Contract(
                                 "scientific worker unknown closing generation".into(),
                             )
@@ -385,28 +438,44 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
-                        if stopping {
-                            cancel.cancel();
-                        }
-                        for owner in sessions.values_mut() {
-                            owner.close();
-                        }
-                        sessions.clear();
-                        drained.store(true, Ordering::Release);
+                        actual.stop();
+                        sessions.remove(&handle.generation);
+                        controls_lock(&native_controls)?.handles.remove(&handle.generation);
                         Ok(p::Response::Closed(handle))
+                    }
+                    p::Request::Close(handle) => {
+                        let actual = sessions.get_mut(&handle.generation).ok_or_else(|| {
+                            ProviderError::Contract("scientific worker unknown closing generation".into())
+                        })?;
+                        if actual.handle() != handle.clone().into() {
+                            return Err(ProviderError::Contract("scientific worker foreign closing context".into()).into());
+                        }
+                        actual.close();
+                        sessions.remove(&handle.generation);
+                        controls_lock(&native_controls)?.handles.remove(&handle.generation);
+                        Ok(p::Response::Closed(handle))
+                    }
+                    p::Request::Shutdown => {
+                        for owner in sessions.values_mut() { owner.stop(); }
+                        sessions.clear();
+                        controls_lock(&native_controls)?.handles.clear();
+                        drained.store(true, Ordering::Release);
+                        Ok(p::Response::Shutdown)
                     }
                 })();
                 let terminal = result.as_ref().err().is_some_and(|error| match error {
                     WorkerError::Provider(error) => !error.recoverable(),
                     _ => true,
                 });
-                if terminal {
-                    cancel.cancel();
-                    for owner in sessions.values_mut() {
-                        owner.close();
+                if terminal && let Some(handle) = handle {
+                    // A failed handle cannot erase unrelated prepared science. The parent
+                    // still settles the actual process if this connection is abandoned.
+                    if let Some(owner) = sessions.get_mut(&handle.generation) {
+                        owner.stop();
+                    } else if let Ok(mut controls) = controls_lock(&native_controls) {
+                        // Failed preparation never issued a live native handle.
+                        controls.handles.remove(&handle.generation);
                     }
-                    sessions.clear();
-                    drained.store(true, Ordering::Release);
                 }
                 let response =
                     result.unwrap_or_else(|error| p::Response::Failure(handler::failure(error)));
@@ -433,7 +502,7 @@ pub(super) fn serve_with_preparation(
                 "scientific worker kernel parent peer differs",
             ));
         }
-        let router = Arc::new(Server { jobs: jobs.clone() }).register(connectrpc::Router::new());
+        let router = Arc::new(Server { jobs: jobs.clone(), controls: controls.clone() }).register(connectrpc::Router::new());
         let service = connectrpc::ConnectRpcService::new(router).with_limits(
             connectrpc::Limits::default()
                 .with_max_request_body_size(FRAME_LIMIT)
@@ -446,13 +515,18 @@ pub(super) fn serve_with_preparation(
         });
         let mut builder =
             hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new());
-        builder.max_concurrent_streams(1);
+        // One numerical request and one bounded control request may coexist. Native
+        // mutation stays on the single owned lane; cancellation is independently signaled.
+        builder.max_concurrent_streams(2);
         builder
             .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
             .await
             .map_err(infrastructure)
     });
-    cancellation.cancel();
+    if let Ok(mut controls) = controls_lock(&controls) {
+        controls.closed = true;
+        for (_, cancellation) in controls.handles.values() { cancellation.cancel(); }
+    }
     if !closed.load(Ordering::Acquire) {
         // A disconnected active RPC must settle its actual native call, even if
         // cooperative cancellation cannot interrupt the foreign instruction.
@@ -487,6 +561,37 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
 mod tests {
     use super::*;
     use tower_service::Service as _;
+
+    #[test]
+    fn handle_controls_cancel_only_exact_context_and_shutdown_closes_admission() {
+        let first = p::Handle {
+            attempt: SemanticId::from_bytes([1; 16]),
+            session: SemanticId::from_bytes([2; 16]),
+            generation: SemanticId::from_bytes([3; 16]),
+        };
+        let mut second = first.clone();
+        second.generation = SemanticId::from_bytes([4; 16]);
+        let a = pse_diagnostics::Cancellation::default();
+        let b = pse_diagnostics::Cancellation::default();
+        let mut controls = HandleControls::default();
+        controls.handles.insert(first.generation, (first.clone(), a.clone()));
+        controls.handles.insert(second.generation, (second.clone(), b.clone()));
+        let mut foreign = first.clone();
+        foreign.attempt = SemanticId::NIL;
+        assert!(controls.admit(&p::Request::Stop(foreign)).is_err());
+        assert!(!a.is_cancelled());
+        assert!(!b.is_cancelled());
+        controls.admit(&p::Request::Stop(first)).unwrap();
+        assert!(a.is_cancelled());
+        assert!(!b.is_cancelled());
+        assert!(!controls.closed);
+        controls.admit(&p::Request::Close(second.clone())).unwrap();
+        assert!(!b.is_cancelled());
+        controls.admit(&p::Request::Shutdown).unwrap();
+        assert!(b.is_cancelled());
+        assert!(controls.closed);
+        assert!(controls.admit(&p::Request::Close(second)).is_err());
+    }
 
     #[test]
     fn evaluation_options_preserve_original_optional_deadline_without_renewal() {

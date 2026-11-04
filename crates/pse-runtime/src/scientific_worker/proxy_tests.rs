@@ -731,6 +731,43 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         10,
         "one coherent native invocation per product and output selection"
     );
+    let first = proxy.prepared[0].1.clone();
+    let survivor = proxy.prepared[1].1.clone();
+    let stopped = proxy.prepared[2].1.clone();
+    let remote = proxy.remote.as_ref().unwrap();
+    assert!(matches!(
+        remote.exchange(p::Request::Close(first.clone()), &proxy.scope, None).unwrap(),
+        p::Response::Closed(actual) if actual == first
+    ));
+    assert!(matches!(
+        remote.exchange(p::Request::Stop(stopped.clone()), &proxy.scope, None).unwrap(),
+        p::Response::Closed(actual) if actual == stopped
+    ));
+    let mut foreign = survivor.clone();
+    foreign.attempt = pse_ids::SemanticId::NIL;
+    assert!(matches!(
+        remote.exchange(p::Request::Stop(foreign), &proxy.scope, None).unwrap(),
+        p::Response::Failure(_)
+    ));
+    // Independent scalar values for the still-live selected-columns handle. Neither
+    // another handle's close/stop nor a foreign context may cancel this preparation.
+    let response = remote.exchange(p::Request::Evaluate(p::Evaluate {
+        handle: survivor.clone(),
+        invocation: 10_000,
+        inputs: vec![3., 5.],
+        directions: vec![], cotangents: vec![], weights: vec![],
+    }), &proxy.scope, None).unwrap();
+    assert!(matches!(response, p::Response::Values(values)
+        if values.handle == survivor && values.values == [14., 15., 25.]));
+    assert!(matches!(
+        remote.exchange(p::Request::Close(first), &proxy.scope, None).unwrap(),
+        p::Response::Failure(_)
+    ));
+    assert!(matches!(
+        remote.exchange(p::Request::Shutdown, &proxy.scope, None).unwrap(),
+        p::Response::Shutdown
+    ));
+    proxy.remote.as_mut().unwrap().closed = true;
 }
 
 #[test]

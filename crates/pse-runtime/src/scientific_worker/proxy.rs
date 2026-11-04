@@ -416,13 +416,17 @@ impl Provider for Proxy {
 impl Drop for Proxy {
     fn drop(&mut self) {
         if let Some(mut remote) = self.remote.take() {
-            if let Some((_, handle)) = self.prepared.first() {
-                let cleanup = ExecutionScope::new(
-                    pse_diagnostics::Cancellation::default(),
-                    Instant::now().checked_add(Duration::from_millis(100)),
-                );
-                remote.closed = matches!(remote.exchange(p::Request::Close(handle.clone()), &cleanup, None), Ok(p::Response::Closed(actual)) if actual == *handle);
+            if remote.closed {
+                return;
             }
+            let cleanup = ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                Instant::now().checked_add(Duration::from_millis(100)),
+            );
+            remote.closed = matches!(
+                remote.exchange(p::Request::Shutdown, &cleanup, None),
+                Ok(p::Response::Shutdown)
+            );
             drop(remote);
         }
     }

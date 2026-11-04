@@ -139,6 +139,45 @@ fn session_preserves_coherent_jets_and_refuses_stale_or_replayed_invocations() {
 }
 
 #[test]
+fn stopping_one_prepared_handle_preserves_an_independent_session() {
+    let factory = factory();
+    let first_scope = scope();
+    let second_scope = scope();
+    let mut second_handle = handle();
+    second_handle.generation = SemanticId::from_bytes([4; 16]);
+    let prepare = |handle, scope| {
+        PreparedSession::prepare(
+            handle,
+            &factory,
+            &factory.spec,
+            factory.configuration_key(),
+            ProviderRequest::all(&factory.spec, DerivativeOrder::Second),
+            scope,
+            4096,
+        )
+        .unwrap()
+    };
+    let mut first = prepare(handle(), first_scope.clone());
+    let mut second = prepare(second_handle, second_scope.clone());
+    first.stop();
+    assert_eq!(first.state(), SessionState::Closed);
+    assert!(first_scope.check().is_err());
+    assert!(second_scope.check().is_ok());
+    assert_eq!(second.state(), SessionState::Ready);
+    assert_eq!(
+        second
+            .evaluate(second_handle, 1, &[3.0], ProviderRuntime::default())
+            .unwrap()
+            .values,
+        [9.0]
+    );
+    // Ordinary retirement destroys this handle without manufacturing a cancellation cause.
+    second.close();
+    assert!(second_scope.check().is_ok());
+    assert_eq!(second.state(), SessionState::Closed);
+}
+
+#[test]
 fn session_partial_trial_refusal_does_not_publish_old_or_partial_completion() {
     let factory = factory();
     let mut session = PreparedSession::prepare(

@@ -278,6 +278,7 @@ impl From<p::Request> for pb::Request {
                 }
                 .into(),
             ),
+            p::Request::Shutdown => Kind::Shutdown(request::Alternative5::default().into()),
         };
         Self {
             kind: Some(kind),
@@ -306,6 +307,10 @@ impl TryFrom<pb::Request> for p::Request {
             Kind::Close(v) => {
                 unknown(&v.__buffa_unknown_fields)?;
                 Self::Close(required(v.value)?.try_into()?)
+            }
+            Kind::Shutdown(v) => {
+                unknown(&v.__buffa_unknown_fields)?;
+                Self::Shutdown
             }
         })
     }
@@ -476,6 +481,7 @@ impl From<p::Response> for pb::Response {
                 }
                 .into(),
             ),
+            p::Response::Shutdown => Kind::Shutdown(response::Alternative5::default().into()),
         };
         Self {
             kind: Some(kind),
@@ -504,6 +510,10 @@ impl TryFrom<pb::Response> for p::Response {
             Kind::Closed(v) => {
                 unknown(&v.__buffa_unknown_fields)?;
                 Self::Closed(required(v.value)?.try_into()?)
+            }
+            Kind::Shutdown(v) => {
+                unknown(&v.__buffa_unknown_fields)?;
+                Self::Shutdown
             }
         })
     }

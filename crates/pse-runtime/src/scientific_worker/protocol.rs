@@ -127,10 +127,12 @@ pse_model::projection_enum! {
         Prepare(Prepare) => 1;
         /// Execute one coherent scientific invocation without automatic replay.
         Evaluate(Evaluate) => 2;
-        /// Signal the actual native cancellation and stop admission.
+        /// Cancel only this prepared handle and retire its settled state.
         Stop(Handle) => 3;
-        /// Destroy settled native state and close admission.
+        /// Destroy only this handle's settled native state.
         Close(Handle) => 4;
+        /// Close admission and cancel/drain every handle on this authenticated session.
+        Shutdown => 5;
     }
 }
 pse_model::projection_struct! {
@@ -195,5 +197,7 @@ pse_model::projection_enum! {
         Failure(Failure) => 3;
         /// Native state was destroyed; process settlement remains the parent's duty.
         Closed(Handle) => 4;
+        /// All session-native state has joined; the parent still owns process/I/O settlement.
+        Shutdown => 5;
     }
 }

@@ -68,6 +68,17 @@ analytic integrated model supplies positive native execution, while spatial-with
 closure remains a refusal control. Full portable E02 delivery waits for the narrow working A/B
 slice, not every property/equipment family remaining in Plan64.
 
+E04's first source cutover follows proposed ADR-0242: Stop/Close retire only their exact handle,
+while explicit authenticated Shutdown closes admission and cancels/drains the full worker.
+Each prepared generation has its own cancellation control. The server may receive one numerical
+request and one control request concurrently, while native mutation stays on the single lane;
+Stop signals cancellation before waiting for that lane to settle. Only Shutdown acknowledgement
+sets the parent's graceful-drain observation, and actual process/I/O custody remains separate.
+Proxy disposal sends Shutdown rather than using the first prepared handle as a process-wide
+close. Native and real-transport two-handle controls cover independent survival and stale contexts.
+Generated publication and actual-process acceptance remain required before E04 completion;
+source changes alone do not establish that acceptance.
+
 ## Selected design and alternatives
 
 Use the pure structural contract owner from [65a](65a-contract-foundations-and-generation.md)
@@ -167,7 +178,7 @@ consumers; the whole descriptor world must not become a blanket mathematical pre
 | E01 | in-progress | Actual native capabilities; agreed scientific contract from 65i I01; co-designed 65a metadata | Initial concrete portable consumers are reconciled above; complete source/spec/context/receipt classification and bind each operation's inputs, support/refusal and product-use semantics before selecting projections. Preserve physical/configuration versus value-only change controls; no universal catalogue. |
 | E02 | planned | E01; narrow working 65a/65b and receiving operation from 65i I02 | Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
 | E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
-| E04 | planned | E02 provider slice; 65d session/custody behavior; 65i I04 dependency policy | Implement per-handle prepare/evaluate/stop/close and process-wide shutdown semantics across the post-64 provider population. Separate mutable handle invalidation from reusable immutable math and regenerated descriptor artifacts. Two independent sessions must prove no cross-cancellation, no stale-handle adoption, no global close and admission held through native and I/O drain. Migrate all worker clients, server handlers and fixtures together. |
+| E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Source cutover separates per-handle Stop/Close from explicit Shutdown and generation cancellation. Complete generated publication, active-stop/independent-session controls and process/I/O drain acceptance; migrate all selected clients/server/fixtures without confusing mutable handle invalidation with immutable math or descriptor lifetime. |
 | E05 | planned | E04; real implementation-native grouped evaluation identified | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
 | E06 | planned | E02–E05 functional population; 65i product-use contract; 65f outcome and 65g readers | Integrate generated capability/outcome inspection and independent exchange across supported post-64 modes; `DynamicMessage::from_options` exposes metadata while native selectors govern use. Prove raw versus scientific access, original task/step/point coverage and final-attempt interpretation. Record matched direct/isolated complete-operation measurements without presumed speedup. Supply actual population/limits to 65h and remove superseded selected paths. |
 
