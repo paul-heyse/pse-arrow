@@ -8,13 +8,19 @@ profiles: [process-simulator-1.5]
 tier: design
 purpose: target
 scope: Plan65 E02 recipe qualification and concrete record-membership consumers
-verdict: not-accept
+verdict: accept-scoped
 doc_role: review
 doc_owner: docs/plans/65e-scientific-portability-and-execution.md
 doc_topics: [design, scientific-portability, proto, validation]
 ---
 
 # Native scientific replay membership
+
+> Editorial addendum, 2026-11-04: the [bounded follow-up](#follow-up-design-assessment)
+> accepts the revised prerequisite architecture at Proposed strength. Full protobuf
+> recipe activation remains Not Accept. The original assessment, source baseline and
+> F01–F03 observations below are preserved; their implementation disposition has not
+> been changed by this review.
 
 **Prefer a DOM-free Serde traversal preserving membership V1, but do not accept the
 current cutover proposal yet.** It can remove the JSON value tree without changing
@@ -360,3 +366,216 @@ authority or hash changes. Existing JSON remains the operational baseline meanwh
 the DOM-backed native-root alternative is a viable deliberate stage if its temporary
 machinery and deletion boundary are justified. Typed membership remains a separate
 credible choice when its changed meaning has an actual requirement and complete design.
+
+<a id="follow-up-design-assessment"></a>
+## Follow-up design assessment — 2026-11-04
+
+**Accept scoped: the revised architecture and its prerequisite implementation are
+sufficiently specified for a proposed ADR. Full protobuf recipe activation remains
+Not Accept pending completion and verification of those prerequisites.** This is a
+separate, bounded deliverable: it does not claim a supported new production reader
+while deferring a MUST needed by that reader. JSON remains the sole operational recipe
+interpretation until the complete cutover is ready; no temporary second reader,
+compatibility API or whole-payload-only authority is accepted.
+
+The coordinator requested this follow-up against the proposed F01–F03 resolutions,
+before authority/hash implementation. The follow-up source baseline is `main` at
+`2c4c7c77b08cd300add72cd92f1d81a0a97db3b6`, with a clean working tree at inspection.
+The principal authority/compiler/modeling/AST sources cited here were unchanged from
+the initial review. The original `f55bb133c` assessment and findings remain historical
+evidence. The revision records this reviewer's independent judgment of the coordinator's
+revised design, not a claim that a source worker's proposed mechanisms are implemented.
+Plan65e remains the only E02 disposition owner.
+
+Context7 was again the first library lookup, resolving `/anthropics/buffa` and querying
+lazy-view budget composition. Its main-branch material was orientation only. The
+installed exact-release Buffa/buffa-codegen 0.9.2 `view.rs`, `message.rs` and
+`lazy_view.rs`, the maintained validator's `emit/mod.rs` and current adapter generator
+were inspected. Additional checks read the actual DSL number serialization and
+`resolved/records.rs::{SyntaxRecord::entries,Rebuild::syntax}`. These support
+**Interface-checked** feasibility and constraints. Everything newly selected below is
+**Proposed**, with no executed tests, probe, measurement or activation claim.
+
+### F01 resolution: compiler-owned exact-root qualification
+
+The revised design provides two monomorphic `pub unsafe` compiler receivers, one for
+canonical qualification and one for the authenticated private process. They take
+immutable exact payload bytes, expected digest, original qualification/request or
+execution identities, original expected body specification/semantic identity as
+applicable, and the existing operation workspace/cancellation context. Neither accepts
+a caller-native-root or caller index argument.
+
+A private decoded-recipe operation verifies the digest and current interpretation,
+performs bounded structural decode/adoption once, indexes a borrow of that native
+root, and consumes the same root for strict restoration. The result retains the
+original bytes. The canonical runtime keeps eligible-producer/dependency/namespace
+selection and leases before this receiver; the private route retains original
+image/build/attempt/request and complete physical-context binding before its receiver.
+Final body/spec/source-role checks and strict physical and mathematical receipt
+matching/drain remain necessary.
+
+This closes the missing architectural premise in F01 at Proposed strength: the
+compiler defines and realizes the relation between exact authenticated bytes and
+the root that receives authority. IDs stays wire independent and supplies only the
+explicit unsafe native-root qualification primitive to these reviewed compiler
+callers. There is no safe data/root/index mint. A `pub unsafe` function is still an
+audited trust assertion, not a Rust-enforced exclusive caller identity; the actual
+call-site restriction and safety premises must remain explicit and reviewable, as
+with the existing canonical/private mints. Ordinary decoded data, a self-supplied
+expected digest or a local validator result does not satisfy those premises.
+
+### F02 resolution: exact surviving membership over the selected native profile
+
+The revised serializer retains V1 structural framing and uses pinned
+`serde_json::to_value` only for numerical primitives and a one-entry key-to-null map
+that obtains the pinned rendered key. These tiny normalization values are separately
+preadmitted scratch, never the complete root DOM. The dummy map/null and key helper
+must not add membership events of their own.
+
+Native traversal returns a digest and a contiguous postorder event range. Objects
+retain `(rendered key, child digest/range, emission ordinal)` summaries, sort by key
+and original ordinal, and keep only the last emitted child for each rendered key.
+Every overwritten child's entire event range is discarded, including descendants.
+Nested/overlapping dead ranges are merged once at the root; surviving events are
+filtered, sorted and deduplicated into an owned hash vector. `Arc<Vec<ContentHash>>`
+then shares the immutable index, with actual retained capacity accounted. Queries use
+the same normalization and object survivor rules without creating a global index.
+
+This addresses F02's decisive overgrant case without copying descendant sets at every
+node. Actual emitted sequence counts, lexical object order, null/option/newtype and
+external variant wrappers remain the stated contract; `is_human_readable` stays true.
+The native counting pass uses actual emissions, rendered key bytes and depth, not
+length hints. Hash construction must check actual use against admitted capacities
+and fail closed if counting and construction disagree; a prior count is not permission
+to allocate beyond the workspace. Key formatting and normalization scratch are covered
+before their own allocation, including supported custom string formatting.
+
+The selected source profile intentionally does not promise universal compatibility
+with every possible Serde implementation or feature combination. The source worker
+reported effective serde_json 1.0.151 features `raw_value`, `preserve_order`,
+`float_roundtrip`, `unbounded_depth`, and no `arbitrary_precision`. The follow-up
+independently confirmed the consequential exact-release integer conversion and the
+actual `dsl::Number` owner, rather than acquiring another compiler-unit feature report.
+That owner serializes finite `f64` literal bits as `u64` and also contains
+`exact_integer: Option<i128>`. The pinned value serializer accepts an `i128` only when
+it fits `i64` or `u64`; the current membership query already rejects values beyond
+that combined range. Early refusal of unsupported replay normalization therefore
+does not claim new arbitrary-precision scientific or membership capability.
+
+The revised profile explicitly refuses unsupported private raw/number sentinels,
+without ordinary-struct fallback. No examined source field was reported to require
+those sentinels or native `f32` normalization. This is an explicit accepted-profile
+boundary and future extension trigger, not proof that no future owner could need
+them. Complete concrete-consumer and ordinary/literal-numeric controls must establish
+the profile closure before activation. The decision must record the earlier refusal
+point and supported integer/sentinel interpretation rather than describing the
+serializer as universally equivalent to serde_json.
+
+### F03 resolution: phased admission under the existing workspace owner
+
+The revised design selects an existing operation workspace with an explicit finite
+logical ceiling: the canonical receiving lease or the parent-held known-private-work
+lease. The child's ceiling is bound to the original request, not granted by decoded
+DTO content. No old JSON `*256` premise, new cost/proof framework or complete native
+RSS claim is retained.
+
+The specified preparation has concrete phases with admission before their effects:
+
+1. Pre-admit the bounded lazy probe's own view/stack/fragment/vector capacities from
+   the actual source profile and immutable bounded frame. A source-generated raw
+   count/extent probe uses the same field/schema declarations, not a shadow DTO or
+   handwritten protobuf parser. It covers defaulted fields, singular boxes, packed
+   scalar expansion, spare capacities and all eager carve-outs.
+2. Traverse generated lazy views using public `LazyMessageView::decode_lazy_with_ctx`
+   and `merge_lazy`, singular `fragments()` and repeated `raw_elements()`. One set of
+   shared unknown-field and element-memory cells is carried through the complete
+   recursive traversal, with the depth context descended for each child. Singular
+   fragments are merged as one logical message, not counted as unrelated complete
+   messages. Default lazy `get`/`iter` conveniences are excluded from this global
+   budget route because they recreate per-subtree allowances.
+3. Drop the probe, pre-admit the eager `RecipeView`, complete selected validation and
+   native-adoption peaks, and run `DecodeOptions::decode_view` over the same immutable
+   bytes. The maintained validator already emits `Validate` for eager `FooView`;
+   the lazy family has neither that validator nor reflection. Generated borrowed
+   `NativeFrom<&RecipeView>` adoption is the chosen missing adapter, avoiding an owned
+   protobuf tree. If an owned intermediate is selected instead, its simultaneous
+   capacity and explicit deletion must enter this same route; it is not a second
+   production reader.
+4. Before calling `Validate`, admit the source-derived worst-case complete violation
+   population, path/key/message capacities and actual rule temporaries. The selected
+   `Validate` contract collects all violations and offers no fail-fast/sink argument.
+   A bounded maintained sink would be an explicit alternative requiring its own
+   qualification, not an assumed upstream facility.
+5. Before membership construction, a native Serde count pass determines actual
+   events, key bytes, depth and child/survivor needs. Admit event summaries, keys,
+   child buffers, dead ranges, final index and maximum concrete query scratch, including
+   normalization helper scratch. Count receipt streams consumed into replay or count
+   both retained copies if cloning remains. Keep original leases through strict
+   reconstruction, refusal/cancellation and process drain.
+6. Pre-admit native restoration expansion before allocating it. A concrete case is
+   `vec![String::new(); slot.formal_count]` in resolved syntax restoration:
+   `SyntaxRecord::entries()` counts slots, not those expanded formals. Validate each
+   scalar count against the actual selected function signature and checked-sum the
+   expanded allocation over the actual unique function syntaxes, including each
+   occurrence where a selection buffer is materialized. Counting pool syntax once
+   does not excuse repeated per-selection buffers. Invalid counts and overflow refuse
+   before allocation.
+
+These phases address F03's missing mechanism at Proposed strength. They still require
+the complete source-profile extent fold, owner record methods, borrowed inverse
+adapters and complete recipe projection; none was inspected as implemented. In
+particular, a probe is not automatically cheap or allocation-free. Buffa's generated
+lazy singular and repeated arms charge logical fragment/element slots before storing
+them, while retained spare capacity remains the workspace's obligation. Oneof/map
+message values, groups and extern types remain eager even under lazy generation and
+must fit the initial probe allowance before deeper counts are known.
+
+The current validator's `CanonicalMap` is a zero-allocation borrowed adapter, with
+documented quadratic worst-case unique iteration. Do not charge a nonexistent owned
+canonical map, or infer complete execution fit from memory admission. Where actual
+recipe maps reach this path, profile size/skew and emitted rule operations remain
+part of the ordinary-workload assessment. No generic new scheduler, performance
+instrumentation or mandatory optimization is inferred. The complete bounded route
+must remain credible for ordinary supported recipes, including compact encodings
+with significant native/defaulted expansion.
+
+### Revised judgment and acceptance boundary
+
+| Original finding | Follow-up design judgment | Evidence still required before full activation |
+| --- | --- | --- |
+| F01 | **Satisfied at Proposed strength** by monomorphic controlled compiler receivers, exact-byte decode-once and same-root index/restoration. | Implemented safety boundary and both real canonical/private positive and changed-root/digest/request/interpretation/context refusal routes. |
+| F02 | **Satisfied at Proposed strength** by pinned normalization, explicit source profile and deferred last-key-wins event-range publication. | Differential complete-node membership against the pinned DOM oracle, concrete consumer closure, nested overwritten/duplicate keys, wrappers/order/actual lengths, integer boundaries, sentinel refusal and actual feature profile. |
+| F03 | **Satisfied for prerequisite architecture at Proposed strength** by the concrete phased workspace design. Full cutover remains unresolved until its complete source-derived realization exists. | Actual extent/adoption/validation/restoration implementation and ordinary, expansion-heavy, exhaustion/overflow/cancellation/drain controls, including formal-count and eager-carve-out cases. |
+
+Within that prerequisite deliverable, AP-01/AP-03/AP-06 retain their original satisfied
+judgments; AP-02/AP-04/AP-05 now have explicit native-root/profile/survivor contracts
+and are satisfied at Proposed strength. AP-07 is satisfied for implementing the
+specified phased preparation architecture, without a claim that its advertised
+production profile is already demonstrated feasible. G1–G6 and G9 have a complete
+proposed route within this scope; G7/G8 retain their original bounded claims/library
+fit. These are document-level judgments, not implemented gate passes. PS-G1/PS-G3
+remain preservation obligations through exact root/physical/receipt meaning; PS-G2
+remains outside the membership mechanism. No numerical adequacy judgment is upgraded.
+
+No additional architectural choice is blocking the prerequisite ADR if it records
+these concrete phases, supported-profile/refusal semantics and activation boundary.
+The optional owned intermediate and bounded validation sink are alternatives, not
+unsettled prerequisites: the selected route is borrowed eager-view adoption with a
+preadmitted complete `Validate` population. An inability to realize or admit an
+ordinary source shape within these contracts reopens F03; a new raw/arbitrary-precision
+or other unsupported normalization owner reopens F02. Neither may be hidden by a
+smaller unexplained allowance or a permissive fallback.
+
+RC01 should now select the revised DOM-free V1/profile direction in Plan65e. RC02
+must record the new artifact interpretation and compiler-root association, original
+qualification/request scope, early unsupported-normalization refusal and concrete
+workspace route before affected authority/hash implementation. The review changes
+neither rule nor current disposition itself. Original F01–F03 are not marked resolved:
+their implementation/evidence remains with Plan65e and the coordinator.
+
+**Revised decision: Accept scoped for the proposed prerequisite architecture and
+decision/implementation work; Not Accept full protobuf recipe activation yet.**
+No tests or probes were run (`not_run`), and the zero-failure target is unchanged.
+The required full activation evidence remains explicitly open; no current scientific
+grant, supported recipe capacity, complete memory bound or numerical/performance
+benefit is established by this addendum.
