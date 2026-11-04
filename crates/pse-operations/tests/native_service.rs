@@ -565,6 +565,7 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                     serde_json::to_value(replay.request()).unwrap(),
                     original_wire
                 );
+                let original_receipt = serde_json::to_value(&replay).unwrap();
                 assert!(
                     maintenance.reconcile(&original).await.is_err(),
                     "a v2 receipt cannot grant current readiness"
@@ -572,18 +573,80 @@ async fn native_service_original_v2_target_and_old_module_resume_after_restart()
                 let options = CanonicalOptions::from_state(service.state())?;
                 assert!(CanonicalStore::connect_ready(&options).await.is_err());
                 let current = maintenance.request_current(uuid::Uuid::new_v4()).await?;
-                assert!(
-                    maintenance
-                        .begin(current.clone())
-                        .await?
-                        .quiesce(async { Ok(()) }, &[])
-                        .await?
-                        .apply_receipt()
-                        .await
-                        .is_err(),
-                    "the same old module must still refuse current activation"
+                let current_wire = serde_json::to_value(&current).unwrap();
+                assert_eq!(
+                    current_wire["target_version"],
+                    pse_schema::catalog::substrate::SCHEMA_VERSION
                 );
-                assert!(maintenance.reconcile_receipt(&current).await?.is_none());
+                assert_ne!(
+                    current_wire["target_digest"],
+                    original_wire["target_digest"]
+                );
+                assert_ne!(current_wire["operation"], original_wire["operation"]);
+                assert_ne!(
+                    current_wire["successor_epoch"],
+                    original_wire["successor_epoch"]
+                );
+                // The current authored capture transaction requires the same pure
+                // module API as this genuine retained artifact. Artifact age alone
+                // cannot refuse a separately issued current-target activation.
+                let activated = maintenance
+                    .begin(current.clone())
+                    .await?
+                    .quiesce(async { Ok(()) }, &[])
+                    .await?
+                    .apply_receipt()
+                    .await?;
+                assert_eq!(
+                    serde_json::to_value(activated.request()).unwrap(),
+                    current_wire
+                );
+                for field in [
+                    "issuing_store",
+                    "payload_incarnation",
+                    "study_module_sha256",
+                ] {
+                    assert_eq!(
+                        current_wire["predecessor"][field],
+                        original_wire["predecessor"][field]
+                    );
+                }
+                let ready = maintenance
+                    .reconcile(&current)
+                    .await?
+                    .expect("only the separately issued current activation grants readiness");
+                assert_eq!(
+                    ready.fence().version(),
+                    pse_schema::catalog::substrate::SCHEMA_VERSION
+                );
+                assert_eq!(
+                    ready.fence().epoch(),
+                    current_wire["successor_epoch"].as_str().unwrap()
+                );
+                assert_eq!(
+                    ready.fence().issuer(),
+                    original_wire["predecessor"]["issuing_store"]
+                        .as_str()
+                        .unwrap()
+                );
+                ready.store().canonical_run("native-fixture-probe").await?;
+                ready.store().drain_owned_connection().await?;
+                let after =
+                    serde_json::to_value(&maintenance.inspect().await?.predecessor).unwrap();
+                for field in [
+                    "issuing_store",
+                    "payload_incarnation",
+                    "study_module_sha256",
+                ] {
+                    assert_eq!(after[field], original_wire["predecessor"][field]);
+                }
+                assert_eq!(after["schema_digest"], current_wire["target_digest"]);
+                assert_eq!(
+                    serde_json::to_value(maintenance.reconcile_receipt(&original).await?.unwrap())
+                        .unwrap(),
+                    original_receipt
+                );
+                assert!(maintenance.reconcile(&original).await.is_err());
                 Ok(())
             })
         })
