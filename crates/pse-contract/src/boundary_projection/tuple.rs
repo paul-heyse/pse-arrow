@@ -47,9 +47,9 @@ macro_rules! projection_tuple_enum {
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$variant_meta:meta])* $variant:ident
             $([ $($(#[$tuple_meta:meta])* $tuple_field:ident: $tuple_ty:ty => {
-                tag: $tuple_tag:expr, direction: $tuple_direction:expr, rules: [$($tuple_rule:expr),* $(,)?] };)+ ])?
+                tag: $tuple_tag:expr, direction: $tuple_direction:expr, rules: [$($tuple_rule:expr),* $(,)?] $(, representation: $tuple_representation:expr)? };)+ ])?
             $({ $($(#[$field_meta:meta])* $field:ident: $ty:ty => {
-                tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] };)* })?
+                tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? };)* })?
             => $variant_tag:expr;
         )*
     }) => {
@@ -70,9 +70,9 @@ macro_rules! projection_tuple_enum {
                             name: stringify!($variant).into(), tag: $variant_tag,
                             fields: vec![
                                 $($($crate::boundary_projection::Field::of::<$tuple_ty>(graph,
-                                    stringify!($tuple_field), $tuple_tag, $tuple_direction, vec![$($tuple_rule),*])?,)+)?
+                                    stringify!($tuple_field), $tuple_tag, $tuple_direction, vec![$($tuple_rule),*])? $(.representation($tuple_representation)?)?,)+)?
                                 $($($crate::boundary_projection::Field::of::<$ty>(graph,
-                                    stringify!($field), $tag, $field_direction, vec![$($rule),*])?,)*)?
+                                    stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,)*)?
                             ],
                         },
                     )*]))
@@ -130,6 +130,26 @@ macro_rules! projection_tuple_enum {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    projection_tuple_enum! {
+        #[derive(Debug, serde::Serialize)]
+        enum ActualMixedBits {
+            projection:{name:"ActualMixedBits",version:1,direction:Direction::Both,reserved_tags:[],reserved_names:[]};
+            Tuple [bits: u32 => {tag:1,direction:Direction::Both,rules:[],representation:Scalar::F32Bits};] => 1;
+            Named {bits: u64 => {tag:1,direction:Direction::Both,rules:[],representation:Scalar::F64Bits};} => 2;
+        }
+    }
+    #[test]
+    fn mixed_tuple_enum_bit_representations_keep_native_integer_payloads_exact() {
+        let graph = ProjectionGraph::of::<ActualMixedBits>().unwrap();
+        let Shape::Alternatives(variants) = &graph.definitions()["ActualMixedBits"].shape else { panic!("actual source alternatives") };
+        assert_eq!(variants[0].fields[0].ty, TypeRef::Scalar(Scalar::F32Bits));
+        assert_eq!(variants[1].fields[0].ty, TypeRef::Scalar(Scalar::F64Bits));
+        let narrow = <ActualMixedBits as ProjectionAlternative<1>>::from_projection_alternative((u32::MAX,));
+        assert_eq!(serde_json::to_vec(&narrow).unwrap(), br#"{"Tuple":4294967295}"#);
+        assert_eq!(<ActualMixedBits as ProjectionAlternative<1>>::into_projection_alternative(narrow).unwrap(), (u32::MAX,));
+        let wide = <ActualMixedBits as ProjectionAlternative<2>>::from_projection_alternative((u64::MAX,));
+        assert_eq!(serde_json::to_vec(&wide).unwrap(), br#"{"Named":{"bits":18446744073709551615}}"#);
+    }
     projection_tuple_enum! {
         #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
         enum ActualMixed {

@@ -8,47 +8,92 @@ use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::resolved::receipts::SchemeRecord;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+pse_contract::projection_tuple_enum! {
+/// Passive complete static value facts; only qualified record restoration admits use.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) enum ValueWire {
-    Boolean(bool),
-    Integer(i64),
+pub enum ValueWire {
+    projection: { name: "ModelingStaticValueFacts", rust_path: crate::portable::ValueWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original boolean value.
+    Boolean [/// Exact boolean payload.
+        value: bool => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
+    /// Original exact structural integer.
+    Integer [/// Exact signed payload.
+        value: i64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 2;
+    /// Physical scalar data, with finite admission deferred to its native owner.
     Number {
-        bits: u64,
-        quantity: pse_quantity::QuantityTypeId,
-    },
+        /// Original binary64 bits.
+        bits: u64 => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+        /// Original nominal physical type.
+        quantity: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
+    /// Physical coordinate data with its original semantic member identity.
     Coordinate {
-        id: SemanticId,
-        bits: u64,
-        quantity: pse_quantity::QuantityTypeId,
-    },
-    Text(String),
+        /// Original coordinate identity.
+        id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original binary64 bits.
+        bits: u64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [], representation: pse_contract::boundary_projection::Scalar::F64Bits };
+        /// Original nominal physical type.
+        quantity: pse_quantity::QuantityTypeId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 4;
+    /// Original uninterpreted text.
+    Text [/// Original UTF-8 payload.
+        value: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 5;
+    /// Entity member and its nominal kind.
     Entity {
-        id: DeclarationId,
-        kind: DeclarationId,
-    },
+        /// Original entity declaration.
+        id: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original entity-kind declaration.
+        kind: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 6;
+    /// Member of an original package enumeration.
     Enum {
-        enumeration: DeclarationId,
-        member: SemanticId,
-    },
+        /// Original enumeration declaration.
+        enumeration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original member identity.
+        member: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 7;
+    /// Opaque value of its original identifier scheme.
     Identifier {
-        scheme: DeclarationId,
-        value: String,
-    },
+        /// Original scheme declaration.
+        scheme: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original exact identifier value.
+        value: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 8;
+    /// Definition reference with the complete original static binding map.
     Definition {
-        id: DeclarationId,
-        bindings: BTreeMap<String, ValueWire>,
-    },
-    Function(DeclarationId),
+        /// Original definition declaration.
+        id: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original named bindings; no resolution occurs on adoption.
+        bindings: BTreeMap<String, ValueWire> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 9;
+    /// Original selected function reference.
+    Function [/// Original function declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 10;
+    /// Original ordered table row.
     Row {
-        table: DeclarationId,
-        names: Vec<String>,
-        fields: Vec<ValueWire>,
-    },
-    Set(Vec<ValueWire>),
-    Tuple(Vec<ValueWire>),
-    QuantityType(pse_quantity::QuantityTypeId),
-    ReferenceState(pse_quantity::ReferenceStateId),
-    Missing,
+        /// Original table declaration.
+        table: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original field names in row order.
+        names: Vec<String> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original field values in the same order.
+        fields: Vec<ValueWire> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 11;
+    /// Original ordered finite set data.
+    Set [/// Retained native member order.
+        values: Vec<ValueWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 12;
+    /// Original ordered product data.
+    Tuple [/// Retained native component order.
+        values: Vec<ValueWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 13;
+    /// Passive reference to a physical type.
+    QuantityType [/// Original physical type identity.
+        quantity: pse_quantity::QuantityTypeId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 14;
+    /// Passive reference to a physical datum.
+    ReferenceState [/// Original reference-state identity.
+        reference: pse_quantity::ReferenceStateId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 15;
+    /// Explicit original absence.
+    Missing => 16;
+}
 }
 impl ValueWire {
     fn capture(v: &crate::specialize::Value) -> Self {
@@ -198,29 +243,54 @@ impl ValueWire {
             }
     }
 }
+pse_contract::projection_tuple_enum! {
+/// Passive original boundary attribution, without a physical boundary authorization.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) enum BoundaryWire {
-    Declared(DeclarationId),
+pub enum BoundaryWire {
+    projection: { name: "ModelingBoundaryFacts", rust_path: crate::portable::BoundaryWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original unbound boundary declaration.
+    Declared [/// Original boundary identity.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 1;
+    /// Original bound instance and exact static coordinates.
     Bound {
-        instance: crate::InstanceId,
-        declaration: DeclarationId,
-        coordinates: Vec<ValueWire>,
-    },
+        /// Original instance identity.
+        instance: crate::InstanceId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original boundary declaration.
+        declaration: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original ordered coordinate data.
+        coordinates: Vec<ValueWire> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
 }
+}
+pse_contract::projection_enum! {
+/// Passive complete nominal refinement facts, restored after whole-record membership.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub(crate) enum RefinementWire {
+pub enum RefinementWire {
+    projection: { name: "ModelingRefinementFacts", rust_path: crate::portable::RefinementWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original named coordinate refinement.
     Coordinate {
-        map: DeclarationId,
-        slot: DeclarationId,
-    },
+        /// Original physical coordinate map.
+        map: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original coordinate slot.
+        slot: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 1;
+    /// Original reduced-law refinement.
     ReducedLaw {
-        map: DeclarationId,
-        reconstruction: DeclarationId,
-    },
+        /// Original physical coordinate map.
+        map: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original reconstruction declaration.
+        reconstruction: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
+    /// Original directed transfer refinement.
     Transfer {
-        boundary: BoundaryWire,
-        into: bool,
-    },
+        /// Original complete boundary attribution.
+        boundary: BoundaryWire => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Whether the original direction is into that boundary.
+        into: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
+}
 }
 impl RefinementWire {
     pub(crate) fn capture(v: &crate::PhysicalRefinement) -> Self {
@@ -563,44 +633,97 @@ struct ReductionWire {
     domain: Option<pse_quantity::EntityKindId>,
     prototype: pse_quantity::resolved::receipts::ContractRecord,
 }
+pse_contract::projection_tuple_enum! {
+/// Passive complete type facts. Resolved physical leaves stay receipt-qualified.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-enum TypeWire {
-    Boolean,
-    Integer,
-    Text,
-    QuantityType,
-    ReferenceState,
-    Applicability,
-    Boundary(DeclarationId),
-    CoordinateMap(DeclarationId),
+pub enum TypeWire {
+    projection: { name: "ModelingTypeFacts", rust_path: crate::portable::TypeWire,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Retained boolean role.
+    Boolean => 1;
+    /// Retained exact integer role.
+    Integer => 2;
+    /// Retained text role.
+    Text => 3;
+    /// A value naming a physical type.
+    QuantityType => 4;
+    /// A value naming a physical datum.
+    ReferenceState => 5;
+    /// Retained applicability-claim role.
+    Applicability => 6;
+    /// Retained declared boundary role.
+    Boundary [/// Original boundary declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 7;
+    /// Retained physical coordinate-map role.
+    CoordinateMap [/// Original map declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 8;
+    /// Retained reconstruction and its original map.
     Reconstruction {
-        declaration: DeclarationId,
-        map: DeclarationId,
-    },
-    Quantity(SchemeRecord),
+        /// Original reconstruction declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original coordinate-map declaration.
+        map: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 9;
+    /// Complete retained physical type scheme data.
+    Quantity [/// Original passive scheme record.
+        scheme: SchemeRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 10;
+    /// Complete retained scheme and its nominal refinement.
     Refined {
-        quantity: SchemeRecord,
-        refinement: RefinementWire,
-    },
-    Entity(DeclarationId),
-    Enum(DeclarationId),
-    Identifier(DeclarationId),
-    Set(Box<TypeWire>),
-    Continuous(DeclarationId, Box<TypeWire>),
-    Tuple(Vec<TypeWire>),
-    Table(DeclarationId),
-    Row(DeclarationId),
-    Definition(DeclarationId),
-    Interface(DeclarationId),
+        /// Original passive scheme record.
+        quantity: SchemeRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original refinement facts.
+        refinement: RefinementWire => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 11;
+    /// Retained nominal entity-kind role.
+    Entity [/// Original entity-kind declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 12;
+    /// Retained package-enumeration role.
+    Enum [/// Original enumeration declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 13;
+    /// Retained opaque identifier role.
+    Identifier [/// Original identifier-scheme declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 14;
+    /// Retained finite-set element type.
+    Set [/// Original complete element type.
+        element: Box<TypeWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 15;
+    /// Retained continuous-domain element type.
+    Continuous [/// Original domain declaration.
+        domain: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original complete element type.
+        element: Box<TypeWire> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 16;
+    /// Retained ordered product type.
+    Tuple [/// Original component types in native order.
+        elements: Vec<TypeWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 17;
+    /// Retained table role.
+    Table [/// Original table declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 18;
+    /// Retained row role.
+    Row [/// Original table declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 19;
+    /// Retained definition role.
+    Definition [/// Original definition declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 20;
+    /// Retained interface role.
+    Interface [/// Original interface declaration.
+        declaration: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 21;
+    /// Retained complete function signature.
     Function {
-        arguments: Vec<(String, TypeWire)>,
-        result: Box<TypeWire>,
-    },
-    Optional(Box<TypeWire>),
+        /// Original named arguments in declaration order.
+        arguments: Vec<(String, TypeWire)> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original complete result type.
+        result: Box<TypeWire> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 22;
+    /// Retained explicit optional type.
+    Optional [/// Original contained type.
+        element: Box<TypeWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 23;
+    /// Retained indexed type and coordinate-kind declarations.
     Indexed {
-        element: Box<TypeWire>,
-        axes: Vec<DeclarationId>,
-    },
+        /// Original complete element type.
+        element: Box<TypeWire> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        /// Original coordinate kinds in axis order.
+        axes: Vec<DeclarationId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 24;
+}
 }
 impl TypeWire {
     fn retained_bytes(&self) -> usize {
@@ -1222,11 +1345,15 @@ impl FunctionRecord {
     }
 }
 
+pse_contract::projection_struct! {
 /// Opaque complete static value in a caller-qualified immutable scientific recipe.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ValueRecord {
-    value: ValueWire,
+    projection: { name: "ModelingValueRecord", rust_path: crate::portable::ValueRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    value: ValueWire => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ValueRecord {
     /// Capture the actual selected typed value; no text representation is used.
@@ -1246,11 +1373,15 @@ impl ValueRecord {
         size_of::<Self>().saturating_add(self.value.retained_bytes())
     }
 }
+pse_contract::projection_struct! {
 /// Opaque full nominal type, including refinements and every indexed/static role.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TypeRecord {
-    value: TypeWire,
+    projection: { name: "ModelingTypeRecord", rust_path: crate::portable::TypeRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    value: TypeWire => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl TypeRecord {
     /// Capture an actual producer-owned complete type.
@@ -1270,3 +1401,7 @@ impl TypeRecord {
         size_of::<Self>().saturating_add(self.value.retained_bytes())
     }
 }
+
+#[cfg(test)]
+#[path = "portable_projection_tests.rs"]
+mod projection_tests;
