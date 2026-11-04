@@ -35,24 +35,7 @@ pub struct Runtime {
     pub mkl_dynamic: bool,
 }
 
-/// The Ipopt adapter's settings type. Its identity derives from serde, and absent fields
-/// take these defaults across the Python boundary (ADR-0113).
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-#[schemars(rename = "IpoptSettings")]
-pub struct Settings {
-    /// Symmetric-indefinite factorization of the KKT systems.
-    pub linear: Linear,
-    /// Barrier-parameter update strategy (`mu_strategy`).
-    pub mu_strategy: MuStrategy,
-    /// Minimum absolute distance of a cold initial point from its bounds (`bound_push`).
-    pub bound_push: Tolerance,
-    /// Minimum relative distance of a cold initial point from its bounds (`bound_frac`);
-    /// admission refuses more than one half, Ipopt's registered range.
-    pub bound_frac: Fraction,
-    /// Restart of a submitted primal-dual seed: barrier and pushes (L-N3).
-    pub restart: WarmRestart,
-}
+include!("ipopt/declarations.rs");
 impl Default for Settings {
     /// MUMPS with METIS ordering, the monotone barrier and Ipopt's own push values, all
     /// stated so that no library default decides them.
@@ -67,50 +50,6 @@ impl Default for Settings {
     }
 }
 
-/// One linked symmetric-indefinite factorization with its typed parameters. HSL solvers and
-/// the runtime-loaded Pardiso are not representable (ADR-0108 item 9). Each kind is spelled
-/// as its [`IpoptLinearSolver`], Ipopt's native `linear_solver` name.
-#[derive(
-    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
-#[schemars(rename = "IpoptLinear")]
-pub enum Linear {
-    /// Sequential MUMPS 5.9 (`linear_solver = mumps`).
-    Mumps {
-        /// Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7)).
-        ordering: MumpsOrdering,
-        /// Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive `[0,1]`.
-        #[schemars(extend("minimum" = 0.0, "maximum" = 1.0))]
-        pivot_tolerance: f64,
-        /// Maximum refinement-requested pivot tolerance (`mumps_pivtolmax`).
-        #[schemars(extend("minimum" = 0.0, "maximum" = 1.0))]
-        maximum_pivot_tolerance: f64,
-        /// Extra estimated workspace percentage (`mumps_mem_percent`), zero allowed.
-        #[schemars(extend("minimum" = 0))]
-        memory_percent: i32,
-        /// Native ICNTL(6) permuting/scaling strategy, inclusive `[0,7]`.
-        #[schemars(extend("maximum" = 7))]
-        permuting_scaling: u8,
-    },
-    /// SPRAL SSIDS on OpenMP threads (`linear_solver = spral`).
-    Spral {
-        /// Elimination ordering (`spral_order`).
-        ordering: SpralOrdering,
-        /// Matrix scaling (`spral_scaling`).
-        scaling: SpralScaling,
-        /// A posteriori pivoting strategy (`spral_pivot_method`).
-        pivot: SpralPivot,
-    },
-    /// oneMKL Pardiso on MKL threads (`linear_solver = pardisomkl`), under the pinned CBWR
-    /// branch.
-    PardisoMkl {
-        /// Fill-reducing ordering (`pardisomkl_order`).
-        ordering: PardisoOrdering,
-        /// Symmetric weighted matching (`pardisomkl_matching_strategy`).
-        matching: PardisoMatching,
-    },
-}
 impl Default for Linear {
     fn default() -> Self {
         Self::Mumps {
@@ -146,7 +85,7 @@ impl Settings {
     /// # Errors
     /// A relative push above one half.
     pub fn validate(&self) -> Result<(), ProblemError> {
-        if self.bound_frac.into_inner() > 0.5 {
+        if !crate::solve::RELATIVE_PUSH_DOMAIN.contains(self.bound_frac.into_inner()) {
             return Err(ProblemError::Contract(
                 "Ipopt bound_frac must be at most 0.5".into(),
             ));
@@ -158,10 +97,9 @@ impl Settings {
             permuting_scaling,
             ..
         } = self.linear
-            && (!pivot_tolerance.is_finite()
-                || !(0. ..=1.).contains(&pivot_tolerance)
-                || !maximum_pivot_tolerance.is_finite()
-                || !(pivot_tolerance..=1.).contains(&maximum_pivot_tolerance)
+            && (!MUMPS_PIVOT_DOMAIN.contains(pivot_tolerance)
+                || !MUMPS_PIVOT_DOMAIN.contains(maximum_pivot_tolerance)
+                || maximum_pivot_tolerance < pivot_tolerance
                 || memory_percent < 0
                 || permuting_scaling > 7)
         {

@@ -122,7 +122,7 @@ pub struct FiniteDifferenceSettings {
     /// Relative native iterate distance permitting Hessian reuse.
     #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
     pub reuse_tolerance: f64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
-        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::Finite)] };
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::NonnegativeFinite)] };
 }
 }
 impl Default for FiniteDifferenceSettings {
@@ -153,8 +153,8 @@ impl Settings {
                 .partitioned
                 .curvature_cap
                 .is_some_and(|v| !v.is_finite() || v <= 0.0)
-            || !self.finite_difference.reuse_tolerance.is_finite()
-            || self.finite_difference.reuse_tolerance < 0.0
+            || !pse_model::boundary_projection::Float64Domain::NonnegativeFinite
+                .contains(self.finite_difference.reuse_tolerance)
         {
             return Err(ProblemError::Contract(
                 "invalid POUNCE curvature settings".into(),

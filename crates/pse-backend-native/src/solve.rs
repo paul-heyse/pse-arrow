@@ -67,21 +67,7 @@ pub enum SolverSelection {
     /// User-selected eligible native implementation.
     Explicit(Backend),
 }
-/// Native option type; each adapter validates registration, type and protected controls.
-/// A document states the value itself: a JSON Boolean, integer, other number or string
-/// decodes as the Boolean, integer, real or text option of that value.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(untagged)]
-pub enum OptionValue {
-    /// Native Boolean.
-    Bool(bool),
-    /// Native integer.
-    Integer(i32),
-    /// Finite native real.
-    Real(f64),
-    /// Native text/enumeration.
-    Text(String),
-}
+include!("solve/controls.rs");
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
 /// Copy admitted factual options using the same tagged wire contract as reports.
@@ -388,39 +374,7 @@ impl ResolvedAccuracy {
             .min(self.complementarity)
     }
 }
-/// Finite shared attempt controls chosen by the caller; solver-specific settings remain
-/// native typed values. Accuracy is not among them: it is resolved from the numerical
-/// policy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent
-/// fields take these defaults and unknown fields are refused.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-#[schemars(rename = "SolveControls")]
-pub struct Controls {
-    /// Positive wall-clock allowance, including callbacks, in seconds.
-    #[serde(with = "seconds")]
-    #[schemars(with = "Tolerance")]
-    pub time_limit: Duration,
-    /// Positive native iteration limit.
-    pub iterations: u32,
-    /// Explicit admitted native thread count.
-    pub threads: usize,
-    /// Bounded retained progress and failure events.
-    pub history: usize,
-    /// Hessian representation for compatible NLP methods.
-    pub hessian: HessianMode,
-    /// Native allocation/data reuse policy.
-    pub reuse: ReusePolicy,
-    /// Numerical start policy, independent of native allocation reuse.
-    pub start: StartPolicy,
-    /// Additional native options, admitted by the selected adapter.
-    pub options: Options,
-    /// Positive foreign-library allowance of this solve, in bytes: its reservation charges
-    /// it, and a library that enforces its own memory limit receives it. Absent, the
-    /// deployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is
-    /// not encoded, so controls without one keep their identity.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub foreign_bytes: Option<usize>,
-}
+
 impl Default for Controls {
     fn default() -> Self {
         Self {
@@ -562,33 +516,37 @@ pub struct Event {
     /// among `values`.
     pub incumbent: Option<IncumbentEvent>,
 }
+pse_model::projection_struct! {
 /// Owner-supplied semantics and pre-loss identity of a native checkpoint.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EventSource {
+    projection: { name: "NativeProgressEventSource", rust_path: crate::solve::EventSource,
+        version: 1, direction: pse_model::boundary_projection::Direction::Output, reserved_tags: [], reserved_names: [] };
     /// Explicit performing role; independent of family and display phase names.
-    pub role: pse_diagnostics::observation::ProducerRole,
+    pub role: pse_diagnostics::observation::ProducerRole => { tag: 1, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Actual method-specific event family, independent of display phase spelling.
-    pub family: String,
+    pub family: String => { tag: 2, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Attempt-local progress generation, assigned before publication.
-    pub generation: u64,
+    pub generation: u64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Monotone source sequence, assigned before any observer may drop this event.
-    pub sequence: u64,
+    pub sequence: u64 => { tag: 4, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Owner-stated coordinate convention, absent when not supplied.
-    pub coordinates: Option<String>,
+    pub coordinates: Option<String> => { tag: 5, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Owner-stated norm convention, absent when not supplied.
-    pub norm: Option<String>,
+    pub norm: Option<String> => { tag: 6, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Operation-associated producer, absent when operation collection is unavailable.
-    pub producer: Option<pse_diagnostics::observation::ProducerId>,
+    pub producer: Option<pse_diagnostics::observation::ProducerId> => { tag: 7, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Reset generation of the producer population.
-    pub producer_generation: Option<u64>,
+    pub producer_generation: Option<u64> => { tag: 8, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Per-producer sequence, distinct from this Progress stream's sequence.
-    pub producer_sequence: Option<u64>,
+    pub producer_sequence: Option<u64> => { tag: 9, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Sequence within this exact versioned source family.
-    pub producer_family_sequence: Option<u64>,
+    pub producer_family_sequence: Option<u64> => { tag: 10, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
     /// Actual event time on the associated operation's process clock.
     #[schemars(with = "Option<pse_diagnostics::ClosedDuration>")]
-    pub observed_at: Option<Duration>,
+    pub observed_at: Option<Duration> => { tag: 11, direction: pse_model::boundary_projection::Direction::Output, rules: [] };
+}
 }
 impl EventSource {
     /// Source descriptor. Identity is filled by the actual Progress owner.
@@ -1540,6 +1498,7 @@ pub struct Basis {
     /// Native row basis statuses.
     pub rows: Vec<i32>,
 }
+pse_model::projection_struct! {
 /// How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
 /// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses
 /// most of its benefit, so a restart states its barrier and its pushes. Absent fields take
@@ -1549,20 +1508,25 @@ pub struct Basis {
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct WarmRestart {
+    projection: { name: "NativeWarmRestart", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Initial barrier parameter of the restart (`mu_init`).
-    pub barrier: RestartBarrier,
+    pub barrier: RestartBarrier => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Absolute push of the primal seed from its bounds (`warm_start_bound_push`).
-    pub bound_push: Tolerance,
+    pub bound_push: Tolerance => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Relative push of the primal seed from its bounds (`warm_start_bound_frac`); at most
     /// one half.
-    pub bound_frac: Fraction,
+    pub bound_frac: Fraction => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(RELATIVE_PUSH_DOMAIN)] };
     /// Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`).
-    pub slack_bound_push: Tolerance,
+    pub slack_bound_push: Tolerance => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`); at
     /// most one half.
-    pub slack_bound_frac: Fraction,
+    pub slack_bound_frac: Fraction => { tag: 5, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(RELATIVE_PUSH_DOMAIN)] };
     /// Push of the bound multipliers from zero (`warm_start_mult_bound_push`).
-    pub mult_bound_push: Tolerance,
+    pub mult_bound_push: Tolerance => { tag: 6, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Default for WarmRestart {
     /// The seed's own final barrier and pushes of 1e-9: the restart stays near the seed.
@@ -1577,21 +1541,25 @@ impl Default for WarmRestart {
         }
     }
 }
+pse_model::projection_enum! {
 /// The initial barrier parameter of an interior-point restart.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RestartBarrier {
+    projection: { name: "NativeRestartBarrier", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// The final barrier value the producing interior-point solve recorded with the seed. A
     /// seed without one (an authored seed) leaves the native default in force, and the
     /// receipt says so.
-    Seed,
+    Seed => 1;
     /// A stated positive value.
     Value {
         /// The initial barrier parameter.
-        value: Tolerance,
-    },
+        value: Tolerance => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    } => 2;
+}
 }
 impl WarmRestart {
     /// The rule the scalar types cannot state: relative pushes inside the native range
@@ -1600,7 +1568,9 @@ impl WarmRestart {
     /// # Errors
     /// A relative push above one half.
     pub fn validate(&self) -> Result<(), ProblemError> {
-        if self.bound_frac.into_inner() > 0.5 || self.slack_bound_frac.into_inner() > 0.5 {
+        if !RELATIVE_PUSH_DOMAIN.contains(self.bound_frac.into_inner())
+            || !RELATIVE_PUSH_DOMAIN.contains(self.slack_bound_frac.into_inner())
+        {
             return Err(ProblemError::Contract(
                 "warm restart relative pushes must be at most 0.5".into(),
             ));

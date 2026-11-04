@@ -48,22 +48,7 @@ pub fn backend(method: Method) -> Result<crate::solve::Backend, ProblemError> {
         Method::Idas => Ok(crate::solve::Backend::Idas),
     }
 }
-/// Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
-/// the version is required, and absent fields take these defaults.
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(deny_unknown_fields)]
-pub struct DiffsolSettings {
-    /// Document version.
-    pub version: Version<1>,
-    /// Time-stepping scheme.
-    #[serde(default = "DiffsolSettings::default_method")]
-    pub method: DiffsolMethod,
-    /// Newton linear solver of the implicit schemes.
-    #[serde(default = "DiffsolSettings::default_linear")]
-    pub linear: DiffsolLinear,
-}
+include!("dynamics/declarations.rs");
 impl DiffsolSettings {
     const fn default_method() -> DiffsolMethod {
         DiffsolMethod::Bdf
@@ -82,27 +67,7 @@ impl Default for DiffsolSettings {
         }
     }
 }
-/// Forward checkpoints of the adjoint backward pass (ADR-0110 item 3), a versioned boundary
-/// document (ADR-0116 Outcome 6): the version is required, and absent fields take these
-/// defaults. The backward pass replays at most `steps_between_checkpoints` native steps
-/// from a stored checkpoint, and at most `max_checkpoints` are held at once, at least two
-/// per scheduled segment; a forward pass that needs more stops with a typed memory limit.
-/// Their estimated bytes are charged against the caller's memory allowance before any
-/// native work.
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(deny_unknown_fields)]
-pub struct AdjointSettings {
-    /// Document version.
-    pub version: Version<1>,
-    /// Native forward steps between stored checkpoints (IDAS `IDAAdjInit`'s `Nd`).
-    #[serde(default = "AdjointSettings::default_steps")]
-    pub steps_between_checkpoints: PositiveCount,
-    /// Largest number of forward checkpoints held at once.
-    #[serde(default = "AdjointSettings::default_checkpoints")]
-    pub max_checkpoints: PositiveCount,
-}
+
 impl AdjointSettings {
     const fn default_steps() -> PositiveCount {
         pse_model::scalar!(PositiveCount(250))
@@ -131,62 +96,7 @@ impl Default for AdjointSettings {
         }
     }
 }
-/// Explicit half-bandwidths in the original admitted state ordering.
-/// Zero retains only the diagonal on that side; no ordering is inferred.
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(deny_unknown_fields)]
-pub struct IdasBand {
-    /// Number of original state columns retained above a row's diagonal.
-    pub upper: usize,
-    /// Number of original state columns retained below a row's diagonal.
-    pub lower: usize,
-}
-/// IDAS Newton linear solver.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
-)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum IdasLinear {
-    /// SuiteSparse KLU over the compiled analytic Jacobian.
-    #[default]
-    Klu,
-    /// Matrix-free GMRES over analytic Jacobian-vector products.
-    Spgmr {
-        /// Maximum Krylov subspace dimension.
-        dimension: PositiveCount,
-        /// Left preconditioner built from the compiled Jacobian; none when absent.
-        #[serde(default = "unpreconditioned")]
-        preconditioner: crate::solve::Preconditioner,
-    },
-    /// Exact matrix-free GMRES with the native library's band approximation as
-    /// a left preconditioner. Both bands name original state coordinates.
-    SpgmrBbd {
-        /// Maximum Krylov subspace dimension.
-        dimension: PositiveCount,
-        /// Envelope used by native grouped residual differences.
-        difference: IdasBand,
-        /// Band of the approximation retained and factored by IDAS.
-        retained: IdasBand,
-    },
-    /// Matrix-free flexible GMRES over analytic Jacobian-vector products.
-    Spfgmr {
-        /// Maximum Krylov subspace dimension.
-        dimension: PositiveCount,
-        /// Left preconditioner built from the compiled Jacobian; none when absent.
-        #[serde(default = "unpreconditioned")]
-        preconditioner: crate::solve::Preconditioner,
-    },
-}
+
 impl IdasLinear {
     pub(crate) const fn krylov_dimension(self) -> Option<PositiveCount> {
         match self {
@@ -271,54 +181,7 @@ pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
         StateSign::Negative => -2.0,
     }
 }
-/// Origin of the first physical IDAS step; consistent initialization retains its
-/// separate positive orientation scale in [`Profile::initial_step`].
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum IdasInitialStep {
-    /// Attempt the positive step in the shared dynamic profile.
-    Configured,
-    /// Let the native integrator estimate its first physical step (the default).
-    #[default]
-    Automatic,
-}
-/// Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
-/// (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
-/// Version 2 removes the per-state sign constraints: they derive from the authored bounds
-/// ([`Contract::signs`], ADR-0119 Outcome 4).
-/// Version 3 makes native automatic first-step selection the default (ADR-0207).
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct IdasSettings {
-    /// Document version.
-    pub version: Version<3>,
-    /// Newton linear solver.
-    #[serde(default)]
-    pub linear: IdasLinear,
-    /// Forward-sensitivity corrector.
-    #[serde(default = "IdasSettings::default_sensitivity")]
-    pub sensitivity: SensitivityCorrector,
-    /// Native first-step policy, independent of the positive IC orientation scale.
-    #[serde(default)]
-    pub native_initial_step: IdasInitialStep,
-    /// Consistent initialization at the start of the horizon; scheduled changes and resets
-    /// always keep their differential states.
-    #[serde(default = "IdasSettings::default_initialization")]
-    pub initialization: IdasInitialization,
-    /// Public IDACalcIC phase controls, also applied to scheduled consistent restarts.
-    #[serde(default)]
-    pub initial_conditions: IdasInitialConditions,
-}
+
 impl IdasSettings {
     const fn default_sensitivity() -> SensitivityCorrector {
         SensitivityCorrector::Simultaneous
@@ -341,25 +204,7 @@ impl Default for IdasSettings {
         }
     }
 }
-/// Exact IDAS consistent-initialization controls; no physical time stepping is requested.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-pub struct IdasInitialConditions {
-    /// Maximum attempted artificial step scales; applies only to AlgebraicAndRates.
-    pub step_trials: Option<u32>,
-    /// Maximum Jacobian setup attempts at each artificial scale.
-    pub jacobian_attempts: u32,
-    /// Maximum Newton iterations at each setup attempt.
-    pub newton_iterations: u32,
-    /// Positive IDASetNonlinConvCoefIC coefficient.
-    pub convergence_coefficient: f64,
-    /// Enable IDAS's IC line search.
-    pub line_search: bool,
-    /// Explicit maximum backtracks per Newton step, when line search is enabled.
-    pub backtracks: Option<u32>,
-    /// Positive scaled Newton-step floor for constraints and the enabled line search.
-    pub step_tolerance: Option<f64>,
-}
+
 impl Default for IdasInitialConditions {
     fn default() -> Self {
         Self {
@@ -1701,17 +1546,7 @@ impl Contract {
         Ok(())
     }
 }
-/// Explicit final-result obligation, independent of the requested output grid.
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(deny_unknown_fields)]
-pub struct EndpointRequirement {
-    /// Registry-owned completion policy.
-    pub kind: pse_model::generated::enums::EndpointPolicy,
-    /// Allowed terminal guard identity, required only for declared-event completion.
-    pub event: Option<SemanticId>,
-}
+
 impl Default for EndpointRequirement {
     fn default() -> Self {
         Self {
@@ -1730,93 +1565,7 @@ pub struct EndpointAssessment {
     /// Requested observations after the endpoint, still required by fixed-domain consumers.
     pub missing_observations: Vec<f64>,
 }
-/// Finite integration policy. Tolerances apply to the normalized state coordinates.
-#[derive(Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[schemars(rename = "IntegrationControlsFor{Coordinates}")]
-#[schemars(bound = "Coordinates: schemars::JsonSchema + serde::Serialize")]
-pub struct IntegrationControls<Coordinates = Vec<f64>> {
-    /// Required execution interpretation version; legacy unversioned requests need readmission.
-    pub version: Version<3>,
-    /// Native method selected from the required trial semantics; automatic when absent.
-    #[serde(default = "automatic")]
-    pub method: Method,
-    /// Behavior required for internal domain failures; terminal when absent.
-    #[serde(default = "terminal")]
-    pub trial_failures: TrialPolicy,
-    /// Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
-    #[serde(default)]
-    pub numerics: pse_model::numerics::NumericalPolicy,
-    /// Declared completion event; omitted means the full fixed horizon.
-    #[serde(default)]
-    pub endpoint: EndpointRequirement,
-    /// Initial physical time in seconds.
-    pub start: f64,
-    /// Requested final physical time in seconds.
-    pub end: f64,
-    /// Strictly increasing finite output times, within the horizon.
-    pub samples: Vec<f64>,
-    /// Positive relative integration tolerance.
-    pub rtol: f64,
-    /// Explicit integrated-flux relative tolerance; required when conservation is declared.
-    pub out_rtol: Option<f64>,
-    /// Absolute integrated-flux tolerances in canonical conserved quantities.
-    pub out_atol: Coordinates,
-    /// Positive absolute tolerances in normalized state order.
-    pub atol: Coordinates,
-    /// Positive initialization orientation scale in seconds. IDAS also attempts this
-    /// physical step only under [`IdasInitialStep::Configured`]; its default uses the
-    /// native estimate. Diffsol's initial-step meaning is unchanged.
-    pub initial_step: f64,
-    /// Maximum accepted advancement steps in each complete trajectory: forward/recording,
-    /// all forward replay of one derivative operation, and each backward direction.
-    /// Physical segments, checkpoint restores and sample jumps do not renew this cap.
-    /// Interpolation consumes no steps; failed calls and rejected trials are separate work.
-    pub max_steps: usize,
-    /// Maximum retained event records.
-    pub max_events: usize,
-    /// Cooperative outer time allowance, including callbacks and resets.
-    #[schemars(with = "pse_model::document::ClosedDuration")]
-    pub time_limit: Duration,
-    /// Maximum retained scalar cells, including sensitivities and event states.
-    pub max_cells: usize,
-    /// Parameter derivatives: none, forward sensitivities of every sample, or adjoint
-    /// gradients of one functional of the sampled outputs through `gradient`; none when
-    /// absent.
-    #[serde(default = "no_sensitivity")]
-    pub sensitivity: DynamicSensitivity,
-    /// Internal physical integration axes, in retained derivative order. Absence means
-    /// every axis for ordinary Forward. Complete physical values are always supplied.
-    #[serde(skip)]
-    pub forward_axes: Option<Vec<usize>>,
-    /// Internal adjoint parameter-gradient demand; ordinary requests explicitly use All.
-    #[serde(skip)]
-    pub adjoint_parameters: AdjointParameters,
-    /// Checkpointing of the adjoint backward pass; used only by adjoint gradients.
-    #[serde(default)]
-    pub adjoint: AdjointSettings,
-    /// Positive characteristic scales in the contract's parameter order, also used for
-    /// sensitivity tolerances; every interval of a scheduled input takes its parameter's.
-    pub parameter_scales: Coordinates,
-    /// Scheduled inputs: a contract parameter that takes one integration value per
-    /// schedule interval, each with its own live sensitivity (I6).
-    #[serde(default)]
-    pub schedule: Vec<ScheduledInput>,
-    /// Typed Diffsol scheme and linear solver.
-    #[serde(default)]
-    pub diffsol: DiffsolSettings,
-    /// Typed IDAS linear solver, sensitivity corrector and start.
-    #[serde(default)]
-    pub idas: IdasSettings,
-    /// Library-owned initialization controls, transported in every profile.
-    #[serde(with = "initial_options")]
-    #[schemars(with = "initial_options::Remote")]
-    pub initialization: Arc<diffsol::InitialConditionSolverOptions<f64>>,
-    /// Native BDF/nonlinear/error-control settings.
-    #[serde(with = "ode_options")]
-    #[schemars(with = "ode_options::Remote")]
-    pub native: Arc<diffsol::OdeSolverOptions<f64>>,
-}
+include!("dynamics/integration_declaration.rs");
 
 /// Admitted integration controls in the prepared numerical coordinate order.
 pub type Profile = IntegrationControls<Vec<f64>>;
@@ -1940,35 +1689,6 @@ mod duration_schema_unit {
     }
 }
 
-/// One contract parameter held piecewise constant: it takes a new value at each change
-/// time. The integration parameter vector holds one value per interval, `times.len() + 1`
-/// of them, and a sensitivity column for each, so sensitivities cross every change
-/// (ADR-0119, I6).
-///
-/// ```
-/// use pse_backend_native::dynamics::{Profile, ScheduledInput};
-///
-/// // Two contract parameters; the second changes at t = 0.5.
-/// let profile = Profile {
-///     schedule: vec![ScheduledInput { parameter: 1, times: vec![0.5] }],
-///     ..Profile::default()
-/// };
-/// // The static parameter comes first, then one value per interval.
-/// assert_eq!(profile.integration_width(2), 3);
-/// assert_eq!(profile.integration_parameters(&[4.0, 7.0]), vec![4.0, 7.0, 7.0]);
-/// assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.25), vec![4.0, 7.0]);
-/// // A change takes effect at its time.
-/// assert_eq!(profile.parameters_at(&[4.0, 7.0, 9.0], 0.5), vec![4.0, 9.0]);
-/// ```
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ScheduledInput {
-    /// Position of the input in the contract's parameter order.
-    pub parameter: usize,
-    /// Strictly increasing change times after the start and up to the end; a change at
-    /// the end is observed by the final sample only.
-    pub times: Vec<f64>,
-}
 /// Mandatory dynamic consumer demand, separate from optional post-solve analyses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DynamicDemand {
@@ -3863,6 +3583,10 @@ pub(crate) fn guards_at_zero(guards: &[f64], events: &[Event]) -> usize {
 pub use initial_options::Remote as InitialConditionProjection;
 /// Public path wiring for the existing complete Diffsol integration binding.
 pub use ode_options::Remote as OdeOptionsProjection;
+/// Actual library initialization configuration, publicly nameable by typed adapters.
+pub type InitialConditionConfiguration = diffsol::InitialConditionSolverOptions<f64>;
+/// Actual library integration configuration, publicly nameable by typed adapters.
+pub type OdeConfiguration = diffsol::OdeSolverOptions<f64>;
 
 #[cfg(test)]
 mod remote_projection_tests {
@@ -3914,6 +3638,20 @@ mod remote_projection_tests {
                 .public_rust_path
                 .as_ref()
                 .unwrap()
+                .contains("pse_backend_native::dynamics::OdeConfiguration")
+        );
+        assert!(
+            !record
+                .public_rust_path
+                .as_ref()
+                .unwrap()
+                .contains("diffsol::")
+        );
+        assert!(
+            record
+                .public_rust_path
+                .as_ref()
+                .unwrap()
                 .contains("pse_backend_native::dynamics::OdeOptionsProjection")
         );
     }
@@ -3931,6 +3669,7 @@ mod initial_options {
     #[schemars(rename = "DiffsolInitialConditionOptions")]
     pub struct Remote for diffsol::InitialConditionSolverOptions<f64> {
         projection: { name: "DiffsolInitialConditionOptions", rust_path: crate::dynamics::InitialConditionProjection,
+            target_path: crate::dynamics::InitialConditionConfiguration,
             version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
         use_linesearch: bool => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         max_linesearch_iterations: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
@@ -3962,6 +3701,7 @@ mod ode_options {
     #[schemars(rename = "DiffsolOdeSolverOptions")]
     pub struct Remote for diffsol::OdeSolverOptions<f64> {
         projection: { name: "DiffsolOdeSolverOptions", rust_path: crate::dynamics::OdeOptionsProjection,
+            target_path: crate::dynamics::OdeConfiguration,
             version: 1, direction: pse_model::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
         max_nonlinear_solver_iterations: usize => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
         max_error_test_failures: usize => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };

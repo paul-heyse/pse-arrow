@@ -18,6 +18,7 @@ pub enum Method {
     /// Declared complete nonlinear block correction.
     NonlinearAdditiveSchwarz,
 }
+pse_model::projection_struct! {
 /// Direct original-root settings exposed at document boundaries.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -25,14 +26,17 @@ pub enum Method {
 #[serde(default, deny_unknown_fields)]
 #[schemars(rename = "PetscSettings")]
 pub struct DirectSettings {
+    projection: { name: "PetscDirectSettings", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Selected direct nonlinear method.
-    pub method: pse_model::generated::enums::NativePetscMethod,
+    pub method: pse_model::generated::enums::NativePetscMethod => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Selected native KSP method.
-    pub linear: Linear,
+    pub linear: Linear => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Selected native PC method.
-    pub preconditioner: Preconditioner,
+    pub preconditioner: Preconditioner => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Normalized trust-region controls.
-    pub trust: TrustRegion,
+    pub trust: TrustRegion => { tag: 4, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Default for DirectSettings {
     fn default() -> Self {
@@ -68,18 +72,28 @@ impl DirectSettings {
         self.execution().validate()
     }
 }
+pse_model::projection_struct! {
 /// Normalized radius bounds consumed by the native trust-region method.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(default, deny_unknown_fields)]
 pub struct TrustRegion {
+    projection: { name: "PetscTrustRegion", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// Positive lower radius; reaching it stops the native trajectory.
-    pub minimum: f64,
+    #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
+    pub minimum: f64 => { tag: 1, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::PositiveFinite)] };
     /// Positive finite maximum radius.
-    pub maximum: f64,
+    #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
+    pub maximum: f64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::PositiveFinite)] };
     /// Initial radius in normalized coordinates.
-    pub initial: f64,
+    #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
+    pub initial: f64 => { tag: 3, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::PositiveFinite)] };
+}
 }
 impl Default for TrustRegion {
     fn default() -> Self {
@@ -181,7 +195,8 @@ impl Settings {
     /// # Errors
     /// Method configuration does not describe an executable finite profile.
     pub fn validate(&self) -> Result<(), ProblemError> {
-        let positive = |v: f64| v.is_finite() && v > 0.0;
+        let positive =
+            |v: f64| pse_model::boundary_projection::Float64Domain::PositiveFinite.contains(v);
         if ![self.trust.minimum, self.trust.maximum, self.trust.initial]
             .into_iter()
             .all(positive)

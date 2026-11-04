@@ -1173,47 +1173,7 @@ impl Table {
     }
 }
 
-/// Typed backend settings of a request. Each variant is its adapter's pse-owned settings
-/// type (`crate::settings`), present in every build, and identity derives from serde, never
-/// from a hand-written field list (F09). The document form is tagged by the registry
-/// `backend` spelling; the routed backend's native defaults have no document form, so a
-/// document states them by omitting its settings. A backend this build does not link is
-/// refused at admission, never at decoding.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(tag = "backend", rename_all = "snake_case")]
-pub enum BackendSettings {
-    /// Native defaults and the common semantic controls on the routed backend.
-    #[default]
-    #[serde(skip)]
-    Default,
-    /// Ipopt linear solver with its parameters, barrier strategy and initial-point push.
-    #[schemars(title = "IpoptSettings")]
-    Ipopt(crate::settings::ipopt::Settings),
-    /// POUNCE method and complete native FERAL configuration.
-    #[schemars(title = "PounceSettings")]
-    Pounce(crate::settings::pounce::Settings),
-    /// KINSOL method controls; scales and the step tolerance derive from policy.
-    #[schemars(title = "KinsolSettings")]
-    Kinsol(crate::settings::kinsol::Method),
-    /// HiGHS method, opt-in diagnostics and partial MIP start.
-    #[schemars(title = "HighsSettings")]
-    Highs(crate::settings::highs::Settings),
-    /// The pse-owned Clarabel settings: mode and every admitted native control.
-    #[schemars(title = "ClarabelSettings")]
-    Clarabel(crate::conic::Settings),
-    /// SCIP's nested Ipopt linear solver, seed and node budget.
-    #[schemars(title = "ScipSettings")]
-    Scip(ScipSettings),
-    /// The POUNCE-convex interior-point method's choices and FERAL configuration.
-    #[schemars(title = "PounceConvexSettings")]
-    PounceConvex(crate::settings::pounce_convex::Settings),
-    /// First-order Uno filter trust-region SQP or SLP.
-    #[schemars(title = "UnoSettings")]
-    Uno(crate::settings::uno::Settings),
-    /// Serial PETSc direct trust-region root profile.
-    #[schemars(title = "PetscSettings")]
-    Petsc(crate::settings::petsc::DirectSettings),
-}
+include!("execution/settings.rs");
 impl BackendSettings {
     /// The backend these settings belong to; `None` for native defaults.
     pub fn backend(&self) -> Option<Backend> {

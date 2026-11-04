@@ -12,35 +12,7 @@ use crate::{
 };
 use pse_model::generated::enums::NativeConstraintForm;
 
-/// Typed SCIP settings. Reserved native options derive from these and the shared controls;
-/// identity derives from serde.
-#[derive(
-    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
-)]
-#[serde(default, deny_unknown_fields)]
-#[schemars(rename = "ScipSettings")]
-pub struct Settings {
-    /// Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one
-    /// Ipopt, so the same type the Ipopt adapter's settings select.
-    pub nlp_linear_solver: IpoptLinearSolver,
-    /// Random seed shift (`randomization/randomseedshift`), recorded with the result.
-    pub seed: u16,
-    /// Total branch-and-bound node budget including restarts (`limits/totalnodes`);
-    /// absent leaves the deadline as the only budget.
-    pub nodes: Option<u32>,
-    /// Number of ranked stored solutions reported beside the candidate (0: none).
-    pub pool: u16,
-    /// After a proof of infeasibility, compute an irreducible infeasible subsystem of the
-    /// true exported program (`SCIPgenerateIIS`).
-    pub iis: bool,
-    /// Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
-    /// without native forms, and never with reoptimization, IIS generation (SCIP's IIS
-    /// finders do not support exact solving) or concurrency.
-    pub exact: bool,
-    /// Retain the native search tree across a finite MIP sequence whose constraint system
-    /// is unchanged and whose linear objective changes (`SCIPenableReoptimization`).
-    pub reoptimize: bool,
-}
+include!("scip/declarations.rs");
 impl Default for Settings {
     /// Sequential MUMPS in the nested Ipopt, seed shift 0, no node budget, no pool, and
     /// neither IIS, exact solving nor reoptimization.

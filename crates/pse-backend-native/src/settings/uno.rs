@@ -4,6 +4,7 @@
 use crate::ProblemError;
 pub use pse_model::generated::enums::NativeUnoMethod as Method;
 
+pse_model::projection_struct! {
 /// Native SQP/SLP with the shared HiGHS provider and finite trust region.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -11,12 +12,17 @@ pub use pse_model::generated::enums::NativeUnoMethod as Method;
 #[serde(default, deny_unknown_fields)]
 #[schemars(rename = "UnoSettings")]
 pub struct Settings {
+    projection: { name: "UnoSettings", version: 1, direction: pse_model::boundary_projection::Direction::Both,
+        reserved_tags: [], reserved_names: [] };
     /// SQP uses an L-BFGS Hessian; SLP consumes no Hessian history.
-    pub method: Method,
+    pub method: Method => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
     /// Initial native trust radius, in normalized coordinates.
-    pub trust_radius: f64,
+    #[serde(serialize_with = "pse_model::document::finite::serialize", deserialize_with = "pse_model::document::finite::deserialize")]
+    pub trust_radius: f64 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both,
+        rules: [pse_model::boundary_projection::LocalRule::Float64Domain(pse_model::boundary_projection::Float64Domain::PositiveFinite)] };
     /// Positive L-BFGS history for SQP; exactly zero for SLP.
-    pub limited_memory: usize,
+    pub limited_memory: usize => { tag: 3, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -33,7 +39,9 @@ impl Settings {
     /// # Errors
     /// Invalid trust radius or unused/incomplete method history.
     pub fn validate(&self) -> Result<(), ProblemError> {
-        if !self.trust_radius.is_finite() || self.trust_radius <= 0.0 {
+        if !pse_model::boundary_projection::Float64Domain::PositiveFinite
+            .contains(self.trust_radius)
+        {
             return Err(ProblemError::Contract(
                 "Uno trust radius must be finite and positive".into(),
             ));
