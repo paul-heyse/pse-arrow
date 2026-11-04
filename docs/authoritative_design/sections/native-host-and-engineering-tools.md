@@ -12,6 +12,14 @@ and engineering investigations. Scientific preparation, execution and result int
 remain with product owners. Source-only reads need no analyzer; native analysis, acquired APIs
 and compiler observations keep their own explicit preparation and original evidence.
 
+> Decision: [ADR-0241](../../adr/0241-pure-owner-derived-contract-foundation.md) (proposed; authorized Plan65 implementation).
+
+Generic structural declarations live in independent `pse-contract`, which imports no product
+science. Passive original-report observations are decodable facts; native test verdicts and
+terminal custody remain sealed. Shared live/retained readers reconcile report version, identity,
+action, outcome and capture with the original terminal and protected bytes. Neither independent
+inspection nor successful decode issues a present verdict or settlement capability.
+
 | Question or effect | Performing owner and boundary |
 |---|---|
 | Read source, syntax or a known declaration | Host source/query owners; no semantic preparation or product startup |

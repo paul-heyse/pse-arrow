@@ -679,3 +679,19 @@ comparison. Unsupported actions refuse; no serialized token grants local lineari
 Cancellation retains owned process/native custody until settlement. This is an optional
 execution placement with working delivery planned, not current capability or remote solving.
 
+> Decision: [ADR-0242](../../adr/0242-scientific-worker-handle-and-shutdown-scope.md) and
+> [ADR-0243](../../adr/0243-coherent-native-provider-batch-evaluation.md) (proposed; authorized Plan65 target).
+
+Plan65 separates handle Stop/Close from explicit session Shutdown. Cancellation reaches the
+matching native handle while unrelated handles survive; Shutdown closes admission and drains
+the session before actual process/I/O settlement. A numerical job retains its admission when
+an RPC observer disappears. Targeted real-process active-stop/survivor controls passed under
+Plan65e's recorded conditions; broader scientific population and assembled qualification remain
+open. The earlier planning-only capability statement above retains its historical Plan64 scope.
+
+The grouped-provider target is separately Proposed: genuine native array evaluation, declared
+demand-specific support and attributable point outcomes. Envelope integrity differs from
+per-point scientific admission. A native global success code cannot establish all point/output
+slots, and no implicit scalar fallback or replay is selected. Existing physical/datum guards
+remain shared native policy; grouping alone supplies no new physics or performance claim.
+

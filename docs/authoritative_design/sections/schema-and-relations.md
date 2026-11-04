@@ -332,7 +332,7 @@ that constraint's own validation query is running. Native checked builders and a
 establish their stated facts, not application correctness. The failure codes belong to
 [§23.2](operations-and-validation.md#section-23-2).
 
-### 4.7 Proposed engineering boundary projections
+### 4.7 Owner-derived boundary contracts
 
 > Decision: [ADR-0239](../../adr/0239-owner-derived-engineering-boundaries.md) (proposed; operator-selected planning target).
 
@@ -344,6 +344,20 @@ missingness and effects. Descriptors describe declared structure, not receiving 
 selected physical context or readiness. Scientific hashes do not derive from descriptor bytes.
 Plan64i owns generation/migration; existing semantic owners and current boundary
 interpretations remain in force until their explicit cutover.
+
+> Decision: [ADR-0241](../../adr/0241-pure-owner-derived-contract-foundation.md) (proposed; operator-authorized Plan65 implementation).
+
+The shared structural declaration/adoption vocabulary now belongs to pure `pse-contract`,
+without Arrow, wire or scientific dependencies. Identifiers, quantities and diagnostics
+implement its traits at their actual owners; `pse-model` retains product-specific adapters.
+The old model-owned generic foundation is removed. Crossing direction is independent of
+construction: borrowed observation access supplies no inverse constructor, and general adapter
+generation cannot reconstruct that native owner. Passive observation data remains decodable.
+Reconstructible parents containing sealed observation owners refuse with attribution.
+
+Typed option publication, semantic evolution checks and full consumer migration remain Plan65
+work. Source associations are provenance, not exact spans or scientific identity. Structural
+tests and dependency checks do not establish scientific or assembled product qualification.
 
 ## 6. Relation families
 

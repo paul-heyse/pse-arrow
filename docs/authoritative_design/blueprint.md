@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 348
-date: 2026-11-03
+revision: 349
+date: 2026-11-04
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 349 | 2026-11-04 | Record the pure source-owned contract foundation, borrowed observation construction (§4.7/§21.7), handle-scoped worker lifecycle and proposed genuine batching (§9.11). | Proposed ADR-0241–0243 under authorized concurrent Plan65 execution; targeted component/process evidence stays with Plan65, not assembled qualification or formal ADR acceptance. |
 | 348 | 2026-11-03 | Record the proposed owner-derived engineering boundary/local service (§4.7, §21.8) and prepared local scientific worker (§9.11). | Proposed ADR-0239/0240 and maintainer-selected Plan64i–k targets; no implementation or qualification claim. |
 | 347 | 2026-11-03 | Record G08's explicit v3-to-v4 schema/capture drain and the selected engine's coarse custom-function grant (§20.5, §20.6.3). | Proposed ADR-0230 amended before version cutover; frozen predecessor, historical receipts, active-owner refusal and ordinary atomic capture qualification remain required. |
 | 346 | 2026-11-03 | Record the selected native water provider, ideal-only stock reference translation and authored equipment boundary (§9.8). | Proposed ADR-0238 before the Plan64d D02 / 64f F02 backend binding; native/source controls and configured scientific qualification remain open. |
