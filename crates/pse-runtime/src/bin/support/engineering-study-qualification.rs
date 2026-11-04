@@ -195,15 +195,24 @@ async fn settle_after_cancel(
         }
     }
 }
-fn final_disposition(
+fn accept_finish_after_drain(
     requested: FixtureDisposition,
     eligible: bool,
     stop: &CancelSource,
 ) -> FixtureDisposition {
-    if requested == FixtureDisposition::Dispose && eligible && !stop.token().is_cancelled() {
-        FixtureDisposition::Dispose
-    } else {
+    if requested != FixtureDisposition::Dispose || !eligible {
+        return FixtureDisposition::Preserve;
+    }
+    // After actual original-owner drain and successful composition, this single
+    // cancellation observation is the coordinator's cleanup acceptance boundary.
+    // The accepted decision owns the following synchronous filesystem preparation
+    // and publication. A later stop cannot reopen it; publication failure still
+    // reports failure and independently attempts a preserving finish.
+    let stopped_before_acceptance = stop.token().is_cancelled();
+    if stopped_before_acceptance {
         FixtureDisposition::Preserve
+    } else {
+        FixtureDisposition::Dispose
     }
 }
 fn request_keeper_finish(finish: &Path, disposition: FixtureDisposition) -> Vec<Error> {
@@ -326,7 +335,7 @@ async fn execute(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), Er
     }
     if stop.token().is_cancelled() && cleanup_completed {
         eprintln!(
-            "stop observed after final cleanup acceptance; completed disposal cannot be revoked"
+            "late stop observed after cleanup-decision acceptance; original keeper confirmed completed disposal"
         );
     }
     Ok(())
@@ -931,6 +940,7 @@ impl Driver for Native {
         if let Err(error) = super::publish_worker_started(&self.path("drain.json")) {
             failures.push(error);
         }
+        let mut keeper_drained = false;
         // This observation is emitted only after both original owners have
         // independently drained and the original worker's terminal join is checked.
         if failures.is_empty() {
@@ -941,7 +951,10 @@ impl Driver for Native {
                 match read(&self.path("drained.json"), 1024) {
                     Ok(bytes) => {
                         match serde_json::from_slice::<WorkerStart>(&bytes) {
-                            Ok(_) => break,
+                            Ok(_) => {
+                                keeper_drained = true;
+                                break;
+                            }
                             Err(error) => failures.push(error.into()),
                         }
                         break;
@@ -976,14 +989,17 @@ impl Driver for Native {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         }
-        let disposition = final_disposition(
+        let disposition = accept_finish_after_drain(
             disposition,
-            failures.is_empty() && self.completed && self.managed.iter().all(|owner| owner.settled),
+            keeper_drained
+                && failures.is_empty()
+                && self.completed
+                && self.managed.iter().all(|owner| owner.settled),
             &self.stop,
         );
-        // The sole atomic final request is the coordinator's cancellation
-        // linearization point. No protected owner remains live at a Dispose grant.
-        // Stops observed after publication cannot retroactively revoke cleanup.
+        // A Dispose decision above requires all protected owners already drained.
+        // Filesystem preparation/publication follows that cancellation boundary;
+        // it does not keep cancellation admission open until persist_noclobber.
         failures.extend(request_keeper_finish(
             &self.path("finish.json"),
             disposition,
@@ -1171,7 +1187,10 @@ mod tests {
             if self.stop_during_drain {
                 self.stop.cancel();
             }
-            let disposition = final_disposition(disposition, true, &self.stop);
+            let disposition = accept_finish_after_drain(disposition, true, &self.stop);
+            if self.stop_after_acceptance {
+                self.stop.cancel();
+            }
             self.dispositions.push(disposition);
             self.enter("finish")?;
             if let Some(directory) = &self.request_directory {
@@ -1182,9 +1201,6 @@ mod tests {
             }
             if self.cleanup_failure {
                 return Err("independent keeper release failure".into());
-            }
-            if self.stop_after_acceptance {
-                self.stop.cancel();
             }
             Ok(disposition)
         }
@@ -1310,6 +1326,84 @@ mod tests {
             1,
             "no separately armed disposal grant or abandoned temporary file"
         );
+    }
+    #[test]
+    fn preparation_barrier_distinguishes_stop_before_decision_from_stop_before_publication() {
+        for before_acceptance in [true, false] {
+            let directory = tempfile::tempdir().unwrap();
+            let finish = directory.path().join("finish.json");
+            let stop = CancelSource::new();
+            let (decide, decision) = std::sync::mpsc::sync_channel(1);
+            let (prepared, preparation) = std::sync::mpsc::sync_channel(1);
+            let (publish, publication) = std::sync::mpsc::sync_channel(1);
+            let source = stop.clone();
+            let destination = finish.clone();
+            let worker = std::thread::spawn(move || -> Result<FixtureDisposition, Error> {
+                decision.recv_timeout(Duration::from_secs(10))?;
+                let accepted =
+                    accept_finish_after_drain(FixtureDisposition::Dispose, true, &source);
+                let request = super::super::PreparedFinishRequest::prepare(&destination, accepted)?;
+                prepared.send(())?;
+                publication.recv_timeout(Duration::from_secs(10))?;
+                request.publish()?;
+                Ok(accepted)
+            });
+            if before_acceptance {
+                stop.cancel();
+            }
+            decide.send(()).unwrap();
+            preparation.recv_timeout(Duration::from_secs(10)).unwrap();
+            assert!(
+                !finish.exists(),
+                "encoded and fsynced preparation is still unpublished"
+            );
+            if !before_acceptance {
+                stop.cancel();
+            }
+            assert!(
+                stop.token().is_cancelled(),
+                "the concurrent stop completed before persistence"
+            );
+            publish.send(()).unwrap();
+            let accepted = worker.join().unwrap().unwrap();
+            let expected = if before_acceptance {
+                FixtureDisposition::Preserve
+            } else {
+                FixtureDisposition::Dispose
+            };
+            assert_eq!(accepted, expected);
+            assert_eq!(
+                super::super::finish_requested(&finish)
+                    .unwrap()
+                    .unwrap()
+                    .disposition,
+                expected
+            );
+        }
+    }
+    #[tokio::test]
+    async fn failed_publication_after_acceptance_remains_failure_despite_late_stop() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join("finish.json")).unwrap();
+        let mut driver = Probe {
+            stop_after_acceptance: true,
+            request_directory: Some(directory.path().to_owned()),
+            ..Default::default()
+        };
+        let stop = driver.stop.clone();
+        let error = execute(&mut driver, &stop).await.unwrap_err();
+        assert!(stop.token().is_cancelled());
+        assert_eq!(driver.dispositions, [FixtureDisposition::Dispose]);
+        assert!(
+            !error
+                .downcast_ref::<Failure>()
+                .unwrap()
+                .failures
+                .0
+                .is_empty(),
+            "late stop never promotes failed publication to completed cleanup"
+        );
+        assert!(super::super::finish_requested(&directory.path().join("finish.json")).is_err());
     }
     #[tokio::test]
     async fn stop_during_drain_withholds_final_disposal_and_late_stop_cannot_revoke_acceptance() {

@@ -187,22 +187,37 @@ fn publish_finish_request(
     path: &std::path::Path,
     disposition: FixtureDisposition,
 ) -> Result<(), Error> {
-    let parent = path
-        .parent()
-        .ok_or("finish request needs an existing parent")?;
-    let mut receipt = tempfile::NamedTempFile::new_in(parent)?;
-    serde_json::to_writer(
-        receipt.as_file_mut(),
-        &FinishRequest {
-            version: Default::default(),
-            disposition,
-        },
-    )?;
-    receipt.as_file().sync_all()?;
-    receipt
-        .persist_noclobber(path)
-        .map_err(|error| error.error)?;
-    Ok(())
+    PreparedFinishRequest::prepare(path, disposition)?.publish()
+}
+struct PreparedFinishRequest {
+    destination: PathBuf,
+    receipt: tempfile::NamedTempFile,
+}
+impl PreparedFinishRequest {
+    fn prepare(path: &std::path::Path, disposition: FixtureDisposition) -> Result<Self, Error> {
+        let parent = path
+            .parent()
+            .ok_or("finish request needs an existing parent")?;
+        let mut receipt = tempfile::NamedTempFile::new_in(parent)?;
+        serde_json::to_writer(
+            receipt.as_file_mut(),
+            &FinishRequest {
+                version: Default::default(),
+                disposition,
+            },
+        )?;
+        receipt.as_file().sync_all()?;
+        Ok(Self {
+            destination: path.to_owned(),
+            receipt,
+        })
+    }
+    fn publish(self) -> Result<(), Error> {
+        self.receipt
+            .persist_noclobber(&self.destination)
+            .map_err(|error| error.error)?;
+        Ok(())
+    }
 }
 fn complete_fixture_cleanup(
     disposition: FixtureDisposition,
