@@ -18,7 +18,8 @@ mod functions_constructed;
 mod import;
 mod occurrences;
 pub(crate) mod operation;
-mod records;
+/// Passive complete scientific restoration records; fields remain owner-controlled.
+pub mod records;
 mod selection;
 mod support;
 pub use construction::Relation;

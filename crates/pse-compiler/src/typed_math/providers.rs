@@ -10,7 +10,10 @@ use pse_modeling::{
     resolved::{FunctionProduct, Node, ResolvedSyntax},
 };
 use pse_quantity::{AdmittedContractBoundary, IndexSet, ResolvedPhysicalContract, scheme::Scheme};
-pub(crate) use records::SelectedProvidersRecord;
+pub(crate) use records::{
+    CallRecord as SelectedProviderCallRecord, DirectRecord as DirectProviderCallRecord,
+    SelectedProvidersRecord,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Selected source function and explicit formal partials map to one admitted registration.

@@ -8,6 +8,7 @@ mod portable;
 #[path = "typed_math/providers.rs"]
 mod providers;
 pub use direct::Request;
+pub use portable::projection_graph as scientific_recipe_projection;
 pub use portable::{portable_payload_hash, reconstruct_portable};
 pub use providers::{SelectedProviderCall, SelectedProviders, prepare_selected_providers};
 use pse_ids::{ContentHash, SemanticId};

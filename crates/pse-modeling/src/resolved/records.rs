@@ -11,21 +11,31 @@ use pse_quantity::resolved::receipts::{ContractRecord, OutputBoundaryRecord};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+pse_contract::projection_struct! {
+/// Passive original scalar declaration and exact selected definition slot.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ScalarRecord {
-    id: SemanticId,
-    ty: TypeRecord,
-    role: ModelingDeclarationKind,
-    domain: ModelingVariableDomain,
-    definition: Option<NodeIx>,
+pub struct ScalarRecord {
+    projection: { name: "ModelingResolvedScalarRecord", rust_path: crate::resolved::records::ScalarRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    ty: TypeRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    role: ModelingDeclarationKind => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    domain: ModelingVariableDomain => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    definition: Option<NodeIx> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive finite carrier facts with complete original typed members.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CarrierRecord {
-    kind: CarrierKind,
-    element: TypeRecord,
-    members: Vec<ValueRecord>,
+pub struct CarrierRecord {
+    projection: { name: "ModelingResolvedCarrierRecord", rust_path: crate::resolved::records::CarrierRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    kind: CarrierKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    element: TypeRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    members: Vec<ValueRecord> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl CarrierRecord {
     fn capture(value: &Carrier) -> Self {
@@ -48,26 +58,41 @@ impl CarrierRecord {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive original finite indexed layout, including explicit absent members.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct GroupRecord {
-    axes: Vec<CarrierIx>,
-    members: Vec<(Vec<ValueRecord>, Option<SymbolIx>)>,
+pub struct GroupRecord {
+    projection: { name: "ModelingResolvedGroupRecord", rust_path: crate::resolved::records::GroupRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    axes: Vec<CarrierIx> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    members: Vec<(Vec<ValueRecord>, Option<SymbolIx>)> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct FoldRecord {
-    root: NodeIx,
-    carrier: CarrierIx,
-    selected: Vec<ValueRecord>,
-    prototype: TypeRecord,
 }
+pse_contract::projection_struct! {
+/// Passive original finite fold and complete typed prototype.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct EvidenceRecord {
-    node: pse_model::applicability::Node,
-    predicates: Vec<PredicateIx>,
-    inputs: Vec<NodeIx>,
+pub struct FoldRecord {
+    projection: { name: "ModelingResolvedFoldRecord", rust_path: crate::resolved::records::FoldRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    root: NodeIx => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    carrier: CarrierIx => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    selected: Vec<ValueRecord> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    prototype: TypeRecord => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+pse_contract::projection_struct! {
+/// Passive complete original evidence node and its direct read coordinates.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceRecord {
+    projection: { name: "ModelingResolvedEvidenceRecord", rust_path: crate::resolved::records::EvidenceRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    node: pse_model::applicability::Node => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    predicates: Vec<PredicateIx> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    inputs: Vec<NodeIx> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl EvidenceRecord {
     fn capture(value: &EvidenceUse) -> Self {
@@ -85,29 +110,39 @@ impl EvidenceRecord {
         }
     }
 }
+pse_contract::projection_struct! {
+/// Passive original function-pool reference and source-selected scalar formal count.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FunctionSlot {
-    identity: ContentHash,
-    declaration: DeclarationId,
-    formal_count: usize,
+pub struct FunctionSlot {
+    projection: { name: "ModelingResolvedFunctionSlot", rust_path: crate::resolved::records::FunctionSlot,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    declaration: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    formal_count: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive complete direct syntax; pool links do not recursively expand function products.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SyntaxRecord {
-    identity: ContentHash,
-    symbols: Vec<ScalarRecord>,
-    nodes: Vec<Node>,
-    predicates: Vec<ResolvedPredicate>,
-    binders: Vec<Binding>,
-    functions: Vec<FunctionSlot>,
-    evidence: Vec<EvidenceRecord>,
-    carriers: Vec<CarrierRecord>,
-    groups: Vec<GroupRecord>,
-    member_ranges: Vec<(SymbolIx, MemberRange)>,
-    finite_folds: Vec<FoldRecord>,
-    outputs: Vec<NodeIx>,
-    validity: Vec<PredicateIx>,
+pub struct SyntaxRecord {
+    projection: { name: "ModelingResolvedSyntaxRecord", rust_path: crate::resolved::records::SyntaxRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    symbols: Vec<ScalarRecord> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    nodes: Vec<Node> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    predicates: Vec<ResolvedPredicate> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    binders: Vec<Binding> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    functions: Vec<FunctionSlot> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    evidence: Vec<EvidenceRecord> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    carriers: Vec<CarrierRecord> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    groups: Vec<GroupRecord> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    member_ranges: Vec<(SymbolIx, MemberRange)> => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    finite_folds: Vec<FoldRecord> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    outputs: Vec<NodeIx> => { tag: 12, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    validity: Vec<PredicateIx> => { tag: 13, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl SyntaxRecord {
     fn capture(value: &ResolvedSyntax) -> Result<Self> {
@@ -186,15 +221,20 @@ impl SyntaxRecord {
             .saturating_add(self.finite_folds.len())
     }
 }
+pse_contract::projection_struct! {
+/// Passive complete original argument layout, before scalar flattening.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ArgumentRecord {
-    ty: TypeRecord,
-    start: usize,
-    len: usize,
-    tuples: Vec<Vec<ValueRecord>>,
-    domains: Vec<(usize, Vec<ValueRecord>, CarrierRecord)>,
-    static_value: Option<ValueRecord>,
+pub struct ArgumentRecord {
+    projection: { name: "ModelingResolvedArgumentRecord", rust_path: crate::resolved::records::ArgumentRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    ty: TypeRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    start: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    len: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    tuples: Vec<Vec<ValueRecord>> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    domains: Vec<(usize, Vec<ValueRecord>, CarrierRecord)> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    static_value: Option<ValueRecord> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ArgumentRecord {
     fn capture(value: &ArgumentLayout) -> Self {
@@ -253,27 +293,37 @@ impl ArgumentRecord {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive complete selected scientific record, including original uncertainty bit data.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SelectedRecord {
-    kind: DeclarationId,
-    origin: DeclarationId,
-    values: Vec<(String, ValueRecord)>,
+pub struct SelectedRecord {
+    projection: { name: "ModelingResolvedSelectedRecord", rust_path: crate::resolved::records::SelectedRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    kind: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    origin: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    values: Vec<(String, ValueRecord)> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     uncertainties: Vec<(
         String,
         pse_model::generated::enums::ModelingUncertaintyKind,
         u64,
-    )>,
+    )> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive complete original scientific selection and exact closure edges.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SelectionRecord {
-    dependencies: DeclarationId,
-    roots: Vec<ValueRecord>,
-    context: ValueRecord,
-    records: Vec<ValueRecord>,
-    edges: Vec<(ValueRecord, Vec<ValueRecord>)>,
-    selected: Vec<SelectedRecord>,
+pub struct SelectionRecord {
+    projection: { name: "ModelingResolvedSelectionRecord", rust_path: crate::resolved::records::SelectionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    dependencies: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    roots: Vec<ValueRecord> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    context: ValueRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    records: Vec<ValueRecord> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    edges: Vec<(ValueRecord, Vec<ValueRecord>)> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    selected: Vec<SelectedRecord> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl SelectionRecord {
     fn capture(value: &SelectionMeaning) -> Self {
@@ -404,46 +454,71 @@ impl SelectionRecord {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive complete selected envelope and original typed read coordinates.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct EnvelopeRecord {
-    owner: DeclarationId,
-    ty: TypeRecord,
-    predicate: PredicateIx,
-    reads: ReadsWire,
+pub struct EnvelopeRecord {
+    projection: { name: "ModelingResolvedEnvelopeRecord", rust_path: crate::resolved::records::EnvelopeRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    owner: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    ty: TypeRecord => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    predicate: PredicateIx => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    reads: ReadsWire => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ReductionRecord {
-    kind: pse_quantity::ReductionKind,
-    domain: Option<pse_quantity::EntityKindId>,
-    prototype: ContractRecord,
 }
+pse_contract::projection_struct! {
+/// Passive complete finite-reduction kind, original domain and physical prototype.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ReductionSelectionRecord {
-    carrier: CarrierRecord,
-    selected: Vec<ValueRecord>,
+pub struct ReductionRecord {
+    projection: { name: "ModelingResolvedReductionRecord", rust_path: crate::resolved::records::ReductionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    kind: pse_quantity::ReductionKind => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    domain: Option<pse_quantity::EntityKindId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    prototype: ContractRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ShapeRecord {
-    argument: SemanticId,
-    axes: Vec<SemanticId>,
-    coordinates: Vec<Vec<SemanticId>>,
-    start: usize,
 }
+pse_contract::projection_struct! {
+/// Passive complete realized reduction carrier and original selected members.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ExternalRecord {
-    implementation: String,
-    revision: ContentHash,
-    data: ContentHash,
-    output: usize,
-    derivative_source: crate::external::DerivativeSource,
-    derivatives: u8,
-    smoothness: u8,
-    shapes: Vec<ShapeRecord>,
+pub struct ReductionSelectionRecord {
+    projection: { name: "ModelingResolvedReductionSelectionRecord", rust_path: crate::resolved::records::ReductionSelectionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    carrier: CarrierRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    selected: Vec<ValueRecord> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+pse_contract::projection_struct! {
+/// Passive original external argument gather, retaining coordinate order and scalar start.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShapeRecord {
+    projection: { name: "ModelingResolvedShapeRecord", rust_path: crate::resolved::records::ShapeRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    argument: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    axes: Vec<SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    coordinates: Vec<Vec<SemanticId>> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    start: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+pse_contract::projection_struct! {
+/// Passive complete original external contract; decoding supplies no implementation factory.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalRecord {
+    projection: { name: "ModelingResolvedExternalRecord", rust_path: crate::resolved::records::ExternalRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    implementation: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    revision: ContentHash => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    data: ContentHash => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    output: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    derivative_source: crate::external::DerivativeSource => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    derivatives: u8 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    smoothness: u8 => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    shapes: Vec<ShapeRecord> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ExternalRecord {
     fn capture(value: &FunctionExternal) -> Self {
@@ -495,34 +570,39 @@ impl ExternalRecord {
         })
     }
 }
+pse_contract::projection_struct! {
+/// Passive complete original function product, retained once in the content-indexed pool.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FunctionRecord {
-    identity: ContentHash,
-    declaration: DeclarationId,
-    syntax: SyntaxRecord,
-    physical: SupportRecord,
-    formals: Vec<SymbolIx>,
-    signature: Vec<TypeRecord>,
-    arguments: Vec<ArgumentRecord>,
-    selections: Vec<SelectionRecord>,
-    literals: Vec<(NodeIx, TypeRecord)>,
-    result: TypeRecord,
-    body: Option<NodeIx>,
-    validity: Option<PredicateIx>,
-    envelopes: Vec<EnvelopeRecord>,
-    applicability: Vec<EvidenceRecord>,
-    prerequisites: Vec<usize>,
-    admissions: Vec<(NodeIx, PhysicalAdmissionRecord)>,
-    reduction_admission: Option<PhysicalAdmissionRecord>,
-    reduction: Option<ReductionRecord>,
-    reduction_selection: Option<ReductionSelectionRecord>,
-    physical_operation: Option<operation::OperationRecord>,
-    output_boundary: Option<OutputBoundaryRecord>,
-    body_inputs: Vec<Option<BodyInputRecord>>,
-    validity_reads: ReadsWire,
-    external: Option<ExternalRecord>,
-    continuity: Option<u8>,
+pub struct FunctionRecord {
+    projection: { name: "ModelingResolvedFunctionRecord", rust_path: crate::resolved::records::FunctionRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    declaration: DeclarationId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    syntax: SyntaxRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    physical: SupportRecord => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    formals: Vec<SymbolIx> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    signature: Vec<TypeRecord> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    arguments: Vec<ArgumentRecord> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    selections: Vec<SelectionRecord> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    literals: Vec<(NodeIx, TypeRecord)> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    result: TypeRecord => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    body: Option<NodeIx> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    validity: Option<PredicateIx> => { tag: 12, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    envelopes: Vec<EnvelopeRecord> => { tag: 13, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    applicability: Vec<EvidenceRecord> => { tag: 14, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    prerequisites: Vec<usize> => { tag: 15, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    admissions: Vec<(NodeIx, PhysicalAdmissionRecord)> => { tag: 16, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    reduction_admission: Option<PhysicalAdmissionRecord> => { tag: 17, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    reduction: Option<ReductionRecord> => { tag: 18, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    reduction_selection: Option<ReductionSelectionRecord> => { tag: 19, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    physical_operation: Option<operation::OperationRecord> => { tag: 20, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    output_boundary: Option<OutputBoundaryRecord> => { tag: 21, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    body_inputs: Vec<Option<BodyInputRecord>> => { tag: 22, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    validity_reads: ReadsWire => { tag: 23, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    external: Option<ExternalRecord> => { tag: 24, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    continuity: Option<u8> => { tag: 25, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl FunctionRecord {
     fn capture(value: &FunctionProduct) -> Result<Self> {
@@ -610,13 +690,17 @@ impl FunctionRecord {
         })
     }
 }
+pse_contract::projection_struct! {
 /// Complete selected direct graph and a bounded, content-indexed function pool.
 /// Deserialization grants no admission and never reconstructs live physical read captures.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResolvedRecord {
-    syntax: SyntaxRecord,
-    functions: Vec<FunctionRecord>,
+    projection: { name: "ModelingResolvedRecord", rust_path: crate::resolved::ResolvedRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    syntax: SyntaxRecord => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    functions: Vec<FunctionRecord> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ResolvedRecord {
     /// Capture only this immutable selected graph and each complete function product once.

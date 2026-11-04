@@ -107,5 +107,6 @@ macro_rules! hash_role_projection {
 }
 hash_role_projection!(
     crate::roles::SourceRevisionHash => "SourceRevisionHash",
+    crate::roles::SemanticBodyHash => "SemanticBodyHash",
     crate::roles::BindingHash => "BindingHash",
 );

@@ -5,33 +5,47 @@ use super::*;
 use pse_modeling::resolved::PhysicalEvidenceRecord;
 use pse_quantity::resolved::receipts::ContractBoundaryRecord;
 use serde::{Deserialize, Serialize};
+pse_contract::projection_struct! {
+/// Passive complete selected function/provider join, without an executable worker.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CallRecord {
-    function: ContentHash,
-    wrt: Vec<usize>,
-    descriptor: ContentHash,
-    output: usize,
-    inputs: Vec<ContractBoundaryRecord>,
-    result: ContractBoundaryRecord,
-    prepared: pse_math::typed::PreparedProviderCallRecord,
+pub(crate) struct CallRecord {
+    projection: { name: "CompilerSelectedProviderCallRecord", rust_path: crate::typed_math::providers::SelectedProviderCallRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    function: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    wrt: Vec<usize> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    descriptor: ContentHash => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    output: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    inputs: Vec<ContractBoundaryRecord> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    result: ContractBoundaryRecord => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    prepared: pse_math::typed::PreparedProviderCallRecord => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
+/// Passive complete selected direct provider call, without a runtime factory.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct DirectRecord {
-    syntax: ContentHash,
-    ordinal: usize,
-    prepared: pse_math::typed::PreparedProviderCallRecord,
+pub(crate) struct DirectRecord {
+    projection: { name: "CompilerDirectProviderCallRecord", rust_path: crate::typed_math::providers::DirectProviderCallRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    syntax: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    ordinal: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    prepared: pse_math::typed::PreparedProviderCallRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Opaque full selected descriptor/join product. Source names never act as restoration keys.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SelectedProvidersRecord {
-    identity: ContentHash,
-    descriptors: Vec<(ContentHash, pse_kernels::portable::ProviderRecord)>,
-    calls: Vec<CallRecord>,
-    direct_calls: Vec<DirectRecord>,
-    premises: PhysicalEvidenceRecord,
+    projection: { name: "CompilerSelectedProvidersRecord", rust_path: crate::typed_math::providers::SelectedProvidersRecord,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    identity: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    descriptors: Vec<(ContentHash, pse_kernels::portable::ProviderRecord)> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    calls: Vec<CallRecord> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    direct_calls: Vec<DirectRecord> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    premises: PhysicalEvidenceRecord => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 fn identity(providers: &SelectedProviders) -> ContentHash {
     let mut hash = FramedHasher::new(pse_ids::Frame::ModelingResolvedBodyV1);

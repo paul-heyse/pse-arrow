@@ -23,26 +23,94 @@ impl std::io::Write for ByteCount {
         Ok(())
     }
 }
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Recipe {
-    interpretation: String,
-    semantic_identity: Option<pse_ids::roles::SemanticBodyHash>,
-    syntax: ResolvedRecord,
-    support: SupportRecord,
-    providers: SelectedProvidersRecord,
-    inputs: Vec<SymbolIx>,
-    physical: ContentHash,
-    structure: ContentHash,
-    slots: usize,
-    occurrences: usize,
-    outputs: Vec<QuantityTypeId>,
-    checked_members: BTreeSet<SemanticId>,
-    checked_sources: BTreeSet<SemanticId>,
-    occurrence_tokens: BTreeSet<SemanticId>,
-    receipts: pse_quantity::resolved::receipts::ReceiptStream,
-    proofs: pse_math::typed::receipts::ProofStream,
-    spec: BodySpec,
+    projection: { name: "ScientificRecipe", rust_path: crate::typed_math::portable::Recipe,
+        version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    interpretation: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    semantic_identity: Option<pse_ids::roles::SemanticBodyHash> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    syntax: ResolvedRecord => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    support: SupportRecord => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    providers: SelectedProvidersRecord => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    inputs: Vec<SymbolIx> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    physical: ContentHash => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    structure: ContentHash => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    slots: usize => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    occurrences: usize => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    outputs: Vec<QuantityTypeId> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    checked_members: BTreeSet<SemanticId> => { tag: 12, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    checked_sources: BTreeSet<SemanticId> => { tag: 13, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    occurrence_tokens: BTreeSet<SemanticId> => { tag: 14, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    receipts: pse_quantity::resolved::receipts::ReceiptStream => { tag: 15, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    proofs: pse_math::typed::receipts::ProofStream => { tag: 16, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    spec: BodySpec => { tag: 17, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+/// Describe only actual compiler-native passive recipe data. No body is admitted or restored.
+/// # Errors
+/// An unsupported source field or inconsistent native declaration refuses publication.
+pub fn projection_graph() -> Result<
+    pse_contract::boundary_projection::ProjectionGraph,
+    pse_contract::boundary_projection::ProjectionError,
+> {
+    // The source projection describes data. Artifact interpretation still belongs
+    // to the controlled receiver; this does not activate a protobuf production path.
+    pse_contract::boundary_projection::ProjectionGraph::of::<Recipe>()
+}
+#[test]
+#[cfg(test)]
+fn scientific_recipe_source_graph_has_complete_passive_native_closure() {
+    use pse_contract::boundary_projection::{ConstructionRole, ProjectionRecord};
+    let graph = projection_graph().unwrap();
+    for name in [
+        "ScientificRecipe",
+        "ModelingResolvedRecord",
+        "ModelingResolvedFunctionRecord",
+        "ModelingSupportRecord",
+        "CompilerSelectedProvidersRecord",
+        "MathematicalPreparedProviderCallRecord",
+        "PhysicalReceiptStream",
+        "MathematicalProofStream",
+        "MathBodySpec",
+        "AuthoredScientificNumber",
+        "ApplicabilityNode",
+    ] {
+        assert!(
+            graph.definitions().contains_key(name),
+            "missing native source owner {name}"
+        );
+    }
+    for owner in graph.definitions().values() {
+        assert_eq!(
+            owner.construction,
+            ConstructionRole::Data,
+            "{} is not passive data",
+            owner.name
+        );
+    }
+    assert_eq!(<Recipe as ProjectionRecord>::FIELD_LAYOUT.len(), 17);
+    assert_eq!(graph.definitions()["ScientificRecipe"].version, 1);
+    assert!(!graph.definitions().contains_key("ModelingType"));
+    assert!(!graph.definitions().contains_key("QuantityScheme"));
+}
+#[test]
+#[cfg(test)]
+fn scientific_recipe_native_projection_keeps_current_json_and_qualified_restoration() {
+    use pse_contract::boundary_projection::ProjectionRecord;
+    let owner = direct_tests::fixture(
+        crate::authored_transfer_tests::context(),
+        "package direct { fn doubled(x:Scalar)->Scalar=x+x; def Root { var x:Scalar; let out:Scalar=doubled(x); } }",
+        &["out"],
+    ).unwrap();
+    let body = owner.admit(&Arc::new(AtomicBool::new(false))).unwrap();
+    let payload = body.portable_payload().unwrap();
+    let recipe = Recipe::decode(&payload).unwrap();
+    let recipe = Recipe::from_projection_fields(recipe.into_projection_fields()).unwrap();
+    assert_eq!(recipe.encode().unwrap().as_ref(), payload.as_slice());
+    assert_eq!(recipe.interpretation, INTERPRETATION);
+    assert!(recipe.syntax.restore(recipe.occurrences).is_err());
 }
 fn contract(error: impl std::fmt::Display) -> MathError {
     MathError::Contract(error.to_string())
