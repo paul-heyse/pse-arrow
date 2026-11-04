@@ -139,18 +139,19 @@ pub(super) fn named_structure(
         super::super::native::Mode::Domain,
     )
 }
-pub(super) fn storage(
-    ty: &DataType,
+pub(super) fn boundary_storage(
+    ty: &FieldContract,
     stem: &str,
     declarations: &mut Vec<TokenStream>,
 ) -> Result<TokenStream, SchemaError> {
-    super::super::native::storage(
+    super::super::native::render(
         &mut RustPolicy {
             declarations,
             local: false,
         },
         ty,
         stem,
+        super::super::native::Mode::Storage,
     )
 }
 pub(super) fn optional(ty: TokenStream, nullable: bool) -> TokenStream {

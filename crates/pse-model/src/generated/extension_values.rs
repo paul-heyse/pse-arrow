@@ -57,6 +57,126 @@ impl PartialEq for ExtensionQuantityValue {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ExtensionQuantityValue {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ExtensionQuantityValue",
+                "crates/pse-schema/src/model/extension.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "value",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "quantity_type_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "unit_id",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ExtensionQuantityValue {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "value"),
+        (2u32, "quantity_type_id"),
+        (3u32, "unit_id"),
+    ];
+    type Fields = (f64, pse_ids::SemanticId, pse_ids::SemanticId);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#value, self.r#quantity_type_id, self.r#unit_id)
+    }
+    fn from_projection_fields(
+        (r#value, r#quantity_type_id, r#unit_id): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#value,
+            r#quantity_type_id,
+            r#unit_id,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ExtensionQuantityValue {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#quantity_type_id,
+                &crate::boundary_projection::field_path(path, "quantity_type_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#unit_id,
+                &crate::boundary_projection::field_path(path, "unit_id"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 ///The declared composite extension storage.
 pub type QuantityValue = ExtensionQuantityValue;
 /// A row or nested value projected from the registry declaration.

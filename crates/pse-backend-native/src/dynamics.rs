@@ -2691,7 +2691,7 @@ impl Profile {
             || self.parameter_scales.iter().any(|v| !positive(*v))
             || self.max_steps == 0
             || self.max_events == 0
-            || self.time_limit.is_zero()
+            || !crate::solve::valid_time_limit(self.time_limit)
             || self.samples.is_empty()
             || self
                 .samples

@@ -75,15 +75,3 @@ pub(super) fn render<P: Policy>(
     };
     policy.decorate(field, value)
 }
-pub(super) fn storage<P: Policy>(
-    policy: &mut P,
-    kind: &DataType,
-    stem: &str,
-) -> Result<P::Value, SchemaError> {
-    render(
-        policy,
-        &FieldContract::from_field(Field::new(stem, kind.clone(), false)),
-        stem,
-        Mode::Storage,
-    )
-}

@@ -272,7 +272,8 @@ fn extension_values() -> Result<TokenStream, SchemaError> {
     ] {
         let name = types::pascal(&use_.name());
         let storage_name = format!("Extension{name}");
-        let ty = types::storage(&use_.spec().storage(), &storage_name, &mut declarations)?;
+        let ty =
+            types::boundary_storage(&use_.boundary_storage()?, &storage_name, &mut declarations)?;
         {
             let name = format_ident!("{}", name);
             declarations.push(

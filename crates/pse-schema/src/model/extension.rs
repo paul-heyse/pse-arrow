@@ -293,6 +293,56 @@ pub enum ExtensionUse<'a> {
 }
 
 impl ExtensionUse<'_> {
+    /// Native storage with source-owned presentation for selected engineering boundaries.
+    /// The extension's Arrow storage declaration remains unchanged.
+    /// # Errors
+    /// A selected presentation no longer covers exactly its declared storage fields.
+    pub fn boundary_storage(&self) -> Result<super::FieldContract, crate::SchemaError> {
+        let storage = self.spec().storage();
+        if !matches!(self, Self::QuantityValue) {
+            return Ok(super::FieldContract::native(storage));
+        }
+        let DataType::Struct(fields) = storage else {
+            return Err(crate::checks::invalid(
+                "quantity_value",
+                "selected storage must be a record",
+            ));
+        };
+        if fields.len() != 3 {
+            return Err(crate::checks::invalid(
+                "quantity_value",
+                "selected storage field population changed",
+            ));
+        }
+        let mut tags = std::collections::BTreeSet::new();
+        let fields = fields
+            .iter()
+            .map(|field| {
+                let tag = match field.name().as_str() {
+                    "value" => 1,
+                    "quantity_type_id" => 2,
+                    "unit_id" => 3,
+                    _ => {
+                        return Err(crate::checks::invalid(
+                            "quantity_value",
+                            "unpresented storage field",
+                        ));
+                    }
+                };
+                if !tags.insert(tag) {
+                    return Err(crate::checks::invalid(
+                        "quantity_value",
+                        "duplicate storage field",
+                    ));
+                }
+                Ok(super::FieldContract::from_field(field.as_ref().clone()).with_boundary_tag(tag))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(super::FieldContract::structure(fields).with_boundary_shape(
+            super::BoundaryShape::native(file!(), 1, pse_vocabulary::BoundaryDirection::Both),
+        ))
+    }
+
     /// The index of this use's type in [`EXTENSION_TYPES`].
     const fn index(&self) -> usize {
         match self {

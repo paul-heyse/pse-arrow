@@ -792,6 +792,35 @@ fn apply_rule(
         _ => ty,
     };
     match rule {
+        LocalRule::PositiveDuration => {
+            let ty = match ty {
+                TypeRef::Optional(inner) => inner.as_ref(),
+                ty => ty,
+            };
+            let TypeRef::Named(name) = ty else {
+                return Err(error("positive duration requires its actual named owner"));
+            };
+            let Some(pse_model::boundary_projection::NativeContainer::Duration {
+                seconds_field,
+                nanoseconds_field,
+            }) = graph
+                .definitions()
+                .get(name)
+                .and_then(|owner| owner.native_container.as_ref())
+            else {
+                return Err(error(
+                    "positive duration requires the source-proven standard Duration owner",
+                ));
+            };
+            rules.cel.push(Rule {
+                id: Some("duration.positive".into()),
+                message: Some("a positive duration is required".into()),
+                expression: Some(format!(
+                    "this.{seconds_field} > 0u || this.{nanoseconds_field} > 0u"
+                )),
+                ..Default::default()
+            });
+        }
         LocalRule::Float64Domain(domain) => {
             if !matches!(ty, TypeRef::Scalar(Scalar::F64Bits)) {
                 rules.cel.push(Rule {

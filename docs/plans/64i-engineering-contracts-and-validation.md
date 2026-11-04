@@ -252,7 +252,16 @@ subtypes: a consuming confidence field can require a strict upper endpoint witho
 the underlying Fraction domain. Source-owned hooks identify these scalars; similarly shaped
 records acquire no numeric meaning. Targeted model and generator controls cover signed zero,
 adjacent represented endpoints, invalid intervals and nested optional nominal values. The
-complete settings graph and maintained-validator publication remain the next integration work.
+complete service and Study publication remain integration work.
+
+Physical bulk coordinates now project their actual registry extension storage, including
+exact magnitude bits and quantity/unit identities. The extension's Arrow storage and native
+JSON remain unchanged; projection validates representation without granting contextual
+physical admission. Positive solver and integrator time limits also share one intrinsic
+native predicate and declared wire rule, while general durations continue to permit zero.
+The checked standard-duration owner supplies the component names; unrelated records do not
+acquire duration meaning by shape. Targeted native and descriptor controls exercise these
+boundaries; compiled maintained validators and service journeys remain acceptance work.
 
 ## Verification and handoff
 

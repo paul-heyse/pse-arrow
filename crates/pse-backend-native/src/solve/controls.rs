@@ -7,6 +7,54 @@ pub(crate) const RELATIVE_PUSH_DOMAIN: pse_model::boundary_projection::Float64Do
         pse_model::boundary_projection::Float64Interval::new(0.0, false, 0.5, true),
     );
 
+pub(crate) const POSITIVE_TIME_LIMIT_RULE: pse_model::boundary_projection::LocalRule =
+    pse_model::boundary_projection::LocalRule::PositiveDuration;
+
+pub(crate) fn valid_time_limit(value: Duration) -> bool {
+    pse_model::boundary_projection::validate_field(
+        &value,
+        "time_limit",
+        &[POSITIVE_TIME_LIMIT_RULE],
+    )
+    .is_ok()
+}
+
+#[cfg(test)]
+mod duration_projection_controls {
+    use super::*;
+    use pse_model::boundary_projection::{ProjectionGraph, Shape, ValidateProjection};
+
+    #[test]
+    fn common_controls_and_integration_share_original_positive_time_domain() {
+        for duration in [Duration::ZERO, Duration::from_nanos(1), Duration::MAX] {
+            let mut controls = Controls::default();
+            controls.time_limit = duration;
+            assert_eq!(controls.validate().is_ok(), !duration.is_zero());
+            assert_eq!(controls.validate_projection().is_ok(), !duration.is_zero());
+            let mut integration = crate::dynamics::Profile::default();
+            integration.time_limit = duration;
+            assert_eq!(
+                integration.validate_projection().is_ok(),
+                !duration.is_zero()
+            );
+        }
+        let graph = ProjectionGraph::of::<Controls>().unwrap();
+        let Shape::Record(fields) = &graph.definitions()["SolveControls"].shape else {
+            panic!("actual controls")
+        };
+        assert_eq!(
+            fields
+                .iter()
+                .find(|field| field.name == "time_limit")
+                .unwrap()
+                .rules,
+            vec![POSITIVE_TIME_LIMIT_RULE]
+        );
+        let general = Duration::ZERO;
+        general.validate_projection().unwrap();
+    }
+}
+
 pse_model::projection_enum! {
     /// Primitive native option values, preserving the original untagged document.
     #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -37,7 +85,7 @@ pub struct Controls {
     /// Positive wall-clock allowance, including callbacks, in seconds.
     #[serde(with = "seconds")]
     #[schemars(with = "Tolerance")]
-    pub time_limit: Duration => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [] };
+    pub time_limit: Duration => { tag: 1, direction: pse_model::boundary_projection::Direction::Both, rules: [POSITIVE_TIME_LIMIT_RULE] };
     /// Positive native iteration limit.
     pub iterations: u32 => { tag: 2, direction: pse_model::boundary_projection::Direction::Both, rules: [pse_model::boundary_projection::LocalRule::UnsignedRange { min: 1, max: i32::MAX as u64 }] };
     /// Explicit admitted native thread count.

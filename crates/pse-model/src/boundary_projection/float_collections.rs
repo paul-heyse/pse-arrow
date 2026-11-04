@@ -12,6 +12,13 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Arbitrary record shapes never acquire numeric collection meaning by resemblance.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NativeContainer {
+    /// The actual standard Duration owner and its declared component field names.
+    Duration {
+        /// Whole seconds declared by the source owner.
+        seconds_field: &'static str,
+        /// Canonical subsecond nanoseconds declared by the source owner.
+        nanoseconds_field: &'static str,
+    },
     /// The actual checked binary64 nominal scalar, declared by its source scalar macro.
     NominalFloat64,
     /// The actual `[T; N]` declaration; the existing wire record stores `values`.
@@ -122,6 +129,7 @@ pub(super) fn supports_float64_domain(
                     .get(name)
                     .and_then(|definition| definition.native_container.as_ref())
                     .is_some_and(|container| match container {
+                        NativeContainer::Duration { .. } => false,
                         NativeContainer::NominalFloat64 => true,
                         NativeContainer::FixedArray { element, .. } => {
                             visit(element, definitions, active)

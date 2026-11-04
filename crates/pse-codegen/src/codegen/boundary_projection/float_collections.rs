@@ -133,6 +133,9 @@ pub(super) fn collection_expression(
                     ));
                 };
                 match container {
+                    NativeContainer::Duration { .. } => {
+                        return Err(error("duration is not a binary64 container"));
+                    }
                     NativeContainer::NominalFloat64 => {
                         scalar_expression(domain, &format!("{value}.value"))?
                     }

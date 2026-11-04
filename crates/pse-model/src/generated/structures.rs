@@ -4184,6 +4184,105 @@ impl PartialEq for ScientificCoordinateValue {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ScientificCoordinateValue {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ScientificCoordinateValue",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "coordinate_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::extension_values::QuantityValue,
+                            >(
+                                    graph,
+                                    "value",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.extension".into(), "pse.quantity_value".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ScientificCoordinateValue {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "coordinate_id"),
+        (2u32, "value"),
+    ];
+    type Fields = (
+        pse_ids::SemanticId,
+        crate::generated::extension_values::QuantityValue,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#coordinate_id, self.r#value)
+    }
+    fn from_projection_fields(
+        (r#coordinate_id, r#value): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#coordinate_id, r#value })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ScientificCoordinateValue {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::extension_values::QuantityValue as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#coordinate_id,
+                &crate::boundary_projection::field_path(path, "coordinate_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

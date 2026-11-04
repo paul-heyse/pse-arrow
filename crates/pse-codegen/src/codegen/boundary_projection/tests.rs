@@ -4,6 +4,7 @@
 use super::*;
 use std::collections::BTreeSet;
 
+mod duration;
 mod float_collections;
 
 #[test]

@@ -443,7 +443,7 @@ impl Controls {
     }
     /// Refuse unlimited/invalid controls before allocating native state.
     pub fn validate(&self) -> Result<(), ProblemError> {
-        if self.time_limit.is_zero()
+        if !valid_time_limit(self.time_limit)
             || self.iterations == 0
             || self.iterations > i32::MAX as u32
             || self.threads == 0

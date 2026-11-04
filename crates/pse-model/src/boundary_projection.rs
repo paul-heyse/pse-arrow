@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod access;
 mod diagnostics;
+#[cfg(test)]
+mod extension_values_tests;
 mod float_collections;
 mod float_domain;
 mod float_interval;
@@ -86,6 +88,8 @@ pub enum TypeRef {
 pub enum LocalRule {
     /// Require a present value/alternative on uncontrolled ingress.
     Required,
+    /// Actual standard Duration must be nonzero; general Duration still permits zero.
+    PositiveDuration,
     /// Exact locally declared binary64 domain, independent of its fixed64 wire bits.
     Float64Domain(Float64Domain),
     /// Inclusive signed integer domain, preserving exact native width.
@@ -444,6 +448,10 @@ pub trait ValidateProjection {
         self.projection_float64()
             .map(|value| domain.contains(value))
     }
+    /// Actual standard duration, where a source owner declares its intrinsic domain.
+    fn projection_duration(&self) -> Option<std::time::Duration> {
+        None
+    }
     /// Logical length (Unicode scalar values for text), where applicable.
     fn projection_length(&self) -> Option<usize> {
         None
@@ -467,6 +475,16 @@ pub fn validate_field<T: ValidateProjection + ?Sized>(
             continue;
         }
         let failure = match rule {
+            LocalRule::PositiveDuration
+                if !value
+                    .projection_duration()
+                    .is_some_and(|value| !value.is_zero()) =>
+            {
+                Some((
+                    "duration.positive",
+                    "a positive duration is required".into(),
+                ))
+            }
             LocalRule::Float64Domain(domain)
                 if !value
                     .projection_float64_domain(*domain)
@@ -886,6 +904,10 @@ impl<T: ValidateProjection> ValidateProjection for Option<T> {
     fn projection_present(&self) -> bool {
         self.is_some()
     }
+    fn projection_duration(&self) -> Option<std::time::Duration> {
+        self.as_ref()
+            .and_then(ValidateProjection::projection_duration)
+    }
     fn projection_unsigned(&self) -> Option<u64> {
         self.as_ref()
             .and_then(ValidateProjection::projection_unsigned)
@@ -943,6 +965,9 @@ impl<T: ValidateProjection + ?Sized> ValidateProjection for Box<T> {
     }
     fn projection_present(&self) -> bool {
         self.as_ref().projection_present()
+    }
+    fn projection_duration(&self) -> Option<std::time::Duration> {
+        self.as_ref().projection_duration()
     }
     fn projection_unsigned(&self) -> Option<u64> {
         self.as_ref().projection_unsigned()
@@ -1273,6 +1298,7 @@ fn validate_fields(
                 LocalRule::Required => 0,
                 LocalRule::UnsignedRange { .. }
                 | LocalRule::SignedRange { .. }
+                | LocalRule::PositiveDuration
                 | LocalRule::Float64Domain(_) => 1,
                 LocalRule::Length { .. } | LocalRule::Utf8Bytes { .. } => 2,
             };
@@ -1283,6 +1309,14 @@ fn validate_fields(
                 ));
             }
             let valid = match rule {
+                LocalRule::PositiveDuration => {
+                    let ty = match &field.ty {
+                        TypeRef::Optional(inner) => inner.as_ref(),
+                        ty => ty,
+                    };
+                    matches!(ty, TypeRef::Named(name) if definitions.get(name)
+                        .is_some_and(|owner| matches!(owner.native_container, Some(NativeContainer::Duration { .. }))))
+                }
                 LocalRule::Float64Domain(domain) => {
                     domain.interval().is_valid()
                         && float_collections::supports_float64_domain(&field.ty, definitions)

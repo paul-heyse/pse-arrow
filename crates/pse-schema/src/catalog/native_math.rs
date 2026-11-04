@@ -1445,8 +1445,16 @@ fn declare_physical_boundary(b: &mut RegistryBuilder) {
         EnumMember::new("state_tolerances", "Registered keyed positive physical Delta values for contextual tolerances or characteristic scales."),
     ]));
     let quantity = || T::extended(crate::model::ExtensionUse::QuantityValue);
-    let coordinate = record(vec![("coordinate_id", T::id()), ("value", quantity())])
-        .named("ScientificCoordinateValue");
+    let coordinate = record(vec![
+        ("coordinate_id", T::id().with_boundary_tag(1)),
+        ("value", quantity().with_boundary_tag(2)),
+    ])
+    .named("ScientificCoordinateValue")
+    .with_boundary_shape(crate::model::BoundaryShape::native(
+        file!(),
+        1,
+        pse_vocabulary::BoundaryDirection::Both,
+    ));
     relation(
         b,
         N::Runtime,

@@ -58,7 +58,7 @@ pub struct IntegrationControls<Coordinates = Vec<f64>> {
     pub max_events: usize => {tag:15,direction:pse_model::boundary_projection::Direction::Both,rules:[pse_model::boundary_projection::LocalRule::UnsignedRange {min:1,max:usize::MAX as u64}]};
     /// Cooperative outer time allowance, including callbacks and resets.
     #[schemars(with = "pse_model::document::ClosedDuration")]
-    pub time_limit: Duration => {tag:16,direction:pse_model::boundary_projection::Direction::Both,rules:[]};
+    pub time_limit: Duration => {tag:16,direction:pse_model::boundary_projection::Direction::Both,rules:[crate::solve::POSITIVE_TIME_LIMIT_RULE]};
     /// Maximum retained scalar cells, including sensitivities and event states.
     pub max_cells: usize => {tag:17,direction:pse_model::boundary_projection::Direction::Both,rules:[]};
     /// Parameter derivatives: none, forward sensitivities of every sample, or adjoint
