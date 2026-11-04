@@ -115,7 +115,8 @@ not qualification of the entire H01 examples/configuration population.
 **Implemented and Tested:** `tests/reference/oracles/ordinary_thermo.py` reads the actual
 retained Chemicals/FeOS/Perry input artifacts and constructs fresh ideal, liquid-only and
 Peng–Robinson IDAES parameter blocks. It uses RPP5's five-term ideal-gas caloric methods,
-Perry's liquid method, explicit zero gas and sourced liquid enthalpy origins, and a separate
+Perry's liquid method, explicit zero gas and sourced liquid enthalpy origins at298.15K,
+the100000Pa entropy reference (distinct from101325Pa operating pressure), and a separate
 Wagner2.5,5 pressure hook with its fitted critical coordinates. PR retains predictive-zero
 interactions and explicit SmoothVLE rather than the released BT_PR example's different
 default formulation. No native evaluator or candidate result supplies reference answers.
@@ -125,6 +126,8 @@ python -I -m unittest discover -s tests/reference -p test_ordinary_thermo.py -v`
 three focused controls, with zero failures against a zero baseline. They exercise actual
 IDAES gas Cp/enthalpy/entropy, unit normalization, liquid datum offsets, analytical pressure
 derivatives, separate fitted/EOS critical coordinates and actual phase/formulation setup.
+The pressure-origin control corrects an initial construction mistake that used operating
+pressure as the entropy reference; it does not change the selected process feed pressure.
 They do not solve or compare the five ordinary process cases. Complete matched recycle,
 intended overheated-stage failure, exchanger design/rating/arithmetic closure, all required
 outputs and original canonical readback remain H02/H03 obligations.

@@ -35,6 +35,8 @@ class OrdinaryThermodynamicReferenceTests(unittest.TestCase):
     ) -> None:
         model = ConcreteModel()
         model.properties = GenericParameterBlock(**configuration("ideal"))
+        self.assertEqual(value(model.properties.pressure_ref), 100000.0)
+        self.assertEqual(value(model.properties.temperature_ref), 298.15)
         model.states = model.properties.build_state_block([0], defined_state=True)
         state = model.states[0]
         for name, source in load_inputs().items():

@@ -276,7 +276,7 @@ def configuration(kind: str, root: Path = ROOT) -> dict[str, object]:
             "pressure": (50000, 101325, 200000, units.Pa),
         },
         "temperature_ref": (298.15, units.K),
-        "pressure_ref": (101325, units.Pa),
+        "pressure_ref": (100000, units.Pa),
         "include_enthalpy_of_formation": True,
     }
     if kind != "liquid":
