@@ -134,6 +134,34 @@ class OrdinaryThermodynamicReferenceTests(unittest.TestCase):
                 self.assertAlmostEqual(value(state.eps_1_Vap_Liq), 0.01)
                 self.assertAlmostEqual(value(state.eps_2_Vap_Liq), 0.0005)
 
+    def test_actual_liquid_phase_keeps_selected_caloric_enthalpy_without_pressure_increment(
+        self,
+    ) -> None:
+        model = ConcreteModel()
+        model.properties = GenericParameterBlock(**configuration("liquid"))
+        model.states = model.properties.build_state_block([0], defined_state=True)
+        state = model.states[0]
+        state.temperature.set_value(368.0)
+        for name in SPECIES:
+            state.mole_frac_comp[name].set_value(0.5)
+        expected = sum(
+            0.5
+            * (
+                -source.vaporization_298
+                + sum(
+                    coefficient * (368.0**power - 298.15**power) / power
+                    for power, coefficient in enumerate(source.liquid_cp_mol, start=1)
+                )
+            )
+            for source in load_inputs().values()
+        )
+        for pressure in (100000.0, 101325.0, 200000.0):
+            state.pressure.set_value(pressure)
+            self.assertAlmostEqual(
+                value(state.enth_mol_phase["Liq"]), expected, places=8
+            )
+        self.assertFalse(state.is_property_constructed("dens_mol_phase"))
+
 
 if __name__ == "__main__":
     unittest.main()

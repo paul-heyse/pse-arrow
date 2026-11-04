@@ -144,9 +144,29 @@ checks pass. Earlier setup attempts failed on a solver-options API call and omit
 aggregation; these were corrected, rather than treated as numerical failures or evidence.
 The initial design passed to the rating-oriented initializer also produced an overdetermined
 initialization stop; the explicit numerical-start stage removes that construction error.
-No native differential comparison is established by these independent reference-only tests.
-Complete matched recycle, intended overheated-stage failure, native/reference mapping and
-negative controls across all five cases, and original canonical readback remain H02/H03 work.
+**Implemented and Tested:** `tests/reference/oracles/ordinary_recycle.py` uses actual IDAES
+ideal fresh/mixed states, a liquid-only recycle and splitter, explicit independent mixing
+conservation, and the library Heater/Flash/Separator. An accepted368K tear supplies only
+primal starts to the unchanged closed original. Both stages retain original equation/bound
+checks and all14 required scalar reports. The500K port preserves its368K transported liquid
+energy, reaches an actual Ipopt3.13.2 locally infeasible stage, and retains the approximately
+50K temperature contradiction and148.97W energy mismatch without committing a primal state
+to the original. A setup or missing-result error fails these controls.
+
+Actual liquid energy consumption exposed a library-realization mismatch during construction:
+the default IDAES Ideal EOS adds a pressure-volume enthalpy increment and requires density.
+The selected ordinary source instead explicitly uses pressure-independent caloric h(T).
+`CaloricIdeal` retains library ideal-equilibrium behavior and delegates the selected pure
+enthalpies to Perry/RPP5, with the explicit mole-weighted mixture law. A fourth property
+control checks actual liquid phase enthalpy at100000,101325 and200000Pa without constructing
+density; no invented density or altered reference pressure supplies the match.
+
+The isolated command above with `-p 'test_ordinary_*.py'` passes all seven controls
+(including the three exchanger variants), zero test errors/failures against zero. The
+expected failed-stage solver warning and numerical candidate remain attributed diagnostics.
+No native differential comparison is established by these reference-only tests. Complete
+native/reference input/output mapping, negative controls across all five cases and original
+canonical readback remain H02/H03 work.
 
 ## H04 — Close configurations and scientific workflows
 

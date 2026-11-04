@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -209,6 +210,70 @@ class Wagner25:
         )
 
 
+class _CaloricPhase(Protocol):
+    def is_liquid_phase(self) -> bool: ...
+    def is_vapor_phase(self) -> bool: ...
+
+
+class _CaloricParameters(Protocol):
+    def get_phase(self, name: str) -> _CaloricPhase: ...
+    def get_component(self, name: str) -> object: ...
+
+
+class _CaloricState(Protocol):
+    params: _CaloricParameters
+    temperature: NumericValue
+    mole_frac_phase_comp: Mapping[tuple[str, str], NumericValue]
+
+    def components_in_phase(self, phase: str) -> Collection[str]: ...
+
+
+class CaloricIdeal(Ideal):
+    """Retain ideal equilibrium with the selected pressure-independent caloric law.
+
+    The ordinary source explicitly selects h(T) for liquid and vapor. IDAES's
+    default incompressible-liquid pressure-volume enthalpy increment is a
+    different realization and would require density data this case does not use.
+    """
+
+    @staticmethod
+    def enth_mol_phase_comp(
+        state: _CaloricState, phase: str, name: str
+    ) -> NumericValue:
+        """Delegate pure caloric evaluation to the selected IDAES library methods."""
+        component = state.params.get_component(name)
+        selected = state.params.get_phase(phase)
+        if selected.is_liquid_phase():
+            return cast(
+                "NumericValue",
+                Perrys.enth_mol_liq_comp.return_expression(
+                    state, component, state.temperature
+                ),
+            )
+        if selected.is_vapor_phase():
+            return cast(
+                "NumericValue",
+                RPP5.enth_mol_ig_comp.return_expression(
+                    state, component, state.temperature
+                ),
+            )
+        raise ValueError(
+            "the ordinary caloric selection has only liquid and vapor phases"
+        )
+
+    @staticmethod
+    def enth_mol_phase(state: _CaloricState, phase: str) -> NumericValue:
+        """Use the explicit ordinary ideal-mixture enthalpy convention."""
+        return cast(
+            "NumericValue",
+            sum(
+                state.mole_frac_phase_comp[phase, name]
+                * CaloricIdeal.enth_mol_phase_comp(state, phase, name)
+                for name in state.components_in_phase(phase)
+            ),
+        )
+
+
 def configuration(kind: str, root: Path = ROOT) -> dict[str, object]:
     """Build a fresh selected ideal, liquid-only or PR parameter configuration."""
     if version("idaes-pse") != "2.13.0" or version("pyomo") != "6.10.1":
@@ -257,7 +322,7 @@ def configuration(kind: str, root: Path = ROOT) -> dict[str, object]:
             "equation_of_state_options": {"type": CubicType.PR},
         }
         if kind == "pr"
-        else {"equation_of_state": Ideal}
+        else {"equation_of_state": CaloricIdeal}
     )
     settings: dict[str, object] = {
         "components": components,
