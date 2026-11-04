@@ -8,7 +8,6 @@ use super::{
     process::ParentGuard,
     protocol as p,
 };
-use protovalidate_buffa::Validate as _;
 use pse_ids::SemanticId;
 use pse_kernels::{ExecutionScope, ProviderError};
 use std::{
@@ -68,7 +67,7 @@ impl tower_service::Service<http::Uri> for Connector {
 
 type Reply = std::sync::mpsc::Sender<Result<p::Response, WorkerError>>;
 struct Outgoing {
-    request: p::Request,
+    request: pb::Request,
     timeout: Option<Duration>,
     reply: Reply,
 }
@@ -164,13 +163,12 @@ impl IoOwner {
                             let client = &client;
                             pending.push(async move {
                                 let response = client.exchange_with_options(
-                                    outgoing.request.into(), call_options(outgoing.timeout),
+                                    outgoing.request, call_options(outgoing.timeout),
                                 ).await;
                                 let result = response
                                     .map_err(|error| WorkerError::UnknownCompletion(error.to_string()))
                                     .and_then(|response| {
                                         let response = response.into_owned();
-                                        response.validate().map_err(|error| WorkerError::UnknownCompletion(format!("scientific worker response constraint: {error}")))?;
                                         p::Response::try_from(response)
                                     });
                                 let failed = result.is_err();
@@ -245,6 +243,7 @@ impl IoOwner {
             ),
             std::time::Instant::now(),
         )?;
+        let request = pb::Request::try_from(request)?;
         let (reply, received) = std::sync::mpsc::channel();
         let sender = self
             .sender
@@ -353,6 +352,10 @@ fn controls_lock(
         .lock()
         .map_err(|_| infrastructure("scientific worker controls poisoned"))
 }
+fn encode_response(value: p::Response) -> Result<pb::Response, connectrpc::ConnectError> {
+    pb::Response::try_from(value)
+        .map_err(|error| connectrpc::ConnectError::internal(error.to_string()))
+}
 struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
     controls: SharedControls,
@@ -364,17 +367,12 @@ impl services::ScientificWorker for Server {
         _: connectrpc::RequestContext,
         request: connectrpc::ServiceRequest<'_, pb::Request>,
     ) -> connectrpc::ServiceResult<impl connectrpc::Encodable<pb::Response> + Send + use<'a>> {
-        if let Err(error) = request.validate() {
-            return Ok(connectrpc::Response::new(pb::Response::from(
-                p::Response::Failure(p::Failure::Contract(error.to_string())),
-            )));
-        }
         let request = match p::Request::try_from(request.to_owned_message()) {
             Ok(value) => value,
             Err(error) => {
-                return Ok(connectrpc::Response::new(pb::Response::from(
+                return Ok(connectrpc::Response::new(encode_response(
                     p::Response::Failure(handler::failure(error)),
-                )));
+                )?));
             }
         };
         let work = if matches!(
@@ -384,11 +382,11 @@ impl services::ScientificWorker for Server {
             match self.work.clone().try_acquire_owned() {
                 Ok(permit) => Some(permit),
                 Err(_) => {
-                    return Ok(connectrpc::Response::new(pb::Response::from(
+                    return Ok(connectrpc::Response::new(encode_response(
                         p::Response::Failure(p::Failure::Resource(
                             "scientific worker numerical lane is busy".into(),
                         )),
-                    )));
+                    )?));
                 }
             }
         } else {
@@ -397,9 +395,9 @@ impl services::ScientificWorker for Server {
         let admitted =
             controls_lock(&self.controls).and_then(|mut controls| controls.admit(&request));
         if let Err(error) = admitted {
-            return Ok(connectrpc::Response::new(pb::Response::from(
+            return Ok(connectrpc::Response::new(encode_response(
                 p::Response::Failure(handler::failure(error)),
-            )));
+            )?));
         }
         let (response, received) = tokio::sync::oneshot::channel();
         self.jobs
@@ -415,7 +413,7 @@ impl services::ScientificWorker for Server {
         let response = received.await.map_err(|_| {
             connectrpc::ConnectError::unavailable("scientific worker native completion unavailable")
         })?;
-        Ok(connectrpc::Response::new(pb::Response::from(response)))
+        Ok(connectrpc::Response::new(encode_response(response)?))
     }
 }
 
@@ -574,6 +572,9 @@ pub(super) fn serve_with_preparation(
                     result.unwrap_or_else(|error| p::Response::Failure(handler::failure(error)));
                 #[cfg(test)]
                 let response = perturb_response_for_test(response);
+                // Native mutation and its handle bookkeeping have settled. Release
+                // that lane before the acknowledgement can trigger another request.
+                drop(job._work);
                 if job.response.send(response).is_err() {
                     break;
                 }

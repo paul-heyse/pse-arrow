@@ -78,45 +78,59 @@ async fn actual_worker_matches_complete_water_jets_orders_regimes_and_repeated_c
                 DerivativeOrder::First,
                 DerivativeOrder::Second,
             ] {
-                let request_a = a.prepare(ProviderRequest::all(a.spec(), order)).unwrap();
-                let request_b = b.prepare(ProviderRequest::all(b.spec(), order)).unwrap();
-                let mut buffer_a = ProviderBuffer::new(&request_a);
-                let mut buffer_b = ProviderBuffer::new(&request_b);
-                for repeat in 0..3 {
-                    let point = [point[0] + f64::from(repeat) * 0.01, point[1]];
-                    let context = EvaluationContext {
-                        cancelled: &flag,
-                        max_result_bytes: 4096,
-                    };
-                    let expected = buffer_a
-                        .fill(
-                            &mut a,
-                            &point,
-                            &request_a,
-                            ProviderRuntime::default(),
-                            &context,
-                        )
-                        .unwrap();
-                    let actual = buffer_b
-                        .fill(
-                            &mut b,
-                            &point,
-                            &request_b,
-                            ProviderRuntime::default(),
-                            &context,
-                        )
-                        .unwrap();
-                    for (left, right) in [
-                        (expected.values, actual.values),
-                        (expected.jacobian, actual.jacobian),
-                        (expected.hessians, actual.hessians),
-                    ] {
-                        assert_eq!(
-                            left.iter().map(|x| x.to_bits()).collect::<Vec<_>>(),
-                            right.iter().map(|x| x.to_bits()).collect::<Vec<_>>()
-                        );
+                let mut demands = vec![ProviderDemand::CompleteJets];
+                if order > DerivativeOrder::Value {
+                    demands.extend(
+                        [vec![0], vec![1], vec![1, 0]]
+                            .map(|columns| ProviderDemand::SelectedColumns { columns }),
+                    );
+                }
+                for demand in demands {
+                    let mut raw = ProviderRequest::all(a.spec(), order);
+                    if matches!(&demand, ProviderDemand::SelectedColumns { .. }) {
+                        raw.outputs = vec![2, 0];
                     }
-                    assert!(actual.linearization.is_none());
+                    raw.demand = demand;
+                    let request_a = a.prepare(raw.clone()).unwrap();
+                    let request_b = b.prepare(raw).unwrap();
+                    let mut buffer_a = ProviderBuffer::new(&request_a);
+                    let mut buffer_b = ProviderBuffer::new(&request_b);
+                    for repeat in 0..3 {
+                        let point = [point[0] + f64::from(repeat) * 0.01, point[1]];
+                        let context = EvaluationContext {
+                            cancelled: &flag,
+                            max_result_bytes: 4096,
+                        };
+                        let expected = buffer_a
+                            .fill(
+                                &mut a,
+                                &point,
+                                &request_a,
+                                ProviderRuntime::default(),
+                                &context,
+                            )
+                            .unwrap();
+                        let actual = buffer_b
+                            .fill(
+                                &mut b,
+                                &point,
+                                &request_b,
+                                ProviderRuntime::default(),
+                                &context,
+                            )
+                            .unwrap();
+                        for (left, right) in [
+                            (expected.values, actual.values),
+                            (expected.jacobian, actual.jacobian),
+                            (expected.hessians, actual.hessians),
+                        ] {
+                            assert_eq!(
+                                left.iter().map(|x| x.to_bits()).collect::<Vec<_>>(),
+                                right.iter().map(|x| x.to_bits()).collect::<Vec<_>>()
+                            );
+                        }
+                        assert!(actual.linearization.is_none());
+                    }
                 }
             }
         }
@@ -147,7 +161,6 @@ async fn actual_worker_preserves_trial_refusal_and_original_stop_without_stale_s
             ))
             .unwrap();
         for demand in [
-            ProviderDemand::SelectedColumns { columns: vec![0] },
             ProviderDemand::JacobianAction { directions: 1 },
             ProviderDemand::TransposeAction { cotangents: 1 },
             ProviderDemand::WeightedSecondAction { directions: 1 },
@@ -160,6 +173,14 @@ async fn actual_worker_preserves_trial_refusal_and_original_stop_without_stale_s
             };
             let mut request = ProviderRequest::all(provider.spec(), order);
             request.demand = demand;
+            assert!(matches!(
+                provider.prepare(request),
+                Err(ProviderError::Contract(_))
+            ));
+        }
+        for columns in [vec![], vec![2], vec![0, 0]] {
+            let mut request = ProviderRequest::all(provider.spec(), DerivativeOrder::First);
+            request.demand = ProviderDemand::SelectedColumns { columns };
             assert!(matches!(
                 provider.prepare(request),
                 Err(ProviderError::Contract(_))

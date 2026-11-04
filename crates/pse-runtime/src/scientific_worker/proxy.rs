@@ -18,10 +18,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Explicit prepared local placement of exactly the selected standard HEOS Water.
+/// Explicit prepared local placement of the selected HEOS Water and physical context.
 #[derive(Clone, Debug)]
 pub struct LocalWaterFactory {
     water: WaterFactory,
+    registry: Arc<pse_quantity::QuantityRegistryBuilder>,
+    registry_bytes: usize,
+    _physical_admission: Arc<dyn pse_columnar::PayloadOwner>,
+    descriptor: pse_kernels::portable::ProviderRecord,
+    physical: ContentHash,
     regime: WaterRegime,
     executable: PreparedExecutable,
     service: Weak<crate::math::MathService>,
@@ -29,37 +34,40 @@ pub struct LocalWaterFactory {
 }
 impl LocalWaterFactory {
     /// Prepare the actual parent science and select an already deployed executable.
-    /// The v1 controlled placement explicitly refuses a custom physical registry.
     pub fn prepare(
         executable: PreparedExecutable,
         registry: &pse_quantity::QuantityRegistry,
         regime: WaterRegime,
         service: Arc<crate::math::MathService>,
     ) -> Result<Self, WorkerError> {
-        let standard = pse_quantity::generated::standard_registry()
-            .map_err(|error| ProviderError::Contract(error.to_string()))?;
-        let prerequisites = pse_quantity::PhysicalPreconditions::new(Vec::new())
-            .map_err(|error| ProviderError::Contract(error.to_string()))?;
-        if pse_quantity::physical_identity::identity(registry, &prerequisites)
-            != pse_quantity::physical_identity::identity(&standard, &prerequisites)
-        {
-            return Err(ProviderError::Contract(
-                "scientific worker v1 requires the actual complete standard physical registry"
-                    .into(),
-            )
-            .into());
-        }
+        let registry_bytes = registry.allocation_extent();
+        let physical_admission = service
+            .reserve("math:scientific-physical-declarations", registry_bytes)
+            .map_err(|error| {
+                WorkerError::Provider(ProviderError::Nested {
+                    retained: error.retained_bytes().unwrap_or(usize::MAX),
+                    cause: pse_model::diagnostic::DiagnosticCause::new(error),
+                })
+            })?;
+        let descriptor = pse_kernels::portable::ProviderRecord::capture(
+            &pse_backend_native::coolprop::descriptor(registry, regime)?,
+        );
         let water = WaterFactory::prepare(registry, regime)?;
         let mut configuration = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
         use std::os::unix::ffi::OsStrExt as _;
         configuration
-            .str("prepared-local-scientific-worker-v1")
+            .str("prepared-local-scientific-worker-v2")
             .hash(&water.configuration_key())
             .str(&executable.observation().sha256)
             .part(executable.path().as_os_str().as_bytes())
             .u64(executable.opaque_bytes() as u64);
         Ok(Self {
             water,
+            registry: Arc::new(registry.to_builder()),
+            registry_bytes,
+            _physical_admission: physical_admission,
+            descriptor,
+            physical: handler::physical_identity(registry)?,
             regime,
             executable,
             service: Arc::downgrade(&service),
@@ -189,11 +197,21 @@ impl Proxy {
             .upgrade()
             .ok_or_else(|| infrastructure("scientific worker runtime retired"))?;
         let known = 8 * FRAME_LIMIT + 4 * DECODE_LIMIT + NATIVE_STACK + (6 << 20) + 64 * 4096;
+        // Preparation can retain parent request data alongside decoded declarations,
+        // rebuilt native indexes and generated messages until the native job settles.
+        let physical = self
+            .factory
+            .registry_bytes
+            .checked_mul(4)
+            .ok_or(ProviderError::Limit(
+                "scientific worker physical preparation extent",
+            ))?;
         let bytes = self
             .factory
             .executable
             .opaque_bytes()
             .checked_add(known)
+            .and_then(|bytes| bytes.checked_add(physical))
             .ok_or(ProviderError::Limit("scientific worker admitted bytes"))?;
         let admission = service
             .reserve("math:prepared-scientific-worker", bytes)
@@ -281,11 +299,12 @@ impl Proxy {
         });
         let remaining_ns = scientific_remaining_ns(&self.scope, Instant::now())?;
         let prepare = p::Prepare {
-            version: 1,
+            version: 2,
             handle: handle.clone(),
-            spec: p::Spec::capture(self.factory.spec())?,
+            spec: self.factory.descriptor.clone(),
             configuration: self.factory.water.configuration_key(),
-            physical_registry: "pse.standard.v1".into(),
+            registry: self.factory.registry.as_ref().clone(),
+            physical: self.factory.physical,
             regime: match self.factory.regime {
                 WaterRegime::Liquid => "liquid",
                 WaterRegime::Vapor => "vapor",
@@ -441,7 +460,7 @@ impl Provider for Proxy {
         }
     }
     fn supports(&self, demand: &ProviderDemand) -> bool {
-        matches!(demand, ProviderDemand::CompleteJets)
+        self.factory.water.supports(demand)
     }
     fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
         self.prepare(request)

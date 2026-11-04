@@ -3,7 +3,7 @@
 //! One child-native session; public wire claims never establish native meaning.
 use super::{PreparedSession, SessionHandle, WorkerError, protocol as p};
 use pse_kernels::{
-    DerivativeOrder, ProviderDemand, ProviderError, ProviderRequest, ProviderRuntime, ProviderSpec,
+    DerivativeOrder, ProviderDemand, ProviderError, ProviderRequest, ProviderRuntime,
 };
 
 impl From<SessionHandle> for p::Handle {
@@ -22,62 +22,6 @@ impl From<p::Handle> for SessionHandle {
             session: value.session,
             generation: value.generation,
         }
-    }
-}
-impl p::Spec {
-    pub(super) fn capture(spec: &ProviderSpec) -> Result<Self, WorkerError> {
-        if spec.shapes != pse_kernels::ProviderShapes::default() {
-            return Err(ProviderError::Contract(
-                "scientific worker v1 requires scalar water ports".into(),
-            )
-            .into());
-        }
-        let ports = |ports: &[pse_kernels::Port]| {
-            ports
-                .iter()
-                .map(|port| p::Port {
-                    id: port.id,
-                    quantity: port.quantity.as_id(),
-                    unit: port.unit.as_id(),
-                })
-                .collect()
-        };
-        Ok(Self {
-            id: spec.id,
-            revision: spec.revision,
-            data: spec.data,
-            inputs: ports(&spec.inputs),
-            outputs: ports(&spec.outputs),
-            derivative_source: spec.derivative_source.as_str().into(),
-            derivatives: spec.derivatives as u32,
-            smoothness: spec.smoothness as u32,
-        })
-    }
-    pub(super) fn restore(&self) -> Result<ProviderSpec, WorkerError> {
-        let ports = |ports: &[p::Port]| {
-            ports
-                .iter()
-                .map(|port| pse_kernels::Port {
-                    id: port.id,
-                    quantity: pse_quantity::QuantityTypeId::from_id(port.quantity),
-                    unit: pse_quantity::UnitId::from_id(port.unit),
-                })
-                .collect()
-        };
-        Ok(ProviderSpec {
-            id: self.id,
-            revision: self.revision,
-            data: self.data,
-            inputs: ports(&self.inputs),
-            outputs: ports(&self.outputs),
-            shapes: pse_kernels::ProviderShapes::default(),
-            derivative_source: self
-                .derivative_source
-                .parse()
-                .map_err(|_| ProviderError::Contract("unknown worker derivative source".into()))?,
-            derivatives: order(self.derivatives)?,
-            smoothness: order(self.smoothness)?,
-        })
     }
 }
 pub(super) fn order(value: u32) -> Result<DerivativeOrder, ProviderError> {
@@ -181,6 +125,18 @@ pub(super) fn refusal(value: p::Failure) -> WorkerError {
     }
 }
 
+/// Water consumes physical declarations directly, without authored-operation prerequisites.
+pub(super) fn physical_identity(
+    registry: &pse_quantity::QuantityRegistry,
+) -> Result<pse_ids::ContentHash, WorkerError> {
+    let prerequisites = pse_quantity::PhysicalPreconditions::new(Vec::new())
+        .map_err(|error| ProviderError::Contract(error.to_string()))?;
+    Ok(pse_quantity::physical_identity::identity(
+        registry,
+        &prerequisites,
+    ))
+}
+
 #[cfg(feature = "property-coolprop")]
 pub(super) fn prepare(
     request: p::Prepare,
@@ -188,7 +144,7 @@ pub(super) fn prepare(
     cancellation: pse_diagnostics::Cancellation,
 ) -> Result<PreparedSession, WorkerError> {
     let received_at = std::time::Instant::now();
-    if request.version != 1
+    if request.version != 2
         || request.handle.session != expected_session
         || [
             request.handle.attempt,
@@ -196,7 +152,6 @@ pub(super) fn prepare(
             request.handle.generation,
         ]
         .contains(&pse_ids::SemanticId::NIL)
-        || request.physical_registry != "pse.standard.v1"
         || request.remaining_ns == Some(0)
         || request.result_limit == 0
         || request.result_limit > 1_048_576
@@ -217,9 +172,16 @@ pub(super) fn prepare(
             .into());
         }
     };
-    let registry = pse_quantity::generated::standard_registry()
+    let registry = request
+        .registry
+        .build()
         .map_err(|error| ProviderError::Contract(error.to_string()))?;
-    let expected = request.spec.restore()?;
+    if physical_identity(&registry)? != request.physical {
+        return Err(ProviderError::Contract(
+            "scientific worker physical declarations differ".into(),
+        )
+        .into());
+    }
     let demand = ProviderRequest {
         outputs: request
             .outputs
@@ -233,14 +195,14 @@ pub(super) fn prepare(
         demand: request.demand.restore()?,
     };
     let admitted = pse_backend_native::coolprop::descriptor(&registry, regime)?;
-    if admitted.spec() != &expected || !matches!(demand.demand, ProviderDemand::CompleteJets) {
+    if pse_kernels::portable::ProviderRecord::capture(&admitted) != request.spec {
         return Err(ProviderError::Contract(
             "scientific worker water descriptor or product unavailable".into(),
         )
         .into());
     }
     let checked = pse_kernels::PreparedProviderRequest::new(
-        std::sync::Arc::new(expected.clone()),
+        std::sync::Arc::new(admitted.spec().clone()),
         demand.clone(),
     )?;
     let flag = cancellation.flag();
@@ -255,7 +217,7 @@ pub(super) fn prepare(
         request.handle.into(),
         &registry,
         regime,
-        &expected,
+        admitted.spec(),
         request.configuration,
         demand,
         scope,
@@ -361,11 +323,18 @@ mod tests {
             generation: pse_ids::SemanticId::from_bytes([3; 16]),
         };
         let original = p::Prepare {
-            version: 1,
+            version: 2,
             handle: handle.clone(),
-            spec: p::Spec::capture(factory.spec()).unwrap(),
+            spec: pse_kernels::portable::ProviderRecord::capture(
+                &pse_backend_native::coolprop::descriptor(
+                    &registry,
+                    pse_backend_native::coolprop::WaterRegime::Vapor,
+                )
+                .unwrap(),
+            ),
             configuration: factory.configuration_key(),
-            physical_registry: "pse.standard.v1".into(),
+            registry: registry.to_builder(),
+            physical: physical_identity(&registry).unwrap(),
             regime: "vapor".into(),
             outputs: vec![0, 1, 2],
             order: 2,
@@ -375,10 +344,15 @@ mod tests {
         };
         let mut variants = Vec::new();
         let mut request = original.clone();
-        request.spec.data = pse_ids::ContentHash::from_bytes([9; 32]);
+        let mut changed = serde_json::to_value(&request.spec).unwrap();
+        changed["spec"]["data"] =
+            serde_json::to_value(pse_ids::ContentHash::from_bytes([9; 32])).unwrap();
+        request.spec = serde_json::from_value(changed).unwrap();
         variants.push(request);
         let mut request = original.clone();
-        request.spec.inputs[0].unit = request.spec.inputs[1].unit;
+        let mut changed = serde_json::to_value(&request.spec).unwrap();
+        changed["spec"]["inputs"][0]["unit"] = changed["spec"]["inputs"][1]["unit"].clone();
+        request.spec = serde_json::from_value(changed).unwrap();
         variants.push(request);
         let mut request = original.clone();
         request.regime = "liquid".into();
@@ -388,6 +362,30 @@ mod tests {
         variants.push(request);
         let mut request = original.clone();
         request.outputs = vec![0, 0];
+        variants.push(request);
+        let mut request = original.clone();
+        let first = registry.quantity_types().next().unwrap().clone();
+        request.registry.quantity_type(first);
+        variants.push(request);
+        let mut request = original.clone();
+        request.physical = pse_ids::ContentHash::from_bytes([8; 32]);
+        variants.push(request);
+        let mut request = original.clone();
+        let mut declarations = serde_json::to_value(&request.registry).unwrap();
+        let used_unit = factory.spec().inputs[0].unit.to_string();
+        let units = declarations["units"].as_array_mut().unwrap();
+        let mut changed = 0;
+        for unit in units {
+            if unit["id"] == used_unit {
+                let scale = unit["scale_to_canonical"].as_f64().unwrap();
+                unit["scale_to_canonical"] = serde_json::json!(scale * 2.0);
+                changed += 1;
+            }
+        }
+        assert_eq!(changed, 1);
+        request.registry = serde_json::from_value(declarations).unwrap();
+        // This inventory remains natively valid, but no longer means what the parent prepared.
+        request.registry.clone().build().unwrap();
         variants.push(request);
         let mut request = original;
         request.demand = p::Demand::WeightedSecondAction(1);

@@ -2678,6 +2678,34 @@
   ],
   "quantity_operations": [
     {
+      "operation_id": "f9ef55d0aa0e4b03b998da578ef7b41b",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "a2b5006844e3f6b70dd5d84bcabf5f46",
+        "89a563673835109d4c3a68d4603bab31"
+      ],
+      "result_kind_id": "c0b95c990b2945ee84d1d1ce2aab43f4",
+      "basis_rule": "cancel",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "5a318f61930c4fb624ef399cb2b87288",
+        "f0416d0dd6b04619b5a00684985f46d1",
+        "5b821f2dca7a49a8a320003227229c1e"
+      ]
+    },
+    {
       "operation_id": "0929870a51dbb0dc359e8e65670a055e",
       "opcode": "Asin",
       "input_kind_ids": [

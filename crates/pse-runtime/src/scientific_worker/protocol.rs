@@ -29,42 +29,6 @@ pse_contract::projection_struct! {
         pub generation: SemanticId => { tag: 3, direction: Direction::Both, rules: [] };
     }
 }
-pse_contract::projection_struct! {
-    #[derive(Clone, Debug, PartialEq, Eq)]
-    /// Ordered scalar physical port, resolved through actual quantity/unit identities.
-    pub struct Port {
-        projection: { name: "Port", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
-        /// Semantic scalar port identity.
-        pub id: SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
-        /// Complete physical quantity identity.
-        pub quantity: SemanticId => { tag: 2, direction: Direction::Both, rules: [] };
-        /// Actual numerical representation unit.
-        pub unit: SemanticId => { tag: 3, direction: Direction::Both, rules: [] };
-    }
-}
-pse_contract::projection_struct! {
-    #[derive(Clone, Debug, PartialEq, Eq)]
-    /// Complete scalar-only descriptor of the selected water implementation.
-    pub struct Spec {
-        projection: { name: "Spec", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
-        /// Scientific implementation identity.
-        pub id: SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
-        /// Algorithm and interpretation revision.
-        pub revision: ContentHash => { tag: 2, direction: Direction::Both, rules: [] };
-        /// Exact released parameter data identity.
-        pub data: ContentHash => { tag: 3, direction: Direction::Both, rules: [] };
-        /// Input scalar order consumed by the native owner.
-        pub inputs: Vec<Port> => { tag: 4, direction: Direction::Both, rules: [LocalRule::Length { min: 1, max: 64 }] };
-        /// Output scalar order declared by the native owner.
-        pub outputs: Vec<Port> => { tag: 5, direction: Direction::Both, rules: [LocalRule::Length { min: 1, max: 64 }] };
-        /// Declared derivative provenance, independent of order.
-        pub derivative_source: String => { tag: 6, direction: Direction::Both, rules: [LocalRule::Length { min: 1, max: 64 }] };
-        /// Maximum available partial derivative order.
-        pub derivatives: u32 => { tag: 7, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 0, max: 2 }] };
-        /// Maximum admitted smoothness order.
-        pub smoothness: u32 => { tag: 8, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 0, max: 2 }] };
-    }
-}
 pse_contract::projection_enum! {
     #[derive(Clone, Debug, PartialEq, Eq)]
     /// All kernel product kinds; transport availability does not imply native support.
@@ -86,17 +50,15 @@ pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// One immutable preparation, carrying selected science and original remaining time.
     pub struct Prepare {
-        projection: { name: "Prepare", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+        projection: { name: "Prepare", version: 2, direction: Direction::Input, reserved_tags: [5], reserved_names: ["physical_registry"] };
         /// Selected major protocol contract.
-        pub version: u32 => { tag: 1, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: 1 }] };
+        pub version: u32 => { tag: 1, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 2, max: 2 }] };
         /// Parent-issued fresh context reference.
         pub handle: Handle => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Complete expected physical and algorithm descriptor.
-        pub spec: Spec => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
+        pub spec: pse_kernels::portable::ProviderRecord => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Expected native image, data, fitted constants and datum configuration.
         pub configuration: ContentHash => { tag: 4, direction: Direction::Input, rules: [] };
-        /// Explicit v1 selected registry. A custom physical interpretation refuses.
-        pub physical_registry: String => { tag: 5, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 64 }] };
         /// Explicit homogeneous branch; normal native calls never impose phase.
         pub regime: String => { tag: 6, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 64 }] };
         /// Ordered unique selected output ordinals.
@@ -109,6 +71,10 @@ pse_contract::projection_struct! {
         pub remaining_ns: Option<u64> => { tag: 10, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
         /// Admitted complete numerical result storage, in bytes.
         pub result_limit: u64 => { tag: 11, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: 1048576 }] };
+        /// Actual unadmitted physical declarations; the native builder establishes membership.
+        pub registry: pse_quantity::QuantityRegistryBuilder => { tag: 12, direction: Direction::Input, rules: [LocalRule::Required] };
+        /// Expected interpretation of the actual declarations, checked after native reconstruction.
+        pub physical: ContentHash => { tag: 13, direction: Direction::Input, rules: [] };
     }
 }
 pse_contract::projection_struct! {

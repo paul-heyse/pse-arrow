@@ -1,722 +1,53 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Checked mappings to generated binary messages; numerical cells retain bits.
+//! Source-generated structural correspondence; native preparation retains scientific admission.
 use super::{WorkerError, generated::pb::pse::scientific_worker::v1 as pb, protocol as p};
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
+use pse_contract_proto::support::*;
 use pse_kernels::ProviderError;
 
-fn contract() -> WorkerError {
-    ProviderError::Contract("malformed or unknown scientific worker wire meaning".into()).into()
-}
-fn unknown(fields: &buffa::UnknownFields) -> Result<(), WorkerError> {
-    if fields.is_empty() {
-        Ok(())
-    } else {
-        Err(contract())
-    }
-}
-fn required<T: Default, P: buffa::ProtoBox<T>>(
-    value: buffa::MessageField<T, P>,
-) -> Result<T, WorkerError> {
-    value.into_option().ok_or_else(contract)
-}
-fn id(value: &[u8]) -> Result<pse_ids::SemanticId, WorkerError> {
-    pse_ids::SemanticId::try_from_slice(value).map_err(|_| contract())
-}
-fn hash(value: &[u8]) -> Result<pse_ids::ContentHash, WorkerError> {
-    pse_ids::ContentHash::try_from_slice(value).map_err(|_| contract())
-}
-fn bits(value: Vec<f64>) -> Vec<u64> {
-    value.into_iter().map(f64::to_bits).collect()
-}
-fn floats(value: Vec<u64>) -> Vec<f64> {
-    value.into_iter().map(f64::from_bits).collect()
-}
+#[path = "../generated/scientific-worker/native-adapters.rs"]
+#[rustfmt::skip]
+mod native;
 
-impl From<p::Handle> for pb::Handle {
-    fn from(v: p::Handle) -> Self {
-        Self {
-            attempt: v.attempt.as_bytes().to_vec(),
-            session: v.session.as_bytes().to_vec(),
-            generation: v.generation.as_bytes().to_vec(),
-            ..Default::default()
+fn contract(error: BoundaryProjectionError) -> WorkerError {
+    ProviderError::Contract(format!("scientific worker projection: {error}")).into()
+}
+fn response_failure(error: BoundaryProjectionError) -> WorkerError {
+    // This conversion runs after RPC dispatch. Failure to establish the complete
+    // native outcome cannot become a definite scientific refusal.
+    WorkerError::UnknownCompletion(format!("scientific worker response projection: {error}"))
+}
+macro_rules! crossing {
+    ($native:ty, $wire:ty, $encode:ident, $decode:ident, $incoming:ident) => {
+        impl TryFrom<$native> for $wire {
+            type Error = WorkerError;
+            fn try_from(value: $native) -> Result<Self, Self::Error> {
+                native::$encode(value).map_err(contract)
+            }
         }
-    }
-}
-impl TryFrom<pb::Handle> for p::Handle {
-    type Error = WorkerError;
-    fn try_from(v: pb::Handle) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            attempt: id(&v.attempt)?,
-            session: id(&v.session)?,
-            generation: id(&v.generation)?,
-        })
-    }
-}
-impl From<p::Port> for pb::Port {
-    fn from(v: p::Port) -> Self {
-        Self {
-            id: v.id.as_bytes().to_vec(),
-            quantity: v.quantity.as_bytes().to_vec(),
-            unit: v.unit.as_bytes().to_vec(),
-            ..Default::default()
+        impl TryFrom<$wire> for $native {
+            type Error = WorkerError;
+            fn try_from(value: $wire) -> Result<Self, Self::Error> {
+                native::$decode(value).map_err($incoming)
+            }
         }
-    }
+    };
 }
-impl TryFrom<pb::Port> for p::Port {
-    type Error = WorkerError;
-    fn try_from(v: pb::Port) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            id: id(&v.id)?,
-            quantity: id(&v.quantity)?,
-            unit: id(&v.unit)?,
-        })
-    }
-}
-impl From<p::Spec> for pb::Spec {
-    fn from(v: p::Spec) -> Self {
-        Self {
-            id: v.id.as_bytes().to_vec(),
-            revision: v.revision.as_bytes().to_vec(),
-            data: v.data.as_bytes().to_vec(),
-            inputs: v.inputs.into_iter().map(Into::into).collect(),
-            outputs: v.outputs.into_iter().map(Into::into).collect(),
-            derivative_source: v.derivative_source,
-            derivatives: v.derivatives,
-            smoothness: v.smoothness,
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Spec> for p::Spec {
-    type Error = WorkerError;
-    fn try_from(v: pb::Spec) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            id: id(&v.id)?,
-            revision: hash(&v.revision)?,
-            data: hash(&v.data)?,
-            inputs: v
-                .inputs
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()?,
-            outputs: v
-                .outputs
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()?,
-            derivative_source: v.derivative_source,
-            derivatives: v.derivatives,
-            smoothness: v.smoothness,
-        })
-    }
-}
-impl From<p::Demand> for pb::Demand {
-    fn from(v: p::Demand) -> Self {
-        use pb::demand::{self, Kind};
-        let kind = match v {
-            p::Demand::CompleteJets => Kind::CompleteJets(demand::Alternative1::default().into()),
-            p::Demand::SelectedColumns(value) => Kind::SelectedColumns(
-                demand::Alternative2 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Demand::JacobianAction(value) => Kind::JacobianAction(
-                demand::Alternative3 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Demand::TransposeAction(value) => Kind::TransposeAction(
-                demand::Alternative4 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Demand::WeightedSecondAction(value) => Kind::WeightedSecondAction(
-                demand::Alternative5 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-        };
-        Self {
-            kind: Some(kind),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Demand> for p::Demand {
-    type Error = WorkerError;
-    fn try_from(v: pb::Demand) -> Result<Self, Self::Error> {
-        use pb::demand::Kind;
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(match v.kind.ok_or_else(contract)? {
-            Kind::CompleteJets(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::CompleteJets
-            }
-            Kind::SelectedColumns(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::SelectedColumns(v.value)
-            }
-            Kind::JacobianAction(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::JacobianAction(v.value)
-            }
-            Kind::TransposeAction(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::TransposeAction(v.value)
-            }
-            Kind::WeightedSecondAction(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::WeightedSecondAction(v.value)
-            }
-        })
-    }
-}
-impl From<p::Prepare> for pb::Prepare {
-    fn from(v: p::Prepare) -> Self {
-        Self {
-            version: v.version,
-            handle: pb::Handle::from(v.handle).into(),
-            spec: pb::Spec::from(v.spec).into(),
-            configuration: v.configuration.as_bytes().to_vec(),
-            physical_registry: v.physical_registry,
-            regime: v.regime,
-            outputs: v.outputs,
-            order: v.order,
-            demand: pb::Demand::from(v.demand).into(),
-            remaining_ns: v.remaining_ns,
-            result_limit: v.result_limit,
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Prepare> for p::Prepare {
-    type Error = WorkerError;
-    fn try_from(v: pb::Prepare) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            version: v.version,
-            handle: required(v.handle)?.try_into()?,
-            spec: required(v.spec)?.try_into()?,
-            configuration: hash(&v.configuration)?,
-            physical_registry: v.physical_registry,
-            regime: v.regime,
-            outputs: v.outputs,
-            order: v.order,
-            demand: required(v.demand)?.try_into()?,
-            remaining_ns: v.remaining_ns,
-            result_limit: v.result_limit,
-        })
-    }
-}
-impl From<p::Evaluate> for pb::Evaluate {
-    fn from(v: p::Evaluate) -> Self {
-        Self {
-            handle: pb::Handle::from(v.handle).into(),
-            invocation: v.invocation,
-            inputs: bits(v.inputs),
-            directions: bits(v.directions),
-            cotangents: bits(v.cotangents),
-            weights: bits(v.weights),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Evaluate> for p::Evaluate {
-    type Error = WorkerError;
-    fn try_from(v: pb::Evaluate) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            handle: required(v.handle)?.try_into()?,
-            invocation: v.invocation,
-            inputs: floats(v.inputs),
-            directions: floats(v.directions),
-            cotangents: floats(v.cotangents),
-            weights: floats(v.weights),
-        })
-    }
-}
-impl From<p::Request> for pb::Request {
-    fn from(v: p::Request) -> Self {
-        use pb::request::{self, Kind};
-        let kind = match v {
-            p::Request::Prepare(value) => Kind::Prepare(
-                request::Alternative1 {
-                    value: pb::Prepare::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Request::Evaluate(value) => Kind::Evaluate(
-                request::Alternative2 {
-                    value: pb::Evaluate::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Request::Stop(value) => Kind::Stop(
-                request::Alternative3 {
-                    value: pb::Handle::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Request::Close(value) => Kind::Close(
-                request::Alternative4 {
-                    value: pb::Handle::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Request::Shutdown => Kind::Shutdown(request::Alternative5::default().into()),
-            p::Request::EvaluateBatch(value) => Kind::EvaluateBatch(
-                request::Alternative6 {
-                    value: pb::EvaluateBatch::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-        };
-        Self {
-            kind: Some(kind),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Request> for p::Request {
-    type Error = WorkerError;
-    fn try_from(v: pb::Request) -> Result<Self, Self::Error> {
-        use pb::request::Kind;
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(match v.kind.ok_or_else(contract)? {
-            Kind::Prepare(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Prepare(required(v.value)?.try_into()?)
-            }
-            Kind::Evaluate(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Evaluate(required(v.value)?.try_into()?)
-            }
-            Kind::Stop(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Stop(required(v.value)?.try_into()?)
-            }
-            Kind::Close(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Close(required(v.value)?.try_into()?)
-            }
-            Kind::Shutdown(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Shutdown
-            }
-            Kind::EvaluateBatch(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::EvaluateBatch(required(v.value)?.try_into()?)
-            }
-        })
-    }
-}
-impl From<p::Values> for pb::Values {
-    fn from(v: p::Values) -> Self {
-        Self {
-            handle: pb::Handle::from(v.handle).into(),
-            invocation: v.invocation,
-            values: bits(v.values),
-            jacobian: bits(v.jacobian),
-            hessians: bits(v.hessians),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Values> for p::Values {
-    type Error = WorkerError;
-    fn try_from(v: pb::Values) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            handle: required(v.handle)?.try_into()?,
-            invocation: v.invocation,
-            values: floats(v.values),
-            jacobian: floats(v.jacobian),
-            hessians: floats(v.hessians),
-        })
-    }
-}
-impl From<p::Failure> for pb::Failure {
-    fn from(v: p::Failure) -> Self {
-        use pb::failure::{self, Kind};
-        let kind = match v {
-            p::Failure::Cancelled => Kind::Cancelled(failure::Alternative1::default().into()),
-            p::Failure::Deadline => Kind::Deadline(failure::Alternative2::default().into()),
-            p::Failure::Resource(value) => Kind::Resource(
-                failure::Alternative3 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Failure::Contract(value) => Kind::Contract(
-                failure::Alternative4 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Failure::Trial(value) => Kind::Trial(
-                failure::Alternative5 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Failure::OutsideEnvelope {
-                axis,
-                value,
-                lower,
-                upper,
-            } => Kind::OutsideEnvelope(
-                failure::Alternative6 {
-                    axis,
-                    value: value.to_bits(),
-                    lower: lower.to_bits(),
-                    upper: upper.to_bits(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Failure::Terminal(value) => Kind::Terminal(
-                failure::Alternative7 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Failure::UnknownCompletion(value) => Kind::UnknownCompletion(
-                failure::Alternative8 {
-                    value,
-                    ..Default::default()
-                }
-                .into(),
-            ),
-        };
-        Self {
-            kind: Some(kind),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Failure> for p::Failure {
-    type Error = WorkerError;
-    fn try_from(v: pb::Failure) -> Result<Self, Self::Error> {
-        use pb::failure::Kind;
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(match v.kind.ok_or_else(contract)? {
-            Kind::Cancelled(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Cancelled
-            }
-            Kind::Deadline(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Deadline
-            }
-            Kind::Resource(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Resource(v.value)
-            }
-            Kind::Contract(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Contract(v.value)
-            }
-            Kind::Trial(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Trial(v.value)
-            }
-            Kind::OutsideEnvelope(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::OutsideEnvelope {
-                    axis: v.axis,
-                    value: f64::from_bits(v.value),
-                    lower: f64::from_bits(v.lower),
-                    upper: f64::from_bits(v.upper),
-                }
-            }
-            Kind::Terminal(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Terminal(v.value)
-            }
-            Kind::UnknownCompletion(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::UnknownCompletion(v.value)
-            }
-        })
-    }
-}
-impl From<p::Response> for pb::Response {
-    fn from(v: p::Response) -> Self {
-        use pb::response::{self, Kind};
-        let kind = match v {
-            p::Response::Prepared(value) => Kind::Prepared(
-                response::Alternative1 {
-                    value: pb::Prepared::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Response::Values(value) => Kind::Values(
-                response::Alternative2 {
-                    value: pb::Values::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Response::Failure(value) => Kind::Failure(
-                response::Alternative3 {
-                    value: pb::Failure::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Response::Closed(value) => Kind::Closed(
-                response::Alternative4 {
-                    value: pb::Handle::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::Response::Shutdown => Kind::Shutdown(response::Alternative5::default().into()),
-            p::Response::Batch(value) => Kind::Batch(
-                response::Alternative6 {
-                    value: pb::Batch::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-        };
-        Self {
-            kind: Some(kind),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Response> for p::Response {
-    type Error = WorkerError;
-    fn try_from(v: pb::Response) -> Result<Self, Self::Error> {
-        use pb::response::Kind;
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(match v.kind.ok_or_else(contract)? {
-            Kind::Prepared(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Prepared(required(v.value)?.try_into()?)
-            }
-            Kind::Values(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Values(required(v.value)?.try_into()?)
-            }
-            Kind::Failure(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Failure(required(v.value)?.try_into()?)
-            }
-            Kind::Closed(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Closed(required(v.value)?.try_into()?)
-            }
-            Kind::Shutdown(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Shutdown
-            }
-            Kind::Batch(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Batch(required(v.value)?.try_into()?)
-            }
-        })
-    }
-}
-
-impl From<p::Prepared> for pb::Prepared {
-    fn from(v: p::Prepared) -> Self {
-        Self {
-            handle: pb::Handle::from(v.handle).into(),
-            batch_supported: v.batch_supported,
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Prepared> for p::Prepared {
-    type Error = WorkerError;
-    fn try_from(v: pb::Prepared) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            handle: required(v.handle)?.try_into()?,
-            batch_supported: v.batch_supported,
-        })
-    }
-}
-impl From<p::BatchPoint> for pb::BatchPoint {
-    fn from(v: p::BatchPoint) -> Self {
-        Self {
-            id: v.id.as_bytes().to_vec(),
-            inputs: v.inputs,
-            directions: v.directions,
-            cotangents: v.cotangents,
-            weights: v.weights,
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::BatchPoint> for p::BatchPoint {
-    type Error = WorkerError;
-    fn try_from(v: pb::BatchPoint) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            id: id(&v.id)?,
-            inputs: v.inputs,
-            directions: v.directions,
-            cotangents: v.cotangents,
-            weights: v.weights,
-        })
-    }
-}
-impl From<p::EvaluateBatch> for pb::EvaluateBatch {
-    fn from(v: p::EvaluateBatch) -> Self {
-        Self {
-            handle: pb::Handle::from(v.handle).into(),
-            invocation: v.invocation,
-            points: v.points.into_iter().map(Into::into).collect(),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::EvaluateBatch> for p::EvaluateBatch {
-    type Error = WorkerError;
-    fn try_from(v: pb::EvaluateBatch) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            handle: required(v.handle)?.try_into()?,
-            invocation: v.invocation,
-            points: v
-                .points
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-}
-impl From<p::BatchProduct> for pb::BatchProduct {
-    fn from(v: p::BatchProduct) -> Self {
-        Self {
-            values: bits(v.values),
-            jacobian: bits(v.jacobian),
-            hessians: bits(v.hessians),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::BatchProduct> for p::BatchProduct {
-    type Error = WorkerError;
-    fn try_from(v: pb::BatchProduct) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            values: floats(v.values),
-            jacobian: floats(v.jacobian),
-            hessians: floats(v.hessians),
-        })
-    }
-}
-impl From<p::BatchResult> for pb::BatchResult {
-    fn from(v: p::BatchResult) -> Self {
-        use pb::batch_result::{self, Kind};
-        let kind = match v {
-            p::BatchResult::Product(value) => Kind::Product(
-                batch_result::Alternative1 {
-                    value: pb::BatchProduct::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-            p::BatchResult::Refused(value) => Kind::Refused(
-                batch_result::Alternative2 {
-                    value: pb::Failure::from(value).into(),
-                    ..Default::default()
-                }
-                .into(),
-            ),
-        };
-        Self {
-            kind: Some(kind),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::BatchResult> for p::BatchResult {
-    type Error = WorkerError;
-    fn try_from(v: pb::BatchResult) -> Result<Self, Self::Error> {
-        use pb::batch_result::Kind;
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(match v.kind.ok_or_else(contract)? {
-            Kind::Product(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Product(required(v.value)?.try_into()?)
-            }
-            Kind::Refused(v) => {
-                unknown(&v.__buffa_unknown_fields)?;
-                Self::Refused(required(v.value)?.try_into()?)
-            }
-        })
-    }
-}
-impl From<p::BatchOutcome> for pb::BatchOutcome {
-    fn from(v: p::BatchOutcome) -> Self {
-        Self {
-            id: v.id.as_bytes().to_vec(),
-            result: pb::BatchResult::from(v.result).into(),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::BatchOutcome> for p::BatchOutcome {
-    type Error = WorkerError;
-    fn try_from(v: pb::BatchOutcome) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            id: id(&v.id)?,
-            result: required(v.result)?.try_into()?,
-        })
-    }
-}
-impl From<p::Batch> for pb::Batch {
-    fn from(v: p::Batch) -> Self {
-        Self {
-            handle: pb::Handle::from(v.handle).into(),
-            invocation: v.invocation,
-            points: v.points.into_iter().map(Into::into).collect(),
-            ..Default::default()
-        }
-    }
-}
-impl TryFrom<pb::Batch> for p::Batch {
-    type Error = WorkerError;
-    fn try_from(v: pb::Batch) -> Result<Self, Self::Error> {
-        unknown(&v.__buffa_unknown_fields)?;
-        Ok(Self {
-            handle: required(v.handle)?.try_into()?,
-            invocation: v.invocation,
-            points: v
-                .points
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()?,
-        })
-    }
-}
+crossing!(
+    p::Request,
+    pb::Request,
+    encode_request,
+    decode_request,
+    contract
+);
+crossing!(
+    p::Response,
+    pb::Response,
+    encode_response,
+    decode_response,
+    response_failure
+);
 
 #[cfg(test)]
 mod tests {
@@ -725,14 +56,18 @@ mod tests {
 
     #[test]
     fn shutdown_has_an_explicit_wire_operation_and_acknowledgement() {
-        let request = pb::Request::from(p::Request::Shutdown).encode_to_vec();
-        let response = pb::Response::from(p::Response::Shutdown).encode_to_vec();
+        let request = native::encode_request(p::Request::Shutdown)
+            .unwrap()
+            .encode_to_vec();
+        let response = native::encode_response(p::Response::Shutdown)
+            .unwrap()
+            .encode_to_vec();
         assert!(matches!(
-            p::Request::try_from(decode::<pb::Request>(&request)).unwrap(),
+            native::decode_request(decode::<pb::Request>(&request)).unwrap(),
             p::Request::Shutdown
         ));
         assert!(matches!(
-            p::Response::try_from(decode::<pb::Response>(&response)).unwrap(),
+            native::decode_response(decode::<pb::Response>(&response)).unwrap(),
             p::Response::Shutdown
         ));
     }
@@ -750,9 +85,10 @@ mod tests {
                 weights: vec![],
             }],
         });
-        let generated: pb::Request = decode(&pb::Request::from(request).encode_to_vec());
+        let generated: pb::Request =
+            decode(&native::encode_request(request).unwrap().encode_to_vec());
         generated.validate().unwrap();
-        let p::Request::EvaluateBatch(actual) = p::Request::try_from(generated).unwrap() else {
+        let p::Request::EvaluateBatch(actual) = native::decode_request(generated).unwrap() else {
             panic!("batch");
         };
         assert_eq!(actual.points[0].inputs, exact);
@@ -787,10 +123,10 @@ mod tests {
             cotangents: vec![],
             weights: vec![],
         });
-        let encoded = pb::Request::from(request).encode_to_vec();
+        let encoded = native::encode_request(request).unwrap().encode_to_vec();
         let generated: pb::Request = decode(&encoded);
         generated.validate().unwrap();
-        let p::Request::Evaluate(actual) = p::Request::try_from(generated).unwrap() else {
+        let p::Request::Evaluate(actual) = native::decode_request(generated).unwrap() else {
             panic!("evaluate")
         };
         assert_eq!(
@@ -803,47 +139,130 @@ mod tests {
         );
     }
 
-    #[test]
-    fn generated_preparation_validator_preserves_absent_deadline_and_refuses_present_zero() {
+    fn preparation() -> p::Prepare {
         let registry = pse_quantity::generated::standard_registry().unwrap();
         let descriptor = pse_backend_native::coolprop::descriptor(
             &registry,
             pse_backend_native::coolprop::WaterRegime::Vapor,
         )
         .unwrap();
-        let request = p::Prepare {
-            version: 1,
+        p::Prepare {
+            version: 2,
             handle: handle(),
-            spec: p::Spec::capture(descriptor.spec()).unwrap(),
+            spec: pse_kernels::portable::ProviderRecord::capture(&descriptor),
             configuration: pse_ids::ContentHash::from_bytes([0x11; 32]),
-            physical_registry: "pse.standard.v1".into(),
+            registry: registry.to_builder(),
+            physical: super::super::handler::physical_identity(&registry).unwrap(),
             regime: "vapor".into(),
             outputs: vec![0],
             order: 0,
             demand: p::Demand::CompleteJets,
             remaining_ns: None,
             result_limit: 4096,
-        };
+        }
+    }
+
+    #[test]
+    fn generated_preparation_validator_preserves_absent_deadline_and_refuses_present_zero() {
+        let request = preparation();
         for deadline in [None, Some(1)] {
             let mut request = request.clone();
             request.remaining_ns = deadline;
-            let generated = decode::<pb::Prepare>(&pb::Prepare::from(request).encode_to_vec());
+            let generated = decode::<pb::Prepare>(
+                &encode_root::<_, pb::Prepare>(request, "Prepare")
+                    .unwrap()
+                    .encode_to_vec(),
+            );
             generated.validate().unwrap();
             assert_eq!(
-                p::Prepare::try_from(generated).unwrap().remaining_ns,
+                decode_root::<p::Prepare, _>(generated, "Prepare")
+                    .unwrap()
+                    .remaining_ns,
                 deadline
             );
         }
-        let mut invalid = pb::Prepare::from(request);
+        let mut invalid = encode_root::<_, pb::Prepare>(request, "Prepare").unwrap();
         invalid.remaining_ns = Some(0);
         assert!(invalid.validate().is_err());
     }
 
     #[test]
+    fn generated_registry_crossing_keeps_declarations_unadmitted_and_refuses_unknown_meaning() {
+        let mut request = preparation();
+        let registry = request.registry.clone().build().unwrap();
+        request
+            .registry
+            .unit(registry.units().next().unwrap().clone());
+        let session = request.handle.session;
+        let wire = native::encode_request(p::Request::Prepare(request)).unwrap();
+        let p::Request::Prepare(request) =
+            native::decode_request(decode::<pb::Request>(&wire.encode_to_vec())).unwrap()
+        else {
+            panic!("Prepare")
+        };
+        assert!(matches!(
+            super::super::handler::prepare(
+                request,
+                session,
+                pse_diagnostics::Cancellation::default()
+            ),
+            Err(WorkerError::Provider(ProviderError::Contract(_)))
+        ));
+
+        let mut wire = encode_root::<_, pb::Prepare>(preparation(), "Prepare").unwrap();
+        let mut encoded = wire.registry.into_option().unwrap().encode_to_vec();
+        encoded.extend([0xa0, 0x06, 0x01]);
+        wire.registry = decode::<pb::PhysicalRegistryDeclarations>(&encoded).into();
+        assert!(decode_root::<p::Prepare, _>(wire, "Prepare").is_err());
+
+        let mut wire = encode_root::<_, pb::Prepare>(preparation(), "Prepare").unwrap();
+        wire.registry = Default::default();
+        assert!(decode_root::<p::Prepare, _>(wire, "Prepare").is_err());
+        let mut wire = encode_root::<_, pb::Prepare>(preparation(), "Prepare").unwrap();
+        wire.version = 1;
+        assert!(decode_root::<p::Prepare, _>(wire, "Prepare").is_err());
+    }
+
+    #[test]
+    fn malformed_responses_are_unknown_completion_while_native_contract_refusal_stays_definite() {
+        for wire in [
+            pb::Response::default(),
+            pb::Response {
+                kind: Some(pb::response::Kind::Values(Default::default())),
+                ..Default::default()
+            },
+        ] {
+            assert!(matches!(
+                p::Response::try_from(wire),
+                Err(WorkerError::UnknownCompletion(_))
+            ));
+        }
+        let refusal =
+            p::Response::Failure(p::Failure::Contract("native unsupported demand".into()));
+        let mut bytes = pb::Response::try_from(refusal).unwrap().encode_to_vec();
+        let p::Response::Failure(refusal) =
+            p::Response::try_from(decode::<pb::Response>(&bytes)).unwrap()
+        else {
+            panic!("native refusal")
+        };
+        assert!(matches!(
+            super::super::handler::refusal(refusal),
+            WorkerError::Provider(ProviderError::Contract(_))
+        ));
+        bytes.extend([0xa0, 0x06, 0x01]);
+        assert!(matches!(
+            p::Response::try_from(decode::<pb::Response>(&bytes)),
+            Err(WorkerError::UnknownCompletion(_))
+        ));
+    }
+
+    #[test]
     fn absent_unknown_truncated_and_oversized_wire_refuse_without_a_native_owner() {
         assert!(pb::Request::default().validate().is_err());
-        assert!(p::Request::try_from(pb::Request::default()).is_err());
-        let mut encoded = pb::Request::from(p::Request::Close(handle())).encode_to_vec();
+        assert!(native::decode_request(pb::Request::default()).is_err());
+        let mut encoded = native::encode_request(p::Request::Close(handle()))
+            .unwrap()
+            .encode_to_vec();
         assert!(pb::Request::decode_from_slice(&encoded[..encoded.len() - 1]).is_err());
         assert!(
             buffa::DecodeOptions::new()
@@ -853,7 +272,7 @@ mod tests {
         );
         // Unknown required meaning is rejected even when protobuf preserves it.
         encoded.extend([0xa0, 0x06, 0x01]);
-        assert!(p::Request::try_from(decode::<pb::Request>(&encoded)).is_err());
+        assert!(native::decode_request(decode::<pb::Request>(&encoded)).is_err());
     }
 
     #[test]
@@ -865,10 +284,15 @@ mod tests {
             p::Demand::TransposeAction(2),
             p::Demand::WeightedSecondAction(4),
         ] {
-            let encoded = pb::Demand::from(expected.clone()).encode_to_vec();
+            let encoded = encode_root::<_, pb::Demand>(expected.clone(), "Demand")
+                .unwrap()
+                .encode_to_vec();
             let generated: pb::Demand = decode(&encoded);
             generated.validate().unwrap();
-            assert_eq!(p::Demand::try_from(generated).unwrap(), expected);
+            assert_eq!(
+                decode_root::<p::Demand, _>(generated, "Demand").unwrap(),
+                expected
+            );
         }
     }
 
@@ -880,7 +304,9 @@ mod tests {
             lower: 273.16,
             upper: 1200.0,
         };
-        let encoded = pb::Failure::from(original).encode_to_vec();
+        let encoded = encode_root::<_, pb::Failure>(original, "Failure")
+            .unwrap()
+            .encode_to_vec();
         let generated: pb::Failure = decode(&encoded);
         generated.validate().unwrap();
         let WorkerError::Provider(ProviderError::OutsideEnvelope {
@@ -888,7 +314,9 @@ mod tests {
             lower,
             upper,
             ..
-        }) = super::super::handler::refusal(p::Failure::try_from(generated).unwrap())
+        }) = super::super::handler::refusal(
+            decode_root::<p::Failure, _>(generated, "Failure").unwrap(),
+        )
         else {
             panic!("typed envelope")
         };

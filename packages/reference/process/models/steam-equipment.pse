@@ -17,9 +17,9 @@
 @id("64d0300000000000000000000000010c") eq hydraulic_work:work_fluid==transfer(inlet.volume_flow*delta_pressure,energy_boundary,Into);
 }
 @id("64d0300000000000000000000000010d") def Pump(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState) {
-@id("64d0300000000000000000000000010e") child unit:pressure_change.PressureChanger=pressure_change.Pump(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,assumption=HydraulicWaterAssumption);
+@id("64d0300000000000000000000000010e") child unit:HydraulicWaterAssumption=HydraulicWaterAssumption(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,compression=true);
 }
 @id("64d0300000000000000000000000010f") def Turbine(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState,reference_pkg:steam.WaterState) {
-@id("64d03000000000000000000000000110") child unit:pressure_change.PressureChanger=pressure_change.Turbine(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,assumption=pressure_change.IsentropicAssumption(reference_pkg=reference_pkg));
+@id("64d03000000000000000000000000110") child unit:pressure_change.IsentropicAssumption=pressure_change.IsentropicAssumption(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,reference_pkg=reference_pkg,compression=false);
 }
 }

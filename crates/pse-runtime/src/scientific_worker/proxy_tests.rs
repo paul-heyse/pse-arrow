@@ -236,10 +236,23 @@ fn controlled_child() {
             if request.handle.session != session {
                 return Err(ProviderError::Contract("foreign controlled session".into()).into());
             }
-            let spec = request.spec.restore()?;
-            let registry = pse_quantity::generated::standard_registry()
+            let registry = request.registry.build()
                 .map_err(|error| ProviderError::Contract(error.to_string()))?;
-            spec.validate(&registry)?;
+            let regime = match request.regime.as_str() {
+                "liquid" => WaterRegime::Liquid,
+                "vapor" => WaterRegime::Vapor,
+                "supercritical" => WaterRegime::Supercritical,
+                _ => return Err(ProviderError::Contract("controlled water regime".into()).into()),
+            };
+            let spec = if mode.starts_with("actions") {
+                action_spec(&registry)
+            } else {
+                pse_backend_native::coolprop::descriptor(&registry, regime)?.spec().clone()
+            };
+            let admitted = pse_kernels::AdmittedProvider::new(spec.clone(), &registry)?;
+            if pse_kernels::portable::ProviderRecord::capture(&admitted) != request.spec {
+                return Err(ProviderError::Contract("controlled native descriptor differs".into()).into());
+            }
             if mode.starts_with("water-batch") {
                 let regime = match request.regime.as_str() {
                     "liquid" => WaterRegime::Liquid,
@@ -344,7 +357,8 @@ fn provider(
     marker: &std::path::Path,
     scope: ExecutionScope,
     service: &Arc<crate::math::MathService>,
-) -> (ProviderBinding, PreparedProviderRequest, u32) {
+    pool: &Arc<dyn MemoryPool>,
+) -> (ProviderBinding, PreparedProviderRequest, u32, usize) {
     let registry = pse_quantity::standard::standard_registry().unwrap();
     let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20)
         .unwrap()
@@ -353,8 +367,14 @@ fn provider(
             mode,
             marker.to_path_buf(),
         );
+    let baseline = pool.reserved();
     let factory =
         LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let prepared_reservation = pool.reserved();
+    assert!(
+        prepared_reservation > baseline,
+        "physical declaration storage is admitted before launch"
+    );
     let raw = ProviderRequest::all(factory.spec(), DerivativeOrder::Second);
     let prepared =
         PreparedProviderRequest::new(Arc::new(factory.spec().clone()), raw.clone()).unwrap();
@@ -371,7 +391,7 @@ fn provider(
     let pid = proxy.remote.as_ref().unwrap().child.pid();
     let mut binding = ProviderBinding::new(factory.spec().clone(), Box::new(proxy));
     let request = binding.prepare(raw).unwrap();
-    (binding, request, pid)
+    (binding, request, pid, prepared_reservation)
 }
 
 #[test]
@@ -619,6 +639,7 @@ fn malformed_group_completion_never_publishes_partial_products() {
         let factory =
             LocalWaterFactory::prepare(image, &registry, WaterRegime::Liquid, service.clone())
                 .unwrap();
+        let prepared_reservation = pool.reserved();
         let request = PreparedProviderRequest::new(
             Arc::new(factory.spec().clone()),
             ProviderRequest::all(factory.spec(), DerivativeOrder::Value),
@@ -660,6 +681,8 @@ fn malformed_group_completion_never_publishes_partial_products() {
         assert!(proxy.failed);
         assert!(proxy.remote.is_none());
         assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+        assert_eq!(pool.reserved(), prepared_reservation);
+        drop(proxy);
         assert_eq!(pool.reserved(), 0);
     }
 }
@@ -673,7 +696,8 @@ fn crash_after_dispatch_is_unknown_reaped_and_never_replayed() {
     let control = pse_diagnostics::Cancellation::default();
     let flag = control.flag();
     let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(60)));
-    let (mut binding, request, pid) = provider("crash", &marker, scope, &service);
+    let (mut binding, request, pid, prepared_reservation) =
+        provider("crash", &marker, scope, &service, &pool);
     assert!(pool.reserved() > baseline);
     let context = EvaluationContext {
         cancelled: &flag,
@@ -689,6 +713,10 @@ fn crash_after_dispatch_is_unknown_reaped_and_never_replayed() {
             &context,
         )
         .unwrap_err();
+    assert!(
+        marker.exists(),
+        "crash control must reach native dispatch: {error}"
+    );
     use pse_model::diagnostic::{DiagnosticProjection as _, Observation};
     assert!(matches!(
         error
@@ -698,7 +726,7 @@ fn crash_after_dispatch_is_unknown_reaped_and_never_replayed() {
         Some(Observation::Boolean(true))
     ));
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
-    assert_eq!(pool.reserved(), baseline);
+    assert_eq!(pool.reserved(), prepared_reservation);
     assert!(
         buffer
             .fill(
@@ -711,6 +739,8 @@ fn crash_after_dispatch_is_unknown_reaped_and_never_replayed() {
             .is_err()
     );
     assert_eq!(std::fs::read_to_string(marker).unwrap().lines().count(), 1);
+    drop(binding);
+    assert_eq!(pool.reserved(), baseline);
 }
 
 #[test]
@@ -729,6 +759,7 @@ fn failed_remote_retains_aggregate_admission_after_reap_until_io_executor_joins(
         );
     let factory =
         LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let prepared_reservation = pool.reserved();
     let request = PreparedProviderRequest::new(
         Arc::new(factory.spec().clone()),
         ProviderRequest::all(factory.spec(), DerivativeOrder::Second),
@@ -775,8 +806,14 @@ fn failed_remote_retains_aggregate_admission_after_reap_until_io_executor_joins(
     ));
     assert_eq!(
         pool.reserved(),
+        prepared_reservation,
+        "actual I/O join releases the aggregate while the prepared factory remains owned"
+    );
+    drop(proxy);
+    assert_eq!(
+        pool.reserved(),
         baseline,
-        "actual I/O join releases the final owner"
+        "final prepared factory disposal releases its metadata"
     );
 }
 
@@ -790,7 +827,8 @@ fn malformed_shape_nonfinite_and_stale_context_responses_never_publish_completio
         let control = pse_diagnostics::Cancellation::default();
         let flag = control.flag();
         let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(60)));
-        let (mut binding, request, pid) = provider(mode, &marker, scope, &service);
+        let (mut binding, request, pid, prepared_reservation) =
+            provider(mode, &marker, scope, &service, &pool);
         let context = EvaluationContext {
             cancelled: &flag,
             max_result_bytes: 4096,
@@ -817,7 +855,7 @@ fn malformed_shape_nonfinite_and_stale_context_responses_never_publish_completio
             "{mode}: {error}"
         );
         assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
-        assert_eq!(pool.reserved(), baseline);
+        assert_eq!(pool.reserved(), prepared_reservation);
         assert!(
             buffer
                 .fill(
@@ -830,6 +868,34 @@ fn malformed_shape_nonfinite_and_stale_context_responses_never_publish_completio
                 .is_err()
         );
         assert_eq!(std::fs::read_to_string(marker).unwrap().lines().count(), 1);
+        drop(binding);
+        assert_eq!(pool.reserved(), baseline);
+    }
+}
+
+fn action_spec(registry: &pse_quantity::QuantityRegistry) -> ProviderSpec {
+    let quantity = pse_quantity::standard::ids::quantity("neutral");
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    let id = SemanticId::from_bytes([0xd1; 16]);
+    let ports = |offset, count| {
+        (offset..offset + count)
+            .map(|ordinal: usize| pse_kernels::Port {
+                id: pse_ids::named_id(id, &ordinal.to_string()),
+                quantity,
+                unit,
+            })
+            .collect()
+    };
+    ProviderSpec {
+        id,
+        revision: ContentHash::from_bytes([0x31; 32]),
+        data: ContentHash::from_bytes([0x32; 32]),
+        shapes: Default::default(),
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+        inputs: ports(0, 2),
+        outputs: ports(2, 3),
+        derivatives: DerivativeOrder::Second,
+        smoothness: DerivativeOrder::Second,
     }
 }
 
@@ -863,30 +929,8 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
     };
     proxy.launch().unwrap();
     let session = proxy.remote.as_ref().unwrap().session;
-    let quantity = pse_quantity::standard::ids::quantity("neutral");
-    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
-    let id = SemanticId::from_bytes([0xd1; 16]);
-    let ports = |offset, count| {
-        (offset..offset + count)
-            .map(|ordinal: usize| pse_kernels::Port {
-                id: pse_ids::named_id(id, &ordinal.to_string()),
-                quantity,
-                unit,
-            })
-            .collect()
-    };
-    let specification = ProviderSpec {
-        id,
-        revision: ContentHash::from_bytes([0x31; 32]),
-        data: ContentHash::from_bytes([0x32; 32]),
-        shapes: Default::default(),
-        derivative_source: pse_kernels::DerivativeSource::Analytic,
-        inputs: ports(0, 2),
-        outputs: ports(2, 3),
-        derivatives: DerivativeOrder::Second,
-        smoothness: DerivativeOrder::Second,
-    };
-    specification.validate(&registry).unwrap();
+    let specification = action_spec(&registry);
+    let descriptor = pse_kernels::AdmittedProvider::new(specification.clone(), &registry).unwrap();
     // Independent exact controls at x=3,y=5 for (x*x+y, x*y, y*y).
     let full = [
         (
@@ -1012,11 +1056,12 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
             generation: pse_operations::mint_id(),
         };
         let request = p::Prepare {
-            version: 1,
+            version: 2,
             handle: handle.clone(),
-            spec: p::Spec::capture(&specification).unwrap(),
+            spec: pse_kernels::portable::ProviderRecord::capture(&descriptor),
             configuration: specification.identity(),
-            physical_registry: "pse.standard.v1".into(),
+            registry: registry.to_builder(),
+            physical: handler::physical_identity(&registry).unwrap(),
             regime: "vapor".into(),
             outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
             order: order as u32,
@@ -1203,10 +1248,46 @@ fn changed_actual_stock_datum_is_refused_by_the_selected_reference_binding() {
     let different = WaterFactory::prepare(&changed, WaterRegime::Vapor).unwrap();
     assert_ne!(original.configuration_key(), different.configuration_key());
     let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap();
+    let local = LocalWaterFactory::prepare(image, &changed, WaterRegime::Vapor, service).unwrap();
+    assert_eq!(
+        local.water.configuration_key(),
+        different.configuration_key()
+    );
+    let handle = p::Handle {
+        attempt: pse_operations::mint_id(),
+        session: pse_operations::mint_id(),
+        generation: pse_operations::mint_id(),
+    };
+    let request = p::Prepare {
+        version: 2,
+        handle: handle.clone(),
+        spec: local.descriptor.clone(),
+        configuration: original.configuration_key(),
+        registry: changed.to_builder(),
+        physical: handler::physical_identity(&changed).unwrap(),
+        regime: "vapor".into(),
+        outputs: vec![0, 1, 2],
+        order: 2,
+        demand: p::Demand::CompleteJets,
+        remaining_ns: None,
+        result_limit: 4096,
+    };
     assert!(matches!(
-        LocalWaterFactory::prepare(image, &changed, WaterRegime::Vapor, service),
+        handler::prepare(
+            request.clone(),
+            handle.session,
+            pse_diagnostics::Cancellation::default()
+        ),
         Err(WorkerError::Provider(ProviderError::Contract(_)))
     ));
+    let mut admitted = request;
+    admitted.configuration = different.configuration_key();
+    handler::prepare(
+        admitted,
+        handle.session,
+        pse_diagnostics::Cancellation::default(),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -1221,7 +1302,8 @@ fn active_native_cancellation_reaps_before_releasing_admission() {
         control.clone(),
         Some(Instant::now() + Duration::from_secs(60)),
     );
-    let (mut binding, request, pid) = provider("delay", &marker, scope, &service);
+    let (mut binding, request, pid, prepared_reservation) =
+        provider("delay", &marker, scope, &service, &pool);
     assert!(pool.reserved() > baseline);
     let observed = marker.clone();
     let cancellation = std::thread::spawn(move || {
@@ -1249,6 +1331,8 @@ fn active_native_cancellation_reaps_before_releasing_admission() {
     ));
     cancellation.join().unwrap();
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), prepared_reservation);
+    drop(binding);
     assert_eq!(pool.reserved(), baseline);
 }
 
@@ -1263,7 +1347,7 @@ fn independent_attempts_share_admission_without_sharing_process_or_stop_context(
     let flag_a = stop_a.flag();
     let stop_b = pse_diagnostics::Cancellation::default();
     let flag_b = stop_b.flag();
-    let (mut a, request_a, pid_a) = provider(
+    let (mut a, request_a, pid_a, _) = provider(
         "delay",
         &blocked_marker,
         ExecutionScope::new(
@@ -1271,12 +1355,14 @@ fn independent_attempts_share_admission_without_sharing_process_or_stop_context(
             Some(Instant::now() + Duration::from_secs(60)),
         ),
         &service,
+        &pool,
     );
-    let (mut b, request_b, pid_b) = provider(
+    let (mut b, request_b, pid_b, _) = provider(
         "ready",
         &ready_marker,
         ExecutionScope::new(stop_b, Some(Instant::now() + Duration::from_secs(60))),
         &service,
+        &pool,
     );
     assert_ne!(pid_a, pid_b);
     let blocked = std::thread::spawn(move || {
@@ -1349,7 +1435,8 @@ fn original_deadline_expires_during_native_work_without_late_completion() {
     let control = pse_diagnostics::Cancellation::default();
     let flag = control.flag();
     let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(10)));
-    let (mut binding, request, pid) = provider("delay", &marker, scope, &service);
+    let (mut binding, request, pid, prepared_reservation) =
+        provider("delay", &marker, scope, &service, &pool);
     let context = EvaluationContext {
         cancelled: &flag,
         max_result_bytes: 4096,
@@ -1371,6 +1458,8 @@ fn original_deadline_expires_during_native_work_without_late_completion() {
         "deadline control must reach actual native dispatch"
     );
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), prepared_reservation);
+    drop(binding);
     assert_eq!(pool.reserved(), baseline);
 }
 
@@ -1380,11 +1469,11 @@ fn parent_process() {
         return;
     };
     let marker = std::path::PathBuf::from(marker);
-    let (service, _pool, _native) = service();
+    let (service, pool, _native) = service();
     let control = pse_diagnostics::Cancellation::default();
     let flag = control.flag();
     let scope = ExecutionScope::new(control, Some(Instant::now() + Duration::from_secs(60)));
-    let (mut binding, request, pid) = provider("delay", &marker, scope, &service);
+    let (mut binding, request, pid, _) = provider("delay", &marker, scope, &service, &pool);
     std::fs::write(marker.with_extension("pid"), pid.to_string()).unwrap();
     let context = EvaluationContext {
         cancelled: &flag,

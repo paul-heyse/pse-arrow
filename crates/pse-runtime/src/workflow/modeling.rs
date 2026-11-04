@@ -13,7 +13,7 @@ pub(super) mod declared;
 pub(crate) mod engagement;
 mod path_pipeline;
 mod preparation;
-#[cfg(all(test, feature = "property-coolprop", feature = "solver-kinsol"))]
+#[cfg(all(test, feature = "property-coolprop", feature = "solver-ipopt"))]
 mod steam_tests;
 pub use declared::{
     DeclaredAlgebraicOutcome, DeclaredExecution, DeclaredProcedure, InitializationOverrides,

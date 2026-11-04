@@ -468,6 +468,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/conversion.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/dimension.rs",
           "kind": "file"
         },
@@ -492,11 +496,19 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-quantity/src/operation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-quantity/src/quantity_type.rs",
           "kind": "file"
         },
         {
           "path": "crates/pse-quantity/src/reference_state.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/registry.rs",
           "kind": "file"
         },
         {
@@ -509,6 +521,10 @@
         },
         {
           "path": "crates/pse-quantity/src/unit.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-quantity/src/unit_set.rs",
           "kind": "file"
         },
         {

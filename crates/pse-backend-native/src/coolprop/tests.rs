@@ -3,6 +3,7 @@
 //! Released IAPWS controls and native datum/derivative/branch observations.
 use super::*;
 use pse_kernels::{ProviderBuffer, ProviderRequest, ProviderValues};
+use pse_quantity::PhysicalName;
 use std::sync::atomic::AtomicBool;
 
 fn factory(regime: WaterRegime) -> WaterFactory {
@@ -46,40 +47,225 @@ fn near(actual: f64, expected: f64, absolute: f64, relative: f64) {
 }
 
 #[test]
+fn fixed_si_factory_refuses_valid_registries_with_changed_consumed_unit_meaning() {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    descriptor(&registry, WaterRegime::Vapor).unwrap();
+    for name in [
+        "Temperature",
+        "Density",
+        "Pressure",
+        "MolarEnthalpy",
+        "MolarEntropy",
+    ] {
+        let Some(PhysicalName::QuantityType(quantity)) = registry.physical_name(name) else {
+            panic!("physical quantity {name}")
+        };
+        let ty = registry.quantity_type(quantity).unwrap();
+        let canonical = registry.unit(ty.canonical_unit).unwrap();
+        let atomic = canonical
+            .definition
+            .as_ref()
+            .map_or(canonical.id, |factors| factors[0].unit);
+        let mut declarations = serde_json::to_value(registry.to_builder()).unwrap();
+        let units = declarations["units"].as_array_mut().unwrap();
+        let mut changed = 0;
+        for unit in units {
+            if unit["id"] == atomic.to_string() {
+                let scale = unit["scale_to_canonical"].as_f64().unwrap();
+                unit["scale_to_canonical"] = serde_json::json!(scale * 2.0);
+                changed += 1;
+            }
+        }
+        assert_eq!(changed, 1, "{name}");
+        let builder: pse_quantity::QuantityRegistryBuilder =
+            serde_json::from_value(declarations).unwrap();
+        let changed = builder.build().unwrap();
+        // Native inventory admission establishes internal consistency, not the ABI's units.
+        assert!(
+            matches!(
+                descriptor(&changed, WaterRegime::Vapor),
+                Err(ProviderError::Contract(_))
+            ),
+            "{name}"
+        );
+        assert!(
+            matches!(
+                WaterFactory::prepare(&changed, WaterRegime::Vapor),
+                Err(ProviderError::Contract(_))
+            ),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn fixed_si_factory_refuses_valid_inventory_with_changed_molar_basis_meaning() {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let Some(PhysicalName::QuantityType(density)) = registry.physical_name("Density") else {
+        panic!("Density")
+    };
+    let basis = registry.quantity_type(density).unwrap().key.basis.unwrap();
+    let mut declarations = serde_json::to_value(registry.to_builder()).unwrap();
+    let bases = declarations["bases"].as_array_mut().unwrap();
+    let mut changed = 0;
+    for declaration in bases {
+        if declaration["id"] == basis.to_string() {
+            declaration["kind"] = serde_json::json!("mass");
+            changed += 1;
+        }
+    }
+    assert_eq!(changed, 1);
+    let builder: pse_quantity::QuantityRegistryBuilder =
+        serde_json::from_value(declarations).unwrap();
+    let changed = builder.build().unwrap();
+    assert!(matches!(
+        WaterFactory::prepare(&changed, WaterRegime::Vapor),
+        Err(ProviderError::Contract(_))
+    ));
+}
+
+#[test]
+fn fixed_si_factory_refuses_same_dimension_foreign_nominal_kind() {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let Some(PhysicalName::QuantityType(temperature)) = registry.physical_name("Temperature")
+    else {
+        panic!("Temperature")
+    };
+    let original = registry.quantity_type(temperature).unwrap();
+    let mut foreign = registry.kind(original.key.kind).unwrap().clone();
+    foreign.id = pse_quantity::QuantityKindId::from_bytes([0xee; 16]);
+    let foreign_id = foreign.id;
+    let mut builder = registry.to_builder();
+    builder.kind(foreign);
+    let mut declarations = serde_json::to_value(builder).unwrap();
+    let mut changed = 0;
+    for ty in declarations["quantity_types"].as_array_mut().unwrap() {
+        if ty["id"] == temperature.to_string() {
+            ty["key"]["kind"] = serde_json::to_value(foreign_id).unwrap();
+            changed += 1;
+        }
+    }
+    assert_eq!(changed, 1);
+    let builder: pse_quantity::QuantityRegistryBuilder =
+        serde_json::from_value(declarations).unwrap();
+    let changed = builder.build().unwrap();
+    assert_eq!(
+        registry.unit(original.canonical_unit).unwrap().dimension,
+        changed.unit(original.canonical_unit).unwrap().dimension
+    );
+    assert!(matches!(
+        WaterFactory::prepare(&changed, WaterRegime::Vapor),
+        Err(ProviderError::Contract(_))
+    ));
+}
+
+#[test]
+fn parameterized_stock_conditions_keep_native_roles_and_change_only_datum_configuration() {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let original = WaterFactory::prepare(&registry, WaterRegime::Vapor).unwrap();
+    let reference = evaluate(&original, [500.0, 250.0], DerivativeOrder::Second).unwrap();
+    for (axis, increment) in [("temperature", 1.0), ("pressure", 1000.0)] {
+        let mut declarations = serde_json::to_value(registry.to_builder()).unwrap();
+        let mut changed = 0;
+        for datum in declarations["reference_states"].as_array_mut().unwrap() {
+            if datum["id"] == WATER_STOCK_DATUM.to_string() {
+                let value = datum[axis]["value"].as_f64().unwrap();
+                datum[axis]["value"] = serde_json::json!(value + increment);
+                changed += 1;
+            }
+        }
+        assert_eq!(changed, 1);
+        let builder: pse_quantity::QuantityRegistryBuilder =
+            serde_json::from_value(declarations).unwrap();
+        let changed = builder.build().unwrap();
+        let factory = WaterFactory::prepare(&changed, WaterRegime::Vapor).unwrap();
+        assert_eq!(original.spec(), factory.spec());
+        assert_ne!(original.configuration_key(), factory.configuration_key());
+        let value = evaluate(&factory, [500.0, 250.0], DerivativeOrder::Second).unwrap();
+        assert_eq!(reference.values[0], value.values[0]);
+        assert_ne!(&reference.values[1..], &value.values[1..]);
+        assert_eq!(reference.jacobian, value.jacobian);
+        assert_eq!(reference.hessians, value.hessians);
+    }
+}
+
+#[test]
 fn native_batch_preserves_independent_iapws_points_mixed_refusals_and_selected_order() {
     let factory = factory(WaterRegime::Liquid);
     let mut binding = factory.create().unwrap();
-    let request = binding.prepare(ProviderRequest { outputs: vec![2, 0, 1], order: DerivativeOrder::Value,
-        demand: ProviderDemand::CompleteJets }).unwrap();
+    let request = binding
+        .prepare(ProviderRequest {
+            outputs: vec![2, 0, 1],
+            order: DerivativeOrder::Value,
+            demand: ProviderDemand::CompleteJets,
+        })
+        .unwrap();
     assert!(binding.supports_batch(&request));
-    let derivative = binding.prepare(ProviderRequest::all(binding.spec(), DerivativeOrder::First)).unwrap();
+    let derivative = binding
+        .prepare(ProviderRequest::all(binding.spec(), DerivativeOrder::First))
+        .unwrap();
     assert!(!binding.supports_batch(&derivative));
     let points = [
-        ProviderBatchPoint::values(SemanticId::from_bytes([1; 16]), vec![300.0, 996.556 / MOLAR_MASS]),
-        ProviderBatchPoint::values(SemanticId::from_bytes([2; 16]), vec![f64::from_bits(0x7ff8_0000_0000_1234), 50000.0]),
+        ProviderBatchPoint::values(
+            SemanticId::from_bytes([1; 16]),
+            vec![300.0, 996.556 / MOLAR_MASS],
+        ),
+        ProviderBatchPoint::values(
+            SemanticId::from_bytes([2; 16]),
+            vec![f64::from_bits(0x7ff8_0000_0000_1234), 50000.0],
+        ),
         ProviderBatchPoint::values(SemanticId::from_bytes([3; 16]), vec![250.0, 50000.0]),
-        ProviderBatchPoint::values(SemanticId::from_bytes([4; 16]), vec![500.0, 0.435 / MOLAR_MASS]),
+        ProviderBatchPoint::values(
+            SemanticId::from_bytes([4; 16]),
+            vec![500.0, 0.435 / MOLAR_MASS],
+        ),
         ProviderBatchPoint::values(SemanticId::from_bytes([5; 16]), vec![310.0, 56000.0]),
     ];
     let cancelled = AtomicBool::new(false);
-    let context = EvaluationContext { cancelled: &cancelled, max_result_bytes: 65536 };
+    let context = EvaluationContext {
+        cancelled: &cancelled,
+        max_result_bytes: 65536,
+    };
     let calls = BATCH_NATIVE_CALLS.with(std::cell::Cell::get);
     let results = binding.evaluate_batch(&points, &request, &context).unwrap();
     assert_eq!(BATCH_NATIVE_CALLS.with(std::cell::Cell::get), calls + 1);
-    assert_eq!(results.iter().map(|point| point.id).collect::<Vec<_>>(), points.iter().map(|point| point.id).collect::<Vec<_>>());
+    assert_eq!(
+        results.iter().map(|point| point.id).collect::<Vec<_>>(),
+        points.iter().map(|point| point.id).collect::<Vec<_>>()
+    );
     let first = results[0].result.as_ref().unwrap();
     near(first.values[1], 99_241.835_2, 0.02, 1e-9);
-    near((first.values[0] - factory.reference.s_offset) / MOLAR_MASS, 393.062_643, 2e-5, 1e-9);
+    near(
+        (first.values[0] - factory.reference.s_offset) / MOLAR_MASS,
+        393.062_643,
+        2e-5,
+        1e-9,
+    );
     assert!(results[1..4].iter().all(|point| point.result.is_err()));
     let last = results[4].result.as_ref().unwrap();
     let scalar = evaluate(&factory, [310.0, 56000.0], DerivativeOrder::Value).unwrap();
-    for (&actual, expected) in last.values.iter().zip([scalar.values[2], scalar.values[0], scalar.values[1]]) {
+    for (&actual, expected) in
+        last.values
+            .iter()
+            .zip([scalar.values[2], scalar.values[0], scalar.values[1]])
+    {
         near(actual, expected, 1e-7, 1e-12);
     }
-    let mut duplicate = points[..1].to_vec(); duplicate.push(points[0].clone());
+    let mut duplicate = points[..1].to_vec();
+    duplicate.push(points[0].clone());
     let calls = BATCH_NATIVE_CALLS.with(std::cell::Cell::get);
-    assert!(binding.evaluate_batch(&duplicate, &request, &context).is_err());
-    assert!(binding.evaluate_batch(&points[1..3], &request, &context).unwrap().iter().all(|point| point.result.is_err()));
+    assert!(
+        binding
+            .evaluate_batch(&duplicate, &request, &context)
+            .is_err()
+    );
+    assert!(
+        binding
+            .evaluate_batch(&points[1..3], &request, &context)
+            .unwrap()
+            .iter()
+            .all(|point| point.result.is_err())
+    );
     assert_eq!(BATCH_NATIVE_CALLS.with(std::cell::Cell::get), calls);
 }
 
@@ -89,19 +275,39 @@ fn batch_slot_admission_checks_every_guard_and_preserves_native_physical_policy(
     let api = COOLPROP.shared_access();
     let mut state = NativeState::new(&api).unwrap();
     let density = 996.556 / MOLAR_MASS;
-    state.update(&api, factory.keys.density_temperature, density, 300.0).unwrap();
-    let row = [state.output(&api, factory.keys.pressure).unwrap(), state.output(&api, factory.keys.h).unwrap(),
-        state.output(&api, factory.keys.s).unwrap(), state.output(&api, factory.keys.u).unwrap(),
-        f64::from(state.phase(&api).unwrap()), state.first(&api, factory.keys.pressure, factory.keys.density, factory.keys.temperature).unwrap()];
+    state
+        .update(&api, factory.keys.density_temperature, density, 300.0)
+        .unwrap();
+    let row = [
+        state.output(&api, factory.keys.pressure).unwrap(),
+        state.output(&api, factory.keys.h).unwrap(),
+        state.output(&api, factory.keys.s).unwrap(),
+        state.output(&api, factory.keys.u).unwrap(),
+        f64::from(state.phase(&api).unwrap()),
+        state
+            .first(
+                &api,
+                factory.keys.pressure,
+                factory.keys.density,
+                factory.keys.temperature,
+            )
+            .unwrap(),
+    ];
     assert!(qualified_water_row(&factory, density, &row).is_ok());
     for missing in 0..row.len() {
-        let mut partial = row; partial[missing] = f64::NAN;
+        let mut partial = row;
+        partial[missing] = f64::NAN;
         assert!(qualified_water_row(&factory, density, &partial).is_err());
     }
-    let mut unstable = row; unstable[5] = -1.0;
+    let mut unstable = row;
+    unstable[5] = -1.0;
     assert!(qualified_water_row(&factory, density, &unstable).is_err());
-    let mut inconsistent = row; inconsistent[3] += 1.0;
-    assert!(matches!(qualified_water_row(&factory, density, &inconsistent), Err(ProviderError::Terminal(_))));
+    let mut inconsistent = row;
+    inconsistent[3] += 1.0;
+    assert!(matches!(
+        qualified_water_row(&factory, density, &inconsistent),
+        Err(ProviderError::Terminal(_))
+    ));
 }
 
 #[test]
@@ -235,6 +441,98 @@ fn complete_native_jets_match_independent_centered_observations() {
                 1e-10,
                 1e-10,
             );
+        }
+    }
+}
+
+#[test]
+fn native_selected_columns_use_requested_partials_orders_and_regimes() {
+    for (regime, point) in [
+        (WaterRegime::Liquid, [300.0, 996.556 / MOLAR_MASS]),
+        (WaterRegime::Vapor, [500.0, 0.435 / MOLAR_MASS]),
+        (WaterRegime::Supercritical, [650.0, 500.0 / MOLAR_MASS]),
+    ] {
+        let factory = factory(regime);
+        for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let full = evaluate(&factory, point, order).unwrap();
+            for columns in [vec![0], vec![1], vec![1, 0]] {
+                let mut binding = factory.create().unwrap();
+                let outputs = vec![2, 0];
+                let request = binding
+                    .prepare(ProviderRequest {
+                        outputs: outputs.clone(),
+                        order,
+                        demand: ProviderDemand::SelectedColumns {
+                            columns: columns.clone(),
+                        },
+                    })
+                    .unwrap();
+                assert!(!binding.supports_batch(&request));
+                let mut buffer = ProviderBuffer::new(&request);
+                let flag = AtomicBool::new(false);
+                let selected = buffer
+                    .fill(
+                        &mut binding,
+                        &point,
+                        &request,
+                        ProviderRuntime::default(),
+                        &EvaluationContext {
+                            cancelled: &flag,
+                            max_result_bytes: 4096,
+                        },
+                    )
+                    .unwrap();
+                assert_eq!(
+                    selected.values,
+                    outputs
+                        .iter()
+                        .map(|&row| full.values[row])
+                        .collect::<Vec<_>>()
+                );
+                let mut first = Vec::new();
+                for &row in &outputs {
+                    for &column in &columns {
+                        first.push(full.jacobian[row * 2 + column]);
+                    }
+                }
+                assert_eq!(selected.jacobian, first);
+                if order == DerivativeOrder::Second {
+                    let mut second = Vec::new();
+                    for &row in &outputs {
+                        for &a in &columns {
+                            for &b in &columns {
+                                second.push(full.hessians[row * 4 + a * 2 + b]);
+                            }
+                        }
+                    }
+                    assert_eq!(selected.hessians, second);
+                } else {
+                    assert!(selected.hessians.is_empty());
+                }
+            }
+        }
+        let mut binding = factory.create().unwrap();
+        for (order, columns) in [
+            (DerivativeOrder::Value, vec![0]),
+            (DerivativeOrder::First, vec![]),
+            (DerivativeOrder::First, vec![2]),
+            (DerivativeOrder::Second, vec![0, 0]),
+        ] {
+            assert!(matches!(
+                binding.prepare(ProviderRequest {
+                    outputs: vec![0],
+                    order,
+                    demand: ProviderDemand::SelectedColumns { columns }
+                }),
+                Err(ProviderError::Contract(_))
+            ));
+        }
+        for demand in [
+            ProviderDemand::JacobianAction { directions: 1 },
+            ProviderDemand::TransposeAction { cotangents: 1 },
+            ProviderDemand::WeightedSecondAction { directions: 1 },
+        ] {
+            assert!(!factory.supports(&demand));
         }
     }
 }

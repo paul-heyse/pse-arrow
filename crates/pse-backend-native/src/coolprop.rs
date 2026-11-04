@@ -20,11 +20,11 @@ use coolprop_sys::{COOLPROP, bindings::CoolProp};
 use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
 use pse_kernels::{
     AdmittedProvider, DerivativeOrder, DerivativeSource, EvaluationContext, Port,
-    PreparedProviderRequest, Provider, ProviderBinding, ProviderError, ProviderFactory,
-    ProviderOutput, ProviderRuntime, ProviderShapes, ProviderSpec, Registration,
-    ProviderBatchPoint, ProviderBatchResults, ProviderDemand, ProviderValues,
+    PreparedProviderRequest, Provider, ProviderBatchPoint, ProviderBatchResults, ProviderBinding,
+    ProviderDemand, ProviderError, ProviderFactory, ProviderOutput, ProviderRuntime,
+    ProviderShapes, ProviderSpec, ProviderValues, Registration,
 };
-use pse_quantity::{PhysicalName, QuantityRegistry, ReferenceStateKind};
+use pse_quantity::{QuantityRegistry, ReferenceStateKind};
 use sha2::{Digest, Sha256};
 use std::{
     ffi::{CStr, c_long},
@@ -90,25 +90,92 @@ fn terminal(message: impl Into<String>) -> ProviderError {
     ProviderError::Terminal(message.into())
 }
 
+// Fixed consumed roles declared in packages/reference/physical/materials/physical.yaml.
+// Other nominal mappings need an explicitly declared native binding; neither names nor
+// equal dimensions grant this ABI's scientific interpretation. Stock conditions remain data.
+const WATER_MOLAR_BASIS: pse_quantity::BasisId =
+    pse_quantity::BasisId::from_bytes(0x04d4600b17cbfb717ec549e688ea3503_u128.to_be_bytes());
+const WATER_STOCK_DATUM: pse_quantity::ReferenceStateId =
+    pse_quantity::ReferenceStateId::from_bytes(
+        0xebfd9ee6148d4c6497d47099a39e0bfa_u128.to_be_bytes(),
+    );
+
 fn specification(
     registry: &QuantityRegistry,
     regime: WaterRegime,
 ) -> Result<ProviderSpec, ProviderError> {
     let id = pse_ids::named_id(SemanticId::from_bytes([0xc8; 16]), regime.implementation());
-    let port = |name: &str, quantity: &str| -> Result<Port, ProviderError> {
-        let Some(PhysicalName::QuantityType(quantity)) = registry.physical_name(quantity) else {
-            return Err(contract(
-                "water provider requires its named physical quantities",
-            ));
-        };
-        let unit = registry
+    // The C ABI consumes SI Kelvin, mol/m³, Pa, J/mol and J/(mol K).
+    // A named canonical unit need not have unit SI scale in an admitted registry.
+    let port = |name: &str,
+                quantity: u128,
+                nominal_kind: u128,
+                dimensions: [i32; 8],
+                molar: bool,
+                caloric: bool|
+     -> Result<Port, ProviderError> {
+        let quantity = pse_quantity::QuantityTypeId::from_bytes(quantity.to_be_bytes());
+        let nominal_kind = pse_quantity::QuantityKindId::from_bytes(nominal_kind.to_be_bytes());
+        let ty = registry
             .quantity_type(quantity)
-            .map_err(|error| contract(error.to_string()))?
-            .canonical_unit;
+            .map_err(|error| contract(error.to_string()))?;
+        let unit = registry
+            .unit(ty.canonical_unit)
+            .map_err(|error| contract(error.to_string()))?;
+        let kind = registry
+            .kind(ty.key.kind)
+            .map_err(|error| contract(error.to_string()))?;
+        let expected = dimensions
+            .into_iter()
+            .map(|exponent| pse_quantity::Ratio::new(exponent, 1))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| contract(error.to_string()))?;
+        let basis = ty
+            .key
+            .basis
+            .map(|basis| {
+                registry
+                    .basis(basis)
+                    .map_err(|error| contract(error.to_string()))
+            })
+            .transpose()?;
+        if ty.key.kind != nominal_kind
+            || ty.key.basis != molar.then_some(WATER_MOLAR_BASIS)
+            || ty.key.reference_state != caloric.then_some(WATER_STOCK_DATUM)
+            || kind.dimension.exponents().as_slice() != expected.as_slice()
+            || kind.extensive
+            || kind.category.is_some()
+            || kind.addition_kind
+                != if molar && !caloric {
+                    pse_quantity::QuantityAdditionKind::Additive
+                } else {
+                    pse_quantity::QuantityAdditionKind::OriginSensitive
+                }
+            || unit.scale_to_canonical != 1.0
+            || unit.offset_to_canonical != 0.0
+            || unit.is_affine
+            || ty.key.scale_kind != pse_quantity::ScaleKind::Point
+            || !ty.key.shape.is_empty()
+            || ty.key.subject_kind.is_some()
+            || match basis {
+                Some(basis) => {
+                    !molar
+                        || basis.kind != pse_quantity::BasisKind::Molar
+                        || basis.composition_basis.is_some()
+                        || basis.rate_basis.is_some()
+                        || basis.reference_conditions.is_some()
+                }
+                None => molar,
+            }
+        {
+            return Err(contract(format!(
+                "water provider requires its scalar SI {quantity} physical contract"
+            )));
+        }
         Ok(Port {
             id: pse_ids::named_id(id, name),
             quantity,
-            unit,
+            unit: unit.id,
         })
     };
     Ok(ProviderSpec {
@@ -118,13 +185,48 @@ fn specification(
         revision: ContentHash::parse_hex(REVISION).map_err(|error| contract(error.to_string()))?,
         data: ContentHash::parse_hex(regime.data()).map_err(|error| contract(error.to_string()))?,
         inputs: vec![
-            port("temperature", "Temperature")?,
-            port("density", "Density")?,
+            port(
+                "temperature",
+                0xc64b96975a4a59755f8711d3bf628bc9,
+                0x57a7ab92753b012231a543d3850b926c,
+                [0, 0, 0, 1, 0, 0, 0, 0],
+                false,
+                false,
+            )?,
+            port(
+                "density",
+                0xb6edcb08fc072d81a9f99b45f7f9c90a,
+                0x89a563673835109d4c3a68d4603bab31,
+                [-3, 0, 0, 0, 1, 0, 0, 0],
+                true,
+                false,
+            )?,
         ],
         outputs: vec![
-            port("pressure", "Pressure")?,
-            port("enthalpy", "MolarEnthalpy")?,
-            port("entropy", "MolarEntropy")?,
+            port(
+                "pressure",
+                0xa0fa145fd8b2ecec448c39666960debc,
+                0xf789180fbded8b11fd73e2436d33fc9e,
+                [-1, 1, -2, 0, 0, 0, 0, 0],
+                false,
+                false,
+            )?,
+            port(
+                "enthalpy",
+                0x1831d0d72dc74b299ba8ecb6d4da6f53,
+                0x99263c30741ca81f1c4c3d4b987d4085,
+                [2, 1, -2, 0, -1, 0, 0, 0],
+                true,
+                true,
+            )?,
+            port(
+                "entropy",
+                0x571c90b8909e43c0ae859554cc2e3479,
+                0xfaa6f95459144650ac414fd389e16e27,
+                [2, 1, -2, -1, -1, 0, 0, 0],
+                true,
+                true,
+            )?,
         ],
         derivatives: DerivativeOrder::Second,
         smoothness: DerivativeOrder::Second,
@@ -162,6 +264,13 @@ pub struct WaterFactory {
     configuration: ContentHash,
 }
 impl WaterFactory {
+    /// Products supplied directly by this implementation's homogeneous partial APIs.
+    pub fn supports(&self, demand: &ProviderDemand) -> bool {
+        matches!(
+            demand,
+            ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. }
+        )
+    }
     /// Explicitly load the bundled capability, authenticate it and establish its ideal-only anchor.
     /// No process-global reference-state setter is used.
     ///
@@ -173,11 +282,11 @@ impl WaterFactory {
     ) -> Result<Self, ProviderError> {
         let spec = specification(registry, regime)?;
         let stock = registry
-            .reference_states()
-            .find(|reference| reference.name == "stock")
-            .ok_or_else(|| contract("water provider requires the declared stock reference"))?;
+            .reference_state(WATER_STOCK_DATUM)
+            .map_err(|error| contract(error.to_string()))?;
         if stock.kind != ReferenceStateKind::IdealGasAtConditions
             || stock.include_enthalpy_of_formation
+            || stock.subject.is_some()
         {
             return Err(contract(
                 "water provider requires a sensible ideal-gas stock reference",
@@ -196,16 +305,21 @@ impl WaterFactory {
                 ));
             }
         }
-        let condition =
-            |value: Option<pse_quantity::ReferenceCondition>| -> Result<f64, ProviderError> {
-                registry
-                    .reference_condition(
-                        &value.ok_or_else(|| contract("stock reference condition is absent"))?,
-                    )
-                    .map_err(|error| contract(error.to_string()))
-            };
-        let temperature = condition(stock.temperature)?;
-        let pressure = condition(stock.pressure)?;
+        let condition = |value: Option<pse_quantity::ReferenceCondition>,
+                         expected: pse_quantity::QuantityTypeId|
+         -> Result<f64, ProviderError> {
+            let value = value.ok_or_else(|| contract("stock reference condition is absent"))?;
+            if value.quantity_type != expected {
+                return Err(contract(
+                    "stock condition differs from the selected nominal water role",
+                ));
+            }
+            registry
+                .reference_condition(&value)
+                .map_err(|error| contract(error.to_string()))
+        };
+        let temperature = condition(stock.temperature, spec.inputs[0].quantity)?;
+        let pressure = condition(stock.pressure, spec.outputs[0].quantity)?;
         if !temperature.is_finite()
             || temperature <= 0.0
             || !pressure.is_finite()
@@ -631,29 +745,50 @@ fn water_inputs(inputs: &[f64]) -> Result<[f64; 2], ProviderError> {
         ("molar density", *density, 1e-8, 70000.0),
     ] {
         if !value.is_finite() || value < lower || value > upper {
-            return Err(ProviderError::OutsideEnvelope { axis: axis.into(), value, lower, upper });
+            return Err(ProviderError::OutsideEnvelope {
+                axis: axis.into(),
+                value,
+                lower,
+                upper,
+            });
         }
     }
     Ok([*temperature, *density])
 }
 #[derive(Clone, Copy)]
-enum WaterField { Pressure = 0, Enthalpy = 1, Entropy = 2, InternalEnergy = 3, Mechanical = 5 }
+enum WaterField {
+    Pressure = 0,
+    Enthalpy = 1,
+    Entropy = 2,
+    InternalEnergy = 3,
+    Mechanical = 5,
+}
 /// One native scientific owner for both scalar and group phase, stability, pressure and datum policy.
 fn qualified_water_values(
-    factory: &WaterFactory, density: f64, phase: i32,
+    factory: &WaterFactory,
+    density: f64,
+    phase: i32,
     mut observe: impl FnMut(WaterField) -> Result<f64, ProviderError>,
 ) -> Result<[f64; 3], ProviderError> {
     if !factory.regime.accepts(phase) {
         return Err(ProviderError::Trial(format!(
-            "water {:?} provider refuses actual CoolProp phase {phase}", factory.regime)));
+            "water {:?} provider refuses actual CoolProp phase {phase}",
+            factory.regime
+        )));
     }
     let pressure = finite(observe(WaterField::Pressure)?)?;
     if pressure <= 0.0 || pressure > 100_000_000.0 {
-        return Err(ProviderError::OutsideEnvelope { axis: "pressure".into(), value: pressure,
-            lower: 0.0, upper: 100_000_000.0 });
+        return Err(ProviderError::OutsideEnvelope {
+            axis: "pressure".into(),
+            value: pressure,
+            lower: 0.0,
+            upper: 100_000_000.0,
+        });
     }
     if finite(observe(WaterField::Mechanical)?)? <= 0.0 {
-        return Err(ProviderError::Trial("water state lacks positive isothermal mechanical response".into()));
+        return Err(ProviderError::Trial(
+            "water state lacks positive isothermal mechanical response".into(),
+        ));
     }
     let h = finite(observe(WaterField::Enthalpy)?)? + factory.reference.h_offset;
     let s = finite(observe(WaterField::Entropy)?)? + factory.reference.s_offset;
@@ -665,47 +800,80 @@ fn qualified_water_values(
     Ok([pressure, h, s])
 }
 /// Reject every missing slot, including private physical guards, before admitting any row.
-fn qualified_water_row(factory: &WaterFactory, density: f64, row: &[f64]) -> Result<[f64; 3], ProviderError> {
+fn qualified_water_row(
+    factory: &WaterFactory,
+    density: f64,
+    row: &[f64],
+) -> Result<[f64; 3], ProviderError> {
     if row.len() != 6 || row.iter().any(|value| !value.is_finite()) {
-        return Err(ProviderError::Trial("incomplete CoolProp batch point".into()));
+        return Err(ProviderError::Trial(
+            "incomplete CoolProp batch point".into(),
+        ));
     }
     let phase = row[4];
     if phase.fract() != 0.0 || !(0.0..=8.0).contains(&phase) {
         return Err(ProviderError::Trial("invalid CoolProp batch phase".into()));
     }
-    qualified_water_values(factory, density, phase as i32, |field| Ok(row[field as usize]))
+    qualified_water_values(factory, density, phase as i32, |field| {
+        Ok(row[field as usize])
+    })
 }
 #[cfg(test)]
 thread_local! { static BATCH_NATIVE_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
 impl Provider for WaterWorker {
-    fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
-        request.order == DerivativeOrder::Value && matches!(request.demand, ProviderDemand::CompleteJets)
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        self.factory.supports(demand)
     }
-    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], request: &PreparedProviderRequest,
-        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+    fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
+        request.order == DerivativeOrder::Value
+            && matches!(request.demand, ProviderDemand::CompleteJets)
+    }
+    fn fill_batch(
+        &mut self,
+        points: &[&ProviderBatchPoint],
+        request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<ProviderBatchResults, ProviderError> {
         context.check()?;
-        if !self.supports_batch(request) { return Err(contract("water batch demand unavailable")); }
+        if !self.supports_batch(request) {
+            return Err(contract("water batch demand unavailable"));
+        }
         // Account for Rust input/mapping/output storage and the library's copied input and result matrix.
-        let bytes = points.len().checked_mul(20 * size_of::<f64>() + size_of::<usize>())
+        let bytes = points
+            .len()
+            .checked_mul(20 * size_of::<f64>() + size_of::<usize>())
             .ok_or(ProviderError::Limit("water native batch storage"))?;
-        if bytes > context.max_result_bytes { return Err(ProviderError::Limit("water native batch storage")); }
-        let mut results: ProviderBatchResults = points.iter().map(|_| Err(contract("water point not admitted"))).collect();
+        if bytes > context.max_result_bytes {
+            return Err(ProviderError::Limit("water native batch storage"));
+        }
+        let mut results: ProviderBatchResults = points
+            .iter()
+            .map(|_| Err(contract("water point not admitted")))
+            .collect();
         let mut temperatures = Vec::with_capacity(points.len());
         let mut densities = Vec::with_capacity(points.len());
         let mut ordinals = Vec::with_capacity(points.len());
         for (ordinal, point) in points.iter().enumerate() {
             match water_inputs(&point.inputs) {
                 Ok([temperature, density]) => {
-                    temperatures.push(temperature); densities.push(density); ordinals.push(ordinal);
+                    temperatures.push(temperature);
+                    densities.push(density);
+                    ordinals.push(ordinal);
                 }
                 Err(error) => results[ordinal] = Err(error),
             }
         }
-        if ordinals.is_empty() { return Ok(results); }
-        let count = c_long::try_from(ordinals.len()).map_err(|_| ProviderError::Limit("water batch point count"))?;
+        if ordinals.is_empty() {
+            return Ok(results);
+        }
+        let count = c_long::try_from(ordinals.len())
+            .map_err(|_| ProviderError::Limit("water batch point count"))?;
         let mut rows = count;
         let mut columns = 6;
-        let cells = ordinals.len().checked_mul(6).ok_or(ProviderError::Limit("water batch matrix"))?;
+        let cells = ordinals
+            .len()
+            .checked_mul(6)
+            .ok_or(ProviderError::Limit("water batch matrix"))?;
         let mut matrix = vec![f64::NAN; cells];
         let mut backend = *b"HEOS\0";
         let fractions = [1.0];
@@ -718,22 +886,46 @@ impl Provider for WaterWorker {
         BATCH_NATIVE_CALLS.with(|calls| calls.set(calls.get() + 1));
         // SAFETY: checked equal input lengths, checked owned point-major output capacity, mutable
         // backend bytes and all literals/fractions remain live. The group owns all buffers until return.
-        unsafe { api.PropsSImulti(
-            c"P,Hmolar,Smolar,Umolar,Phase,d(P)/d(Dmolar)|T".as_ptr(),
-            c"T".as_ptr(), temperatures.as_mut_ptr(), count,
-            c"Dmolar".as_ptr(), densities.as_mut_ptr(), count,
-            backend.as_mut_ptr().cast(), c"Water".as_ptr(), fractions.as_ptr(), 1,
-            matrix.as_mut_ptr(), &raw mut rows, &raw mut columns,
-        ); }
+        unsafe {
+            api.PropsSImulti(
+                c"P,Hmolar,Smolar,Umolar,Phase,d(P)/d(Dmolar)|T".as_ptr(),
+                c"T".as_ptr(),
+                temperatures.as_mut_ptr(),
+                count,
+                c"Dmolar".as_ptr(),
+                densities.as_mut_ptr(),
+                count,
+                backend.as_mut_ptr().cast(),
+                c"Water".as_ptr(),
+                fractions.as_ptr(),
+                1,
+                matrix.as_mut_ptr(),
+                &raw mut rows,
+                &raw mut columns,
+            );
+        }
         let detail = global(&api, c"errstring")?;
         if rows != count || columns != 6 {
-            return Err(terminal(format!("CoolProp batch matrix {rows}x{columns}, expected {count}x6: {detail}")));
+            return Err(terminal(format!(
+                "CoolProp batch matrix {rows}x{columns}, expected {count}x6: {detail}"
+            )));
         }
         context.check()?;
         for (native, ordinal) in ordinals.into_iter().enumerate() {
-            results[ordinal] = qualified_water_row(&self.factory, densities[native], &matrix[native * 6..native * 6 + 6])
-                .map(|values| ProviderValues { values: request.outputs.iter().map(|&ordinal| values[ordinal]).collect(),
-                    jacobian: vec![], hessians: vec![] });
+            results[ordinal] = qualified_water_row(
+                &self.factory,
+                densities[native],
+                &matrix[native * 6..native * 6 + 6],
+            )
+            .map(|values| ProviderValues {
+                values: request
+                    .outputs
+                    .iter()
+                    .map(|&ordinal| values[ordinal])
+                    .collect(),
+                jacobian: vec![],
+                hessians: vec![],
+            });
         }
         context.check()?;
         Ok(results)
@@ -747,6 +939,12 @@ impl Provider for WaterWorker {
         context: &EvaluationContext<'_>,
     ) -> Result<(), ProviderError> {
         context.check()?;
+        let columns: &[usize] = match &request.demand {
+            ProviderDemand::CompleteJets => &[0, 1],
+            ProviderDemand::SelectedColumns { columns } => columns,
+            _ => return Err(contract("water scalar product unavailable")),
+        };
+        let width = columns.len();
         let [temperature, density] = water_inputs(inputs)?;
         // One shared access guard spans the coherent update, values and jets.
         // It permits independent HEOS states, while excluding global mutation.
@@ -757,7 +955,10 @@ impl Provider for WaterWorker {
         let phase = self.state.phase(&api)?;
         let values = qualified_water_values(&self.factory, density, phase, |field| match field {
             WaterField::Pressure => self.state.output(&api, keys.pressure),
-            WaterField::Mechanical => self.state.first(&api, keys.pressure, keys.density, keys.temperature),
+            WaterField::Mechanical => {
+                self.state
+                    .first(&api, keys.pressure, keys.density, keys.temperature)
+            }
             WaterField::Enthalpy => self.state.output(&api, keys.h),
             WaterField::Entropy => self.state.output(&api, keys.s),
             WaterField::InternalEnergy => self.state.output(&api, keys.u),
@@ -767,26 +968,27 @@ impl Provider for WaterWorker {
         for (position, ordinal) in request.outputs.iter().copied().enumerate() {
             output.values[position] = values[ordinal];
             if request.order >= DerivativeOrder::First {
-                for (first, first_wrt) in wrt.iter().copied().enumerate() {
-                    output.jacobian[position * 2 + first] = self.state.first(
+                for (first, &column) in columns.iter().enumerate() {
+                    output.jacobian[position * width + first] = self.state.first(
                         &api,
                         native_outputs[ordinal],
-                        first_wrt,
-                        wrt[1 - first],
+                        wrt[column],
+                        wrt[1 - column],
                     )?;
                 }
             }
             if request.order == DerivativeOrder::Second {
-                for (first, first_wrt) in wrt.iter().copied().enumerate() {
-                    for (second, second_wrt) in wrt.iter().copied().enumerate() {
-                        output.hessians[position * 4 + first * 2 + second] = self.state.second(
-                            &api,
-                            native_outputs[ordinal],
-                            first_wrt,
-                            wrt[1 - first],
-                            second_wrt,
-                            wrt[1 - second],
-                        )?;
+                for (first, &column) in columns.iter().enumerate() {
+                    for (second, &second_column) in columns.iter().enumerate() {
+                        output.hessians[position * width * width + first * width + second] =
+                            self.state.second(
+                                &api,
+                                native_outputs[ordinal],
+                                wrt[column],
+                                wrt[1 - column],
+                                wrt[second_column],
+                                wrt[1 - second_column],
+                            )?;
                     }
                 }
             }

@@ -30,6 +30,44 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         },
         &imports,
     )?;
+    let scientific_roots = ["Request", "Response"];
+    let adapters = boundary_projection::native_adapters_scoped(
+        &graph,
+        &scientific_roots,
+        "crate::scientific_worker::generated::pb::pse::scientific_worker::v1",
+        "pse_runtime",
+        boundary_projection::AdapterVisibility::Parent,
+    )?;
+    insert(
+        &mut tree,
+        Path::new("crates/pse-runtime/src/generated/scientific-worker"),
+        "native-adapters.rs",
+        adapters.as_bytes(),
+    )?;
+    for name in scientific_roots {
+        let owner = graph
+            .definitions()
+            .get(name)
+            .context("scientific adapter owner absent")?;
+        tree.relationships.push(provenance::SourceRelationship {
+            declaration_key: name.into(),
+            declaration_kind: "native_projection_adapter".into(),
+            source_path: Some(owner.source.into()),
+            source_symbol: Some(owner.rust_type.into()),
+            source_role: "adapter_root".into(),
+            source_identity: None,
+            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(),
+            generator_symbol: "native_adapters_scoped".into(),
+            output_path: "crates/pse-runtime/src/generated/scientific-worker/native-adapters.rs"
+                .into(),
+            direction: Some(format!("{:?}", owner.direction)),
+            contract_sections: vec!["blueprint §4.7".into()],
+            basis: "declared".into(),
+        });
+    }
+    tree.files.extend(
+        provenance::sidecar(&producer("pse.scientific_worker.v1"), &tree.relationships)?.files,
+    );
     let graph = engineering_graph()?;
     let mut engineering = projection(
         root,

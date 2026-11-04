@@ -35,6 +35,90 @@ async fn steam_physical(runtime: &Runtime) -> PhysicalContext {
     physical
 }
 
+#[tokio::test]
+async fn captured_flow_over_density_requires_the_actual_nominal_molar_contracts() {
+    use pse_quantity::infer::{OpRequest, Operand, infer_with_evidence};
+    let runtime = fixture::runtime();
+    let physical = steam_physical(&runtime).await;
+    let registry = physical.quantities();
+    let quantity = |name| match registry.physical_name(name) {
+        Some(pse_quantity::PhysicalName::QuantityType(id)) => id,
+        _ => panic!("captured physical quantity {name}"),
+    };
+    let indices = pse_quantity::IndexSet::default();
+    let flow = quantity("Flow");
+    let density = quantity("Density");
+    let operands = [
+        Operand {
+            quantity_type: flow,
+            indices: &indices,
+        },
+        Operand {
+            quantity_type: density,
+            indices: &indices,
+        },
+    ];
+    let inferred = infer_with_evidence(
+        &OpRequest::Div,
+        &operands,
+        registry,
+        physical.preconditions(),
+    )
+    .unwrap();
+    assert_eq!(inferred.result, quantity("VolumeFlow"));
+    assert!(
+        infer_with_evidence(
+            &OpRequest::Div,
+            &operands,
+            registry,
+            &pse_quantity::infer::NoInvariantFacts
+        )
+        .is_err()
+    );
+
+    // Preserve dimensions and nominal flow kind while changing only its actual material basis.
+    // The selected nominal operation must refuse, without an algebraic fallback.
+    let mass = registry
+        .bases()
+        .find(|basis| basis.kind == pse_quantity::BasisKind::Mass)
+        .unwrap()
+        .id;
+    let mut wrong_flow = registry.quantity_type(flow).unwrap().clone();
+    wrong_flow.id = pse_operations::mint_id();
+    wrong_flow.name = Some("WrongBasisFlow".into());
+    wrong_flow.key.basis = Some(mass);
+    let wrong = wrong_flow.id;
+    let mut builder = registry.to_builder();
+    builder.quantity_type(wrong_flow);
+    let changed = builder.build().unwrap();
+    let wrong_operands = [
+        Operand {
+            quantity_type: wrong,
+            indices: &indices,
+        },
+        operands[1],
+    ];
+    assert!(
+        infer_with_evidence(
+            &OpRequest::Div,
+            &wrong_operands,
+            &changed,
+            physical.preconditions()
+        )
+        .is_err()
+    );
+    assert!(
+        infer_with_evidence(
+            &OpRequest::Div,
+            &[operands[1], operands[0]],
+            registry,
+            physical.preconditions()
+        )
+        .is_err()
+    );
+    runtime.close();
+}
+
 async fn steam_package(
     runtime: &Runtime,
     physical: PhysicalContext,
@@ -122,15 +206,21 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) {
         .find(|row| row.name == name && row.value.kind == DeclarationKind::Test)
         .unwrap()
         .declaration_id;
+    let mut solver = fixture::profile();
+    // The authored two-sided physical bounds require the existing bounded-root route.
+    solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+        pse_backend_native::solve::Backend::Ipopt,
+    );
     let policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),
-        solver: fixture::profile(),
+        solver,
         numerical: NumericalInputs::default(),
         limits: Limits::default(),
         derivatives: pse_backend_native::derivative_diagnostics::Policy {
             perturbation: 1e-6,
             relative_tolerance: 1e-4,
-            maximum_cells: 100,
+            // Dense diagnostic extents are n*(m+1): pump 11*12, turbines 17*18.
+            maximum_cells: 512,
         },
         maximum_fixtures: 1,
         maximum_checks: 64,
@@ -194,7 +284,7 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) {
         else {
             panic!("actual authored steam fixture did not produce a native solve");
         };
-        assert_eq!(native.backend, pse_backend_native::solve::Backend::Kinsol);
+        assert_eq!(native.backend, pse_backend_native::solve::Backend::Ipopt);
         drop(report);
         phase_pool_high_water.push(runtime.shared.observation_peak_bytes());
         retained_after_conform.push(runtime.shared.report().unwrap().pool_reserved_now);
@@ -294,7 +384,11 @@ async fn document_ingress_uses_explicit_prepared_water_without_a_second_source_p
     );
     let manifest =
         include_str!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml")
-            .replace("id_policy = \"explicit\"", "id_policy = \"named\"");
+            .replace("id_policy = \"explicit\"", "id_policy = \"named\"")
+            .replace("dependencies = []", &format!(
+                "dependencies = [{{ package_id = \"{}\", version_req = {{ operator = \"exact\", major = 1, minor = 0, patch = 0 }} }}]",
+                physical.package.as_ref().unwrap().id,
+            ));
     let pool = runtime.shared.pool();
     let token = pse_columnar::CancellationToken::new();
     let bundle = load_package_documents_owned(

@@ -283,7 +283,7 @@ const ID_0: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_71: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01ba5608f6944413be2576007852c43f_u128.to_be_bytes(),
 );
-const ID_590: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_591: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x01c7dc7208f8d535097f413ec4b56961_u128.to_be_bytes(),
 );
 const ID_72: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -379,7 +379,7 @@ const ID_354: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_77: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x0e37e9effdac41b5aa5b33150a12db09_u128.to_be_bytes(),
 );
-const ID_589: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_590: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0x0f5c21e883d24d0ca2976ced37014491_u128.to_be_bytes(),
 );
 const ID_157: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -1660,7 +1660,7 @@ const ID_575: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_338: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xe95a5fdc598947c9affc4902e6fb064c_u128.to_be_bytes(),
 );
-const ID_591: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_592: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xe95dc4e82a284f3877f924cb656b1de2_u128.to_be_bytes(),
 );
 const ID_572: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -1750,6 +1750,9 @@ const ID_55: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_56: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xf983a5ea0ba73a9e6bca75cfeb30adf9_u128.to_be_bytes(),
 );
+const ID_588: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+    0xf9ef55d0aa0e4b03b998da578ef7b41b_u128.to_be_bytes(),
+);
 const ID_127: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xfaa6f95459144650ac414fd389e16e27_u128.to_be_bytes(),
 );
@@ -1762,7 +1765,7 @@ const ID_128: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
 const ID_347: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xfce9eba497424e909c83e230359d4624_u128.to_be_bytes(),
 );
-const ID_588: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
+const ID_589: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
     0xfd5667a4cf2932a118769a62ed2d678e_u128.to_be_bytes(),
 );
 const ID_14: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes(
@@ -8595,6 +8598,34 @@ fn append_6(
     });
     b.operation(crate::QuantityOperation {
         id: crate::OperationId::from_id(ID_588),
+        opcode: crate::Opcode::Div,
+        input_kinds: vec![
+            crate::QuantityKindId::from_id(ID_112),
+            crate::QuantityKindId::from_id(ID_102),
+        ],
+        result_kind: crate::QuantityKindId::from_id(ID_119),
+        basis_rule: crate::BasisRule::Cancel,
+        reference_rule: crate::ReferenceRule::RequireEqual,
+        scale_rule: crate::QuantityScaleRule::Point,
+        shape_rule: crate::QuantityShapeRule::SameIndices,
+        basis_source: None,
+        reference_source: None,
+        scale_source: None,
+        shape_source: None,
+        subject_rule: crate::SubjectRule::RequireEqual,
+        subject_source: None,
+        result_subject_kind: None,
+        result_basis: None,
+        result_reference_state: None,
+        input_conversions: vec![],
+        precondition_invariants: vec![
+            crate::InvariantId::from_id(ID_405),
+            crate::InvariantId::from_id(ID_431),
+            crate::InvariantId::from_id(ID_426),
+        ],
+    });
+    b.operation(crate::QuantityOperation {
+        id: crate::OperationId::from_id(ID_589),
         opcode: crate::Opcode::Mul,
         input_kinds: vec![
             crate::QuantityKindId::from_id(ID_112),
@@ -8617,7 +8648,7 @@ fn append_6(
         input_conversions: vec![],
         precondition_invariants: vec![
             crate::InvariantId::from_id(ID_405),
-            crate::InvariantId::from_id(ID_589),
+            crate::InvariantId::from_id(ID_590),
         ],
     });
     b.reduction_domain(
@@ -8645,7 +8676,7 @@ fn append_6(
         crate::EntityKindId::from_id(ID_2),
     );
     b.unit_set(crate::UnitSet {
-        id: crate::UnitSetId::from_id(ID_590),
+        id: crate::UnitSetId::from_id(ID_591),
         base: [
             Some(crate::UnitId::from_id(ID_19)),
             Some(crate::UnitId::from_id(ID_32)),
@@ -8658,7 +8689,7 @@ fn append_6(
         ],
     });
     b.unit_set(crate::UnitSet {
-        id: crate::UnitSetId::from_id(ID_591),
+        id: crate::UnitSetId::from_id(ID_592),
         base: [
             Some(crate::UnitId::from_id(ID_19)),
             Some(crate::UnitId::from_id(ID_32)),
@@ -9181,7 +9212,7 @@ pub fn standard_preconditions() -> Vec<crate::PhysicalPrecondition> {
             },
         },
         crate::PhysicalPrecondition {
-            id: crate::InvariantId::from_id(ID_589),
+            id: crate::InvariantId::from_id(ID_590),
             operand_positions: vec![1u16],
             requirement: crate::PhysicalRequirement::OperandQuantityContract {
                 required: crate::QuantityTypeId::from_id(ID_163),
