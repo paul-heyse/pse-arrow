@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Native readiness policy and atomic capture inside the invoking transaction.
+//! Pure native readiness policy inside the invoking transaction.
 #![cfg(any(target_family = "wasm", test))]
 use pse_model::study::{ActionKind, PointFacts, PointPolicy, WaitReason};
 use std::collections::{BTreeMap, BTreeSet};
 use surrealdb_types::{Bytes, Decimal, SurrealValue};
-
-#[cfg(all(target_family = "wasm", not(feature = "module-write-qualification")))]
-mod capture;
 
 #[derive(Clone, Debug, SurrealValue)]
 #[surreal(crate = "::surrealdb_types")]
@@ -366,7 +363,7 @@ mod study {
 }
 
 // These exports occur only in a separately hashed qualification artifact. The
-// production packager verifies the exact readonly-policy/writable-capture pair.
+// production packager verifies the exact readonly policy export.
 #[cfg(all(target_family = "wasm", feature = "module-qualification"))]
 #[surrealism::surrealism]
 mod qualification {
@@ -414,44 +411,6 @@ mod qualification {
     fn memory_refused() -> bool {
         let mut bytes = Vec::<u8>::new();
         bytes.try_reserve_exact(96 * 1024 * 1024).is_err()
-    }
-}
-
-// Deliberately separate artifact: host SQL is the only enabled side effect.
-#[cfg(all(target_family = "wasm", feature = "module-write-qualification"))]
-#[surrealism::surrealism]
-mod write_qualification {
-    fn writes() -> Result<(), String> {
-        for key in ["first", "second"] {
-            surrealism::imports::sql::<_, surrealdb_types::Value>(format!(
-                "UPSERT ONLY type::record('g08_probe','{key}') SET value=true"
-            ))
-            .map_err(|error| error.to_string())?;
-        }
-        Ok(())
-    }
-
-    /// Two host SQL writes must roll back with the typed guest error.
-    #[surrealism(writeable)]
-    fn typed_failure() -> Result<bool, String> {
-        writes()?;
-        Err("g08 typed guest failure after two writes".into())
-    }
-
-    /// Two host SQL writes must roll back after strict guest interruption.
-    #[surrealism(writeable)]
-    fn timeout() -> Result<bool, String> {
-        writes()?;
-        loop {
-            std::hint::spin_loop();
-        }
-    }
-
-    /// Positive control establishes actual host writes before negative controls.
-    #[surrealism(writeable)]
-    fn success() -> Result<bool, String> {
-        writes()?;
-        Ok(true)
     }
 }
 

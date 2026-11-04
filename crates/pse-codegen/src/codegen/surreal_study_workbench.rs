@@ -27,10 +27,15 @@ pub(super) fn append(
     ddl.push_str(&r#"
 // One selector supplies live browsing and frozen capture; all predicates are
 // values in the original database snapshot, never caller-authored SQL.
-DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object,$after:string,$extent:int) -> array<object> {
-    IF $extent<2 OR $extent>65 OR bytes::len(<bytes>$after)>4096 OR array::sort(object::keys($filter))!=['branch','context','outcome','physical_revision','project','research_reference','source','study'] { THROW 'PSE_REFUSAL:control_request_invalid'; };
+DEFINE FUNCTION fn::pse_workbench_v1::validate_filter($filter:object) -> bool {
+    IF array::sort(object::keys($filter))!=['branch','context','outcome','physical_revision','project','research_reference','source','study'] { THROW 'PSE_REFUSAL:control_request_invalid'; };
     FOR $value IN object::values($filter) { IF $value!=NONE AND $value!=NULL AND (!type::is_string($value) OR bytes::len(<bytes>$value)<1 OR bytes::len(<bytes>$value)>4096) { THROW 'PSE_REFUSAL:control_request_invalid'; }; };
     IF $filter.outcome NOT IN [NONE,NULL] AND $filter.outcome NOT IN __OUTCOMES__ { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    RETURN true;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object,$after:string,$extent:int) -> array<object> {
+    IF $extent<2 OR $extent>65 OR bytes::len(<bytes>$after)>4096 { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    fn::pse_workbench_v1::validate_filter($filter);
     LET $problems=IF $filter.project=NONE OR $filter.project=NULL {[]} ELSE {SELECT VALUE problem FROM canonical_project_branches WHERE project=$filter.project LIMIT 65};
     IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies

@@ -10,20 +10,8 @@ version = "1.0.0"
 
 [capabilities]
 allow_scripting = false
-allow_arbitrary_queries = true
-# The pinned target parser rejects underscores in exact custom names. Fixed
-# attested calls use this coarse family grant; no caller supplies SQL or names.
-allow_functions = [
-  "array::*",
-  "bytes::*",
-  "encoding::*",
-  "math::*",
-  "object::*",
-  "record::id",
-  "time::micros",
-  "type::*",
-  "fn::*",
-]
+allow_arbitrary_queries = false
+allow_functions = []
 allow_net = []
 max_memory_bytes = 67108864
 max_execution_time = 6000

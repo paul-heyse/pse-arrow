@@ -14,10 +14,11 @@ pub(super) fn append(ddl: &mut String) {
                 &(pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS + 1).to_string(),
             ),
     );
+    ddl.push_str(include_str!("study-capture.surql"));
 }
 
-// This helper acquires one bounded native relational product. Identity, actual
-// owner, witness registration, publication and receipt are owned by typed Rust.
+// This helper acquires one bounded native relational product. The adjacent
+// authored transaction owns identity, witness, publication and exact receipt.
 const FACTS: &str = r#"
 DEFINE FUNCTION fn::pse_workbench_v1::capture_facts($rpc_expiry:int,$key:string,$filter:object,$maximum:int,$members:int) -> object {
     IF $maximum<1 OR $maximum>64 OR $members<1 OR $members>__COHORT_MEMBERS__ { RETURN {refusal:'study_workbench_narrow_selection',headers:[],members:[],protections:[]}; };

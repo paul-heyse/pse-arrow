@@ -124,6 +124,19 @@ Use commit-time conflict detection and bounded retry rather than durable exclusi
 
 Writable Surrealism is the preferred typed whole-operation prototype if its inherited-transaction failure probe passes and it removes procedural SQL/client choreography. First prove multi-write rollback after typed failure/timeout and actual completion before ownership release on the selected engine. Its current purity attestation must be explicitly amended through the decision route; network/module-KV side effects remain outside the selected transaction contract. If that probe fails, use the same atomic witness design in the existing authored transaction owner; do not keep two production implementations. This fallback selects an established mechanism for the same contract, not weaker capture semantics.
 
+**Execution decision, 2026-11-04:** select the authored-transaction realization. The
+actual production module hit its unchanged one-second epoch ceiling and left exact
+receipt settlement unresolved, including on a small capture. A separate original
+10,000-member SQL diagnostic completed and rolled back all writes; its measured
+host operation took 1,329,020 microseconds (795,978 fact construction, 510,858 member
+insertion). These are diagnostic conditions, not a throughput claim. The selected
+operation is already one fixed host query, so the guest adds no whole-operation
+policy beyond validation while imposing an incompatible ceiling. Move that query
+into the existing generated authored transaction owner; retain the original RPC
+clock, witness, protections, replay and drain contract. Remove the writable module
+export and its unused qualification prototype. Readiness remains a pure module
+policy. The production replacement and all capture controls still require testing.
+
 Discriminate concurrent future-matching inserts and selector-metadata changes from unrelated renewal/cancellation; verify either a retry or one complete protected population, lost-ACK replay and stale-owner refusal. Record actual contention/retry behavior before claiming improved throughput. H05's persisted-study claims consume implemented G08 and applicable original-owner qualification; A04 source reasoning alone does not repair DA-063.
 
 ### Stopped implementation checkpoint
@@ -147,7 +160,7 @@ policy, aliases experiment targets and refuses conflicts. Two later unnecessary 
 qualifications were removed; Clippy has not verified those final edits. Broader G02
 applications and affected policy/caloric regressions remain open.
 
-**G08 — Implemented, incomplete:** schema v4, typed writable capture, publication
+**G08 — Implemented, incomplete:** schema v4, authored atomic capture, publication
 witness and exact-request receipts replace the normal open/pending/commit client path.
 The native service now explicitly selects a cache of 100 modules and derives physical
 controller capacity as twice the cache capacity times the admitted module pool size
@@ -161,9 +174,9 @@ The broader ordinary batch with `canonical-tests,canonical-maintenance,native-se
 ran **30 tests: 25 passed, 5 failed**, invocation
 `01a1a371-761d-7719-bee5-450b1f3abade`. Controller-capacity refusals were absent;
 legacy-owner cleanup, static migration, capacity selection and selected liveness,
-receipt and input controls passed. The latest focused selector over small lost-ACK
+receipt and input controls passed. A historical focused selector over small lost-ACK
 capture and the three stack controls ran **4 tests: 1 passed, 3 failed**, invocation
-`01a1a37a-f40b-74cb-9194-2930bd5abc24`, using the optimized module. Remaining failures:
+`01a1a37a-f40b-74cb-9194-2930bd5abc24`, using the optimized module. Current discriminators:
 
 | Test / discriminator | Latest evidence and next obligation |
 | --- | --- |
@@ -171,12 +184,14 @@ capture and the three stack controls ran **4 tests: 1 passed, 3 failed**, invoca
 | `capture_opaque_public_ids_and_protection_tuple_keys_do_not_alias` | Passed on the same ordinary targeted route, including opaque identities and protection tuples. |
 | `capture_and_absent_protection_retirement_are_fenced_in_both_commit_orders` | Passed both orders after the fixture sealed the failed Study and explicitly withdrew its real Study-retention obligation. The control first proves retirement is refused while that obligation exists, and verifies successful retirement after capture drain. No retention guard was relaxed. |
 | `capture_future_member_and_selector_metadata_commit_before_capture_force_complete_retry` | Passed with the actual native fixture; the historical h2 initialization failure is no longer the current acceptance result. |
-| `capture_native_10000_members_preserves_complete_bounded_pages_and_receipt` | The actual optimized 10,000-member rerun failed on the unchanged one-second module epoch limit, uncertain capture readback and canonical connection drain. The epoch trap does not establish when Rust host SQL stopped. Phase/rollback and long-host-SQL cancellation probes are now required before choosing an optimization or the existing authored-transaction alternative. |
+| `capture_native_10000_members_preserves_complete_bounded_pages_and_receipt` | Passed through the authored transaction, preserving all 10,000 members, bounded pages and exact receipt, with native fixture/capture/settlement complete. The preceding guest implementation failed its unchanged one-second epoch limit and was removed; that failure did not establish host-SQL completion. |
 
-The preserved optimization keeps all captured arrays and bulk inserts inside one fixed
-host-SQL transaction block; only the typed request and bounded receipt/refusal cross
-the WASM boundary. The optimized small lost-ACK/exact-replay control passed. This does
-not establish that the large capture now meets its unchanged clock/resource contract.
+One generated authored function now owns validation, witness registration, captured
+arrays, bulk inserts, protections and receipt inside the existing guarded transaction.
+The client binds data and consumes only the receipt/refusal. There is no guest capture
+export or production fallback switch. Both production and qualification readiness
+artifacts deny SQL/function/network/KV effects and expose readonly policy exports.
+The unused writable qualification feature, artifact declaration and probe were deleted.
 Owner registration before the held transaction's BEGIN corrected an independent
 race-test snapshot error and its stalled-capture control passed.
 
@@ -190,14 +205,20 @@ fixture correction restores two original count-seal events; that final overlay n
 a rerun. Obsolete Busy refusal/classifier/retry remnants still require retirement once
 replacement controls pass. G08 and DA-063 are not closed.
 
-The latest ordinary targeted selection completed 15 controls: 14 passed and the
-10,000-member control failed, against zero failures, using `scripts/pse test pse-operations
---lib --features canonical-tests,canonical-maintenance,native-service`. It includes seven
-clock/settlement layout and lifecycle controls, the capture discriminators above, lost-ACK
-replay and two shared/sealed append regressions. No stack overflow recurred. Original runner
-capture and outer native settlement completed; the large case reported its canonical
-connection-drain failure. One compiler Send proof-depth warning remains under correction.
-This is targeted progress, not complete G08, migration or throughput qualification.
+**Tested, targeted on main, 2026-11-04:** `scripts/pse test pse-operations --lib
+--features canonical-tests,canonical-maintenance,native-service` selected all
+`atomic_capture::` controls, seven `within_clock_`/`settlement_scope_` controls,
+`capture_all_unavailable_members_retain_the_named_parent_summary`, and the two
+shared/sealed lost-ACK append regressions: **22 passed, zero failures or build
+warnings**, configured unbounded/cache-off with consuming-closure Arrow validation.
+The actual native fixture, capture and settlement completed. This includes the real
+10,000-member production capture and separate complete-SQL rollback/phase diagnostic;
+the latter is not a throughput qualification. Shared clock type erasure removes the
+compiler Send proof-depth warning without a recursion-limit increase or suppression.
+Fresh module preparation succeeded; `scripts/pse test pse-host --lib -E
+'test(study_module_)'` passed 11 artifact/admission controls with the same zero
+failure/warning baseline. Full generation passed all 14 targets. Migration rerun,
+obsolete Busy retirement and complete G08/DA-063 acceptance remain open.
 
 Clippy, hygiene, final generated comparison and further regressions/campaigns were
 explicitly skipped; the

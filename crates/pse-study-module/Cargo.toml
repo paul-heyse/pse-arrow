@@ -18,7 +18,6 @@ module-qualification = []
 # Separate finite window for observing global saturation across cold runtime compilation.
 module-qualification-long-hold = ["module-qualification"]
 # Isolated SQL transaction feasibility artifact; never production activation.
-module-write-qualification = []
 
 [lib]
 doctest = false

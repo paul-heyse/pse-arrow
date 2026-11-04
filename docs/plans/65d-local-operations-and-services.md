@@ -162,7 +162,7 @@ This table owns D-package progress, including the delivered D05 slice; 65h owns 
 
 | ID | Status | Prerequisite | Delivered behavior, migration and discriminating acceptance |
 | --- | --- | --- | --- |
-| D01 | planned | Completed Plan64 baseline; 65a effects/contract identity and 65b ingress semantics | Reconcile actual operation/transport populations and original identity/effect contracts. Select the shared native handler and authentication interfaces; remove no scientific guard as mechanical dispatch. Tests compare direct/client typed outcomes and refuse untrusted peer/context before native work. |
+| D01 | planned | Current usable native baseline; 65a effects/contract identity and 65b ingress semantics | Reconcile actual operation/transport populations and original identity/effect contracts. Select the shared native handler and authentication interfaces; remove no scientific guard as mechanical dispatch. Tests compare direct/client typed outcomes and refuse untrusted peer/context before native work. |
 | D02 | planned | D01 usable custody/lifecycle contract | Decide hosting with an exact released composition spike: custom Hyper versus available library host/Tonic adapter. Exercise original-image/reconnect refusal, preface/header timeout, shutdown with active native work and inner connection failure. Select library hosting only if it expresses every consumed obligation and removes worthwhile glue; otherwise use the selected released Hyper adapter. Record the chosen version/features and delete the losing production route. |
 | D03 | planned | D01; narrow 65a generated registrations; D02 selected host | Integrate typed effects, route policy, early protocol-aware rejection, binary ingress, whole-limit profiles and optional authorized health/reflection. Tests attack duplicate/replaced routes, unauthorized symbol disclosure, unsupported codec and no implicit preparation. Delete hand-maintained route/effect/health protocol mirrors. |
 | D04 | planned | D03; narrow 65f result and 65c identity contracts; 65i/65j authority design | Migrate submission/status/cancel/progress/readback to original identity and explicit terminal/partial outcomes. Decode observations without reconstructing native permission or settlement. Lost ACK never auto-replays effects. Test foreign/historical verdicts, cancelled observer with continuing work, reconnect, duplicate changed-request conflict and protected read after disconnect. Remove superseded polling/status/error translations. |
@@ -204,6 +204,24 @@ retained Arrow force-validation for the consuming closure. These controls exerci
 nested task-result and aggregation mechanism; they are not actual socket/client journeys.
 This slice contributes to D01/D05; it does not establish authentication, full streaming,
 multi-session worker behavior or D07 assembled acceptance.
+
+### Shared native request composition — 2026-11-04
+
+The native deadline boundary now returns futures-util 0.3.34
+[`BoxFuture`](https://docs.rs/futures-util/0.3.34/futures_util/future/type.BoxFuture.html):
+one pinned, type-erased `Send` future. This checks transferability once and prevents
+deeply nested request/settlement types from overflowing compiler trait evaluation.
+Tokio still owns timeout polling and task-local destruction; enclosing minimum
+selection remains lazy. The settlement wrapper boxes its child before constructing
+the async task-local scope, removing duplicated large inline child state.
+
+Seven targeted `within_clock_`/`settlement_scope_` controls passed on main with zero
+failures/build warnings, including ready/cancel/unpolled destruction, parent-clock
+selection, expired-clock ready priority and large-child layout. The subsequent
+22-control actual capture/append selection also passed; [64g](64g-analyses-studies-and-applications.md)
+owns that acceptance scope. No compiler recursion limit, warning suppression or
+manual `Send` implementation was added. General operation scopes keep their existing
+inline child and local-future contract. This is a D05 prerequisite, not D completion.
 
 ## Physical realization and alternatives not selected
 

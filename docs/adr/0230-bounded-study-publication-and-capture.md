@@ -103,6 +103,15 @@ selected. Production artifact/capability attestation must reflect the exact admi
 existing pure export cannot be relabelled writable. If the probe fails, the existing authored
 transaction owner implements the same contract. Only one production capture path is retained.
 
+**Execution selection, 2026-11-04:** use that authored transaction owner. The selected
+one-second module epoch interrupted actual captures and left receipt settlement
+unresolved. The exact 10,000-member fixed SQL operation completed and rolled back
+under the native transaction diagnostic, but took 1.329 seconds. Remove the guest
+capture export rather than extending its ceiling or retaining a fallback switch.
+Keep the same atomic witness/protection/receipt operation and original native
+request clock. The module's remaining readiness policy is pure; its production
+artifact denies SQL, network and module-KV effects. Plan64g owns replacement testing.
+
 The older ungated probe failed and is not acceptance of this replacement. Plan64g G08 owns
 the new exact-engine controls, writer migration and acceptance; this amendment neither changes
 formal ADR status nor retroactively qualifies historical runs. The remaining historical gate

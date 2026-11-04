@@ -43,7 +43,7 @@ mod atomic_capture {
         let owner = store.registered_file_owner().await.unwrap();
         let transaction = held(store).await;
         let request = Bytes::from(serde_json::to_vec(&(1_u8, filter, maximum, members)).unwrap());
-        transaction.query("LET $reply=mod::pse::study_capture::capture({expiry:time::micros()+30000000,key:$key,owner:$owner,request:$request,filter:$filter,maximum:$maximum,members:$members}); IF $reply.refusal!=NONE { THROW 'PSE_REFUSAL:'+$reply.refusal; }; RETURN $reply.receipt;")
+        transaction.query("LET $reply=fn::pse_workbench_v1::capture({expiry:time::micros()+30000000,key:$key,owner:$owner,request:$request,filter:$filter,maximum:$maximum,members:$members}); IF $reply.refusal!=NONE { THROW 'PSE_REFUSAL:'+$reply.refusal; }; RETURN $reply.receipt;")
             .bind(("key",key.to_owned())).bind(("owner",owner)).bind(("request",request))
             .bind(("filter",serde_json::to_value(filter).unwrap())).bind(("maximum",maximum)).bind(("members",members))
             .await.unwrap().check().unwrap();
@@ -300,13 +300,17 @@ mod atomic_capture {
     async fn capture_rejects_caller_sql_or_function_fields_and_keeps_selector_strings_as_data() {
         let (store, _, revision) = fixture().await;
         create(&store, &revision, "input-control-study").await;
-        let mut response=bounded_query(store.db.query("RETURN mod::pse::study_capture::capture({expiry:time::micros()+30000000,key:'unissued-input-control',owner:'unissued',request:$request,maximum:1,members:1,filter:{study:NONE,project:NONE,branch:NONE,source:NONE,physical_revision:NONE,context:NONE,outcome:NONE,research_reference:NONE,caller_sql:'DELETE canonical_studies',caller_function:'fn::pse_execution_v1::cancel'}});").bind(("request",Bytes::from(vec![1])))).await.unwrap();
-        let reply = response.take::<Option<Object>>(0).unwrap().unwrap();
-        assert_eq!(
-            reply.get("refusal"),
-            Some(&Value::String("control_request_invalid".into()))
+        let refused=bounded_query(store.db.query("RETURN fn::pse_workbench_v1::capture({expiry:time::micros()+30000000,key:'unissued-input-control',owner:'unissued',request:$request,maximum:1,members:1,filter:{study:NONE,project:NONE,branch:NONE,source:NONE,physical_revision:NONE,context:NONE,outcome:NONE,research_reference:NONE,caller_sql:'DELETE canonical_studies',caller_function:'fn::pse_execution_v1::cancel'}});").bind(("request",Bytes::from(vec![1])))).await.unwrap_err();
+        assert!(
+            matches!(
+                refused,
+                CanonicalError::Refused {
+                    code: crate::canonical::RefusalCode::ControlRequestInvalid,
+                    ..
+                }
+            ),
+            "unexpected refusal: {refused}"
         );
-        drop(response);
         let filter = StudyWorkbenchFilter {
             study: Some("'; DELETE canonical_studies; fn::pse_execution_v1::cancel()".into()),
             ..Default::default()
@@ -348,6 +352,48 @@ mod atomic_capture {
                 .await
                 .unwrap();
             fail(&store, &claim).await;
+            // A Study retains its member runs until its actual terminal summary
+            // has been sealed and that Study obligation is explicitly withdrawn.
+            let summary = store
+                .canonical_study_summary("protected-study")
+                .await
+                .unwrap()
+                .unwrap();
+            let parent = store
+                .begin_study_finalization(&summary, "summary", Duration::from_secs(60))
+                .await
+                .unwrap()
+                .unwrap();
+            let closed = store
+                .close_result_ingestion(&parent, "protected-summary-close")
+                .await
+                .unwrap();
+            let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+            // SAFETY: this fixture's sole member has the admitted failed outcome
+            // from fail(), and the summary records no successful scientific use.
+            unsafe {
+                store
+                    .seal_study_summary(
+                        "protected-study",
+                        &manifest,
+                        "protected-summary-seal",
+                        TerminalClass::Failed,
+                        b"failed fixture",
+                    )
+                    .await
+            }
+            .unwrap();
+            assert!(matches!(
+                store.forget_run_results(claim.fence.run()).await,
+                Err(CanonicalError::Refused {
+                    code: crate::canonical::RefusalCode::RunResultsAreRetainedByAStudy,
+                    ..
+                })
+            ));
+            store.forget_study_results("protected-study").await.unwrap();
+            // Both held transactions start after owner admission; only the
+            // capture/retirement commit order supplies the discriminating race.
+            store.registered_file_owner().await.unwrap();
             let retirement = held(&store).await;
             retirement
                 .query("RETURN fn::pse_retention_v1::forget_run(time::micros()+30000000,$run);")
@@ -383,6 +429,7 @@ mod atomic_capture {
                 ));
                 drop(selected);
                 store.result_read_drain.drain().await.unwrap();
+                store.forget_run_results(claim.fence.run()).await.unwrap();
             } else {
                 retirement.commit().await.unwrap();
                 conflict(captured.commit().await.unwrap_err());
@@ -446,6 +493,165 @@ mod atomic_capture {
                 .await,
             Err(CanonicalError::OperationReused)
         ));
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn capture_native_10000_phase_profile_rolls_back_complete_host_sql() {
+        let (store, _, revision) = fixture().await;
+        let points = (0..10_000)
+            .map(|key| occurrence(&revision, key, vec![]))
+            .collect::<Vec<_>>();
+        store
+            .create_study(
+                "profile-study",
+                &request(&revision, "profile-parent"),
+                &[],
+                &points,
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let filter = StudyWorkbenchFilter {
+            study: Some("profile-study".into()),
+            ..Default::default()
+        };
+        let owner = store.registered_file_owner().await.unwrap();
+        let mut before = bounded_query(store.db.query(
+            "RETURN (SELECT generation FROM ONLY type::record('canonical_guards','study-publication')).generation;"
+        )).await.unwrap();
+        let before = before.take::<Value>(0).unwrap();
+
+        // Instrument the chosen transaction's exact SQL body, execute its real
+        // schema/index writes, then cancel. This diagnostic is never a second
+        // production path, and the phase measurements do not qualify throughput.
+        let source = include_str!("../../pse-codegen/src/codegen/study-capture.surql");
+        let mut sql = source
+            .strip_prefix(
+                "DEFINE FUNCTION fn::pse_workbench_v1::capture($capture:object) -> object ",
+            )
+            .unwrap()
+            .trim_end()
+            .strip_suffix(" PERMISSIONS NONE;")
+            .unwrap()
+            .to_owned();
+        fn mark_before(sql: &mut String, anchor: &str, marker: &str) {
+            assert_eq!(
+                sql.matches(anchor).count(),
+                1,
+                "capture phase anchor changed"
+            );
+            *sql = sql.replacen(
+                anchor,
+                &format!("LET ${marker}=time::micros();\n{anchor}"),
+                1,
+            );
+        }
+        mark_before(&mut sql, "    LET $old=", "profile_started");
+        mark_before(&mut sql, "    LET $facts=", "profile_before_facts");
+        mark_before(
+            &mut sql,
+            "    IF $facts.refusal!=NONE",
+            "profile_after_facts",
+        );
+        mark_before(
+            &mut sql,
+            "    IF array::len($facts.members)!=0",
+            "profile_after_headers",
+        );
+        mark_before(
+            &mut sql,
+            "    IF array::len($facts.protections)!=0",
+            "profile_after_members",
+        );
+        mark_before(&mut sql, "    LET $receipt=", "profile_after_protections");
+        let result = "RETURN {receipt:$saved,refusal:NONE};";
+        assert_eq!(sql.matches(result).count(), 1);
+        sql = sql.replacen(result, "RETURN {receipt:$saved,refusal:NONE,profile:{preflight_us:<decimal>($profile_before_facts-$profile_started),facts_us:<decimal>($profile_after_facts-$profile_before_facts),headers_us:<decimal>($profile_after_headers-$profile_after_facts),members_us:<decimal>($profile_after_members-$profile_after_headers),protections_us:<decimal>($profile_after_protections-$profile_after_members),receipt_us:<decimal>(time::micros()-$profile_after_protections),total_us:<decimal>(time::micros()-$profile_started)}};", 1);
+        let sql = format!(
+            "LET $capture={{expiry:time::micros()+30000000,key:$key,owner:$owner,request:$request,filter:$filter,maximum:1,members:10000}}; RETURN {sql};"
+        );
+        let transaction = held(&store).await;
+        let started = std::time::Instant::now();
+        let response = transaction
+            .query(sql)
+            .bind(("key", "profile-cut"))
+            .bind(("owner", owner))
+            .bind((
+                "request",
+                Bytes::from(serde_json::to_vec(&(1_u8, &filter, 1_usize, 10_000_usize)).unwrap()),
+            ))
+            .bind(("filter", serde_json::to_value(&filter).unwrap()))
+            .await;
+        eprintln!(
+            "G08 10000-member direct-host-SQL rollback surrogate: caller_elapsed={:?}, error={:?}",
+            started.elapsed(),
+            response.as_ref().err()
+        );
+        let mut response = response.unwrap().check().unwrap();
+        let slot = response.num_statements() - 1;
+        let mut reply = response.take::<Option<Object>>(slot).unwrap().unwrap();
+        assert!(matches!(
+            codec::required(&mut reply, "refusal").unwrap(),
+            Value::None | Value::Null
+        ));
+        let Value::Object(mut receipt) = codec::required(&mut reply, "receipt").unwrap() else {
+            panic!("complete diagnostic capture receipt required");
+        };
+        assert_eq!(
+            codec::decode_uint(codec::required(&mut receipt, "header_count").unwrap()).unwrap(),
+            1
+        );
+        assert_eq!(
+            codec::decode_uint(codec::required(&mut receipt, "member_count").unwrap()).unwrap(),
+            10_000
+        );
+        let Value::Object(mut profile) = codec::required(&mut reply, "profile").unwrap() else {
+            panic!("bounded phase timings required");
+        };
+        eprintln!("G08 10000-member direct-host-SQL phases (microseconds): {profile:?}");
+        let total = codec::decode_uint(codec::required(&mut profile, "total_us").unwrap()).unwrap();
+        assert!(
+            total > 0,
+            "the complete 10000-member operation must have an observed duration"
+        );
+        for phase in [
+            "preflight_us",
+            "facts_us",
+            "headers_us",
+            "members_us",
+            "protections_us",
+            "receipt_us",
+        ] {
+            let elapsed =
+                codec::decode_uint(codec::required(&mut profile, phase).unwrap()).unwrap();
+            assert!(
+                elapsed <= total,
+                "phase exceeds complete measured host operation"
+            );
+        }
+        assert!(reply.is_empty() && profile.is_empty());
+        let mut installed = transaction.query("RETURN {headers:<decimal>array::len((SELECT key FROM canonical_study_capture_headers WHERE capture='profile-cut')),members:<decimal>array::len((SELECT key FROM canonical_study_capture_members WHERE capture='profile-cut')),protections:<decimal>array::len((SELECT key FROM canonical_study_capture_protections WHERE capture='profile-cut'))};")
+            .await.unwrap().check().unwrap();
+        let mut installed = installed.take::<Option<Object>>(0).unwrap().unwrap();
+        for (kind, expected) in [("headers", 1), ("members", 10_000), ("protections", 0)] {
+            assert_eq!(
+                codec::decode_uint(codec::required(&mut installed, kind).unwrap()).unwrap(),
+                expected
+            );
+        }
+        transaction.cancel().await.unwrap();
+        let mut after = bounded_query(store.db.query("RETURN (SELECT generation FROM ONLY type::record('canonical_guards','study-publication')).generation; SELECT * FROM ONLY type::record('canonical_study_captures','profile-cut'); SELECT key FROM canonical_study_capture_headers WHERE capture='profile-cut'; SELECT key FROM canonical_study_capture_members WHERE capture='profile-cut'; SELECT key FROM canonical_study_capture_protections WHERE capture='profile-cut';"))
+            .await.unwrap();
+        assert_eq!(
+            after.take::<Value>(0).unwrap(),
+            before,
+            "cancel restores the publication witness"
+        );
+        assert!(after.take::<Option<Object>>(1).unwrap().is_none());
+        for slot in 2..5 {
+            assert!(after.take::<Vec<Object>>(slot).unwrap().is_empty());
+        }
         store.remove_isolated_fixture().await.unwrap();
     }
 

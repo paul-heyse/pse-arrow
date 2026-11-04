@@ -563,7 +563,7 @@ fn workbench_script(
     let _ = filter;
     if frozen {
         return GuardedScript::new(Envelope::DeadlineOnly).returning(
-            "LET $capture_reply=mod::pse::study_capture::capture({expiry:$pse_rpc_expires_at,key:$capture,owner:$owner,request:$request,filter:{study:$study,project:$project,branch:$branch,source:$source,physical_revision:$physical_revision,context:$context,outcome:$outcome,research_reference:$research_reference},maximum:$maximum,members:$members}); IF $capture_reply.refusal!=NONE { THROW 'PSE_REFUSAL:'+$capture_reply.refusal; };",
+            "LET $capture_reply=fn::pse_workbench_v1::capture({expiry:$pse_rpc_expires_at,key:$capture,owner:$owner,request:$request,filter:{study:$study,project:$project,branch:$branch,source:$source,physical_revision:$physical_revision,context:$context,outcome:$outcome,research_reference:$research_reference},maximum:$maximum,members:$members}); IF $capture_reply.refusal!=NONE { THROW 'PSE_REFUSAL:'+$capture_reply.refusal; };",
             "$capture_reply.receipt",
         );
     }
@@ -773,7 +773,7 @@ mod tests {
                 "native workbench script must parse: {sql}"
             );
             let expression = if frozen {
-                "mod::pse::study_capture::capture"
+                "fn::pse_workbench_v1::capture"
             } else {
                 "fn::pse_workbench_v1::browse"
             };

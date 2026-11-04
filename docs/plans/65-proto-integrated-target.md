@@ -370,8 +370,18 @@ Main now publishes that graph through one shared output/configuration in `3865ba
 integrates the independently reviewed native membership prerequisite in `f3e298eea`.
 [65e](65e-scientific-portability-and-execution.md#native-membership-prerequisite-integration)
 owns its targeted evidence and limits. The prerequisite checkout was removed after exact
-content reconciliation; the separate Study lifecycle checkout remains active for its
-generated-client/keeper integration. Integration and final verification remain on main.
+content reconciliation. Three new isolated packages are active: Study lifecycle and
+keeper integration, actual physical-context scientific worker delivery, and the
+library-owned pre-growth decoder prerequisite. Their required changes must be reviewed
+and integrated on main before their quiescent checkouts retire.
+
+Main `c9cfe6a8d` bounds shared native clock/settlement composition. The current
+[G08 checkpoint](64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
+selects and tests the existing authored-transaction alternative after the writable
+module failed its fixed clock. All 22 selected capture/append/lifecycle controls now
+pass, including the actual 10,000-member capture. Pure module artifact/admission
+controls pass 11/11; full generation publishes all 14 targets. These scoped results
+do not close migration, complete G08 or either plan's assembled acceptance.
 
 Continue with actual canonical/private receiving integration and original workspace
 admission/restoration before activating the protobuf Recipe. A05/E02/E03,

@@ -54,7 +54,7 @@ impl ModuleDeclaration {
             toml::from_str(include_str!("../../pse-study-module/surrealism.toml"))
                 .map_err(invalid)?;
         if capabilities.remove("allow_scripting") != Some(toml::Value::Boolean(false))
-            || capabilities.remove("allow_arbitrary_queries") != Some(toml::Value::Boolean(true))
+            || capabilities.remove("allow_arbitrary_queries") != Some(toml::Value::Boolean(false))
             || capabilities.remove("allow_functions")
                 != declared
                     .get("capabilities")
@@ -63,7 +63,7 @@ impl ModuleDeclaration {
             || capabilities.remove("allow_net") != Some(toml::Value::Array(Vec::new()))
         {
             return Err(invalid(
-                "module SQL grants or external-attachment denial differ",
+                "module pure policy grants or external-attachment denial differ",
             ));
         }
         let time = capabilities
@@ -388,7 +388,7 @@ impl StudyModuleReceipt {
 /// Exact installed catalogue proof shared by ordinary opening and native migration.
 /// Bind `$bucket` and `$backend` from the immutable validated module receipt.
 pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse');";
-pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::sort($m[0].exports.name)=['study::readiness','study_capture::capture'] AND array::len($m[0].exports.filter(|$export|$export.name='study::readiness' AND !$export.writeable))=1 AND array::len($m[0].exports.filter(|$export|$export.name='study_capture::capture' AND $export.writeable))=1";
+pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::sort($m[0].exports.name)=['study::readiness'] AND array::len($m[0].exports.filter(|$export|$export.writeable))=0";
 pub(crate) fn capability_validation_predicate() -> String {
     format!(
         "{CATALOG_VALIDATION_PREDICATE} AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start"
@@ -489,7 +489,7 @@ impl CanonicalStore {
         let installed = UnframedResult::<surrealdb_types::Value>::returned().take(&mut response)?;
         Ok(
             serde_json::json!({"selected": receipt, "installed": installed,
-            "attestation": "readonly study::readiness and exact transactional study_capture::capture exports, immutable bucket and pure preparation/claim capability probes passed",
+            "attestation": "pure readonly study::readiness export, immutable bucket and pure preparation/claim capability probes passed",
             "custom_function_grant": "fn::* is required by the pinned target parser; the attested capture export uses fixed function names and bound values, with no caller SQL or function-name input",
             "scope": "catalogue and pure synthetic policy invocation; no scientific execution or installation; local deadline/memory/controller-pool limits remain in force"}),
         )
