@@ -154,7 +154,7 @@ deletion of replaced paths, with all required qualification reported separately.
 
 ### Initial native evidence delivery — 2026-11-04
 
-**Implemented in source, not yet Tested:** `execute::ReportObservation` provides independently
+**Implemented:** `execute::ReportObservation` provides independently
 decodable version, original invocation/action/outcome, inventory association, captured count,
 capture completeness and diagnostic facts. It contains no native `GroupObservation` or
 `TerminalResult` capability. Its `validate_against` operation checks supported interpretation
@@ -167,10 +167,15 @@ match the referenced digest. Inventory association and failed-test rerun reuse t
 their duplicate private address/version/action headers were removed. Native `Report` remains
 serialize-only, and this change does not issue pass, readiness or settlement capabilities.
 
-Independent recorded-fact and mismatched interpretation/identity/action/outcome/capture controls
-were added. Native host preparation compiled the changed library successfully, but the selected
-tests did not start: foreground ownership refused a dedicated prior scope as its anchor
-(exit 125). This establishes source compilation, not a test pass. Working A/B observation
+**Tested, narrow native scope:** four `pse-host --lib` controls passed against the zero-failure
+baseline: `recorded_report_facts_are_decodable_without_native_verdict_construction`,
+`retained_report_facts_require_original_identity_interpretation_and_capture`,
+`original_report_requires_private_complete_unchanged_bytes_and_waited_status`, and
+`authenticated_incomplete_original_report_stays_incomplete_and_changed_bytes_refuse`.
+The native source-built test route reconciled four selected/completed tests, zero failures and
+complete original capture and settlement. Earlier launch refusals executed no tests; the passing
+route kept its actual user-systemd scope anchor alive through child settlement. This establishes
+the report-fact slice, not complete developer workflow qualification. Working A/B observation
 projection, independent descriptor reading, explicit retained-dependency outcomes and complete
 J01–J05 population integration remain required. This checkpoint closes no package.
 
