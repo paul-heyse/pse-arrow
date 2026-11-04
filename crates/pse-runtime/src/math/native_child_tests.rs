@@ -3,18 +3,6 @@
 use super::*;
 
 #[test]
-fn private_native_source_graph_uses_actual_typed_context_and_platform_data() {
-    let graph = projection_graph().unwrap();
-    for name in ["NativeRootInput", "NativeRootHello", "NativeRootRequest", "NativeRootResponse",
-        "ModelBoundaryDiagnostic", "ModelSourceLocation", "ApplicabilityObservation", "CapturedBuildInfo",
-        "FileObservation", "MathBodySpec", "ImplicitUnknown", "ImplicitOptions", "NativePathBuf", "PlatformPathBytes"] {
-        assert!(graph.definitions().contains_key(name), "actual native dependency absent: {name}");
-    }
-    assert_eq!(graph.definitions()["NativeRootInput"].version, 2);
-    assert!(graph.definitions()["NativePathBuf"].checked_record);
-}
-
-#[test]
 fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     let (mut reader, mut writer) = UnixStream::pair().unwrap();
     writer
@@ -56,7 +44,7 @@ fn private_native_outgoing_frame_budget_differs_from_serialization_invariant() {
         pse_model::diagnostic::BoundaryClass::ResourceLimit
     );
     struct Broken;
-    impl Serialize for Broken {
+    impl serde::Serialize for Broken {
         fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
             Err(serde::ser::Error::custom("admitted serializer failed"))
         }

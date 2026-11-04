@@ -11,6 +11,7 @@ mod joined_pool;
 pub mod modeling;
 #[cfg(all(unix, feature = "solver-kinsol"))]
 pub mod native_child;
+pub mod native_root_protocol;
 pub(crate) mod numerics;
 pub mod portable;
 pub mod prediction;

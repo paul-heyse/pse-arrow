@@ -399,9 +399,16 @@ constructors retain scientific admission. Original typed codec/adoption errors m
 the private-channel Internal classification with their field/rule/cause details and custody.
 
 **Tested, targeted on 2026-11-04:** scoped, direnv-activated unbounded cache-off
-`scripts/pse test pse-contract pse-runtime --lib` completed the two selected pure-path and
-full native source-graph controls, zero failures/pending/build warnings, with original capture/
-settlement complete. The Linux path control preserves non-UTF-8/NUL bytes and refuses native
+`scripts/pse test pse-contract pse-runtime --lib` discovered and completed the pure-path
+control, zero failures/pending/build warnings, with original capture/settlement complete.
+The initially expected graph control was excluded because its implementation module is
+solver-gated. Actual passive declarations and graph now live in the ungated
+`math::native_root_protocol` owner; the gated implementation consumes that same owner and
+retains its contextual constructors. The corrected default-feature, direnv-activated unbounded
+cache-off `scripts/pse test pse-runtime --lib` source-graph selection separately completed
+1/1 with zero failures/pending/build warnings and complete original capture/settlement.
+This qualifies the graph's default-feature generation closure, not native solve execution.
+The Linux path control preserves non-UTF-8/NUL bytes and refuses native
 adoption of inspected Windows-wide data; Windows execution is not qualified. Generated
 publication, replacing the live JSON frame helpers, actual closed-root execution and refusal/
 cancellation/drain controls remain required before this envelope slice or E03 can close.
