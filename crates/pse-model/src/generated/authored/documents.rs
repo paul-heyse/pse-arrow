@@ -55,138 +55,221 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredDocumentsRow 
                 |graph| Ok(
                     pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            pse_contract::boundary_projection::Field::of::<
-                                pse_ids::SemanticId,
-                            >(
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
                                     graph,
                                     "document_id",
                                     1u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"`named_id(package_id, path)` (blueprint §11).\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"key\"},\"name\":\"document_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::SemanticId,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "document_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "1".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "`named_id(package_id, path)` (blueprint §11).".into(),
-                                        ),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.role".into(), "key".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::identities::PackageId,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"`named_id(package_id, path)` (blueprint §11).\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"key\"},\"name\":\"document_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "`named_id(package_id, path)` (blueprint §11).".into(),
+                                            ),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.role".into(), "key".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::identities::PackageId,
+                                >(
                                     graph,
                                     "package_id",
                                     2u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The owning package.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"package_id\",\"pse.domain.fk.relation\":\"authored.packages\",\"pse.domain.identity\":\"package\",\"pse.domain.role\":\"reference\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"authored.packages\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"package_id\\\"}],\\\"null_policy\\\":\\\"required\\\"}\"},\"name\":\"package_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "PackageId".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "package_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "2".into()),
-                                        ("pse.domain.doc".into(), "The owning package.".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.fk.column".into(), "package_id".into()),
-                                        (
-                                            "pse.domain.fk.relation".into(),
-                                            "authored.packages".into(),
-                                        ),
-                                        ("pse.domain.identity".into(), "package".into()),
-                                        ("pse.domain.role".into(), "reference".into()),
-                                        (
-                                            "pse.semantic.reference".into(),
-                                            "{\"relation\":\"authored.packages\",\"columns\":[{\"source\":[],\"target\":\"package_id\"}],\"null_policy\":\"required\"}"
-                                                .into(),
-                                        ),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                String,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The owning package.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"package_id\",\"pse.domain.fk.relation\":\"authored.packages\",\"pse.domain.identity\":\"package\",\"pse.domain.role\":\"reference\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"authored.packages\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"package_id\\\"}],\\\"null_policy\\\":\\\"required\\\"}\"},\"name\":\"package_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            ("pse.domain.doc".into(), "The owning package.".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.fk.column".into(), "package_id".into()),
+                                            (
+                                                "pse.domain.fk.relation".into(),
+                                                "authored.packages".into(),
+                                            ),
+                                            ("pse.domain.identity".into(), "package".into()),
+                                            ("pse.domain.role".into(), "reference".into()),
+                                            (
+                                                "pse.semantic.reference".into(),
+                                                "{\"relation\":\"authored.packages\",\"columns\":[{\"source\":[],\"target\":\"package_id\"}],\"null_policy\":\"required\"}"
+                                                    .into(),
+                                            ),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    String,
+                                >(
                                     graph,
                                     "path",
                                     3u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"The document path, relative to the package root.\",\"pse.domain.role\":\"label\"},\"name\":\"path\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::String,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "path",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "3".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "The document path, relative to the package root.".into(),
-                                        ),
-                                        ("pse.domain.role".into(), "label".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<String>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"The document path, relative to the package root.\",\"pse.domain.role\":\"label\"},\"name\":\"path\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "3".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "The document path, relative to the package root.".into(),
+                                            ),
+                                            ("pse.domain.role".into(), "label".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<String>,
+                                >(
                                     graph,
                                     "source_text",
                                     4u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.\",\"pse.domain.role\":\"payload\"},\"name\":\"source_text\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::String,
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "4".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document."
-                                                .into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "source_text",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::Bytes>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.\",\"pse.domain.role\":\"payload\"},\"name\":\"source_text\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "4".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document."
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::Bytes>,
+                                >(
                                     graph,
                                     "content",
                                     5u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Binary\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"Exact original bytes of a package data document (ADR-0125); absent for a text document.\",\"pse.domain.role\":\"payload\"},\"name\":\"content\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::Bytes,
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "5".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "Exact original bytes of a package data document (ADR-0125); absent for a text document."
-                                                .into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "content",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Binary\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"Exact original bytes of a package data document (ADR-0125); absent for a text document.\",\"pse.domain.role\":\"payload\"},\"name\":\"content\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "5".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "Exact original bytes of a package data document (ADR-0125); absent for a text document."
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
                         ],
                     ),
                 ),

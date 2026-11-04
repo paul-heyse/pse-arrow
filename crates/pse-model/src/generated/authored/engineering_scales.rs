@@ -82,336 +82,562 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredEngineeringSc
                 |graph| Ok(
                     pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::identities::EngineeringScaleId,
-                            >(
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::identities::EngineeringScaleId,
+                                >(
                                     graph,
                                     "scale_id",
                                     1u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"scale_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"engineering_scale\",\"pse.domain.identity.owner\":\"true\",\"pse.domain.role\":\"key\"},\"name\":\"scale_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "EngineeringScaleId".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "scale_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "1".into()),
-                                        ("pse.domain.doc".into(), "scale_id".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.identity".into(), "engineering_scale".into()),
-                                        ("pse.domain.identity.owner".into(), "true".into()),
-                                        ("pse.domain.role".into(), "key".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::identities::DeclarationId>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"scale_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"engineering_scale\",\"pse.domain.identity.owner\":\"true\",\"pse.domain.role\":\"key\"},\"name\":\"scale_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                            ("pse.domain.doc".into(), "scale_id".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "engineering_scale".into()),
+                                            ("pse.domain.identity.owner".into(), "true".into()),
+                                            ("pse.domain.role".into(), "key".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::identities::DeclarationId>,
+                                >(
                                     graph,
                                     "model_id",
                                     2u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The definition selecting this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"model_id\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "DeclarationId".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "2".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "The definition selecting this engineering scale.".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "model_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.identity".into(), "declaration".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::identities::DeclarationId>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"The definition selecting this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"model_id\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "The definition selecting this engineering scale.".into(),
+                                            ),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "declaration".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::identities::DeclarationId>,
+                                >(
                                     graph,
                                     "case_id",
                                     3u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"The selected case declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"case_id\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "DeclarationId".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "3".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "The selected case declaring this engineering scale.".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "case_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.identity".into(), "declaration".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::identities::InstanceId>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"The selected case declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\",\"pse.domain.role\":\"payload\"},\"name\":\"case_id\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "3".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "The selected case declaring this engineering scale.".into(),
+                                            ),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "declaration".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::identities::InstanceId>,
+                                >(
                                     graph,
                                     "instance_id",
                                     4u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"The selected instance declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\",\"pse.domain.role\":\"payload\"},\"name\":\"instance_id\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "InstanceId".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "4".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "The selected instance declaring this engineering scale."
-                                                .into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "instance_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.identity".into(), "instance".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::identities::FitId>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"The selected instance declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\",\"pse.domain.role\":\"payload\"},\"name\":\"instance_id\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "4".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "The selected instance declaring this engineering scale."
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "instance".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::identities::FitId>,
+                                >(
                                     graph,
                                     "fit_id",
                                     5u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"The fit declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"fit\",\"pse.domain.role\":\"payload\"},\"name\":\"fit_id\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "FitId".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "5".into()),
-                                        (
-                                            "pse.domain.doc".into(),
-                                            "The fit declaring this engineering scale.".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "fit_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.identity".into(), "fit".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                pse_ids::SemanticId,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"The fit declaring this engineering scale.\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"fit\",\"pse.domain.role\":\"payload\"},\"name\":\"fit_id\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "5".into()),
+                                            (
+                                                "pse.domain.doc".into(),
+                                                "The fit declaring this engineering scale.".into(),
+                                            ),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "fit".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
                                     graph,
                                     "target_id",
                                     6u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"target_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"target_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::SemanticId,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "target_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "6".into()),
-                                        ("pse.domain.doc".into(), "target_id".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::enums::NumericalTarget,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\",\"pse.domain.doc\":\"target_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"target_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "6".into()),
+                                            ("pse.domain.doc".into(), "target_id".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::enums::NumericalTarget,
+                                >(
                                     graph,
                                     "target_kind",
                                     7u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"target_kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalTarget\",\"pse.domain.role\":\"payload\"},\"name\":\"target_kind\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "NumericalTarget".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "target_kind",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "7".into()),
-                                        ("pse.domain.doc".into(), "target_kind".into()),
-                                        ("pse.domain.extension".into(), "pse.enum".into()),
-                                        ("pse.domain.parameter".into(), "NumericalTarget".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                pse_ids::SemanticId,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.doc\":\"target_kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalTarget\",\"pse.domain.role\":\"payload\"},\"name\":\"target_kind\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "7".into()),
+                                            ("pse.domain.doc".into(), "target_kind".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            ("pse.domain.parameter".into(), "NumericalTarget".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
                                     graph,
                                     "quantity_id",
                                     8u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"quantity_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::SemanticId,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "quantity_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "8".into()),
-                                        ("pse.domain.doc".into(), "quantity_id".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                pse_ids::SemanticId,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.doc\":\"quantity_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"quantity_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "8".into()),
+                                            ("pse.domain.doc".into(), "quantity_id".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
                                     graph,
                                     "unit_id",
                                     9u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"unit_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::SemanticId,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "unit_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "9".into()),
-                                        ("pse.domain.doc".into(), "unit_id".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::enums::EngineeringScaleKind,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\",\"pse.domain.doc\":\"unit_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"unit_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "9".into()),
+                                            ("pse.domain.doc".into(), "unit_id".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::enums::EngineeringScaleKind,
+                                >(
                                     graph,
                                     "kind",
                                     10u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"EngineeringScaleKind\",\"pse.domain.role\":\"payload\"},\"name\":\"kind\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "EngineeringScaleKind".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "kind",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "10".into()),
-                                        ("pse.domain.doc".into(), "kind".into()),
-                                        ("pse.domain.extension".into(), "pse.enum".into()),
-                                        (
-                                            "pse.domain.parameter".into(),
-                                            "EngineeringScaleKind".into(),
-                                        ),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                f64,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\",\"pse.domain.doc\":\"kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"EngineeringScaleKind\",\"pse.domain.role\":\"payload\"},\"name\":\"kind\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "10".into()),
+                                            ("pse.domain.doc".into(), "kind".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            (
+                                                "pse.domain.parameter".into(),
+                                                "EngineeringScaleKind".into(),
+                                            ),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    f64,
+                                >(
                                     graph,
                                     "value",
                                     11u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"value\",\"pse.domain.role\":\"payload\"},\"name\":\"value\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::F64Bits,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "value",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "11".into()),
-                                        ("pse.domain.doc".into(), "value".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::enums::NumericalSource,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"11\",\"pse.domain.doc\":\"value\",\"pse.domain.role\":\"payload\"},\"name\":\"value\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "11".into()),
+                                            ("pse.domain.doc".into(), "value".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::enums::NumericalSource,
+                                >(
                                     graph,
                                     "source",
                                     12u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.doc\":\"source\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalSource\",\"pse.domain.role\":\"payload\"},\"name\":\"source\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "NumericalSource".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "source",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "12".into()),
-                                        ("pse.domain.doc".into(), "source".into()),
-                                        ("pse.domain.extension".into(), "pse.enum".into()),
-                                        ("pse.domain.parameter".into(), "NumericalSource".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                i32,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"12\",\"pse.domain.doc\":\"source\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"NumericalSource\",\"pse.domain.role\":\"payload\"},\"name\":\"source\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "12".into()),
+                                            ("pse.domain.doc".into(), "source".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            ("pse.domain.parameter".into(), "NumericalSource".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    i32,
+                                >(
                                     graph,
                                     "priority",
                                     13u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Int32\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.doc\":\"priority\",\"pse.domain.role\":\"payload\"},\"name\":\"priority\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::I32,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "priority",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "13".into()),
-                                        ("pse.domain.doc".into(), "priority".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                String,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Int32\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"13\",\"pse.domain.doc\":\"priority\",\"pse.domain.role\":\"payload\"},\"name\":\"priority\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "13".into()),
+                                            ("pse.domain.doc".into(), "priority".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    String,
+                                >(
                                     graph,
                                     "provenance",
                                     14u32,
                                     pse_contract::boundary_projection::Direction::Both,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.doc\":\"provenance\",\"pse.domain.role\":\"payload\"},\"name\":\"provenance\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::String,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "provenance",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "14".into()),
-                                        ("pse.domain.doc".into(), "provenance".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"14\",\"pse.domain.doc\":\"provenance\",\"pse.domain.role\":\"payload\"},\"name\":\"provenance\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "14".into()),
+                                            ("pse.domain.doc".into(), "provenance".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
                         ],
                     ),
                 ),

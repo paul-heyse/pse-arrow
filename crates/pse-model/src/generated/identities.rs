@@ -87,18 +87,10 @@ impl pse_contract::boundary_projection::ProjectionType for AccuracyGoalId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -163,18 +155,10 @@ impl pse_contract::boundary_projection::ProjectionType for AttemptId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -254,18 +238,10 @@ impl pse_contract::boundary_projection::ProjectionType for DeclarationId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -330,18 +306,10 @@ impl pse_contract::boundary_projection::ProjectionType for EngineeringRuleId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -406,18 +374,10 @@ impl pse_contract::boundary_projection::ProjectionType for EngineeringScaleId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -497,18 +457,10 @@ impl pse_contract::boundary_projection::ProjectionType for FitId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -573,18 +525,10 @@ impl pse_contract::boundary_projection::ProjectionType for InstanceId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -649,18 +593,10 @@ impl pse_contract::boundary_projection::ProjectionType for PackageId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -770,18 +706,10 @@ impl pse_contract::boundary_projection::ProjectionType for RunId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -846,18 +774,10 @@ impl pse_contract::boundary_projection::ProjectionType for SolutionId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },
@@ -922,18 +842,10 @@ impl pse_contract::boundary_projection::ProjectionType for StudyId {
                 &[],
                 |graph| {
                     Ok(
-                        pse_contract::boundary_projection::Shape::Record(
-                            vec![
-                                pse_contract::boundary_projection::Field::of::<
-                                    pse_ids::SemanticId,
-                                >(
-                                    graph,
-                                    "id",
-                                    1,
-                                    pse_contract::boundary_projection::Direction::Both,
-                                    vec![pse_contract::boundary_projection::LocalRule::Required],
-                                )?,
-                            ],
+                        pse_contract::boundary_projection::identity_shape(
+                            <pse_ids::SemanticId as pse_contract::boundary_projection::ProjectionType>::projection(
+                                graph,
+                            )?,
                         ),
                     )
                 },

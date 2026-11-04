@@ -62,134 +62,221 @@ impl pse_contract::boundary_projection::ProjectionType for ReferenceBasesRow {
                 |graph| Ok(
                     pse_contract::boundary_projection::Shape::Record(
                         vec![
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::identities::BasisId,
-                            >(
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::identities::BasisId,
+                                >(
                                     graph,
                                     "basis_id",
                                     1u32,
                                     pse_contract::boundary_projection::Direction::Output,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"basis_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"basis\",\"pse.domain.role\":\"key\"},\"name\":\"basis_id\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "BasisId".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "basis_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "1".into()),
-                                        ("pse.domain.doc".into(), "basis_id".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        ("pse.domain.identity".into(), "basis".into()),
-                                        ("pse.domain.role".into(), "key".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                crate::generated::enums::BasisKind,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"basis_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"basis\",\"pse.domain.role\":\"key\"},\"name\":\"basis_id\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                            ("pse.domain.doc".into(), "basis_id".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "basis".into()),
+                                            ("pse.domain.role".into(), "key".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::enums::BasisKind,
+                                >(
                                     graph,
                                     "kind",
                                     2u32,
                                     pse_contract::boundary_projection::Direction::Output,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"BasisKind\",\"pse.domain.role\":\"payload\"},\"name\":\"kind\",\"nullable\":false}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "BasisKind".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "kind",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "2".into()),
-                                        ("pse.domain.doc".into(), "kind".into()),
-                                        ("pse.domain.extension".into(), "pse.enum".into()),
-                                        ("pse.domain.parameter".into(), "BasisKind".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::enums::CompositionBasis>,
-                            >(
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"kind\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"BasisKind\",\"pse.domain.role\":\"payload\"},\"name\":\"kind\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            ("pse.domain.doc".into(), "kind".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            ("pse.domain.parameter".into(), "BasisKind".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::enums::CompositionBasis>,
+                                >(
                                     graph,
                                     "composition_basis",
                                     3u32,
                                     pse_contract::boundary_projection::Direction::Output,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"composition_basis\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"CompositionBasis\",\"pse.domain.role\":\"payload\"},\"name\":\"composition_basis\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "CompositionBasis".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "3".into()),
-                                        ("pse.domain.doc".into(), "composition_basis".into()),
-                                        ("pse.domain.extension".into(), "pse.enum".into()),
-                                        ("pse.domain.parameter".into(), "CompositionBasis".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::enums::RateBasis>,
-                            >(
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "composition_basis",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"composition_basis\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"CompositionBasis\",\"pse.domain.role\":\"payload\"},\"name\":\"composition_basis\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "3".into()),
+                                            ("pse.domain.doc".into(), "composition_basis".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            ("pse.domain.parameter".into(), "CompositionBasis".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::enums::RateBasis>,
+                                >(
                                     graph,
                                     "rate_basis",
                                     4u32,
                                     pse_contract::boundary_projection::Direction::Output,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"rate_basis\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"RateBasis\",\"pse.domain.role\":\"payload\"},\"name\":\"rate_basis\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "RateBasis".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "4".into()),
-                                        ("pse.domain.doc".into(), "rate_basis".into()),
-                                        ("pse.domain.extension".into(), "pse.enum".into()),
-                                        ("pse.domain.parameter".into(), "RateBasis".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                    ]),
-                                ),
-                            pse_contract::boundary_projection::Field::of::<
-                                Option<crate::generated::identities::ReferenceStateId>,
-                            >(
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "rate_basis",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"rate_basis\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"RateBasis\",\"pse.domain.role\":\"payload\"},\"name\":\"rate_basis\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "4".into()),
+                                            ("pse.domain.doc".into(), "rate_basis".into()),
+                                            ("pse.domain.extension".into(), "pse.enum".into()),
+                                            ("pse.domain.parameter".into(), "RateBasis".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<crate::generated::identities::ReferenceStateId>,
+                                >(
                                     graph,
                                     "reference_conditions_id",
                                     5u32,
                                     pse_contract::boundary_projection::Direction::Output,
                                     vec![],
-                                )?
-                                .with_named_facets(
-                                    std::collections::BTreeMap::from([
-                                        (
-                                            "pse.codegen.native_field".into(),
-                                            "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"reference_conditions_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"reference_state_id\",\"pse.domain.fk.relation\":\"reference.reference_states\",\"pse.domain.identity\":\"reference_state\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.reference_states\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"reference_state_id\\\"}],\\\"null_policy\\\":\\\"all_or_none\\\"}\"},\"name\":\"reference_conditions_id\",\"nullable\":true}"
-                                                .into(),
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Named(
+                                                "ReferenceStateId".into(),
+                                            ),
                                         ),
-                                        ("pse.domain.boundary.tag".into(), "5".into()),
-                                        ("pse.domain.doc".into(), "reference_conditions_id".into()),
-                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
-                                        (
-                                            "pse.domain.fk.column".into(),
-                                            "reference_state_id".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "reference_conditions_id",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
                                         ),
-                                        (
-                                            "pse.domain.fk.relation".into(),
-                                            "reference.reference_states".into(),
-                                        ),
-                                        ("pse.domain.identity".into(), "reference_state".into()),
-                                        ("pse.domain.role".into(), "payload".into()),
-                                        (
-                                            "pse.semantic.reference".into(),
-                                            "{\"relation\":\"reference.reference_states\",\"columns\":[{\"source\":[],\"target\":\"reference_state_id\"}],\"null_policy\":\"all_or_none\"}"
-                                                .into(),
-                                        ),
-                                    ]),
-                                ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\",\"pse.domain.doc\":\"reference_conditions_id\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.fk.column\":\"reference_state_id\",\"pse.domain.fk.relation\":\"reference.reference_states\",\"pse.domain.identity\":\"reference_state\",\"pse.domain.role\":\"payload\",\"pse.semantic.reference\":\"{\\\"relation\\\":\\\"reference.reference_states\\\",\\\"columns\\\":[{\\\"source\\\":[],\\\"target\\\":\\\"reference_state_id\\\"}],\\\"null_policy\\\":\\\"all_or_none\\\"}\"},\"name\":\"reference_conditions_id\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "5".into()),
+                                            ("pse.domain.doc".into(), "reference_conditions_id".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            (
+                                                "pse.domain.fk.column".into(),
+                                                "reference_state_id".into(),
+                                            ),
+                                            (
+                                                "pse.domain.fk.relation".into(),
+                                                "reference.reference_states".into(),
+                                            ),
+                                            ("pse.domain.identity".into(), "reference_state".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                            (
+                                                "pse.semantic.reference".into(),
+                                                "{\"relation\":\"reference.reference_states\",\"columns\":[{\"source\":[],\"target\":\"reference_state_id\"}],\"null_policy\":\"all_or_none\"}"
+                                                    .into(),
+                                            ),
+                                        ]),
+                                    )
+                            },
                         ],
                     ),
                 ),
