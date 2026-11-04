@@ -35,6 +35,193 @@ impl PartialEq for RuntimeCanonicalResultManifestsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl pse_contract::boundary_projection::ProjectionType
+for RuntimeCanonicalResultManifestsRow {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "CanonicalResultManifest",
+                "crates/pse-schema/src/catalog/substrate.rs",
+                1u32,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "key",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.canonical.readonly".into(), "true".into()),
+                                        ("pse.domain.canonical.record_key".into(), "true".into()),
+                                        ("pse.domain.doc".into(), "key".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "attempt",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "attempt".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                u64,
+                            >(
+                                    graph,
+                                    "generation",
+                                    3u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "generation".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "digest",
+                                    4u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "digest".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            pse_contract::boundary_projection::Field::of::<
+                                crate::Bytes,
+                            >(
+                                    graph,
+                                    "descriptors",
+                                    5u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.doc".into(), "descriptors".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord
+for RuntimeCanonicalResultManifestsRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "key"),
+        (2u32, "attempt"),
+        (3u32, "generation"),
+        (4u32, "digest"),
+        (5u32, "descriptors"),
+    ];
+    type Fields = (String, String, u64, String, crate::Bytes);
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#key,
+            self.r#attempt,
+            self.r#generation,
+            self.r#digest,
+            self.r#descriptors,
+        )
+    }
+    fn from_projection_fields(
+        (r#key, r#attempt, r#generation, r#digest, r#descriptors): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#key,
+            r#attempt,
+            r#generation,
+            r#digest,
+            r#descriptors,
+        })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection
+for RuntimeCanonicalResultManifestsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <u64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::Bytes as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#key,
+                &pse_contract::boundary_projection::field_path(path, "key"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#attempt,
+                &pse_contract::boundary_projection::field_path(path, "attempt"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#generation,
+                &pse_contract::boundary_projection::field_path(path, "generation"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#digest,
+                &pse_contract::boundary_projection::field_path(path, "digest"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#descriptors,
+                &pse_contract::boundary_projection::field_path(path, "descriptors"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalResultManifestsRow;
 impl crate::SemanticFrame for RuntimeCanonicalResultManifestsRow {

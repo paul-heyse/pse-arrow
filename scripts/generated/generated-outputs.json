@@ -544,6 +544,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-schema/src/catalog/substrate.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-schema/src/model/canonical.rs",
           "kind": "file"
         },
@@ -1109,6 +1113,10 @@
         },
         {
           "path": "crates/pse-schema/src/catalog/s6_2_physical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/substrate.rs",
           "kind": "file"
         },
         {

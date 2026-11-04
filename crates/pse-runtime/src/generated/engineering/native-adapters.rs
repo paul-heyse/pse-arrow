@@ -21388,6 +21388,298 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata,
+>
+for pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "key"),
+                (2, "result_set"),
+                (3, "batch"),
+                (4, "output"),
+                (5, "partition"),
+                (6, "ordinal"),
+                (7, "start"),
+                (8, "end"),
+                (9, "rows"),
+                (10, "columns"),
+                (11, "coordinate_min"),
+                (12, "coordinate_max"),
+                (13, "payload_bytes"),
+                (14, "payload_digest"),
+                (15, "statistics"),
+                (16, "interpretation"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+            field_11,
+            field_12,
+            field_13,
+            field_14,
+            field_15,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata {
+            key: native_into::<_, String>(field_0, &child_path(path, "key"))?,
+            result_set: native_into::<
+                _,
+                String,
+            >(field_1, &child_path(path, "result_set"))?,
+            batch: native_into::<_, String>(field_2, &child_path(path, "batch"))?,
+            output: native_into::<_, String>(field_3, &child_path(path, "output"))?,
+            partition: native_into::<
+                _,
+                String,
+            >(field_4, &child_path(path, "partition"))?,
+            ordinal: native_into::<_, u64>(field_5, &child_path(path, "ordinal"))?,
+            start: native_into::<_, u64>(field_6, &child_path(path, "start"))?,
+            end: native_into::<_, u64>(field_7, &child_path(path, "end"))?,
+            rows: native_into::<_, u64>(field_8, &child_path(path, "rows"))?,
+            columns: native_into::<_, u64>(field_9, &child_path(path, "columns"))?,
+            coordinate_min: field_10
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "coordinate_min"))?,
+                    )
+                })
+                .transpose()?,
+            coordinate_max: field_11
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "coordinate_max"))?,
+                    )
+                })
+                .transpose()?,
+            payload_bytes: native_into::<
+                _,
+                u64,
+            >(field_12, &child_path(path, "payload_bytes"))?,
+            payload_digest: native_into::<
+                _,
+                String,
+            >(field_13, &child_path(path, "payload_digest"))?,
+            statistics: field_14
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_into::<
+                            _,
+                            Vec<u8>,
+                        >(value, &child_path(path, "statistics"))?,
+                    )
+                })
+                .transpose()?,
+            interpretation: native_into::<
+                _,
+                String,
+            >(field_15, &child_path(path, "interpretation"))?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata,
+>
+for pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "key"),
+                (2, "result_set"),
+                (3, "batch"),
+                (4, "output"),
+                (5, "partition"),
+                (6, "ordinal"),
+                (7, "start"),
+                (8, "end"),
+                (9, "rows"),
+                (10, "columns"),
+                (11, "coordinate_min"),
+                (12, "coordinate_max"),
+                (13, "payload_bytes"),
+                (14, "payload_digest"),
+                (15, "statistics"),
+                (16, "interpretation"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, String>(wire.key, &child_path(path, "key"))?,
+            native_from::<_, String>(wire.result_set, &child_path(path, "result_set"))?,
+            native_from::<_, String>(wire.batch, &child_path(path, "batch"))?,
+            native_from::<_, String>(wire.output, &child_path(path, "output"))?,
+            native_from::<_, String>(wire.partition, &child_path(path, "partition"))?,
+            native_from::<_, u64>(wire.ordinal, &child_path(path, "ordinal"))?,
+            native_from::<_, u64>(wire.start, &child_path(path, "start"))?,
+            native_from::<_, u64>(wire.end, &child_path(path, "end"))?,
+            native_from::<_, u64>(wire.rows, &child_path(path, "rows"))?,
+            native_from::<_, u64>(wire.columns, &child_path(path, "columns"))?,
+            wire
+                .coordinate_min
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "coordinate_min"))?,
+                    )
+                })
+                .transpose()?,
+            wire
+                .coordinate_max
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &child_path(path, "coordinate_max"))?,
+                    )
+                })
+                .transpose()?,
+            native_from::<
+                _,
+                u64,
+            >(wire.payload_bytes, &child_path(path, "payload_bytes"))?,
+            native_from::<
+                _,
+                String,
+            >(wire.payload_digest, &child_path(path, "payload_digest"))?,
+            wire
+                .statistics
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        native_from::<
+                            _,
+                            Vec<u8>,
+                        >(value, &child_path(path, "statistics"))?,
+                    )
+                })
+                .transpose()?,
+            native_from::<
+                _,
+                String,
+            >(wire.interpretation, &child_path(path, "interpretation"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest,
+>
+for pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "key"),
+                (2, "attempt"),
+                (3, "generation"),
+                (4, "digest"),
+                (5, "descriptors"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest {
+            key: native_into::<_, String>(field_0, &child_path(path, "key"))?,
+            attempt: native_into::<_, String>(field_1, &child_path(path, "attempt"))?,
+            generation: native_into::<_, u64>(field_2, &child_path(path, "generation"))?,
+            digest: native_into::<_, String>(field_3, &child_path(path, "digest"))?,
+            descriptors: native_into::<
+                _,
+                Vec<u8>,
+            >(field_4, &child_path(path, "descriptors"))?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest,
+>
+for pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "key"),
+                (2, "attempt"),
+                (3, "generation"),
+                (4, "digest"),
+                (5, "descriptors"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, String>(wire.key, &child_path(path, "key"))?,
+            native_from::<_, String>(wire.attempt, &child_path(path, "attempt"))?,
+            native_from::<_, u64>(wire.generation, &child_path(path, "generation"))?,
+            native_from::<_, String>(wire.digest, &child_path(path, "digest"))?,
+            native_from::<
+                _,
+                Vec<u8>,
+            >(wire.descriptors, &child_path(path, "descriptors"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalStudySummary,
 > for pse_operations::canonical_studies::StudySummary {
     fn into_wire(
@@ -70004,6 +70296,42 @@ impl NativeFrom<
             )
             .map_err(|error| error.at(path))
     }
+}
+/// Encode the actual native `CanonicalResultBlockMetadata` and validate outgoing local rules.
+pub fn encode_canonical_result_block_metadata(
+    native: pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow,
+) -> Result<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata,
+    BoundaryProjectionError,
+> {
+    encode_root(native, "CanonicalResultBlockMetadata")
+}
+/// Adopt known `CanonicalResultBlockMetadata` meaning under this package's declared unknown-field policy.
+pub fn decode_canonical_result_block_metadata(
+    wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultBlockMetadata,
+) -> Result<
+    pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow,
+    BoundaryProjectionError,
+> {
+    decode_root(wire, "CanonicalResultBlockMetadata")
+}
+/// Encode the actual native `CanonicalResultManifest` and validate outgoing local rules.
+pub fn encode_canonical_result_manifest(
+    native: pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow,
+) -> Result<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest,
+    BoundaryProjectionError,
+> {
+    encode_root(native, "CanonicalResultManifest")
+}
+/// Adopt known `CanonicalResultManifest` meaning under this package's declared unknown-field policy.
+pub fn decode_canonical_result_manifest(
+    wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::CanonicalResultManifest,
+) -> Result<
+    pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow,
+    BoundaryProjectionError,
+> {
+    decode_root(wire, "CanonicalResultManifest")
 }
 /// Encode the actual native `EngineeringAdmitSource` and validate outgoing local rules.
 pub fn encode_engineering_admit_source(

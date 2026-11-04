@@ -723,11 +723,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "canonical_result_manifests",
             vec![
-                column("key", text()),
-                column("attempt", text()),
-                column("generation", uint()),
-                column("digest", text()),
-                column("descriptors", bytes()),
+                column("key", text()).with_boundary_tag(1),
+                column("attempt", text()).with_boundary_tag(2),
+                column("generation", uint()).with_boundary_tag(3),
+                column("digest", text()).with_boundary_tag(4),
+                column("descriptors", bytes()).with_boundary_tag(5),
             ],
             "Closed exact result-set descriptor with frozen batch extents and coverage; does not imply scientific success.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
@@ -813,22 +813,22 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "canonical_result_blocks",
             vec![
-                column("key", text()),
-                column("result_set", text()),
-                column("batch", text()),
-                column("output", text()),
-                column("partition", text()),
-                column("ordinal", uint()),
-                column("start", uint()),
-                column("end", uint()),
-                column("rows", uint()),
-                column("columns", uint()),
-                column("coordinate_min", FieldContract::native(DataType::Float64)).optional(),
-                column("coordinate_max", FieldContract::native(DataType::Float64)).optional(),
-                column("payload_bytes", uint()),
-                column("payload_digest", text()),
-                column("statistics", bytes()).optional(),
-                column("interpretation", text()),
+                column("key", text()).with_boundary_tag(1),
+                column("result_set", text()).with_boundary_tag(2),
+                column("batch", text()).with_boundary_tag(3),
+                column("output", text()).with_boundary_tag(4),
+                column("partition", text()).with_boundary_tag(5),
+                column("ordinal", uint()).with_boundary_tag(6),
+                column("start", uint()).with_boundary_tag(7),
+                column("end", uint()).with_boundary_tag(8),
+                column("rows", uint()).with_boundary_tag(9),
+                column("columns", uint()).with_boundary_tag(10),
+                column("coordinate_min", FieldContract::native(DataType::Float64)).optional().with_boundary_tag(11),
+                column("coordinate_max", FieldContract::native(DataType::Float64)).optional().with_boundary_tag(12),
+                column("payload_bytes", uint()).with_boundary_tag(13),
+                column("payload_digest", text()).with_boundary_tag(14),
+                column("statistics", bytes()).optional().with_boundary_tag(15),
+                column("interpretation", text()).with_boundary_tag(16),
             ],
             "Independently decodable exact scientific Arrow block; indexed range metadata is derived from its admitted coordinates.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
@@ -1233,17 +1233,74 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
     ];
     for (name, columns, doc, policy) in declarations {
-        builder.declare_relation(
-            declaration(
-                Namespace::Runtime,
+        let declaration = declaration(
+            Namespace::Runtime,
+            name,
+            1,
+            SnapshotClass::Sidecar,
+            &["key"],
+            columns,
+            doc,
+        )
+        .with_canonical(policy);
+        let boundary_name = match name {
+            "canonical_result_manifests" => Some("CanonicalResultManifest"),
+            "canonical_result_blocks" => Some("CanonicalResultBlockMetadata"),
+            _ => None,
+        };
+        builder.declare_relation(match boundary_name {
+            Some(name) => declaration.with_boundary_record(crate::model::BoundaryRecord {
+                source: file!(),
                 name,
-                1,
-                SnapshotClass::Sidecar,
-                &["key"],
-                columns,
-                doc,
-            )
-            .with_canonical(policy),
-        );
+                version: 1,
+                direction: pse_contract::BoundaryDirection::Both,
+                reserved_tags: &[],
+                reserved_names: &[],
+            }),
+            None => declaration,
+        });
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    #[test]
+    fn result_wire_presentation_preserves_native_semantics_and_encoding() {
+        let registry = crate::catalog::assemble().unwrap();
+        for name in ["canonical_result_manifests", "canonical_result_blocks"] {
+            let published = registry.relation(&format!("runtime.{name}")).unwrap();
+            let mut native = published.clone();
+            native.boundary = None;
+            for column in &mut native.columns {
+                let mut field = column.clone().into_field();
+                field
+                    .metadata_mut()
+                    .remove(crate::model::field_facets::BOUNDARY_TAG);
+                *column = crate::model::FieldContract::from_field(field);
+            }
+            assert_eq!(
+                crate::fingerprint::semantic_relation(&registry, published).unwrap(),
+                crate::fingerprint::semantic_relation(&registry, &native).unwrap(),
+                "wire presentation cannot change native scientific interpretation",
+            );
+            assert_eq!(
+                crate::fingerprint::encoding_relation(&registry, published).unwrap(),
+                crate::fingerprint::encoding_relation(&registry, &native).unwrap(),
+                "Proto tags cannot change the native Arrow encoding contract",
+            );
+            let mut changed = native;
+            let unsigned = changed
+                .columns
+                .iter_mut()
+                .find(|column| column.data_type() == arrow_schema::DataType::UInt64)
+                .unwrap();
+            *unsigned = crate::model::FieldContract::native(arrow_schema::DataType::Int64)
+                .with_name(unsigned.name());
+            assert_ne!(
+                crate::fingerprint::semantic_relation(&registry, published).unwrap(),
+                crate::fingerprint::semantic_relation(&registry, &changed).unwrap(),
+                "a changed numeric domain must still invalidate native interpretation",
+            );
+        }
     }
 }

@@ -2054,6 +2054,45 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
+## `CanonicalResultBlockMetadata`
+
+Rust owner: `pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `result_set` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "result_set", "pse.domain.role": "payload"}` |
+| `batch` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "batch", "pse.domain.role": "payload"}` |
+| `output` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "output", "pse.domain.role": "payload"}` |
+| `partition` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "partition", "pse.domain.role": "payload"}` |
+| `ordinal` | 6 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.doc": "ordinal", "pse.domain.role": "payload"}` |
+| `start` | 7 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.domain.doc": "start", "pse.domain.role": "payload"}` |
+| `end` | 8 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "8", "pse.domain.doc": "end", "pse.domain.role": "payload"}` |
+| `rows` | 9 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "9", "pse.domain.doc": "rows", "pse.domain.role": "payload"}` |
+| `columns` | 10 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "10", "pse.domain.doc": "columns", "pse.domain.role": "payload"}` |
+| `coordinate_min` | 11 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "11", "pse.domain.doc": "coordinate_min", "pse.domain.role": "payload"}` |
+| `coordinate_max` | 12 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "12", "pse.domain.doc": "coordinate_max", "pse.domain.role": "payload"}` |
+| `payload_bytes` | 13 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "13", "pse.domain.doc": "payload_bytes", "pse.domain.role": "payload"}` |
+| `payload_digest` | 14 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "14", "pse.domain.doc": "payload_digest", "pse.domain.role": "payload"}` |
+| `statistics` | 15 | `Optional(Scalar(Bytes))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "15", "pse.domain.doc": "statistics", "pse.domain.role": "payload"}` |
+| `interpretation` | 16 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "16", "pse.domain.doc": "interpretation", "pse.domain.role": "payload"}` |
+
+## `CanonicalResultManifest`
+
+Rust owner: `pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow`. Source: `crates/pse-schema/src/catalog/substrate.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `key` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.canonical.readonly": "true", "pse.domain.canonical.record_key": "true", "pse.domain.doc": "key", "pse.domain.role": "key"}` |
+| `attempt` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.doc": "attempt", "pse.domain.role": "payload"}` |
+| `generation` | 3 | `Scalar(U64)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.doc": "generation", "pse.domain.role": "payload"}` |
+| `digest` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.doc": "digest", "pse.domain.role": "payload"}` |
+| `descriptors` | 5 | `Scalar(Bytes)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.doc": "descriptors", "pse.domain.role": "payload"}` |
+
 ## `CanonicalStudySummary`
 
 Rust owner: `pse_operations::canonical_studies::StudySummary`. Source: `crates/pse-operations/src/canonical_studies.rs`. Interpretation version: 1. Direction: `Output`.
@@ -3743,57 +3782,57 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `KernelProviderPort`
 
-Rust owner: `pse_kernels::Port`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::Port`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[Required]` | `{}` |
-| `quantity` | 2 | `Named("QuantityTypeId")` | `Output` | `[Required]` | `{}` |
-| `unit` | 3 | `Named("UnitId")` | `Output` | `[Required]` | `{}` |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+| `quantity` | 2 | `Named("QuantityTypeId")` | `Both` | `[Required]` | `{}` |
+| `unit` | 3 | `Named("UnitId")` | `Both` | `[Required]` | `{}` |
 
 ## `KernelProviderShape`
 
-Rust owner: `pse_kernels::shape::ProviderShape`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::shape::ProviderShape`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Output` | `[Required]` | `{}` |
-| `axes` | 2 | `Repeated(Scalar(SemanticId))` | `Output` | `[Length { min: 1, max: 16 }]` | `{}` |
-| `coordinates` | 3 | `Repeated(Repeated(Scalar(SemanticId)))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
-| `cells` | 4 | `Repeated(Scalar(SemanticId))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+| `axes` | 2 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 1, max: 16 }]` | `{}` |
+| `coordinates` | 3 | `Repeated(Repeated(Scalar(SemanticId)))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `cells` | 4 | `Repeated(Scalar(SemanticId))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
 
 ## `KernelProviderShapes`
 
-Rust owner: `pse_kernels::shape::ProviderShapes`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::shape::ProviderShapes`. Source: `crates/pse-kernels/src/shape.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `inputs` | 1 | `Repeated(Named("KernelProviderShape"))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
-| `outputs` | 2 | `Repeated(Named("KernelProviderShape"))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `inputs` | 1 | `Repeated(Named("KernelProviderShape"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `outputs` | 2 | `Repeated(Named("KernelProviderShape"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
 
 ## `KernelProviderSpec`
 
-Rust owner: `pse_kernels::ProviderSpec`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::ProviderSpec`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `shapes` | 1 | `Named("KernelProviderShapes")` | `Output` | `[Required]` | `{}` |
-| `derivative_source` | 2 | `Named("ExternalDerivativeSource")` | `Output` | `[Required]` | `{}` |
-| `id` | 3 | `Scalar(SemanticId)` | `Output` | `[Required]` | `{}` |
-| `revision` | 4 | `Scalar(ContentHash)` | `Output` | `[Required]` | `{}` |
-| `data` | 5 | `Scalar(ContentHash)` | `Output` | `[Required]` | `{}` |
-| `inputs` | 6 | `Repeated(Named("KernelProviderPort"))` | `Output` | `[Length { min: 0, max: 4096 }]` | `{}` |
-| `outputs` | 7 | `Repeated(Named("KernelProviderPort"))` | `Output` | `[Length { min: 1, max: 4096 }]` | `{}` |
-| `derivatives` | 8 | `Named("KernelDerivativeOrder")` | `Output` | `[Required]` | `{}` |
-| `smoothness` | 9 | `Named("KernelDerivativeOrder")` | `Output` | `[Required]` | `{}` |
+| `shapes` | 1 | `Named("KernelProviderShapes")` | `Both` | `[Required]` | `{}` |
+| `derivative_source` | 2 | `Named("ExternalDerivativeSource")` | `Both` | `[Required]` | `{}` |
+| `id` | 3 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+| `revision` | 4 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+| `data` | 5 | `Scalar(ContentHash)` | `Both` | `[Required]` | `{}` |
+| `inputs` | 6 | `Repeated(Named("KernelProviderPort"))` | `Both` | `[Length { min: 0, max: 4096 }]` | `{}` |
+| `outputs` | 7 | `Repeated(Named("KernelProviderPort"))` | `Both` | `[Length { min: 1, max: 4096 }]` | `{}` |
+| `derivatives` | 8 | `Named("KernelDerivativeOrder")` | `Both` | `[Required]` | `{}` |
+| `smoothness` | 9 | `Named("KernelDerivativeOrder")` | `Both` | `[Required]` | `{}` |
 
 ## `KindDefinition`
 
