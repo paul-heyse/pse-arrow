@@ -30,11 +30,33 @@ behavior into the pure structural crate nor establishes a universal scientific o
 
 Source inspected at `5f4fa0246c0b9fac68493b608f0b2eefe79f116d` with concurrent dirty Plan64
 source preserved. Mechanisms are **Interface-checked** by representative source reads; all
-changes and benefits remain **Proposed**. Implementation assumes completed Plan64 and may
-replace any of its mechanisms. No completed scientific implementation, product test or
+changes and benefits remain **Proposed**. Execution is authorized alongside incomplete Plan64
+as of 2026-11-04 and may replace overlapping mechanisms. Each delivery consumes the actual
+native capability it needs; whole-Plan64 completion is not a prerequisite. No completed scientific implementation, product test or
 performance measurement is claimed here. Criteria: core 3.4, heuristics 1.0, process-simulator
 1.5 and test-assessment through the selected standard. Process-system breadth is the horizon;
 remote/distributed deployment and SurrealDB v4 are excluded from delivery.
+
+## Execution checkpoint — 2026-11-04
+
+The first native semantic slice starts from `d63fcbb11`. `DeclaredExecution` already joins
+the admitted route, payload-derived `DeclaredProcedure::kind`, analysis, original model and
+requested start policy, retaining private source/case/compiler preparation. Extend that
+composition; do not introduce a parallel scientific-operation policy table. Its observation
+projection must not construct a new admitted execution from recorded fields.
+
+The first positive consumer is the existing integrated analytic model `dx/dt = 1`, `x(0) = 1 s`,
+with an independently specified endpoint `x(1 s) = 2 s` and observable nominal scale. Native
+`SimulationSampleAttempt` and observer completion keep attempt completion separate from final
+selection. `Completion` remains the owner of original task/step/point scope, local product
+validity and governing scientific use. These are the required meanings for the minimum A/B
+projection; they do not require a new contract type for every concept.
+
+Native step selection now uses the same unique-match operation for public step lookup and
+derived point-product permission. Duplicate governing step facts remain readable raw evidence,
+but cannot issue permission based on their order, including two individually accepted copies.
+Local validity remains visible when governing permission is unavailable. Generated records and
+independent readback are still future A/B/F/G integration; this native change does not close I03.
 
 ## Native semantic foundations and selected composition
 
@@ -158,7 +180,7 @@ registry or storage projection. H01 retains final assembled-population reconcili
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| I01 | planned | Actual completed-Plan64 semantic owners and coordinator decision scope; no new-crate implementation required | Agree the scientific operation/product population, native construction roles and independently specified support/refusal/use cases. Co-design the minimum A01/A02 metadata shape from one supported dynamic operation and one actual product; Buffa option/generation APIs above inform the representation without defining physics. |
+| I01 | in-progress | Actual native semantic owners and coordinator decision scope; no completed-Plan64 or new-crate barrier | First operation/product owner agreement is recorded above; complete the selected population and A01/A02 metadata co-design with supported dynamic/product and independent refusal/use cases. Buffa options expose native meaning without defining physics. |
 | I02 | planned | I01 agreed meanings; narrow working A/B generation/adoption and existing native operation | Deliver authored source → admission/preparation → native execution → typed observation. Use generated `Validate` only for selected local rules and `DynamicMessage::from_options` for inspection. Preserve native route/procedure and physical guards. Migrate the selected producers/readers together and remove superseded mechanical interpretation. |
 | I03 | planned | I01 product-use design; narrow working I02/A/B and F/G readback | Project completion-owned task/step/point, local validity, coverage, qualifiers and selected-attempt facts through portable/native selectors and independent reading. Generated reflection is observational; no decoded permission issues new authority. Independently test raw versus scientific access, ambiguity and historical/current interpretation; delete replaced client-derived permission conjunctions. |
 | I04 | planned | I01 consumed-dependency agreement and I02/I03 real products | Implement differential change controls at compiler/admission/artifact/projection/state owners. A Debug-only or unconsumed metadata change must not rebuild unchanged math; correlation/datum or derivative changes must invalidate/readmit affected science. Reuse existing dependency machinery, remove replaced blanket world-key invalidation and duplicate semantic-key derivation where present. |

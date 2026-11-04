@@ -156,10 +156,7 @@ impl ProductScope {
                     return None;
                 }
                 let permission = match step {
-                    Some(step) if *step >= 0 => completion
-                        .step_permissions
-                        .iter()
-                        .find(|p| p.step == Some(*step)),
+                    Some(step) if *step >= 0 => completion.original_step_permission(*step),
                     Some(_) => None,
                     None => completion.permission.as_ref(),
                 }?;
@@ -167,10 +164,7 @@ impl ProductScope {
             }
         };
         match step {
-            Some(step) if step >= 0 => completion
-                .step_permissions
-                .iter()
-                .find(|p| p.step == Some(step)),
+            Some(step) if step >= 0 => completion.original_step_permission(step),
             Some(_) => None,
             None => completion.permission.as_ref(),
         }
@@ -223,12 +217,19 @@ impl Completion {
         if self.step_permissions.is_empty() {
             self.permission.as_ref()
         } else {
-            i64::try_from(step).ok().and_then(|step| {
-                self.step_permissions
-                    .iter()
-                    .find(|permission| permission.step == Some(step))
-            })
+            i64::try_from(step)
+                .ok()
+                .and_then(|step| self.original_step_permission(step))
         }
+    }
+    /// Resolve one original independent step without interpreting collection order as authority.
+    fn original_step_permission(&self, step: i64) -> Option<&ScientificPermission> {
+        let mut matches = self
+            .step_permissions
+            .iter()
+            .filter(|permission| permission.step == Some(step));
+        let permission = matches.next()?;
+        matches.next().is_none().then_some(permission)
     }
     /// The recorded product fact; consumers never reconstruct its conjunction.
     pub fn product_permission(
@@ -271,17 +272,16 @@ impl Completion {
             }
             ProductScope::Point { .. } => true,
         };
+        let governing = scope.governing(self);
         let decision = if validity.certified && scope_supports_quantity {
-            scope
-                .governing(self)
+            governing
                 .filter(|p| p.permits_result())
                 .map_or(CandidateUse::Unusable, |p| p.decision)
         } else {
             CandidateUse::Unusable
         };
         ProductPermission {
-            qualifiers: scope
-                .governing(self)
+            qualifiers: governing
                 .map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
             scope,
             quantity,
@@ -1292,6 +1292,64 @@ mod tests {
                     ProductScope::Task,
                     DerivedQuantity::ParameterCovariance,
                     withheld
+                )
+                .permits_result()
+        );
+    }
+
+    #[test]
+    fn ambiguous_original_step_never_grants_product_permission() {
+        let point = SemanticId::from_bytes([93; 16]);
+        let mut accepted = ScientificPermission::assess(Some(0), true, 1, 1, &[assessment(true)]);
+        accepted.reference_point = Some(point);
+        let mut refused = ScientificPermission::assess(Some(0), false, 1, 0, &[]);
+        refused.reference_point = Some(point);
+        let validity = super::super::local_analysis::record(Ok(&()), None, false);
+        for original in [
+            vec![accepted.clone(), refused.clone()],
+            vec![refused, accepted.clone()],
+            vec![accepted.clone(), accepted.clone()],
+        ] {
+            let completion = Completion {
+                permission: Some(ScientificPermission::assess(
+                    None, true, 1, 1, &[assessment(true)],
+                )),
+                step_permissions: original,
+                ..Default::default()
+            };
+            // The original observations remain readable, including local success. Neither their
+            // order nor a successful task decision can resolve an ambiguous independent scope.
+            assert_eq!(completion.step_permissions.len(), 2);
+            assert!(completion.step_permission(0).is_none());
+            assert!(completion.step_permission(1).is_none());
+            let product = completion.derive_permission(
+                ProductScope::Point {
+                    step: Some(0),
+                    member: None,
+                    point,
+                },
+                DerivedQuantity::ParametricSensitivity,
+                validity.clone(),
+            );
+            assert!(product.validity.certified);
+            assert!(!product.permits_result());
+            assert!(product.qualifiers.is_empty());
+        }
+        let completion = Completion {
+            step_permissions: vec![accepted],
+            ..Default::default()
+        };
+        assert!(completion.step_permission(0).unwrap().permits_result());
+        assert!(
+            completion
+                .derive_permission(
+                    ProductScope::Point {
+                        step: Some(0),
+                        member: None,
+                        point,
+                    },
+                    DerivedQuantity::ParametricSensitivity,
+                    validity,
                 )
                 .permits_result()
         );

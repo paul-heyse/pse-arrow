@@ -4044,6 +4044,21 @@ mod tests {
             .unwrap();
         assert_eq!(resolved.kind, NumericalTarget::Observable);
         assert_eq!(resolved.nominal, 4.0);
+        // Independent physical expectation: dx/dt = 1 and x(0) = 1 imply x(1) = 2 s.
+        // Descriptor metadata and the observable's nominal scale cannot establish this.
+        let trajectory = prepared
+            .run(&services, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            trajectory.report().termination,
+            native::Termination::Completed
+        );
+        let endpoint = &trajectory.report().endpoint.as_ref().unwrap().point;
+        assert!((endpoint.time - 1.0).abs() < 1e-12);
+        assert_eq!(endpoint.state.len(), 1);
+        assert!((endpoint.state[0] - 2.0).abs() < 1e-8);
+        assert!(trajectory.checks_complete());
     }
     #[tokio::test]
     async fn goal_accuracy_dynamic_shares_one_real_comparator_for_samples_endpoint_and_integral() {

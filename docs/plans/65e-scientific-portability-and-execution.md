@@ -20,9 +20,10 @@ effective native representations. Direct and isolated execution consume the same
 meaning; placement does not create a second formulation or derivative authority.
 
 The [coordinator](65-proto-integrated-target.md) owns the combined design, rule decisions and
-completion. This companion owns E01–E06. Implementation starts after Plan64 is implemented;
-its complete scientific population and working worker/reference interfaces are the assumed
-baseline, not claimed current evidence. Current source was inspected at
+completion. This companion owns E01–E06. Execution is authorized alongside incomplete Plan64
+as of 2026-11-04, including replacement of overlapping mechanisms. Individual deliveries
+consume actual native capabilities and working interfaces; whole-Plan64 completion is not a
+starting gate. Current source was inspected at
 `f61286a5fa5894b480efe8584c8b3d9b76d1b1fb`, including concurrent projection edits. No product
 or science changes were made while authoring. The source reads are **Interface-checked**;
 every package and benefit below remains **Proposed**.
@@ -46,6 +47,26 @@ The review-driven amendment was prepared against
 `5f4fa0246c0b9fac68493b608f0b2eefe79f116d` with concurrent dirty source preserved. Earlier
 source observations retain their original scope and date; the added semantic and dependency
 obligations are Proposed implementation work, not newly tested scientific behavior.
+
+## Execution population — 2026-11-04
+
+The initial source reconciliation at `d63fcbb11` identifies these concrete migration units.
+Existing source-owned worker protocol, physical type and qualified receipt projections are
+reused; their existence does not complete the following portable consumers.
+
+| Native owner | Portable population and receiving responsibility |
+| --- | --- |
+| `pse-compiler::typed_math_portable` | `Recipe` and `SpecWire` reconstruct compiler-owned source/physical context; qualified restore remains native. |
+| `pse-kernels::portable` | `ProviderRecord`, `SpecWire`, `ShapeWire` and `PortWire` bind provider identity, ordered ports and shapes; supported demand and implementation admission remain native. |
+| `pse-runtime::math::native_child` | `RootWire`, `SourceWire`, `Request`, `Response` and startup handshake serve the actual closed provider-free KINSOL child. Preserve source screening, bounded channel and process custody with complete producer/consumer cutover. |
+| Runtime completion and simulation observation | Original scope, local validity, governing decision, provisional samples and selected accuracy attempt expose recorded native meaning. A decoded observation cannot grant new scientific use. |
+
+I01's first native agreement is available before new generation: `DeclaredExecution` already
+composes route, procedure payload, analysis and original preparation. A/B must project that
+owner composition and construction role; no second operation registry is needed. The existing
+analytic integrated model supplies positive native execution, while spatial-without-temporal-
+closure remains a refusal control. Full portable E02 delivery waits for the narrow working A/B
+slice, not every property/equipment family remaining in Plan64.
 
 ## Selected design and alternatives
 
@@ -143,7 +164,7 @@ consumers; the whole descriptor world must not become a blanket mathematical pre
 
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
-| E01 | planned | Completed Plan64 baseline; agreed native scientific contract from 65i I01; co-designed 65a metadata | Classify every portable source/spec/context/receipt shape in `typed_math_portable`, kernel portable and quantity receipt routes by reconstruction, inspection or private transport consumer. Bind its operation inputs, support/refusal and product-use semantics before selecting Buffa option/record projections. Controls distinguish physical/datatype/configuration changes from compatible value-only changes; no unused universal artifact catalogue. |
+| E01 | in-progress | Actual native capabilities; agreed scientific contract from 65i I01; co-designed 65a metadata | Initial concrete portable consumers are reconciled above; complete source/spec/context/receipt classification and bind each operation's inputs, support/refusal and product-use semantics before selecting projections. Preserve physical/configuration versus value-only change controls; no universal catalogue. |
 | E02 | planned | E01; narrow working 65a/65b and receiving operation from 65i I02 | Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
 | E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
 | E04 | planned | E02 provider slice; 65d session/custody behavior; 65i I04 dependency policy | Implement per-handle prepare/evaluate/stop/close and process-wide shutdown semantics across the post-64 provider population. Separate mutable handle invalidation from reusable immutable math and regenerated descriptor artifacts. Two independent sessions must prove no cross-cancellation, no stale-handle adoption, no global close and admission held through native and I/O drain. Migrate all worker clients, server handlers and fixtures together. |
