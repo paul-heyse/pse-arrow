@@ -95,3 +95,20 @@ fn registry_options_refuse_unrepresented_source_facets_and_invalid_typed_payload
     let option = encoder.message("pse.schema.v1.RegistryFieldFacets", &[("metadata_version", Value::U32(1)), ("extension", empty_extension)]).unwrap();
     assert!(check_option(&option).is_err());
 }
+
+#[test]
+fn registry_options_refuse_schema_allocation_and_native_vocabulary_drift() {
+    let mut graph = ProjectionGraph::default();
+    let selected = field::<u64>(&mut graph, &[(keys::ROLE, "key".into())]);
+    let mut imports = super::super::tests::imports();
+    let domain = imports.iter_mut().find(|file| file.name.as_deref() == Some(IMPORT)).unwrap();
+    domain.extension[0].number = Some(51067);
+    let changed = OptionEncoder::new(&imports).unwrap();
+    assert!(field_options(&selected, &graph, &changed).unwrap_err().to_string().contains("allocation"));
+    let mut imports = super::super::tests::imports();
+    let domain = imports.iter_mut().find(|file| file.name.as_deref() == Some(IMPORT)).unwrap();
+    let role = domain.enum_type.iter_mut().find(|enumeration| enumeration.name.as_deref() == Some("ColumnRole")).unwrap();
+    role.value[1].name = Some("COLUMN_ROLE_FUTURE".into());
+    let changed = OptionEncoder::new(&imports).unwrap();
+    assert!(field_options(&selected, &graph, &changed).unwrap_err().to_string().contains("vocabulary"));
+}

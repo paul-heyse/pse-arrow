@@ -21,6 +21,12 @@ pub(super) const EXTENSION: &str = "pse.schema.v1.registry_field";
 mod tests;
 
 fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaError> {
+    let extension = pool.extension_by_name(EXTENSION).ok_or_else(|| error("registry option extension is absent from its import world"))?;
+    let option = pool.message_index("pse.schema.v1.RegistryFieldFacets").ok_or_else(|| error("registry option message is absent"))?;
+    if extension.field().number() != 51066
+        || pool.message(extension.extendee()).full_name() != "google.protobuf.FieldOptions"
+        || extension.field().kind() != buffa_descriptor::FieldKind::Singular(buffa_descriptor::SingularKind::Message(option))
+    { return Err(error("registry extension allocation, extendee or value type changed")); }
     for (name, expected) in [
         ("ColumnRole", &["COLUMN_ROLE_UNSPECIFIED", "COLUMN_ROLE_KEY", "COLUMN_ROLE_REFERENCE", "COLUMN_ROLE_MEASURE", "COLUMN_ROLE_LABEL", "COLUMN_ROLE_PAYLOAD", "COLUMN_ROLE_PROVENANCE"][..]),
         ("SimpleExtension", &["SIMPLE_EXTENSION_UNSPECIFIED", "SIMPLE_EXTENSION_SEMANTIC_ID", "SIMPLE_EXTENSION_CONTENT_HASH", "SIMPLE_EXTENSION_DIMENSION_VECTOR", "SIMPLE_EXTENSION_QUANTITY_VALUE", "SIMPLE_EXTENSION_BOUND", "SIMPLE_EXTENSION_INDEX_TUPLE", "SIMPLE_EXTENSION_SOURCE_SPAN", "SIMPLE_EXTENSION_TARGET_PATH"][..]),
