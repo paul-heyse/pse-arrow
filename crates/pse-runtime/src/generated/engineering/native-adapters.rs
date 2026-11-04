@@ -21549,10 +21549,9 @@ for pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResu
             statistics: field_14
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_into::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "statistics"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
                     )
                 })
                 .transpose()?,
@@ -21642,10 +21641,10 @@ for pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResu
                 .statistics
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
-                        native_from::<
-                            _,
-                            Vec<u8>,
-                        >(value, &child_path(path, "statistics"))?,
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &child_path(path, "statistics"),
+                        )?,
                     )
                 })
                 .transpose()?,
@@ -21692,10 +21691,9 @@ for pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalR
             attempt: native_into::<_, String>(field_1, &child_path(path, "attempt"))?,
             generation: native_into::<_, u64>(field_2, &child_path(path, "generation"))?,
             digest: native_into::<_, String>(field_3, &child_path(path, "digest"))?,
-            descriptors: native_into::<
-                _,
-                Vec<u8>,
-            >(field_4, &child_path(path, "descriptors"))?,
+            descriptors: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_4,
+            ),
             ..Default::default()
         })
     }
@@ -21727,10 +21725,10 @@ for pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalR
             native_from::<_, String>(wire.attempt, &child_path(path, "attempt"))?,
             native_from::<_, u64>(wire.generation, &child_path(path, "generation"))?,
             native_from::<_, String>(wire.digest, &child_path(path, "digest"))?,
-            native_from::<
-                _,
-                Vec<u8>,
-            >(wire.descriptors, &child_path(path, "descriptors"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.descriptors,
+                &child_path(path, "descriptors"),
+            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
