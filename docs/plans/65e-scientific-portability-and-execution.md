@@ -79,6 +79,20 @@ close. Native and real-transport two-handle controls cover independent survival 
 Generated publication and actual-process acceptance remain required before E04 completion;
 source changes alone do not establish that acceptance.
 
+**Tested, targeted on 2026-11-04:** after root-owned generated publication `1a141f1f5`,
+`scripts/pse test pse-runtime --lib --features property-coolprop` selected and completed four
+controls with zero failures against the zero-failure target: the actual-process
+`action_capable_native_owner_preserves_every_product_through_actual_transport`,
+`handle_controls_cancel_only_exact_context_and_shutdown_closes_admission`,
+`abandoned_observer_does_not_release_a_native_job_admission`, and
+`shutdown_has_an_explicit_wire_operation_and_acknowledgement`. The real worker control
+completed cooperative active cancellation, exact Closed acknowledgement, surviving-handle
+evaluation, stale/replayed-request refusal and explicit Shutdown. Native capture and settlement
+were complete under original user-scope custody, explicit cache-off execution and consuming-
+closure Arrow validation. The admission control was initially nested and undiscovered; it was
+moved into the actual test module and the four-test population was verified. This qualifies
+the selected E04 slice, not every worker/scientific consumer or assembled H acceptance.
+
 The numerical lane uses Tokio 1.53.3 `Semaphore::try_acquire_owned`; its
 `OwnedSemaphorePermit` moves into the native job rather than remaining on an observing RPC.
 Observer cancellation therefore cannot admit a second numerical mutation before the original
@@ -201,6 +215,69 @@ for it and deliver the batch route through the independently specified action-ca
 do not advertise production batching. The coordinator must then narrow the promised population
 or select a genuinely useful batch-capable scientific implementation before declaring the
 production batching obligation complete. A synthetic control alone cannot close that promise.
+
+## E05 grouped implementation assessment and kernel contract
+
+**Interface-checked:** the selected `coolprop-sys =8.0.0` exposes native array operations
+`AbstractState_update_and_common_out`, `AbstractState_update_and_1_out`,
+`AbstractState_update_and_5_out` and `PropsSImulti`. They are genuine grouped library routes,
+not a Rust/RPC loop over scalar evaluation. Current kernel `Provider::fill` remains scalar;
+absence of a current batch trait is not absence of an enabling library capability.
+
+The [selected CoolProp 8.0.0 C wrapper](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/src/CoolPropLib.cpp)
+distinguishes these routes. The AbstractState array calls reuse a handle but swallow individual
+point exceptions, leaving output slots unchanged; initialize every output slot to NaN and
+require all requested fields before adoption. `PropsSImulti` instead constructs one state per
+group, processes input arrays and accepts arbitrary selected outputs. Its caller supplies
+matrix capacities; returned dimensions must match the admitted population/output shape,
+and zero dimensions report total failure. Flattening is point-major. The output separator
+uses actual `LIST_STRING_DELIMITER` configuration rather than an assumed constant.
+
+The [selected core implementation](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/src/CoolProp.cpp)
+parses normal, first- and second-derivative output strings. `Phase` resolves through the
+[native state owner](https://github.com/CoolProp/CoolProp/blob/ae81610e7d23efc57f9d051c8e70a4d66e87537f/src/AbstractState.cpp).
+Candidate fixed outputs are `P`, `Hmolar`, `Smolar`, `Umolar`, `Phase` and
+`d(P)/d(Dmolar)|T`; selected jets can use native derivative strings such as
+`d(Hmolar)/d(T)|Dmolar`. Bad states/outputs can remain nonfinite while other outputs succeed;
+global success never establishes per-point completeness. Exact derivative ordering and
+homogeneous-phase applicability need independent controls before being advertised.
+
+Use `COOLPROP.exclusive_access()` across `PropsSImulti` and any original `errstring` retrieval:
+its total-failure path writes a process-global error slot. The
+[coolprop-sys 8.0.0 access contract](https://docs.rs/coolprop-sys/8.0.0/coolprop_sys/struct.CoolPropLib.html)
+requires this guard for global error attribution. It avoids repeating an already performed
+group merely to recover its error. The guard excludes other in-process CoolProp readers during
+the call; compare that physical tradeoff against native low-level grouping before claiming a
+throughput benefit. No global application/RPC mutex or automatic retry is introduced.
+
+The proposed first production capability is independent-state, value-only water batching
+through one native `PropsSImulti` call, with derivative batch demands explicitly unsupported
+until qualified. Factor shared physical admission at the actual water owner: finite input
+envelope, actual phase, positive isothermal response, pressure envelope, local h/s datum
+offsets and `h = u + p/rho` consistency must remain identical to scalar execution. The bulk
+call must return those guard observations alongside selected values; ordinary bulk P/H/S
+alone does not discharge them. Numerical kernels keep their native representations.
+
+Before activation, the kernel/binding decision must establish:
+
+- A capability query over the exact prepared demand; no default scalar-loop batch fallback.
+- Whole-envelope identity uniqueness, framing and checked extents, followed by per-point
+  scientific admission of exact raw inputs. Blanket recursive finite validation/adoption must
+  not erase promised mixed-validity outcomes. Zero eligible points produce attributed refusals
+  without entering the library.
+- Stable original point identity/order with an eligible-point index mapping, one grouped native
+  call and explicit per-point success/refusal. Malformed native dimensions or untrustworthy
+  completion remain batch failures without claiming untouched/replayable points.
+- Owned input/result storage with checked extents, accounting for C-wrapper copies/matrices
+  and retained opaque provider admission. No response aliases transient native scratch.
+- Cancellation/deadline checks before and after the non-cooperative foreign call, retaining
+  native/process/I/O custody until actual settlement. An observer timeout cannot release buffers
+  or turn missing acknowledgement into replay permission.
+
+This is a source-backed next implementation route, not completed E05 delivery. Value/guard
+parity, mixed valid/refused states, shape/ordering errors, all-invalid input, partial native
+failure and actual grouped transport remain required. The action-capable control establishes
+demand fidelity separately; it cannot substitute for this production scientific realization.
 
 ## Verification, extension and decision handoff
 
