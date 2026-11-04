@@ -67,7 +67,13 @@ is not an interface requirement; native helpers may retain their own explicit ex
 Review `.envrc`, then `direnv allow` in each checkout. Activation composes the native
 export owner without syncing packages, running doctor or compiling providers.
 `.envrc.local` is the ignored personal override. A checkout without its own environment must
-not borrow another's. On this workstation the Codex Bash bridge initializes the machine
+not borrow another's. For a tool process that has not inherited activation, use
+`direnv exec . scripts/pse-env -- COMMAND` in the already reviewed/allowed checkout. Activation
+must precede the outer workload boundary: an inner recipe's environment cannot undo a finite
+allocation already selected by an unactivated outer command. This preserves the maintainer's
+selected build mode instead of manually redeclaring capacity or changing OS limits.
+
+On this workstation the Codex Bash bridge initializes the machine
 baseline once, then refreshes approved direnv settings without rebuilding unchanged activation.
 It unsets `BASH_ENV` for workload children, which retain their native or oracle owner's selection.
 Existing daemons without the initialized baseline use a safe compatibility path until a fresh
