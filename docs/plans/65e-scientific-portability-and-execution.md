@@ -673,8 +673,15 @@ decode prerequisite, not the full validation/adoption/restoration envelope. The 
 review cross-checked 119 reachable lazy structs and 230 deferred edges; pre-integration
 compiler controls passed 14/14 and generator traversal controls 3/3. The xtask bundle
 control's compilation completed, but storage exhaustion prevented artifact capture and its
-test body did not run. Final main generation passed all 14 targets with unchanged outputs;
-fresh main probe/bundle evidence is still required. The isolated checkout has been retired
+test body did not run. Final main generation passed all 14 targets with unchanged outputs.
+The integrated main compiler selection subsequently passed 15/15, zero failures/build warnings,
+pending records or incomplete original capture/settlement, using configured unbounded/cache-off
+compiler/KLU/solver and `scripts/pse test pse-compiler --lib -E
+'test(scientific_recipe_native_) | test(scientific_recipe_probe_) |
+test(scientific_recipe_owned_and_borrowed_) | test(scientific_recipe_source_graph_)'`.
+The initial main xtask selector omitted `product-schemas` and matched zero tests; it is not
+bundle acceptance. The corrected feature-selected bundle control remains required.
+The isolated checkout has been retired
 after content reconciliation. Receiving-phase admission and activation continue on main.
 The selected source-derived traversal can use Buffa 0.9.2
 [`decode_lazy_with_ctx`/`merge_lazy`, fragments and raw elements](https://docs.rs/buffa/0.9.2/src/buffa/view.rs.html)
@@ -778,6 +785,46 @@ realization and do not alone cover later substitution. Existing process custody 
 allowances establish neither of those pre-allocation guarantees. A separately qualified
 kernel-enforced address-space ceiling would be a different closed-lane mechanism and would
 not qualify canonical in-process restoration. No new process limit is selected here.
+
+The candidate population is the existing native `PreparedBody`, not a new mathematical
+language. Its stages already distinguish Block, Require, Domain, Applicability, Branch and
+Provider. A bounded base-body snapshot would need the admitted stages/atoms, layouts and
+formal slots, output/effect slots, obligations and quantity maps, optional analyzed expressions,
+provider specifications, checked members/sources/occurrence tokens and accounting populations.
+Instance bindings, provider workers, original `Arc`/owner identities and demanded evaluator
+workspaces remain outside it. The existing same-process `BodyRetention` can reuse an
+`Arc<AdmittedBody>` after semantic/physical checks, but there is no passive cross-session
+constructor that avoids analysis. `PreparedBody` equality omits some accounting fields and
+is therefore insufficient as transfer acceptance. See
+[`PreparedBodyData` and construction](../../crates/pse-math/src/execution.rs),
+[native stage definitions](../../crates/pse-math/src/guarded.rs),
+[admitted-body owner](../../crates/pse-compiler/src/typed_math.rs) and
+[actual retained-body reuse](../../crates/pse-compiler/src/workspace/modeling/executable/grouped.rs).
+
+Supplier feasibility research finds no existing safe checked loader in the inspected exact
+3.0.1 source: `Atom::read` checks format/extent but enters internal unchecked representation;
+ordinary views/iterators assume valid packing and current-state references. `StateMap::is_empty`
+does not certify exact symbol definitions or state generation. Even an injective rename can
+change canonical ordering; generic comparison may materialize large coefficients, while
+symmetry/custom callbacks and polynomial/field coefficients add transformation and metadata
+obligations. A plausible first supplier profile would need safe packing inspection before
+ordinary views, authenticated canonical-producer provenance, exact state/symbol compatibility,
+prepriced output/order scratch and a bounded remapper excluding unsupported transformations.
+Identity-only loading avoids ordering repair but does not solve fresh-session reconstruction.
+Exposing the unchecked reader or suppressing normalization flags is not a valid prerequisite.
+These are bounded research conclusions, not established library functionality; precise source
+owners are `vendor/symbolica/src/{atom/representation.rs,atom/coefficient.rs,coefficient.rs,state.rs,normalize.rs}`.
+
+Keep current semantic-body and BodySpec definitions separate from any new payload encoding.
+The existing source/layout/physical/admission meaning must not silently become an atom-byte
+hash. Full source/physical/provider receipts remain attached until a reviewed native contract
+establishes their exact snapshot correspondence and complete consumption. Base `AdmittedBody`
+is Value-order mathematics: transferring it would not by itself avoid later demand-specific
+`PreparedSupport` differentiation, compaction or evaluator construction. Any such extension
+needs its own exact output/coordinate/order population and admission contract. First establish
+source-admission versus transferred-body equivalence and mutated layout, missing/duplicate
+tokens, stale symbol/physical/provider context and original receipt/refusal controls before
+using this candidate to discharge F03.
 
 The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
 allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their

@@ -135,6 +135,36 @@ This separates design readiness from working prerequisites without a circular pl
 
 ## Verification, extension and completion
 
+### Retained acquisition and action population — 2026-11-04
+
+Main `86c566810` integrates the bounded lifecycle/action controls from `b1db91f33`.
+Native performing-report publication and retained export preserve unavailable inventory,
+original omissions and independent unknown manager settlement/native-pending observations.
+Full acquisition refuses corrupt/missing committed dependencies and over-budget closure
+without publishing a destination, repairing source bytes or creating missing population.
+Current rerun checks challenge changed package/features, removed tests and a stale isolated
+binary against an actual source-built/listed population; original commitments remain intact.
+Actual nonempty List and Rustdoc workflows retain population-versus-compiler meaning,
+alongside the existing Test, Check and zero-match controls. No product defect was exposed.
+
+Before integration, `scripts/pse test pse-host --lib` selected those five controls and
+passed 5/5 with zero failures, pending/incomplete records or compiler warnings; original
+capture and native settlement completed, configured unbounded/cache-off and incremental
+compilation disabled. `scripts/pse check pse-host --all-targets` also passed without
+errors/warnings and with complete capture/settlement. The initial three-control pass's
+five qualification warnings were corrected before this final run. Worktree preparation
+initially lacked `.venv/bin/python`: doctor passed while skills-sync failed before manager
+execution; ordinary `uv sync` and the failing skills-sync rerun then passed without lock
+or shared-skill source changes. The three owned files matched main before quiescent removal;
+original invocation evidence remains outside the checkout.
+
+These controls do not establish actual process interruption or passive active-reader/release
+behavior. The manager-pending fixture is explicitly a passive record. The inspected invocation
+owner has no disposal/prune operation to supply a passive-reader lease lifecycle; identify
+that concrete performing owner before implementing retention/release behavior. Producer stream
+capture/join remains a distinct existing lifetime. J04/J05 and assembled population acceptance
+remain open; no new retention manager, verdict store or cleanup capability was introduced.
+
 **Proposed verification:** independent expected observations challenge generated correspondence.
 Owner construction controls prevent decoded observations from becoming pass/readiness/publication/
 drain capabilities. Include a complete failing test population with successful cleanup, expected

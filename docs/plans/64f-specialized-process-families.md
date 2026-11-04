@@ -182,10 +182,16 @@ allowance covers the actual 11-by-12 and 17-by-18 derivative populations without
 the numerical perturbation or accuracy criterion. Worker preparation also carries the
 actual authored registry instead of assuming the standard registry.
 
-Fresh captured scientific inputs and the final six-case rerun remain required. The final
-pre-integration rebuild was interrupted by storage exhaustion before test execution; the
-integrated main selection is now running. Source correction is not a tested equipment
-repair. [64k's checkpoint](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04)
+The pre-integration rebuild was interrupted by storage exhaustion before test execution.
+The fresh captured-input main selection now passes all six authored direct/worker equipment
+cases and the registered document-ingress control, within the 44-control runtime selection
+owned by [64k's checkpoint](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04).
+It used native correctness with engineering-service/native-study/product-reader/operators,
+CoolProp, KINSOL and Ipopt features, configured unbounded/cache-off and explicitly prepared
+compiler/KLU/solver. All 44 passed, zero failures/build warnings/pending, original capture
+and settlement complete. Original independent expectations and physical error budgets remain
+unchanged. This establishes those equipment cases at their selected states, not the full
+power/specialist population or a performance benefit. The same K checkpoint
 owns worker transport/process evidence and remaining matched-placement acceptance.
 Neither the passing water-property transport controls nor passive Proto metadata establish
 configured power-family or broader specialist acceptance.

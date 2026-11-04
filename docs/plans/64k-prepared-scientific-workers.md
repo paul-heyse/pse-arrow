@@ -219,24 +219,22 @@ action products. Complete-call timing/accounting was recorded again with actual 
 and zero retained reservation afterward. The independent process integration now passes
 its three original-process controls: complete water jets across orders/regimes/repeated
 calls, original refusal/cancellation without stale success, and admission retained through
-actual kill/reap. Matched authored equipment journeys were attempted separately and
-remain open. Both measurement campaigns are single-campaign observations,
+actual kill/reap. The latest integrated equipment results are recorded below; their matched
+complete-operation measurement campaign remains open. Both earlier campaigns are single-campaign observations,
 not a speedup claim or independent validation of CoolProp; original host/library-load and
 accounted-versus-RSS limitations remain explicit in their retained source recordings.
 
 K01–K04 therefore contain implemented and targeted tested protocol, process and water-proxy
 slices, but their complete package acceptance and final generated-world reconciliation
-remain open. K05 is not complete. A fresh scientific-input capsule now supplies both the
+remain open. K05 is not complete. A fresh scientific-input capsule supplies both the
 captured physical package and the actual authored steam/oracle closure. The three direct
-equipment cases reach a nominal `VolumeFlow` mismatch for `flow/rho`; the three worker cases
-refuse the current hard-coded standard-registry profile before execution. The standalone
-document-ingress case also lacks its captured physical type declarations. Duplicate Water
-CAS is no longer the current failure. Complete the authored operation/type closure and carry
-actual unadmitted physical declarations through generated worker preparation, followed by
-native builder admission and exact descriptor/context checks. Do not restore a synthetic
-registry or weaken nominal physical meaning to pass these cases.
+equipment cases previously reached a nominal `VolumeFlow` mismatch for `flow/rho`; the three
+worker cases refused a hard-coded standard-registry profile before execution. The earlier
+document-ingress case lacked its captured physical type declarations. The integrated correction
+below carries the actual unadmitted physical declarations through generated preparation and
+native builder admission with exact descriptor/context checks, preserving nominal meaning.
 
-The targeted `pse-runtime --lib` steam/inspection selection with `engineering-service,
+The historical targeted `pse-runtime --lib` steam/inspection selection with `engineering-service,
 native-study-tests,product-reader,property-coolprop,solver-kinsol` completed nine controls:
 one passed and eight failed against zero failures. Seven failures are the scientific cases
 above; the inspection byte-reencoding assertion incorrectly assumed canonical protobuf map
@@ -283,11 +281,18 @@ It exercises CompleteJets and selected first/second columns with output/column p
 across all three water regimes, original refusal/cancellation without stale success and
 actual kill/reap admission retention. Direct and worker routes use the same CoolProp science;
 this is final-source process/representation evidence, not independent validation of that
-science. Fresh main capsule equipment/runtime controls remain in progress; source integration,
-the 12 Water controls and these three process controls do not establish equipment execution
-or full placement equivalence.
+science. The fresh main capsule selection also passed all 44 runtime controls with zero
+failures, build warnings or pending records and complete original capture/settlement:
+`scripts/pse test pse-runtime --lib --features
+engineering-service,native-study-tests,product-reader,product-operators,property-coolprop,solver-kinsol,solver-ipopt
+-E 'test(scientific_worker::) | test(workflow::modeling::steam_tests::)'`, in the same prepared
+unbounded/cache-off native mode. It includes all six authored direct/worker equipment cases
+and registered document ingress. Original hydraulic/IAPWS and released single-phase reference
+expectations passed without changing their numerical tolerance or bounds. This discharges
+those failures at their selected scientific states, not full K05, other fluids/wet states,
+the matched measurement campaign or wider Plan64 family acceptance.
 
-Next work is fresh capsule/image preparation and all six equipment controls; independent
+Next work is broader independent
 water/datum/derivative and original equipment-balance evidence; interruption and settled
 cleanup; and the required matched cold/warm complete equipment measurements. The earlier
 single-call observations do not satisfy that full campaign. K06's assembled acceptance,
@@ -302,7 +307,7 @@ passed 25 selected tests, and
 passed all three actual-process tests. Both used the native correctness route and have
 zero failures against zero; unselected runtime tests were not exercised. They cover the
 source-described process/custody and water-demand controls, not a full equipment campaign.
-The six equipment failures and their actual command are recorded by
+The earlier equipment failures and the latest passing selection are recorded by
 [64f](64f-specialized-process-families.md#current-steam-integration-checkpoint--2026-11-04).
 
 **Proposed verification:** distinguish bit-preserving interchange from independent science.
@@ -338,6 +343,6 @@ only after its enduring meaning and inbound references have owners.
 
 **Current conclusion:** Full execution is authorized. The worker's generated transport and
 actual-process controls have been exercised after explicit preparation following the earlier
-disk cleanup. The outstanding equipment failure and acceptance are described above;
+disk cleanup. Selected equipment controls now pass; remaining acceptance is described above;
 actual-process transport is no longer wholly unrun. K01–K05 remain in progress and K06
 planned. Full scientific acceptance and a performance benefit remain unestablished.
