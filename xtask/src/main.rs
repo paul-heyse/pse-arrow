@@ -358,6 +358,8 @@ struct ProducerIdentityArgs {
 enum Target {
     /// Native developer report/inventory observations and independent reader bundle.
     DeveloperEvidence,
+    /// Native child protocol projected from its existing source owners.
+    NativeRoot,
     /// Compiled engineering and prepared scientific-worker contract projections.
     Engineering,
     /// Code-intelligence contracts, validation and representation fixtures.
