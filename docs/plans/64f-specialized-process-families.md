@@ -164,10 +164,28 @@ on prepared local Linux through the native correctness route: **0 passed, 6 fail
 zero**, all before equipment science during duplicate Water CAS package admission.
 This includes three direct pump/turbine cases and their three prepared-worker counterparts.
 
-The uncommitted steam-source correction retains one authoritative typed Water CAS fact,
-separate provider-source provenance and the required wrong-CAS refusal. Fresh captured
-scientific inputs and the six-case rerun remain required; the correction is not a tested
-equipment repair. [64k's checkpoint](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04)
+Main `165faf093` integrates the source correction: one authoritative typed Water CAS fact,
+separate provider-source provenance and the required wrong-CAS refusal; nominal molar
+`Flow / Density -> VolumeFlow` typing with checked original operands/basis; and concrete
+hydraulic/isentropic steam assumptions without the redundant PressureChanger wrapper.
+Fixture paths follow the actual concrete unit. Equations, balances, guards, tolerances and
+independent reference expectations remain intact. The generic PressureChanger remains useful
+for its separate authored scope.
+
+The selected equipment root route is the existing Ipopt bounded-root implementation.
+Authored two-sided bounds cannot be represented by KINSOL's shifted sign constraints;
+removing bounds to fit that backend would change the scientific problem. Ipopt's existing
+C interface receives lower/upper variable bounds through `CreateIpoptProblem`; see the
+[Ipopt C interface](https://coin-or.github.io/Ipopt/INTERFACES.html#INTERFACE_C)
+and native routing in `pse-backend-native/src/routing.rs`. The finite diagnostic-cell
+allowance covers the actual 11-by-12 and 17-by-18 derivative populations without changing
+the numerical perturbation or accuracy criterion. Worker preparation also carries the
+actual authored registry instead of assuming the standard registry.
+
+Fresh captured scientific inputs and the final six-case rerun remain required. The final
+pre-integration rebuild was interrupted by storage exhaustion before test execution; the
+integrated main selection is now running. Source correction is not a tested equipment
+repair. [64k's checkpoint](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04)
 owns worker transport/process evidence and remaining matched-placement acceptance.
 Neither the passing water-property transport controls nor passive Proto metadata establish
 configured power-family or broader specialist acceptance.

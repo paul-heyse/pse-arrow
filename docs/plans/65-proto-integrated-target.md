@@ -373,9 +373,12 @@ owns its targeted evidence and limits. The prerequisite checkout was removed aft
 content reconciliation. Study lifecycle/keeper integration is now on main through
 `4bf4ff32b`; the independently reviewed library-owned pre-growth prerequisite is on main
 as `44708962e`. Their clean checkouts matched all owned files before quiescent removal;
-original invocation evidence remains outside them. The actual physical-context worker
-and the next source-derived Recipe receiving phases retain isolated active checkouts.
-Integration and final acceptance remain on main.
+original invocation evidence remains outside them. The complete source-generated lazy
+Recipe decode probe is integrated as `d1e597de1`; actual physical-context preparation,
+native SelectedColumns and authored steam-source corrections are integrated as
+`165faf093`. All required owned content was reconciled before removing their quiescent
+checkouts. The generated ownership manifest preserves the union of both generators.
+Only the main checkout remains; integration and final acceptance continue there.
 
 Main `c9cfe6a8d` bounds shared native clock/settlement composition. The current
 [G08 checkpoint](64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
@@ -384,6 +387,14 @@ module failed its fixed clock. All 22 selected capture/append/lifecycle controls
 pass, including the actual 10,000-member capture. Pure module artifact/admission
 controls pass 11/11; full generation publishes all 14 targets. These scoped results
 do not close migration, complete G08 or either plan's assembled acceptance.
+
+Final generation after both source integrations passed all 14 targets and left main's
+published outputs unchanged. An earlier storage exhaustion interrupted pending main
+keeper/predecessor and worker scientific tests; those interrupted builds establish no
+test result. Removing only the reviewed, integrated and quiescent worker checkouts
+recovered approximately 137 GiB. Retained invocation stores and main build output were
+preserved. Post-recovery `just ready` passed; fresh main tests and original source-built
+Study image captures are in progress. Their acceptance remains with 64j/64k/64g and 65e.
 
 Continue with actual canonical/private receiving integration and original workspace
 admission/restoration before activating the protobuf Recipe. A05/E02/E03,

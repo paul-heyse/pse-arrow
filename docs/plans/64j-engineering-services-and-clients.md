@@ -186,7 +186,7 @@ slice does not complete a package whose full consumer migration or acceptance is
 | J03 | in-progress | J02 plus working native edit/preparation/study handlers. | Inspect/edit/prepare/submit/status/cancel/read products work end to end. Typed owner/client tests include add/replace/delete/retain, stale parent, missing/default distinctions, intended science failure, duplicate original request and changed-request conflict. Remove replaced B/C adapters/callers/fixtures together. |
 | J04 | in-progress | J03's original operation ownership and retained reads. | Observational progress, reconnect, bounded observer release and shutdown work. Drop observation while work continues, reconnect to the original run, lose a submit ACK, request cancellation and prove actual settlement separately. No automatic submit replay; remove duplicated polling/status translations where replaced. |
 | J05 | in-progress | 64i's producer-selection slice plus J03/J04 real responses. | Runtime/client I06 producer/encode/consume paths use selected responses. Selected/full/empty and malformed nested read tests cover continuation, retained buffer release, extent refusal, cancellation and partial output. Delete duplicated projection/extent passes only with equivalent protection. No latency/memory benefit claim without whole-lifetime measurement. |
-| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case client journey tested; full Study lifecycle and simulation/fit/horizon client tests are drafted but unlinked and unrun. Complete their integration, original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
+| J06 | in-progress | All functional J scope, working selected 64d–64g cases and consumed G08 capture/publication slices. | Narrow declared-case client journey tested; the full three-phase Study client/coordinator is linked, with actual assembled execution pending. Simulation/fit/horizon client tests remain drafted and unlinked. Complete their integration, original physical checks, failed siblings, protected products, disconnect/reconnect, duplicate/cancel/lost ACK and shutdown; delete replaced routes and reconcile 64h H05/H07. |
 
 J01 and 64i's first contract slice proceed together; neither waits for a universal catalogue.
 J02 can develop against that implemented slice while later schema families proceed. J03's
@@ -246,7 +246,12 @@ present in the working tree, with acceptance boundaries that differ from that pa
   failure stays a failure; only successful accepted cleanup treats a later stop as late.
   The keeper independently checks its own stop/failures before disposal. Nineteen targeted
   coordinator/keeper controls and normal-bin compilation passed before integration with
-  zero failures/build warnings and complete capture/settlement. The assembled three-phase
+  zero failures/build warnings and complete capture/settlement. The integrated main
+  selection also passed 19/19 with zero failures/build warnings, original capture and
+  settlement complete: `scripts/pse test pse-runtime --bin pse-engineering-fixture
+  --features engineering-service,native-study-tests,product-reader,product-operators,property-coolprop,solver-kinsol,solver-ipopt
+  -E 'test(qualification::tests::) | test(tests::scientific_keeper_)'`, configured unbounded,
+  cache off, explicitly prepared compiler/KLU/solver. The assembled three-phase
   journey remains unrun. Fresh main captures and actual original-worker completion are
   required; this Study worker is distinct from 64k's water-property worker.
 

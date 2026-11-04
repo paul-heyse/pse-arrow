@@ -251,6 +251,42 @@ must be reconciled against these owners rather than creating another worker/batc
 Those controls do not discharge the equipment, independent-science or matched-measurement
 obligations below.
 
+Main `165faf093` now integrates the physical-context and authored-operation correction.
+Generated Prepare v2 transports the actual passive registry builder and provider declaration;
+the child uses native builders, reconstructs its original context and compares the descriptor
+before creating a provider. Old tag/name reservations prevent silently adopting the former
+standard-registry assumption. The parent retains the registry declaration and its reservation
+through factory/binding lifetime. Generated Request/Response adapters replace the handwritten
+wire forest; malformed response adoption remains unknown completion, distinct from an actual
+native provider refusal. Numerical-job admission is released after calculation/control
+settlement and before reply publication, removing the next-request busy race.
+
+The actual Water provider now supplies native SelectedColumns first/second derivatives through
+CoolProp's `first_partial_deriv`/`second_partial_deriv` machinery, preserving requested column
+and output order and shared support checks. It computes requested derivatives rather than
+manufacturing an action token or substituting dense action products. Unsupported action
+demands remain refusals. See the selected
+[CoolProp 8.0.0 native interface](https://github.com/CoolProp/CoolProp/blob/v8.0.0/include/AbstractState.h)
+and implementation in `pse-backend-native/src/coolprop.rs`.
+
+Targeted pre-integration native Water controls passed 12/12, zero failures/build warnings.
+The preceding runtime iteration passed 37/44: its seven failures identified selected-column
+support, the calculation/reply admission race, finite diagnostic extent and bounded solver
+eligibility. The integrated corrections address those causes in source, but final runtime
+and actual-process rebuilds were interrupted by storage exhaustion before executing tests.
+The final-source actual-process selection now passes on main:
+`scripts/pse test pse-runtime:scientific_worker --features
+engineering-service,native-study-tests,product-reader,product-operators,property-coolprop,solver-kinsol,solver-ipopt`
+passed 3/3, zero failures/build warnings/pending records, original capture and settlement
+complete, configured unbounded/cache-off with compiler/KLU/solver explicitly prepared.
+It exercises CompleteJets and selected first/second columns with output/column permutations
+across all three water regimes, original refusal/cancellation without stale success and
+actual kill/reap admission retention. Direct and worker routes use the same CoolProp science;
+this is final-source process/representation evidence, not independent validation of that
+science. Fresh main capsule equipment/runtime controls remain in progress; source integration,
+the 12 Water controls and these three process controls do not establish equipment execution
+or full placement equivalence.
+
 Next work is fresh capsule/image preparation and all six equipment controls; independent
 water/datum/derivative and original equipment-balance evidence; interruption and settled
 cleanup; and the required matched cold/warm complete equipment measurements. The earlier

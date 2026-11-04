@@ -250,7 +250,8 @@ are distinguished below; no percentage or package completion is inferred from fi
   inventory, distributed/cyclic and derivative acceptance; F's configured power,
   gas-solid, capture/membrane, TSA/SOC and network families; G's remaining inference,
   uncertainty, surrogate/discrete, control/multiperiod and assessment consumers, plus
-  G08's failing capture controls and legacy retirement. Their companion tables retain
+  G08's remaining migration/legacy retirement and assembled acceptance. Its selected
+  capture controls now pass through the authored-transaction alternative. Companion tables retain
   the exact package and configuration obligations. Proto metadata does not implement
   those scientific families.
 - **Remaining assembled acceptance:** H02/H03's native/reference correspondence and
@@ -342,8 +343,10 @@ failure is against the zero-failure baseline, not an accepted allowance.
 
 Current joint execution has repaired the ordinary capture stack failures; the latest
 [G08 evidence](64g-analyses-studies-and-applications.md#g08--atomic-capture-and-unrelated-liveness)
-retains the unresolved 10,000-member timeout/drain result. Fresh captured-input steam cases
-now expose the [K05 physical-context and authored-operation gaps](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04).
+records the selected authored-transaction alternative and passing actual 10,000-member
+capture, with migration and full acceptance still open. The integrated
+[K05 physical-context and authored-operation correction](64k-prepared-scientific-workers.md#current-implementation-checkpoint--2026-11-04)
+now replaces the former source gaps; final-source equipment/placement acceptance remains pending.
 These current owners supersede the historical failure descriptions above.
 
 **Not run / deferred by explicit instruction:** Clippy (including keep-going workspace,

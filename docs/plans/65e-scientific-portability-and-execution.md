@@ -662,8 +662,20 @@ fixture also passed on main (one wrapper executing seven controls, zero build wa
 Full receiving-phase admission and activation remain open.
 
 The complete F03 envelope remains unresolved. The native graph and library enforcement
-prerequisite are now available; source-derived retained capacities and receiving-phase
-admission still require realization in the active Recipe-phase checkout.
+prerequisite are now available. Main `d1e597de1` adds the source-generated complete lazy
+decode probe, sharing the final descriptor world, generator configuration and actual
+type/field naming with eager adapters. Every selected lazy root/child checks its accounting
+capability before low-level decode or merge. Singular fragments merge before descendant
+traversal; repeated raw children are visited individually; eager carveouts use their
+accounted eager decoders. Allocation, element and unknown-byte cells remain shared for the
+whole walk. Typed resource errors retain their original library error source. This is a
+decode prerequisite, not the full validation/adoption/restoration envelope. The source
+review cross-checked 119 reachable lazy structs and 230 deferred edges; pre-integration
+compiler controls passed 14/14 and generator traversal controls 3/3. The xtask bundle
+control's compilation completed, but storage exhaustion prevented artifact capture and its
+test body did not run. Final main generation passed all 14 targets with unchanged outputs;
+fresh main probe/bundle evidence is still required. The isolated checkout has been retired
+after content reconciliation. Receiving-phase admission and activation continue on main.
 The selected source-derived traversal can use Buffa 0.9.2
 [`decode_lazy_with_ctx`/`merge_lazy`, fragments and raw elements](https://docs.rs/buffa/0.9.2/src/buffa/view.rs.html)
 with one shared decode context. Default subtree getters recreate allowances. The
@@ -693,6 +705,79 @@ worst-case iteration. Current finite-CEL lowering uses integer comparisons/stack
 future rules cannot silently inherit that profile or assumptions about nested validator
 error propagation. Native adapter staging vectors overlap final `Arc`/tree collections.
 These are source-grounded admission obligations, not established complete bounds.
+
+### Reconstruction population and native mathematics limit
+
+Further read-only inspection at `165faf093` follows reconstruction beyond decode and
+membership. [`ResolvedRecord::restore`](../../crates/pse-modeling/src/resolved/records.rs)
+shares one function product per identity, checks cycles/depth, and validates selected
+formal counts against the original function before charging syntax entries and allocating
+formal vectors. Required source facts include the sum of selected formal counts, not just
+distinct functions. Explicit value/type/quantity records restore their declared recursive
+members; indexed types do not instantiate an implicit Cartesian product. Price the actual
+boxes, strings and collection populations, including staging/final-collection overlap.
+
+Physical receipt replay clones complete entries/boundaries and keeps them throughout
+reconstruction; mathematical proof replay also clones entries and consumed branch bytes.
+Their recursive populations and overlapping lifetimes must enter the same receiving
+reservation. Authenticated proof replay consumes recorded results rather than rerunning
+the enclosed admission-only proof closures. Provider restoration constructs descriptors
+and prepared facts, not provider workers. See the actual
+[physical replay owner](../../crates/pse-quantity/src/resolved_receipts.rs),
+[proof replay owner](../../crates/pse-math/src/typed_receipts.rs) and
+[provider restoration](../../crates/pse-compiler/src/typed_math/provider_records.rs).
+
+Native mathematical reconstruction remains a consequential unresolved condition.
+`reconstruct_recipe` invokes `Request::admit_inner` and lowers source mathematics again.
+Body occurrence/slot limits bound selected construction work, but do not by themselves
+bound Symbolica coefficient bytes. For example, a source DAG of exact-integer repeated
+multiplication can grow coefficients far faster than its node count. This is a source-derived
+possibility, not an executed probe; the existing positive-integral-Pow defense does not
+cover multiplication. Partial construction can likewise allocate before returned-operation
+count checks. Do not infer a byte bound from these post-construction counts.
+
+Symbolica 3.0.1 `AtomView::{add,mul,pow,div}_with_ws_into` normalizes through reusable
+`Workspace` buffers without a byte-admission or cancellation argument. Its recycling
+cache does not bound peak live temporaries. Repository `ConstructionAdmission::try_grow`
+can extend the original live allowance before explicit allocations, but these arithmetic
+operators do not invoke it. Evaluator `direct_translation(true)`, alias DAGs, abort checks
+and optimizer limits apply to evaluator construction, not every earlier reconstruction
+operation. Formal-symbol registration also grows global native metadata in chunks of 8192;
+a chunk count is not an established byte bound. Sources are the exact-release
+[Atom arithmetic](https://docs.rs/symbolica/3.0.1/src/symbolica/atom.rs.html),
+[workspace implementation](https://docs.rs/symbolica/3.0.1/src/symbolica/state.rs.html),
+[typed arithmetic](../../crates/pse-math/src/typed.rs),
+[partial construction](../../crates/pse-math/src/typed_partial.rs),
+[construction admission](../../crates/pse-math/src/construction.rs) and
+[library construction](../../crates/pse-math/src/library.rs).
+
+Before F03 activation, resolve normalization, coefficient/partial growth and symbol
+registration alongside the source-derived passive populations. A payload multiplier,
+retained-capacity measurement, decoder-only budget or post-allocation operation refusal
+does not establish the required pre-allocation envelope. Current JSON v3 remains active;
+no canonical/private binary cutover or complete F01–F03 acceptance follows from this work.
+
+The next bounded design investigation should compare preserving already admitted native
+body facts against budgeting the full repeated preparation operation. A prepared-body transfer
+could avoid re-lowering, support analysis and derivative reconstruction, but is not established
+by serializing existing atoms or stages. The maintained Symbolica
+[`Atom::import`/`import_with_map` and `rename`](../../vendor/symbolica/src/atom/representation.rs)
+normalize during symbol remapping, including unchanged mappings; calling the ordinary
+`PreparedBody` constructor also repeats analysis. Any selected transfer therefore needs a
+supplier-owned checked canonical-atom load/remap that does not normalize, a native structural
+restore path, and preservation of original qualification, per-record membership and exact
+receipt consumption. Current replay drains receipts through lowering, so a different
+authority premise requires the proposed ADR route before implementation. This is a candidate
+for investigation, not an adopted bypass or a new universal mathematical IR.
+
+Alternatives retain their actual limits: supplier allocation enforcement would have to cover
+coefficient arithmetic, transformations and global metadata, not only Atom buffers; a
+conservative preflight needs justified arithmetic/partial/replacement bounds and an explicit
+unsupported-profile refusal; local materialization barriers can change mathematical
+realization and do not alone cover later substitution. Existing process custody and opaque
+allowances establish neither of those pre-allocation guarantees. A separately qualified
+kernel-enforced address-space ceiling would be a different closed-lane mechanism and would
+not qualify canonical in-process restoration. No new process limit is selected here.
 
 The [Serde 1.0.229 `Serializer` contract](https://docs.rs/serde/1.0.229/serde/ser/trait.Serializer.html)
 allows a native summary as `Ok`; `SerializeSeq`, `SerializeMap`, `SerializeStruct` and their
