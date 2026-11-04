@@ -263,7 +263,7 @@ production foundation. Ordinary dependency moves remain ordinary pinned changes.
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | P01 | in-progress | Current native implementation and its actual support/evidence limits; Plan64 completion is not required | Reconcile actual consumer populations and delivered mechanisms against the target; identify draft/missing prerequisites per operation without claiming untested scope |
-| P02 | in-progress | P01 current baseline; 65i I01 and 65j J01 owner/design agreement; applicable A/B/C/D/E decisions | R01 foundation delivered under proposed ADR-0241 and independent scoped assessment; R02 typed options/checker underway; proposed ADR-0242/0243 own worker/batch direction. Remaining decisions precede their actual cutovers without a complete-Plan64 barrier |
+| P02 | in-progress | P01 current baseline; 65i I01 and 65j J01 owner/design agreement; applicable A/B/C/D/E decisions | R01 pure foundation and R02 typed metadata publication/shared checker delivered under proposed ADR-0241/0244 and bounded assessments; common crossing and consumer migration continue. Proposed ADR-0242/0243 govern worker lifecycle and batching. Remaining decisions precede actual cutovers without a complete-Plan64 barrier |
 | P03 | planned | P02; working narrow A/B generation/adoption and G02 inspection slices | Deliver both scientific admission→partial products→qualification→publication/readback and developer execution→full failed report/inventory→readback→exact rerun slices; include original cancellation/lost-ACK settlement; remove replaced maps/interpretations. Existing diagnostic slice is included, not dropped |
 | P04 | planned | Ready per-consumer contracts, not completion of every companion | Integrate all selected storage/runtime/scientific/host migrations, reconcile every companion and source disposition; no exemplar-only completion |
 | P05 | planned | All functional scope integrated, decisions settled, replacements deleted | Complete H qualification/benefit accounting, enduring architecture/operator guidance and retirement preflight; proposed benefits remain qualified by actual measurements |
@@ -283,19 +283,19 @@ or whole-plan barrier replaces these actual dependencies.
 
 Execution starts from `d63fcbb11`. Source-owned projection, exact physical values, passive
 scientific metadata, original report/rerun and prepared water transport are existing foundations;
-their historical tests retain their original scope. Expanded generation still has a recorded
-`HighsSettings.sparse_start` CEL preflight refusal. Generic output direction currently filters
-descriptor participation without prohibiting inverse adoption; worker Stop/Close still clear
-all sessions. These are concrete implementation deltas, not reasons to wait for complete Plan64.
+their historical tests retain their original scope. At entry, expanded generation had a
+`HighsSettings.sparse_start` CEL preflight refusal, generic output direction did not prohibit
+inverse adoption, and worker Stop/Close cleared all sessions. The delivered foundation and
+native lifecycle changes below replace these mechanisms; full Plan64 completion was no barrier.
 
 The coordinator performs integration and verification on `main` in the ordinary checkout;
 three isolated executor checkouts own foundation, scientific and developer-evidence changes.
 Shared generator/adoption changes have one continuing foundation owner; the coordinator owns
 shared publication and integration. Completed coherent commits are integrated into main promptly.
-First work repairs shared maintained-validator lowering, makes governing scientific permission
-lookup unambiguous and consolidates observation-only retained developer report interpretation.
-The new pure crate and typed metadata still require their recorded decision routes before
-affected implementation. P03's two generated slices remain dependent on working narrow A/B.
+Shared maintained-validator lowering, unique governing scientific permission lookup and passive
+retained-report interpretation are integrated. Proposed ADR-0241–0244 and bounded assessments
+preceded the affected foundation, worker and shared-adapter changes. P03 now consumes working
+typed publication; complete scientific and developer readback slices remain in progress.
 
 Missing Plan64 scientific families constrain their specific positive acceptance, not independent
 platform work. No Plan64 scientific obligation is closed by a wire schema or this checkpoint.
@@ -310,6 +310,17 @@ comparison controls 4/4, scientific native controls 5/5 and real worker controls
 companion retains its exact command, source snapshot, exclusions and conditions. These results
 do not close the complete scientific population or H qualification.
 
+The next main-branch publication includes typed options across engineering, scientific-worker
+and reference worlds, all selected native facet keys, and genuine native batch framing. It
+removes synthetic machine-policy comments and the redundant action-effects sidecar. The shared
+lossless descriptor adapter has moved from product-dependent codegen into `pse-contract-proto`;
+consumer-local source/domain policies and the pure semantic checker retain their authority.
+The nine selected actual worker/batch controls passed on main with zero failures or build
+warnings and complete original capture/settlement. The first selection failed discovery on a
+test-only nonexistent method and qualification warning; the corrected assertion requires both
+native admission counters to be present and zero. This targeted delivery leaves the broader
+portable, storage, reporting, domain-extension and H obligations open.
+
 ## Verification boundary
 
 **Proposed verification:** package-local compile/targeted tests during implementation, explicit
@@ -318,6 +329,6 @@ and integrated native/service/database/reference/performance journeys plus hygie
 checks once functional scope ends. H owns the assembled scope and zero-failure accounting.
 No source-generated expected value substitutes for independent scientific evidence.
 
-This publication implements planning documents only. Product implementation, scientific
-qualification, measured benefit and Plan64 completion are not established. Documentation
-validation and independent plan review are reported separately from the proposed campaigns.
+Original plan creation established no product or scientific qualification. Current execution
+evidence has the targeted scopes above and in each companion. Assembled qualification, measured
+benefit and Plan64 completion remain separate; a schema or component pass does not establish them.
