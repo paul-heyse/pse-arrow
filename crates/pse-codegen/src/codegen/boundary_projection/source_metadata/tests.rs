@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+use super::*;
+use pse_contract_proto::{OptionEncoder, check_descriptors, compare_descriptors, DescriptorInput};
+use pse_contract::metadata::{CorePolicy, Disposition};
+use buffa_descriptor::Value;
+use buffa::ExtensionSet;
+struct QuantityAnnotatedOwner;
+impl pse_contract::boundary_projection::ProjectionType for QuantityAnnotatedOwner {
+    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
+        use pse_contract::boundary_projection::{Direction, Field, Shape};
+        graph.declare::<Self>("QuantityAnnotatedOwner", file!(), 1, Direction::Both, &[], &[], |graph| Ok(Shape::Record(vec![
+            Field::of::<u64>(graph, "temperature", 1, Direction::Both, vec![])?.with_named_facets(std::collections::BTreeMap::from([
+                (pse_schema::model::field_facets::ROLE.into(), "measure".into()),
+                (pse_schema::model::field_facets::QUANTITY.into(), "quantity.temperature".into()),
+            ])),
+        ])))
+    }
+}
+
+#[test]
+fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
+    use super::super::registry_facets;
+    let graph = pse_contract::boundary_projection::ProjectionGraph::of::<QuantityAnnotatedOwner>().unwrap();
+    let set = super::super::descriptors_with_imports(&graph, "pse.physical.v1", "physical.proto", &super::super::tests::imports()).unwrap();
+    let extensions = [registry_facets::EXTENSION];
+    assert_eq!(check_descriptors(&set, "physical.proto", &CorePolicy { interpretations: &[("pse.physical.v1.QuantityAnnotatedOwner", 1)] }, &extensions).unwrap().disposition, Disposition::Unknown);
+    let encoder = OptionEncoder::new(&set.file).unwrap();
+    let validators: [(&str, DomainCheck); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
+    let selection = NativeSelection { owners: &["pse.physical.v1.QuantityAnnotatedOwner"], fields: &["pse.physical.v1.QuantityAnnotatedOwner.temperature"], methods: &[] };
+    let policy = TypedPolicy::new(&validators, &[("pse.physical.v1.QuantityAnnotatedOwner", 1)], selection);
+    assert_eq!(check_descriptors(&set, "physical.proto", &policy, &extensions).unwrap().disposition, Disposition::Compatible);
+    let file = set.file.iter().find(|file| file.name.as_deref() == Some("physical.proto")).unwrap();
+    let option = encoder.decode_extension(file.message_type[0].field[0].options.as_option().unwrap(), registry_facets::EXTENSION).unwrap().unwrap();
+    let Value::Message(quantity) = option.field_by_number(6).unwrap() else { panic!("quantity reference is typed"); };
+    assert_eq!(quantity.field_by_number(1), Some(&Value::String("quantity.temperature".into())));
+    let mut before = set.clone();
+    let file = before.file.iter_mut().find(|file| file.name.as_deref() == Some("physical.proto")).unwrap();
+    file.message_type[0].field[0].options.as_option_mut().unwrap().unknown_fields_mut().retain(|field| field.number != 51066);
+    let compared = compare_descriptors(DescriptorInput { descriptors: &before, selected_file: "physical.proto", policy: &policy }, DescriptorInput { descriptors: &set, selected_file: "physical.proto", policy: &policy }, &policy, &extensions).unwrap();
+    assert_eq!(compared.disposition, Disposition::Incompatible, "a valid newly introduced physical facet changes existing field meaning");
+}

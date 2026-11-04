@@ -157,6 +157,16 @@ normalization; the current pool never re-decodes old payloads as a substitute fo
 unavailable original interpretation. The pure checker preserves that availability
 boundary even when bytes are identical and a current policy exists.
 
+The lossless wire adapter lives in `pse-contract-proto` (ADR-0244), shared by generation
+and the independent host. It depends on pure `pse-contract`, the selected Buffa family
+and native error support; registry, Arrow, runtime and scientific libraries remain
+outside its dependency closure. `MetadataError` retains linker, codec, reflection and
+external domain diagnostics with actual file/subject context. The generator's
+`ProjectionCodegenError` composes registry and metadata errors without converting a
+newly crossing native failure into a string. Graph lowering and selected domain
+policies stay with codegen/their source owners; the old adapter implementation and
+namespace are removed.
+
 **Registry facet lowering.** The registry owner publishes
 `pse.schema.v1.registry_field`, a message-valued `google.protobuf.FieldOptions`
 extension allocated at 51066 in

@@ -6,14 +6,15 @@
 
 use buffa_descriptor::{DynamicMessage, Value};
 use pse_contract::boundary_projection::{Field, ProjectionGraph, Shape, TypeRef};
-use pse_schema::{SchemaError, model::{
+use pse_schema::{model::{
     CollectionContract, CollectionOrder, ColumnRole, ExtensionUse, ExpressionGrammar,
     BoundaryShape, CanonicalFieldContract, CanonicalKeyKind, ExpressionBinder, ExpressionOrdinal,
     ExpressionSourceContract, FieldContract, IdentityContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative,
     field_facets as keys,
 }};
 
-use super::{error, metadata::OptionEncoder};
+use super::{error, ProjectionCodegenError};
+use pse_contract_proto::OptionEncoder;
 
 pub(super) const IMPORT: &str = "pse/schema/v1/field_facets.proto";
 pub(super) const EXTENSION: &str = "pse.schema.v1.registry_field";
@@ -21,7 +22,7 @@ pub(super) const EXTENSION: &str = "pse.schema.v1.registry_field";
 #[cfg(test)]
 mod tests;
 
-fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaError> {
+fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), ProjectionCodegenError> {
     schema_shapes(pool)?;
     let extension = pool.extension_by_name(EXTENSION).ok_or_else(|| error("registry option extension is absent from its import world"))?;
     let option = pool.message_index("pse.schema.v1.RegistryFieldFacets").ok_or_else(|| error("registry option message is absent"))?;
@@ -54,7 +55,7 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaErr
 }
 
 // Acceptance contract of the known v1 interpreter, not a descriptor producer.
-fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaError> {
+fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), ProjectionCodegenError> {
     use buffa_descriptor::{FieldKind::{Singular, List}, SingularKind::{Scalar, Message, Enum}, ScalarType::{Uint32, Int64, String, Bool}};
     let message = |name: &str| pool.message_index(&format!("pse.schema.v1.{name}")).map(Message).ok_or_else(|| error(format!("missing registry option message {name}")));
     let enumeration = |name: &str| pool.enum_index(&format!("pse.schema.v1.{name}")).map(Enum).map(Singular).ok_or_else(|| error(format!("missing registry option enum {name}")));
@@ -92,7 +93,7 @@ fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), SchemaEr
     Ok(())
 }
 
-fn canonical_number(pool: &buffa_descriptor::DescriptorPool, kind: CanonicalKeyKind) -> Result<i32, SchemaError> {
+fn canonical_number(pool: &buffa_descriptor::DescriptorPool, kind: CanonicalKeyKind) -> Result<i32, ProjectionCodegenError> {
     let expected = match kind {
         CanonicalKeyKind::Problem => 1, CanonicalKeyKind::Revision => 2, CanonicalKeyKind::Run => 3,
         CanonicalKeyKind::Attempt => 4, CanonicalKeyKind::Study => 5, CanonicalKeyKind::StudyPoint => 6,
@@ -114,11 +115,11 @@ fn canonical_number(pool: &buffa_descriptor::DescriptorPool, kind: CanonicalKeyK
         .ok_or_else(|| error(format!("{name}: missing native canonical key correspondence")))
 }
 
-fn message(encoder: &OptionEncoder, name: &str, fields: &[(&str, Value)]) -> Result<Value, SchemaError> {
-    encoder.message(&format!("pse.schema.v1.{name}"), fields).map(Value::Message)
+fn message(encoder: &OptionEncoder, name: &str, fields: &[(&str, Value)]) -> Result<Value, ProjectionCodegenError> {
+    Ok(Value::Message(encoder.message(&format!("pse.schema.v1.{name}"), fields)?))
 }
 
-fn extension(value: ExtensionUse<'_>, encoder: &OptionEncoder) -> Result<Value, SchemaError> {
+fn extension(value: ExtensionUse<'_>, encoder: &OptionEncoder) -> Result<Value, ProjectionCodegenError> {
     let field = match value {
         ExtensionUse::SemanticId => ("simple", Value::EnumNumber(1)),
         ExtensionUse::ContentHash => ("simple", Value::EnumNumber(2)),
@@ -141,7 +142,7 @@ fn extension(value: ExtensionUse<'_>, encoder: &OptionEncoder) -> Result<Value, 
 }
 
 /// Lower every selected annotation or refuse it with its native field/key attribution.
-pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &OptionEncoder) -> Result<Option<DynamicMessage>, SchemaError> {
+pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &OptionEncoder) -> Result<Option<DynamicMessage>, ProjectionCodegenError> {
     if field.named_facets.is_empty() { return Ok(None); }
     let path = &field.name;
     let invalid = |key: &str, reason: &str| error(format!("{path}.{key}: {reason}"));
@@ -261,7 +262,7 @@ pub(super) fn field_options(field: &Field, graph: &ProjectionGraph, encoder: &Op
     Ok(Some(value))
 }
 
-fn check_shape(field: &Field, graph: &ProjectionGraph, text: &str) -> Result<(), SchemaError> {
+fn check_shape(field: &Field, graph: &ProjectionGraph, text: &str) -> Result<(), ProjectionCodegenError> {
     let shape = BoundaryShape::parse_metadata(text, &field.name)?;
     let invalid = || error(format!("{}.{}: source presentation disagrees with actual native graph owner", field.name, keys::BOUNDARY_SHAPE));
     let mut ty = &field.ty;
@@ -290,31 +291,31 @@ fn value<'a>(message: &'a DynamicMessage, name: &str) -> Option<&'a Value> {
     descriptor.field_by_name(name).and_then(|field| message.field_by_number(field.number()))
 }
 
-fn required<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a Value, SchemaError> {
+fn required<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a Value, ProjectionCodegenError> {
     value(message, name).ok_or_else(|| error(format!("typed registry option requires {name}")))
 }
 
-fn text(message: &DynamicMessage, name: &str) -> Result<String, SchemaError> {
+fn text(message: &DynamicMessage, name: &str) -> Result<String, ProjectionCodegenError> {
     match required(message, name)? { Value::String(text) => Ok(text.clone()), _ => Err(error(format!("{name}: expected string"))) }
 }
 
-fn integer(message: &DynamicMessage, name: &str) -> Result<i64, SchemaError> {
+fn integer(message: &DynamicMessage, name: &str) -> Result<i64, ProjectionCodegenError> {
     match required(message, name)? { Value::I64(value) => Ok(*value), _ => Err(error(format!("{name}: expected int64"))) }
 }
 
-fn enumeration(message: &DynamicMessage, name: &str, maximum: i32) -> Result<i32, SchemaError> {
+fn enumeration(message: &DynamicMessage, name: &str, maximum: i32) -> Result<i32, ProjectionCodegenError> {
     match required(message, name)? { Value::EnumNumber(value) if (1..=maximum).contains(value) => Ok(*value), _ => Err(error(format!("{name}: unknown native vocabulary value"))) }
 }
 
-fn nested<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a DynamicMessage, SchemaError> {
+fn nested<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a DynamicMessage, ProjectionCodegenError> {
     match required(message, name)? { Value::Message(value) => Ok(value), _ => Err(error(format!("{name}: expected typed message"))) }
 }
 
-fn list<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a [Value], SchemaError> {
+fn list<'a>(message: &'a DynamicMessage, name: &str) -> Result<&'a [Value], ProjectionCodegenError> {
     match value(message, name) { Some(Value::List(values)) => Ok(values), None => Ok(&[]), _ => Err(error(format!("{name}: expected repeated field"))) }
 }
 
-fn closed(message: &DynamicMessage, name: &str, fields: &[&str]) -> Result<(), SchemaError> {
+fn closed(message: &DynamicMessage, name: &str, fields: &[&str]) -> Result<(), ProjectionCodegenError> {
     let descriptor = message.pool().message(message.message_index());
     if descriptor.full_name() != format!("pse.schema.v1.{name}") || !message.unknown_fields().is_empty()
         || descriptor.fields().iter().any(|field| !fields.contains(&field.name()))
@@ -324,7 +325,7 @@ fn closed(message: &DynamicMessage, name: &str, fields: &[&str]) -> Result<(), S
 
 /// Interpret selected extension payloads through the same native domain contracts.
 /// Reading an option does not admit Arrow storage, resolve quantities or run a catalog.
-pub(super) fn check_option(option: &DynamicMessage) -> Result<(), SchemaError> {
+pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCodegenError> {
     vocabularies(option.pool())?;
     closed(option, "RegistryFieldFacets", &["metadata_version", "extension", "role", "documentation", "structure_name", "quantity", "transfer_context_version", "reference", "graph_endpoint", "collection", "integer_range", "tagged_alternative", "identity", "canonical", "expression_source"])?;
     if required(option, "metadata_version")? != &Value::U32(1) { return Err(error("unknown registry metadata version")); }
@@ -382,7 +383,7 @@ pub(super) fn check_option(option: &DynamicMessage) -> Result<(), SchemaError> {
             closed(column, "ReferenceColumn", &["source", "target"])?;
             let source = list(column, "source")?.iter().map(|part| match part { Value::String(part) => Ok(part.clone()), _ => Err(error("reference path segment is not a string")) }).collect::<Result<Vec<_>, _>>()?;
             Ok(pse_schema::model::ReferenceColumn { source, target: text(column, "target")? })
-        }).collect::<Result<Vec<_>, SchemaError>>()?;
+        }).collect::<Result<Vec<_>, ProjectionCodegenError>>()?;
         let native = ReferenceContract { relation: text(reference, "relation")?, columns, null_policy: match enumeration(reference, "null_policy", 2)? { 1 => ReferenceNullPolicy::Required, _ => ReferenceNullPolicy::AllOrNone } };
         ReferenceContract::parse_metadata(&native.canonical()?, "typed registry reference")?;
     }

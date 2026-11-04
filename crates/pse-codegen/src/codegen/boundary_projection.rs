@@ -24,11 +24,13 @@ use protovalidate_buffa_protos::buf::validate::{
 use pse_contract::boundary_projection::{
     Direction, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
-use pse_schema::error::SchemaError;
+mod source_error;
+pub use source_error::ProjectionCodegenError;
+use pse_contract_proto::{OptionEncoder, CORE_IMPORT, NativeSelection, check_descriptors};
 
 mod adapters;
 mod float_collections;
-pub mod metadata;
+mod source_metadata;
 mod registry_facets;
 pub use adapters::{native_adapters, native_adapters_retaining_wire};
 
@@ -47,11 +49,11 @@ pub struct ProjectionOutput {
     pub documentation: String,
 }
 
-fn error(reason: impl Into<String>) -> SchemaError {
-    SchemaError::Codegen {
+fn error(reason: impl Into<String>) -> ProjectionCodegenError {
+    pse_schema::SchemaError::Codegen {
         language: "protobuf",
         reason: reason.into(),
-    }
+    }.into()
 }
 
 /// Lower a graph without external imports. Required typed metadata imports refuse.
@@ -59,7 +61,7 @@ pub fn descriptors(
     graph: &ProjectionGraph,
     package: &str,
     file_name: &str,
-) -> Result<FileDescriptorSet, SchemaError> {
+) -> Result<FileDescriptorSet, ProjectionCodegenError> {
     descriptors_with_imports(graph, package, file_name, &[])
 }
 
@@ -70,7 +72,7 @@ pub fn descriptors_with_imports(
     package: &str,
     file_name: &str,
     imports: &[FileDescriptorProto],
-) -> Result<FileDescriptorSet, SchemaError> {
+) -> Result<FileDescriptorSet, ProjectionCodegenError> {
     descriptors_for_direction(graph, package, file_name, imports, Direction::Both)
 }
 
@@ -81,7 +83,7 @@ pub fn descriptors_for_direction(
     file_name: &str,
     imports: &[FileDescriptorProto],
     direction: Direction,
-) -> Result<FileDescriptorSet, SchemaError> {
+) -> Result<FileDescriptorSet, ProjectionCodegenError> {
     if package.split('.').any(|part| !identifier(part))
         || !package.split('.').next_back().is_some_and(|part| {
             part.strip_prefix('v')
@@ -118,7 +120,7 @@ pub fn descriptors_for_direction(
             }
         }
     }
-    let metadata = metadata::OptionEncoder::new(imports)?;
+    let metadata = OptionEncoder::new(imports)?;
     let mut lower = Lower {
         graph,
         metadata: &metadata,
@@ -145,7 +147,7 @@ pub fn descriptors_for_direction(
             ..Default::default()
         };
         match &definition.shape {
-            Shape::Record(fields) => lower.fields(&mut message, fields).map_err(|e| error(format!("{}:{}: {e}", definition.source, definition.rust_type)))?,
+            Shape::Record(fields) => lower.fields(&mut message, fields).map_err(|e| e.at(definition.source, definition.rust_type))?,
             Shape::Alternatives(alternatives) => {
                 message.reserved_name = definition
                     .reserved_names
@@ -174,7 +176,7 @@ pub fn descriptors_for_direction(
                         name: Some(nested_name.clone()),
                         ..Default::default()
                     };
-                    lower.fields(&mut nested, &alternative.fields).map_err(|e| error(format!("{}:{}::{}: {e}", definition.source, definition.rust_type, alternative.name)))?;
+                    lower.fields(&mut nested, &alternative.fields).map_err(|e| e.at(definition.source, format!("{}::{}", definition.rust_type, alternative.name)))?;
                     message.nested_type.push(nested);
                     let mut field_options = FieldOptions::default();
                     metadata.field_correspondence(&mut field_options, &alternative.name, definition.direction)?;
@@ -244,11 +246,11 @@ pub fn descriptors_for_direction(
                         output_type: Some(named(&method.output)?),
                         client_streaming: Some(false),
                         server_streaming: Some(method.server_streaming),
-                        options: metadata.method_options(method.effects).map_err(|e| error(format!("{}.{}: {e}", service.name, method.name)))?.into(),
+                        options: metadata.method_options(method.effects).map_err(|e| e.context(format!("{}.{}", service.name, method.name)))?.into(),
                         ..Default::default()
                     })
                 })
-                .collect::<Result<Vec<_>, SchemaError>>()?,
+                .collect::<Result<Vec<_>, ProjectionCodegenError>>()?,
             ..Default::default()
         });
     }
@@ -256,7 +258,7 @@ pub fn descriptors_for_direction(
         name: Some(file_name.into()),
         package: Some(package.into()),
         syntax: Some("proto3".into()),
-        dependency: std::iter::once(metadata::CORE_IMPORT.into()).chain(lower.uses_validation.then(|| "buf/validate/validate.proto".into())).chain(lower.uses_registry.then(|| registry_facets::IMPORT.into())).collect(),
+        dependency: std::iter::once(CORE_IMPORT.into()).chain(lower.uses_validation.then(|| "buf/validate/validate.proto".into())).chain(lower.uses_registry.then(|| registry_facets::IMPORT.into())).collect(),
         message_type: messages,
         service: services,
         ..Default::default()
@@ -266,17 +268,17 @@ pub fn descriptors_for_direction(
         file: dependency_order(files)?,
         ..Default::default()
     };
-    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<(), SchemaError>); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
+    let validators: [(&str, fn(&buffa_descriptor::DynamicMessage) -> Result<(), ProjectionCodegenError>); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
     let owner_versions = graph.definitions().values().map(|owner| (format!("{package}.{}", owner.name), owner.version)).collect::<Vec<_>>();
     let interpretations = owner_versions.iter().map(|(name, version)| (name.as_str(), *version)).collect::<Vec<_>>();
-    let names = metadata::native_selection(graph, package, direction);
+    let names = source_metadata::native_selection(graph, package, direction);
     let owners = names.owners.iter().map(String::as_str).collect::<Vec<_>>();
     let fields = names.fields.iter().map(String::as_str).collect::<Vec<_>>();
     let methods = names.methods.iter().map(String::as_str).collect::<Vec<_>>();
-    let selection = metadata::NativeSelection { owners: &owners, fields: &fields, methods: &methods };
-    let policy = metadata::TypedPolicy::new(&validators, &interpretations, selection);
+    let selection = NativeSelection { owners: &owners, fields: &fields, methods: &methods };
+    let policy = source_metadata::TypedPolicy::new(&validators, &interpretations, selection);
     let selected_extensions = if lower.uses_registry { &[registry_facets::EXTENSION][..] } else { &[] };
-    let assessment = metadata::check_descriptors(&descriptor_set, file_name, &policy, selected_extensions)?;
+    let assessment = check_descriptors(&descriptor_set, file_name, &policy, selected_extensions)?;
     if assessment.disposition != pse_contract::metadata::Disposition::Compatible {
         return Err(error(format!("semantic metadata rejected by {}: {:?}", assessment.policy, assessment.findings)));
     }
@@ -290,7 +292,7 @@ pub fn generate(
     graph: &ProjectionGraph,
     package: &str,
     file_name: &str,
-) -> Result<ProjectionOutput, SchemaError> {
+) -> Result<ProjectionOutput, ProjectionCodegenError> {
     generate_with_config(
         graph,
         package,
@@ -320,7 +322,7 @@ pub fn generate_with_config(
     file_name: &str,
     imports: &[FileDescriptorProto],
     config: &CodeGenConfig,
-) -> Result<ProjectionOutput, SchemaError> {
+) -> Result<ProjectionOutput, ProjectionCodegenError> {
     if !config.generate_reflection
         || !config.generate_reflection_vtable
         || !config.shared_descriptor_pool
@@ -471,7 +473,7 @@ pub fn owner_reference(graph: &ProjectionGraph, package: &str) -> String {
 
 struct Lower<'a> {
     graph: &'a ProjectionGraph,
-    metadata: &'a metadata::OptionEncoder,
+    metadata: &'a OptionEncoder,
     package: &'a str,
     direction: Direction,
     uses_validation: bool,
@@ -483,7 +485,7 @@ impl Lower<'_> {
         &mut self,
         message: &mut DescriptorProto,
         fields: &[Field],
-    ) -> Result<(), SchemaError> {
+    ) -> Result<(), ProjectionCodegenError> {
         let direction = self.direction;
         for field in fields
             .iter()
@@ -527,7 +529,7 @@ impl Lower<'_> {
         name: &str,
         tag: u32,
         ty: &TypeRef,
-    ) -> Result<FieldDescriptorProto, SchemaError> {
+    ) -> Result<FieldDescriptorProto, ProjectionCodegenError> {
         let mut field = FieldDescriptorProto {
             name: Some(name.into()),
             number: Some(tag as i32),
@@ -650,7 +652,7 @@ impl Lower<'_> {
         field: &mut FieldDescriptorProto,
         tag: u32,
         inner: &TypeRef,
-    ) -> Result<(), SchemaError> {
+    ) -> Result<(), ProjectionCodegenError> {
         let name = format!("Field{tag}Value");
         let mut wrapper = DescriptorProto {
             name: Some(name.clone()),
@@ -764,7 +766,7 @@ impl Lower<'_> {
         &mut self,
         field: &mut FieldDescriptorProto,
         rules: FieldRules,
-    ) -> Result<(), SchemaError> {
+    ) -> Result<(), ProjectionCodegenError> {
         let mut options = FieldOptions::default();
         options
             .try_set_extension(&validate::FIELD, rules)
@@ -780,7 +782,7 @@ fn apply_rule(
     ty: &TypeRef,
     rule: &LocalRule,
     graph: &ProjectionGraph,
-) -> Result<(), SchemaError> {
+) -> Result<(), ProjectionCodegenError> {
     let source_type = ty;
     let ty = match (rule, ty) {
         (
@@ -1053,7 +1055,7 @@ fn qualify_nested(message: &mut DescriptorProto, prefix: &str) {
     }
 }
 
-fn validate_message_names(message: &DescriptorProto) -> Result<(), SchemaError> {
+fn validate_message_names(message: &DescriptorProto) -> Result<(), ProjectionCodegenError> {
     let mut names = std::collections::BTreeSet::new();
     let reserved = message
         .reserved_name
@@ -1091,7 +1093,7 @@ fn validate_message_names(message: &DescriptorProto) -> Result<(), SchemaError> 
 
 fn dependency_order(
     mut files: BTreeMap<String, FileDescriptorProto>,
-) -> Result<Vec<FileDescriptorProto>, SchemaError> {
+) -> Result<Vec<FileDescriptorProto>, ProjectionCodegenError> {
     let mut ordered = Vec::new();
     while !files.is_empty() {
         let ready = files

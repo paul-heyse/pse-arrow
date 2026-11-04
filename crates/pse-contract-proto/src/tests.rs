@@ -22,8 +22,8 @@ fn compared(old: &FileDescriptorSet, new: &FileDescriptorSet) -> pse_contract::m
     compare_descriptors(DescriptorInput { descriptors: old, selected_file: "options.proto", policy: &POLICY }, DescriptorInput { descriptors: new, selected_file: "options.proto", policy: &POLICY }, &POLICY, &[]).unwrap()
 }
 
-const SOURCE: &str = include_str!("../../../../tests/fixtures/metadata/options.proto");
-const FORWARDED: &str = include_str!("../../../../tests/fixtures/metadata/forwarded.proto");
+const SOURCE: &str = include_str!("../tests/fixtures/metadata/options.proto");
+const FORWARDED: &str = include_str!("../tests/fixtures/metadata/forwarded.proto");
 
 fn compile(source: &str, forwarded: &str) -> Result<FileDescriptorSet, String> {
     compile_with_core(source, forwarded, None)
@@ -48,6 +48,7 @@ fn imported_core_schema_cannot_redefine_known_v1_meaning() {
     let source = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pse-contract/proto/pse/contract/v1/metadata.proto")).unwrap();
     for (before, after) in [
         ("optional uint32 interpretation_version = 3;", "optional uint32 interpretation_version = 9;"),
+        ("optional uint32 interpretation_version = 3;", "optional uint32 interpretation_version = 3 [default = 1];"),
         ("DIRECTION_INPUT = 1;", "DIRECTION_INPUT = 9;"),
         ("optional Effects effects = 6;", "optional Effects effects = 6; optional string hidden_semantics = 7;"),
     ] {
@@ -159,7 +160,7 @@ fn selected_unknown_core_payload_fields_are_retained_then_refused_with_source() 
 
 #[test]
 fn typed_encoder_refuses_schema_drift_extendee_confusion_and_duplicate_options() {
-    let imports = super::super::tests::imports();
+    let imports = compile(SOURCE, FORWARDED).unwrap().file;
     let encoder = OptionEncoder::new(&imports).unwrap();
     assert!(encoder.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::Bool(true))]).is_err());
     let message = encoder.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::U32(1))]).unwrap();
@@ -174,38 +175,29 @@ fn typed_encoder_refuses_schema_drift_extendee_confusion_and_duplicate_options()
     assert!(OptionEncoder::new(&changed).is_err());
 }
 
-struct QuantityAnnotatedOwner;
-impl pse_contract::boundary_projection::ProjectionType for QuantityAnnotatedOwner {
-    fn projection(graph: &mut pse_contract::boundary_projection::ProjectionGraph) -> Result<pse_contract::boundary_projection::TypeRef, pse_contract::boundary_projection::ProjectionError> {
-        use pse_contract::boundary_projection::{Direction, Field, Shape};
-        graph.declare::<Self>("QuantityAnnotatedOwner", file!(), 1, Direction::Both, &[], &[], |graph| Ok(Shape::Record(vec![
-            Field::of::<u64>(graph, "temperature", 1, Direction::Both, vec![])?.with_named_facets(std::collections::BTreeMap::from([
-                (pse_schema::model::field_facets::ROLE.into(), "measure".into()),
-                (pse_schema::model::field_facets::QUANTITY.into(), "quantity.temperature".into()),
-            ])),
-        ])))
-    }
-}
-
 #[test]
-fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
-    use super::super::registry_facets;
-    let graph = pse_contract::boundary_projection::ProjectionGraph::of::<QuantityAnnotatedOwner>().unwrap();
-    let set = super::super::descriptors_with_imports(&graph, "pse.physical.v1", "physical.proto", &super::super::tests::imports()).unwrap();
-    let extensions = [registry_facets::EXTENSION];
-    assert_eq!(check_descriptors(&set, "physical.proto", &CorePolicy { interpretations: &[("pse.physical.v1.QuantityAnnotatedOwner", 1)] }, &extensions).unwrap().disposition, Disposition::Unknown);
-    let encoder = OptionEncoder::new(&set.file).unwrap();
-    let validators: [(&str, DomainCheck); 1] = [(registry_facets::EXTENSION, registry_facets::check_option)];
-    let selection = NativeSelection { owners: &["pse.physical.v1.QuantityAnnotatedOwner"], fields: &["pse.physical.v1.QuantityAnnotatedOwner.temperature"], methods: &[] };
-    let policy = TypedPolicy::new(&validators, &[("pse.physical.v1.QuantityAnnotatedOwner", 1)], selection);
-    assert_eq!(check_descriptors(&set, "physical.proto", &policy, &extensions).unwrap().disposition, Disposition::Compatible);
-    let file = set.file.iter().find(|file| file.name.as_deref() == Some("physical.proto")).unwrap();
-    let option = encoder.decode_extension(file.message_type[0].field[0].options.as_option().unwrap(), registry_facets::EXTENSION).unwrap().unwrap();
-    let Value::Message(quantity) = option.field_by_number(6).unwrap() else { panic!("quantity reference is typed"); };
-    assert_eq!(quantity.field_by_number(1), Some(&Value::String("quantity.temperature".into())));
-    let mut before = set.clone();
-    let file = before.file.iter_mut().find(|file| file.name.as_deref() == Some("physical.proto")).unwrap();
-    file.message_type[0].field[0].options.as_option_mut().unwrap().unknown_fields_mut().retain(|field| field.number != 51066);
-    let compared = compare_descriptors(DescriptorInput { descriptors: &before, selected_file: "physical.proto", policy: &policy }, DescriptorInput { descriptors: &set, selected_file: "physical.proto", policy: &policy }, &policy, &extensions).unwrap();
-    assert_eq!(compared.disposition, Disposition::Incompatible, "a valid newly introduced physical facet changes existing field meaning");
+fn native_metadata_errors_keep_original_domain_type_and_diagnostic_category() {
+    #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+    #[error("original native owner refusal")]
+    #[diagnostic(code("workflow.internal"))]
+    struct OwnerRefusal;
+    let error = MetadataError::domain("independent.quantity", OwnerRefusal).at("source.proto", "Request.quantity");
+    assert_eq!(miette::Diagnostic::code(&error).unwrap().to_string(), "workflow.internal");
+    assert!(error.to_string().contains("source.proto:Request.quantity"));
+    let mut current: Option<&dyn std::error::Error> = Some(&error);
+    let mut original = false;
+    while let Some(cause) = current {
+        original |= cause.downcast_ref::<OwnerRefusal>().is_some();
+        current = cause.source();
+    }
+    assert!(original, "consumer context must not erase the original domain error");
+    let encoder = OptionEncoder::new(&compile(SOURCE, FORWARDED).unwrap().file).unwrap();
+    let reflection = encoder.message("pse.contract.v1.FieldMetadata", &[("metadata_version", Value::Bool(true))]).unwrap_err();
+    let mut current: Option<&dyn std::error::Error> = Some(&reflection);
+    let mut original = false;
+    while let Some(cause) = current {
+        original |= cause.downcast_ref::<buffa_descriptor::ReflectError>().is_some();
+        current = cause.source();
+    }
+    assert!(original, "checked reflection keeps the original library failure");
 }

@@ -21,6 +21,9 @@ workspace = true
 
 [dependencies]
 pse-contract.workspace = true
+pse-contract-proto.workspace = true
+thiserror.workspace = true
+miette.workspace = true
 buffa.workspace = true
 buffa-codegen.workspace = true
 buffa-descriptor.workspace = true
@@ -52,4 +55,3 @@ force-validate = [
 
 [dev-dependencies]
 pse-model.workspace = true
-tempfile.workspace = true

@@ -8177,11 +8177,13 @@ dependencies = [
  "buffa-descriptor",
  "buffa-types",
  "hex",
+ "miette",
  "prettyplease 0.3.0",
  "proc-macro2",
  "protovalidate-buffa-protos",
  "pse-columnar",
  "pse-contract",
+ "pse-contract-proto",
  "pse-ids",
  "pse-model",
  "pse-quantity",
@@ -8192,7 +8194,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "syn 3.0.5",
- "tempfile",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -8254,6 +8256,18 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "pse-contract-proto"
+version = "0.0.1"
+dependencies = [
+ "buffa",
+ "buffa-descriptor",
+ "miette",
+ "pse-contract",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 

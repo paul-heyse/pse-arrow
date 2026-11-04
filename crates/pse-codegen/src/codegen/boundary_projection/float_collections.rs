@@ -6,9 +6,9 @@ use super::{error, protobuf_map_key};
 use pse_contract::boundary_projection::{
     Float64Domain, NativeContainer, ProjectionGraph, Scalar, TypeRef,
 };
-use pse_schema::SchemaError;
+use super::ProjectionCodegenError;
 
-pub(super) fn scalar_expression(domain: Float64Domain, value: &str) -> Result<String, SchemaError> {
+pub(super) fn scalar_expression(domain: Float64Domain, value: &str) -> Result<String, ProjectionCodegenError> {
     let interval = domain.interval();
     if !interval.is_valid() {
         return Err(error("floating domain has no finite represented values"));
@@ -40,7 +40,7 @@ pub(super) fn collection_expression(
     graph: &ProjectionGraph,
     ty: &TypeRef,
     domain: Float64Domain,
-) -> Result<String, SchemaError> {
+) -> Result<String, ProjectionCodegenError> {
     struct Access {
         value: String,
         presence: Option<String>,
@@ -68,7 +68,7 @@ pub(super) fn collection_expression(
         domain: Float64Domain,
         access: Access,
         depth: usize,
-    ) -> Result<String, SchemaError> {
+    ) -> Result<String, ProjectionCodegenError> {
         let value = &access.value;
         Ok(match ty {
             TypeRef::Scalar(Scalar::F64Bits) => scalar_expression(domain, value)?,

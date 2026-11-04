@@ -10,7 +10,7 @@ use pse_contract::boundary_projection::{
 };
 
 use super::{error, protobuf_map_key, snake_case};
-use pse_schema::SchemaError;
+use super::ProjectionCodegenError;
 
 /// Emit adapters for exactly the selected native roots and their actual type closure.
 /// `wire_root` names the generated Buffa package module; `owner_crate` is the consuming
@@ -20,7 +20,7 @@ pub fn native_adapters(
     roots: &[&str],
     wire_root: &str,
     owner_crate: &str,
-) -> Result<String, SchemaError> {
+) -> Result<String, ProjectionCodegenError> {
     generate(graph, roots, wire_root, owner_crate, false)
 }
 
@@ -32,7 +32,7 @@ pub fn native_adapters_retaining_wire(
     roots: &[&str],
     wire_root: &str,
     owner_crate: &str,
-) -> Result<String, SchemaError> {
+) -> Result<String, ProjectionCodegenError> {
     generate(graph, roots, wire_root, owner_crate, true)
 }
 
@@ -42,7 +42,7 @@ fn generate(
     wire_root: &str,
     owner_crate: &str,
     retained_wire: bool,
-) -> Result<String, SchemaError> {
+) -> Result<String, ProjectionCodegenError> {
     syn::parse_str::<syn::Path>(wire_root)
         .map_err(|e| error(format!("invalid adapter package path: {e}")))?;
     let mut selected = BTreeSet::new();
@@ -146,7 +146,7 @@ fn select(
     graph: &ProjectionGraph,
     name: &str,
     selected: &mut BTreeSet<String>,
-) -> Result<(), SchemaError> {
+) -> Result<(), ProjectionCodegenError> {
     if !selected.insert(name.into()) {
         return Ok(());
     }
@@ -176,7 +176,7 @@ fn select_type(
     graph: &ProjectionGraph,
     ty: &TypeRef,
     selected: &mut BTreeSet<String>,
-) -> Result<(), SchemaError> {
+) -> Result<(), ProjectionCodegenError> {
     match ty {
         TypeRef::Named(name) => select(graph, name, selected)?,
         TypeRef::Optional(inner) | TypeRef::Repeated(inner) | TypeRef::Set(inner) => {
@@ -205,7 +205,7 @@ impl Generator<'_> {
             format!("unknown_fields(&{value}.__buffa_unknown_fields, {path})?;")
         }
     }
-    fn native(&self, owner: &Definition) -> Result<String, SchemaError> {
+    fn native(&self, owner: &Definition) -> Result<String, ProjectionCodegenError> {
         let path = owner.public_rust_path.as_deref().unwrap_or(owner.rust_type);
         let mut native = syn::parse_str::<syn::Type>(path).map_err(|e| {
             error(format!(
@@ -276,7 +276,7 @@ impl Generator<'_> {
         )
     }
 
-    fn fields_encode(&self, fields: &[Field], message: &[String]) -> Result<String, SchemaError> {
+    fn fields_encode(&self, fields: &[Field], message: &[String]) -> Result<String, ProjectionCodegenError> {
         let mut out = String::new();
         for (index, field) in fields.iter().enumerate() {
             let name = buffa_codegen::idents::make_field_ident(&field.name);
@@ -299,7 +299,7 @@ impl Generator<'_> {
         Ok(out)
     }
 
-    fn fields_decode(&self, fields: &[Field], message: &[String]) -> Result<String, SchemaError> {
+    fn fields_decode(&self, fields: &[Field], message: &[String]) -> Result<String, ProjectionCodegenError> {
         let mut out = String::from("(");
         for field in fields {
             let name = buffa_codegen::idents::make_field_ident(&field.name);
@@ -316,7 +316,7 @@ impl Generator<'_> {
         Ok(out)
     }
 
-    fn owner(&self, owner: &Definition, out: &mut String) -> Result<(), SchemaError> {
+    fn owner(&self, owner: &Definition, out: &mut String) -> Result<(), ProjectionCodegenError> {
         let native = self.native(owner)?;
         let message = vec![owner.name.clone()];
         let wire = self.wire(&message);
@@ -469,7 +469,7 @@ impl Generator<'_> {
         parent: &[String],
         tag: u32,
         raw: bool,
-    ) -> Result<String, SchemaError> {
+    ) -> Result<String, ProjectionCodegenError> {
         Ok(match ty {
             TypeRef::Scalar(scalar) => format!(
                 "native_into::<_, {}>({value}, {path})?",
@@ -562,7 +562,7 @@ impl Generator<'_> {
         path: &str,
         parent: &[String],
         tag: u32,
-    ) -> Result<String, SchemaError> {
+    ) -> Result<String, ProjectionCodegenError> {
         let nested = self.nested(parent, format!("Field{tag}Value"));
         let message = self.wire(&nested);
         let value = self.encode(inner, value, path, &nested, 1, false)?;
@@ -579,7 +579,7 @@ impl Generator<'_> {
         parent: &[String],
         tag: u32,
         raw: bool,
-    ) -> Result<String, SchemaError> {
+    ) -> Result<String, ProjectionCodegenError> {
         Ok(match ty {
             TypeRef::Scalar(scalar) => format!(
                 "native_from::<_, {}>({value}, {path})?",
@@ -655,7 +655,7 @@ impl Generator<'_> {
         path: &str,
         parent: &[String],
         tag: u32,
-    ) -> Result<String, SchemaError> {
+    ) -> Result<String, ProjectionCodegenError> {
         let nested = self.nested(parent, format!("Field{tag}Value"));
         let decoded = self.decode(inner, "wrapped.value", path, &nested, 1, false)?;
         let unknown = self.unknown_guard("wrapped", path);
