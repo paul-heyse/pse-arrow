@@ -6,6 +6,8 @@
 mod alternative;
 mod arguments;
 mod boundary;
+mod boundary_nested;
+mod boundary_record;
 pub(crate) mod canonical;
 mod columnar;
 mod contracts;

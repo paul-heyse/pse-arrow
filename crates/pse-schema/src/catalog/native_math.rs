@@ -589,7 +589,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct. A seed-only candidate may seed a later step and is never a published solution; a diagnostic-only point is an observation only.",
     );
-    relation(
+    super::native_math_boundary::relation(
+        file!(),
         b,
         N::Authored,
         "accuracy_goals",
@@ -620,7 +621,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Scoped selected scalar output or original optimal-objective goal. Admission requires resolution or an inclusive criterion, a finite positive physical resolution when present, compatible point conversion for limits and magnitude conversion for errors, an admitted observation, and Estimated or Certified requested strength. RequireSatisfied requires a criterion. Refinement permission is bounded by the enclosing execution grant; declarations prescribe no estimator or native iteration policy.",
     );
-    relation(
+    super::native_math_boundary::relation(
+        file!(),
         b,
         N::Authored,
         "engineering_scales",
@@ -644,7 +646,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Explicit engineering characteristic magnitude in the declared unit representation, converted once during resolution. Admission requires a finite nonnegative value and full quantity compatibility. Zero is valid. Range widths and reference differences retain their interpretation; a conditioning nominal, arbitrary bound or unknown solution coordinate is not implicitly an engineering scale. Source selection and conflict semantics belong to model admission.",
     );
-    relation(
+    super::native_math_boundary::relation(
+        file!(),
         b,
         N::Authored,
         "caloric_requirements",
@@ -685,7 +688,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Optional frozen local caloric response and thermal resolution together with every independently admitted consuming power allowance and frozen aggregate exposure bound. The thermal bundle is all present or all absent; absence makes no thermal claim. Revision and scientific record identities refer to existing source authority. Every consumer retains the shared power-rule identity, original annotation and exposure expression, and the separately checked actual-flow identity. An exposure bound is not an actual solved flow; local response is not an output-error certificate.",
     );
-    relation(
+    super::native_math_boundary::relation(
+        file!(),
         b,
         N::Authored,
         "engineering_default_rules",
@@ -870,7 +874,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling. Optional engineering context retains the selected shared rule, physical allowance, relative fraction, explicit characteristic magnitude and source, derived budget and fallback limitation. Historical rows without this context do not acquire contextual accuracy evidence.",
     );
-    relation_version(
+    super::native_math_boundary::relation_version(
+        file!(),
         b,
         N::Authored,
         "numerical_requirements",
@@ -1597,7 +1602,8 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
     // An experiment prepares its case under its own instance identity, so two experiments
     // of one case are two instances: experiment columns carry `instance`, and an
     // experiment's case is the root declaration it prepares.
-    relation_version(
+    super::native_math_boundary::relation_version(
+        file!(),
         b,
         N::Authored,
         "fit_cases",

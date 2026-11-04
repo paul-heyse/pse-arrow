@@ -12,6 +12,7 @@
 //! Section modules declare the production registry. Cross-section references resolve
 //! together during registry construction.
 
+mod boundary_source;
 mod cache;
 use crate::declaration as declarations;
 mod diagnostic_evidence;
@@ -21,10 +22,12 @@ pub mod inv;
 pub mod invariants;
 mod modeling;
 mod modeling_analysis;
+mod modeling_boundary;
 mod modeling_expression;
 mod modeling_knowledge;
 mod modeling_native_analysis;
 mod native_math;
+mod native_math_boundary;
 mod native_strategy;
 mod normalization;
 mod operations;

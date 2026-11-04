@@ -120,12 +120,36 @@ fn semantic_item(item: &syn::Item, names: &BTreeSet<String>, relative: &std::pat
                                 | "JsonSchema"
                                 | "ProjectionType"
                                 | "ProjectionRecord"
+                                | "ProjectionAlternative"
                                 | "ValidateProjection"
                         )
                     })
                 })
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+
+    #[test]
+    fn selected_registry_alternative_access_stays_with_its_actual_semantic_owner() {
+        let registry = crate::catalog::assemble().unwrap();
+        let tree = super::super::generate(&registry).unwrap();
+        let count = |path: &str| {
+            let text =
+                std::str::from_utf8(tree.files.get(std::path::Path::new(path)).unwrap()).unwrap();
+            syn::parse_file(text).unwrap().items.iter().filter(|item| matches!(item,
+                syn::Item::Impl(item) if item.trait_.as_ref().is_some_and(|(path,_)|
+                    path.segments.last().is_some_and(|part| part.ident == "ProjectionAlternative"))
+            )).count()
+        };
+        assert!(count("crates/pse-model/src/generated/authored/modeling_declarations.rs") > 2);
+        assert_eq!(
+            count("crates/pse-relations/src/generated/authored/modeling_declarations.rs"),
+            0
+        );
     }
 }
 

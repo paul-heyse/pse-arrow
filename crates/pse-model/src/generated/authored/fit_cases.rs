@@ -38,6 +38,209 @@ impl PartialEq for AuthoredFitCasesFieldParametersItem {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for AuthoredFitCasesFieldParametersItem {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredFitCasesFieldParametersItem",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                4u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "symbol_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                bool,
+                            >(
+                                    graph,
+                                    "fixed",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "value",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "lower",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "upper",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "scale",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for AuthoredFitCasesFieldParametersItem {
+    const VERSION: u32 = 4u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "symbol_id"),
+        (2u32, "fixed"),
+        (3u32, "value"),
+        (4u32, "lower"),
+        (5u32, "upper"),
+        (6u32, "scale"),
+    ];
+    type Fields = (pse_ids::SemanticId, bool, f64, Option<f64>, Option<f64>, f64);
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#symbol_id,
+            self.r#fixed,
+            self.r#value,
+            self.r#lower,
+            self.r#upper,
+            self.r#scale,
+        )
+    }
+    fn from_projection_fields(
+        (r#symbol_id, r#fixed, r#value, r#lower, r#upper, r#scale): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#symbol_id,
+            r#fixed,
+            r#value,
+            r#lower,
+            r#upper,
+            r#scale,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredFitCasesFieldParametersItem {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#symbol_id,
+                &crate::boundary_projection::field_path(path, "symbol_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#fixed,
+                &crate::boundary_projection::field_path(path, "fixed"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#lower,
+                &crate::boundary_projection::field_path(path, "lower"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#upper,
+                &crate::boundary_projection::field_path(path, "upper"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#scale,
+                &crate::boundary_projection::field_path(path, "scale"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -60,6 +263,104 @@ impl crate::SemanticEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
 impl PartialEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType
+for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredFitCasesFieldExperimentsItemBindingsItem",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                4u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "parameter_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "path",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    const VERSION: u32 = 4u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "parameter_id"),
+        (2u32, "path"),
+    ];
+    type Fields = (pse_ids::SemanticId, String);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#parameter_id, self.r#path)
+    }
+    fn from_projection_fields(
+        (r#parameter_id, r#path): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#parameter_id, r#path })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#parameter_id,
+                &crate::boundary_projection::field_path(path, "parameter_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#path,
+                &crate::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -90,6 +391,173 @@ impl crate::SemanticEq for AuthoredFitCasesFieldExperimentsItem {
 impl PartialEq for AuthoredFitCasesFieldExperimentsItem {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType
+for AuthoredFitCasesFieldExperimentsItem {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredFitCasesFieldExperimentsItem",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                4u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::InstanceId,
+                            >(
+                                    graph,
+                                    "experiment_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "instance".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::DeclarationId,
+                            >(
+                                    graph,
+                                    "case_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "declaration".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ModelingAnalysisRoute,
+                            >(
+                                    graph,
+                                    "route",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "ModelingAnalysisRoute".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<AuthoredFitCasesFieldExperimentsItemBindingsItem>,
+                            >(
+                                    graph,
+                                    "bindings",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for AuthoredFitCasesFieldExperimentsItem {
+    const VERSION: u32 = 4u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "experiment_id"),
+        (2u32, "case_id"),
+        (3u32, "route"),
+        (4u32, "bindings"),
+    ];
+    type Fields = (
+        crate::generated::identities::InstanceId,
+        crate::generated::identities::DeclarationId,
+        crate::generated::enums::ModelingAnalysisRoute,
+        Vec<AuthoredFitCasesFieldExperimentsItemBindingsItem>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#experiment_id, self.r#case_id, self.r#route, self.r#bindings)
+    }
+    fn from_projection_fields(
+        (r#experiment_id, r#case_id, r#route, r#bindings): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#experiment_id,
+            r#case_id,
+            r#route,
+            r#bindings,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredFitCasesFieldExperimentsItem {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::identities::InstanceId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::identities::DeclarationId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::ModelingAnalysisRoute as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            AuthoredFitCasesFieldExperimentsItemBindingsItem,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#experiment_id,
+                &crate::boundary_projection::field_path(path, "experiment_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#case_id,
+                &crate::boundary_projection::field_path(path, "case_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#route,
+                &crate::boundary_projection::field_path(path, "route"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#bindings,
+                &crate::boundary_projection::field_path(path, "bindings"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -151,6 +619,344 @@ impl PartialEq for AuthoredFitCasesFieldObservationsItem {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType
+for AuthoredFitCasesFieldObservationsItem {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredFitCasesFieldObservationsItem",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                4u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::DeclarationId,
+                            >(
+                                    graph,
+                                    "observation_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "declaration".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "value_attribute",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "standard_deviation_attribute",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::InstanceId,
+                            >(
+                                    graph,
+                                    "experiment_id",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "instance".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "output_path",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "time",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::enums::ObservationTimeBasis>,
+                            >(
+                                    graph,
+                                    "time_basis",
+                                    7u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "ObservationTimeBasis".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "time_unit_id",
+                                    8u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                bool,
+                            >(
+                                    graph,
+                                    "included",
+                                    9u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "importance",
+                                    10u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for AuthoredFitCasesFieldObservationsItem {
+    const VERSION: u32 = 4u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "observation_id"),
+        (2u32, "value_attribute"),
+        (3u32, "standard_deviation_attribute"),
+        (4u32, "experiment_id"),
+        (5u32, "output_path"),
+        (6u32, "time"),
+        (7u32, "time_basis"),
+        (8u32, "time_unit_id"),
+        (9u32, "included"),
+        (10u32, "importance"),
+    ];
+    type Fields = (
+        crate::generated::identities::DeclarationId,
+        String,
+        Option<String>,
+        crate::generated::identities::InstanceId,
+        String,
+        Option<f64>,
+        Option<crate::generated::enums::ObservationTimeBasis>,
+        Option<pse_ids::SemanticId>,
+        bool,
+        f64,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#observation_id,
+            self.r#value_attribute,
+            self.r#standard_deviation_attribute,
+            self.r#experiment_id,
+            self.r#output_path,
+            self.r#time,
+            self.r#time_basis,
+            self.r#time_unit_id,
+            self.r#included,
+            self.r#importance,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#observation_id,
+            r#value_attribute,
+            r#standard_deviation_attribute,
+            r#experiment_id,
+            r#output_path,
+            r#time,
+            r#time_basis,
+            r#time_unit_id,
+            r#included,
+            r#importance,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#observation_id,
+            r#value_attribute,
+            r#standard_deviation_attribute,
+            r#experiment_id,
+            r#output_path,
+            r#time,
+            r#time_basis,
+            r#time_unit_id,
+            r#included,
+            r#importance,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredFitCasesFieldObservationsItem {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::identities::DeclarationId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::identities::InstanceId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::enums::ObservationTimeBasis,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#observation_id,
+                &crate::boundary_projection::field_path(path, "observation_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#value_attribute,
+                &crate::boundary_projection::field_path(path, "value_attribute"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#standard_deviation_attribute,
+                &crate::boundary_projection::field_path(
+                    path,
+                    "standard_deviation_attribute",
+                ),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#experiment_id,
+                &crate::boundary_projection::field_path(path, "experiment_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#output_path,
+                &crate::boundary_projection::field_path(path, "output_path"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#time,
+                &crate::boundary_projection::field_path(path, "time"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#time_basis,
+                &crate::boundary_projection::field_path(path, "time_basis"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#time_unit_id,
+                &crate::boundary_projection::field_path(path, "time_unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#included,
+                &crate::boundary_projection::field_path(path, "included"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#importance,
+                &crate::boundary_projection::field_path(path, "importance"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -182,6 +988,186 @@ impl crate::SemanticEq for AuthoredFitCasesRow {
 impl PartialEq for AuthoredFitCasesRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for AuthoredFitCasesRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredFitCasesRow",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                4u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::FitId,
+                            >(
+                                    graph,
+                                    "fit_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.doc".into(), "fit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "fit".into()),
+                                        ("pse.domain.identity.owner".into(), "true".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<AuthoredFitCasesFieldParametersItem>,
+                            >(
+                                    graph,
+                                    "parameters",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "parameters".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<AuthoredFitCasesFieldExperimentsItem>,
+                            >(
+                                    graph,
+                                    "experiments",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "experiments".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<AuthoredFitCasesFieldObservationsItem>,
+                            >(
+                                    graph,
+                                    "observations",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "observations".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for AuthoredFitCasesRow {
+    const VERSION: u32 = 4u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "fit_id"),
+        (2u32, "parameters"),
+        (3u32, "experiments"),
+        (4u32, "observations"),
+    ];
+    type Fields = (
+        crate::generated::identities::FitId,
+        Vec<AuthoredFitCasesFieldParametersItem>,
+        Vec<AuthoredFitCasesFieldExperimentsItem>,
+        Vec<AuthoredFitCasesFieldObservationsItem>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#fit_id, self.r#parameters, self.r#experiments, self.r#observations)
+    }
+    fn from_projection_fields(
+        (r#fit_id, r#parameters, r#experiments, r#observations): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#fit_id,
+            r#parameters,
+            r#experiments,
+            r#observations,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AuthoredFitCasesRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::identities::FitId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            AuthoredFitCasesFieldParametersItem,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            AuthoredFitCasesFieldExperimentsItem,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            AuthoredFitCasesFieldObservationsItem,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#fit_id,
+                &crate::boundary_projection::field_path(path, "fit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#parameters,
+                &crate::boundary_projection::field_path(path, "parameters"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#experiments,
+                &crate::boundary_projection::field_path(path, "experiments"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#observations,
+                &crate::boundary_projection::field_path(path, "observations"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// The concrete generated relation row.

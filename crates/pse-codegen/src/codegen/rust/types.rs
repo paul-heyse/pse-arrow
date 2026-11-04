@@ -258,6 +258,8 @@ impl super::super::native::Policy for RustPolicy<'_> {
                 self.declarations.push(structure(stem, &fields));
                 self.declarations
                     .push(super::alternative::accessors(ty, stem, self.local)?);
+                self.declarations
+                    .push(super::boundary_nested::render(ty, stem, &fields)?);
                 let name = format_ident!("{stem}");
                 quote!(#name)
             }

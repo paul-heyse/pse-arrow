@@ -83,6 +83,357 @@ impl PartialEq for AuthoredCaloricRequirementsFieldConsumersItem {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType
+for AuthoredCaloricRequirementsFieldConsumersItem {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredCaloricRequirementsFieldConsumersItem",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "target_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "declaration_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "power_rule_id",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "actual_flow_id",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "exposure_expression",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "power_quantity_id",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "power_unit_id",
+                                    7u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "power_allowance",
+                                    8u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "exposure_quantity_id",
+                                    9u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "exposure_unit_id",
+                                    10u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "aggregate_exposure",
+                                    11u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "11".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for AuthoredCaloricRequirementsFieldConsumersItem {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "target_id"),
+        (2u32, "declaration_id"),
+        (3u32, "power_rule_id"),
+        (4u32, "actual_flow_id"),
+        (5u32, "exposure_expression"),
+        (6u32, "power_quantity_id"),
+        (7u32, "power_unit_id"),
+        (8u32, "power_allowance"),
+        (9u32, "exposure_quantity_id"),
+        (10u32, "exposure_unit_id"),
+        (11u32, "aggregate_exposure"),
+    ];
+    type Fields = (
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        String,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        f64,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        f64,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#target_id,
+            self.r#declaration_id,
+            self.r#power_rule_id,
+            self.r#actual_flow_id,
+            self.r#exposure_expression,
+            self.r#power_quantity_id,
+            self.r#power_unit_id,
+            self.r#power_allowance,
+            self.r#exposure_quantity_id,
+            self.r#exposure_unit_id,
+            self.r#aggregate_exposure,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#target_id,
+            r#declaration_id,
+            r#power_rule_id,
+            r#actual_flow_id,
+            r#exposure_expression,
+            r#power_quantity_id,
+            r#power_unit_id,
+            r#power_allowance,
+            r#exposure_quantity_id,
+            r#exposure_unit_id,
+            r#aggregate_exposure,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#target_id,
+            r#declaration_id,
+            r#power_rule_id,
+            r#actual_flow_id,
+            r#exposure_expression,
+            r#power_quantity_id,
+            r#power_unit_id,
+            r#power_allowance,
+            r#exposure_quantity_id,
+            r#exposure_unit_id,
+            r#aggregate_exposure,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredCaloricRequirementsFieldConsumersItem {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#target_id,
+                &crate::boundary_projection::field_path(path, "target_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#declaration_id,
+                &crate::boundary_projection::field_path(path, "declaration_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#power_rule_id,
+                &crate::boundary_projection::field_path(path, "power_rule_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#actual_flow_id,
+                &crate::boundary_projection::field_path(path, "actual_flow_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#exposure_expression,
+                &crate::boundary_projection::field_path(path, "exposure_expression"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#power_quantity_id,
+                &crate::boundary_projection::field_path(path, "power_quantity_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#power_unit_id,
+                &crate::boundary_projection::field_path(path, "power_unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#power_allowance,
+                &crate::boundary_projection::field_path(path, "power_allowance"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#exposure_quantity_id,
+                &crate::boundary_projection::field_path(path, "exposure_quantity_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#exposure_unit_id,
+                &crate::boundary_projection::field_path(path, "exposure_unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#aggregate_exposure,
+                &crate::boundary_projection::field_path(path, "aggregate_exposure"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -166,6 +517,553 @@ impl crate::SemanticEq for AuthoredCaloricRequirementsRow {
 impl PartialEq for AuthoredCaloricRequirementsRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for AuthoredCaloricRequirementsRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredCaloricRequirementsRow",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "requirement_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.doc".into(), "requirement_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::InstanceId>,
+                            >(
+                                    graph,
+                                    "instance_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "The instance owning the selected physical target.".into(),
+                                        ),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "instance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "target_id",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "target_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::NumericalTarget,
+                            >(
+                                    graph,
+                                    "target_kind",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "target_kind".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "NumericalTarget".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "quantity_id",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.doc".into(), "quantity_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "unit_id",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.doc".into(), "unit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::NumericalSource,
+                            >(
+                                    graph,
+                                    "source",
+                                    7u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.doc".into(), "source".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "NumericalSource".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "science_revision",
+                                    8u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        ("pse.domain.doc".into(), "science_revision".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "science_records",
+                                    9u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.doc".into(), "science_records".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "response_quantity_id",
+                                    10u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ("pse.domain.doc".into(), "response_quantity_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "response_unit_id",
+                                    11u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "11".into()),
+                                        ("pse.domain.doc".into(), "response_unit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "response",
+                                    12u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "12".into()),
+                                        ("pse.domain.doc".into(), "response".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "thermal_quantity_id",
+                                    13u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "13".into()),
+                                        ("pse.domain.doc".into(), "thermal_quantity_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "thermal_unit_id",
+                                    14u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "14".into()),
+                                        ("pse.domain.doc".into(), "thermal_unit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "thermal_resolution",
+                                    15u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "15".into()),
+                                        ("pse.domain.doc".into(), "thermal_resolution".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<AuthoredCaloricRequirementsFieldConsumersItem>,
+                            >(
+                                    graph,
+                                    "consumers",
+                                    16u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "16".into()),
+                                        ("pse.domain.doc".into(), "consumers".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for AuthoredCaloricRequirementsRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "requirement_id"),
+        (2u32, "instance_id"),
+        (3u32, "target_id"),
+        (4u32, "target_kind"),
+        (5u32, "quantity_id"),
+        (6u32, "unit_id"),
+        (7u32, "source"),
+        (8u32, "science_revision"),
+        (9u32, "science_records"),
+        (10u32, "response_quantity_id"),
+        (11u32, "response_unit_id"),
+        (12u32, "response"),
+        (13u32, "thermal_quantity_id"),
+        (14u32, "thermal_unit_id"),
+        (15u32, "thermal_resolution"),
+        (16u32, "consumers"),
+    ];
+    type Fields = (
+        pse_ids::SemanticId,
+        Option<crate::generated::identities::InstanceId>,
+        pse_ids::SemanticId,
+        crate::generated::enums::NumericalTarget,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        crate::generated::enums::NumericalSource,
+        String,
+        Vec<pse_ids::SemanticId>,
+        Option<pse_ids::SemanticId>,
+        Option<pse_ids::SemanticId>,
+        Option<f64>,
+        Option<pse_ids::SemanticId>,
+        Option<pse_ids::SemanticId>,
+        Option<f64>,
+        Vec<AuthoredCaloricRequirementsFieldConsumersItem>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#requirement_id,
+            self.r#instance_id,
+            self.r#target_id,
+            self.r#target_kind,
+            self.r#quantity_id,
+            self.r#unit_id,
+            self.r#source,
+            self.r#science_revision,
+            self.r#science_records,
+            self.r#response_quantity_id,
+            self.r#response_unit_id,
+            self.r#response,
+            self.r#thermal_quantity_id,
+            self.r#thermal_unit_id,
+            self.r#thermal_resolution,
+            self.r#consumers,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#requirement_id,
+            r#instance_id,
+            r#target_id,
+            r#target_kind,
+            r#quantity_id,
+            r#unit_id,
+            r#source,
+            r#science_revision,
+            r#science_records,
+            r#response_quantity_id,
+            r#response_unit_id,
+            r#response,
+            r#thermal_quantity_id,
+            r#thermal_unit_id,
+            r#thermal_resolution,
+            r#consumers,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#requirement_id,
+            r#instance_id,
+            r#target_id,
+            r#target_kind,
+            r#quantity_id,
+            r#unit_id,
+            r#source,
+            r#science_revision,
+            r#science_records,
+            r#response_quantity_id,
+            r#response_unit_id,
+            r#response,
+            r#thermal_quantity_id,
+            r#thermal_unit_id,
+            r#thermal_resolution,
+            r#consumers,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AuthoredCaloricRequirementsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::identities::InstanceId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::NumericalTarget as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::NumericalSource as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            AuthoredCaloricRequirementsFieldConsumersItem,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#requirement_id,
+                &crate::boundary_projection::field_path(path, "requirement_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#instance_id,
+                &crate::boundary_projection::field_path(path, "instance_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#target_id,
+                &crate::boundary_projection::field_path(path, "target_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#target_kind,
+                &crate::boundary_projection::field_path(path, "target_kind"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#quantity_id,
+                &crate::boundary_projection::field_path(path, "quantity_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#unit_id,
+                &crate::boundary_projection::field_path(path, "unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#source,
+                &crate::boundary_projection::field_path(path, "source"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#science_revision,
+                &crate::boundary_projection::field_path(path, "science_revision"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#science_records,
+                &crate::boundary_projection::field_path(path, "science_records"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#response_quantity_id,
+                &crate::boundary_projection::field_path(path, "response_quantity_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#response_unit_id,
+                &crate::boundary_projection::field_path(path, "response_unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#response,
+                &crate::boundary_projection::field_path(path, "response"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#thermal_quantity_id,
+                &crate::boundary_projection::field_path(path, "thermal_quantity_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#thermal_unit_id,
+                &crate::boundary_projection::field_path(path, "thermal_unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#thermal_resolution,
+                &crate::boundary_projection::field_path(path, "thermal_resolution"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#consumers,
+                &crate::boundary_projection::field_path(path, "consumers"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// The concrete generated relation row.

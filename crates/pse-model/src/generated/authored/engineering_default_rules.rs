@@ -43,6 +43,239 @@ impl PartialEq for AuthoredEngineeringDefaultRulesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for AuthoredEngineeringDefaultRulesRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredEngineeringDefaultRulesRow",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::EngineeringRuleId,
+                            >(
+                                    graph,
+                                    "rule_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.doc".into(), "rule_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "engineering_rule".into()),
+                                        ("pse.domain.identity.owner".into(), "true".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "quantity_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "quantity_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "unit_id",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.doc".into(), "unit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "physical_allowance",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        ("pse.domain.doc".into(), "physical_allowance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "relative_fraction",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        ("pse.domain.doc".into(), "relative_fraction".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "provenance",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.doc".into(), "provenance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for AuthoredEngineeringDefaultRulesRow {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "rule_id"),
+        (2u32, "quantity_id"),
+        (3u32, "unit_id"),
+        (4u32, "physical_allowance"),
+        (5u32, "relative_fraction"),
+        (6u32, "provenance"),
+    ];
+    type Fields = (
+        crate::generated::identities::EngineeringRuleId,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        Option<f64>,
+        Option<f64>,
+        String,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#rule_id,
+            self.r#quantity_id,
+            self.r#unit_id,
+            self.r#physical_allowance,
+            self.r#relative_fraction,
+            self.r#provenance,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#rule_id,
+            r#quantity_id,
+            r#unit_id,
+            r#physical_allowance,
+            r#relative_fraction,
+            r#provenance,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#rule_id,
+            r#quantity_id,
+            r#unit_id,
+            r#physical_allowance,
+            r#relative_fraction,
+            r#provenance,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredEngineeringDefaultRulesRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::identities::EngineeringRuleId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#rule_id,
+                &crate::boundary_projection::field_path(path, "rule_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#quantity_id,
+                &crate::boundary_projection::field_path(path, "quantity_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#unit_id,
+                &crate::boundary_projection::field_path(path, "unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#physical_allowance,
+                &crate::boundary_projection::field_path(path, "physical_allowance"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#relative_fraction,
+                &crate::boundary_projection::field_path(path, "relative_fraction"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#provenance,
+                &crate::boundary_projection::field_path(path, "provenance"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = AuthoredEngineeringDefaultRulesRow;
 impl crate::SemanticFrame for AuthoredEngineeringDefaultRulesRow {

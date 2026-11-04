@@ -407,6 +407,8 @@ impl Registry {
 /// [`RegistryBuilder::build`] has them all.
 #[derive(Debug, Default)]
 pub struct RegistryBuilder {
+    /// Original source-declaration failures, retained until explicit assembly.
+    declaration_errors: Vec<SchemaError>,
     /// Relations, in declaration order.
     relations: Vec<RelationDecl>,
     obligations: BTreeMap<
@@ -472,6 +474,21 @@ impl RegistryBuilder {
         self
     }
 
+    /// Declare a source-owned relation whose presentation attachment can fail.
+    /// The original error is returned by [`Self::build`] before assembly starts.
+    pub fn declare_relation_result(
+        &mut self,
+        declaration: Result<RelationDecl, SchemaError>,
+    ) -> &mut Self {
+        match declaration {
+            Ok(declaration) => self.declare_relation(declaration),
+            Err(error) => {
+                self.declaration_errors.push(error);
+                self
+            }
+        }
+    }
+
     /// Declares an enumeration.
     pub fn declare_enum(&mut self, decl: EnumDecl) -> &mut Self {
         self.enums.push(decl);
@@ -519,6 +536,9 @@ impl RegistryBuilder {
     /// per-row-quantity sibling, primary-key column, invariant relation;
     /// [`SchemaError::MissingGranularity`] for a derived relation without one;
     pub fn build(mut self) -> Result<Registry, SchemaError> {
+        if !self.declaration_errors.is_empty() {
+            return Err(self.declaration_errors.remove(0));
+        }
         let mut registry = self.resolve_base()?;
         self.derive_integrity();
 
@@ -1455,6 +1475,22 @@ fn resolve_documents(
 mod tests {
     use super::*;
     use crate::model::{Authority, DerivationGranularity, EnumMember, Namespace, SnapshotClass};
+
+    #[test]
+    fn source_declaration_error_is_retained_before_registry_assembly() {
+        let first = crate::checks::invalid("actual source", "field membership changed");
+        let second = crate::checks::invalid("later source", "another failure");
+        let mut builder = RegistryBuilder::new();
+        builder.declare_relation_result(Ok(simple("valid")));
+        builder.declare_relation_result(Err(first.clone()));
+        builder.declare_relation_result(Err(second));
+        // Even a later, separately invalid registry cannot replace the source error.
+        builder.declare_relation(simple("valid"));
+        assert_eq!(builder.build().unwrap_err(), first);
+        let mut accepted = RegistryBuilder::new();
+        accepted.declare_relation_result(Ok(simple("valid")));
+        assert!(accepted.build().is_ok());
+    }
 
     /// A one-column relation with a semantic-ID primary key.
     fn simple(name: &'static str) -> RelationDecl {

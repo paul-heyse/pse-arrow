@@ -18,6 +18,7 @@
 
 pub mod algorithm;
 pub mod boundary;
+pub mod boundary_shape;
 pub mod canonical;
 pub mod collection;
 pub mod document;
@@ -37,6 +38,7 @@ pub mod result_selection;
 pub mod tagged_alternative;
 
 pub use boundary::BoundaryRecord;
+pub use boundary_shape::BoundaryShape;
 pub use canonical::{CanonicalBackup, CanonicalKeyKind, CanonicalRelation, CanonicalRetention};
 pub use field::ROW_KEY_ENCODING;
 

@@ -3,6 +3,7 @@
 //! Registry boundary traits from the same resolved fields that emit the native row.
 use crate::{SchemaError, model::RelationSpec};
 use proc_macro2::TokenStream;
+#[cfg(test)]
 use quote::{format_ident, quote};
 
 pub(super) fn record(
@@ -13,103 +14,12 @@ pub(super) fn record(
     let Some(record) = spec.boundary else {
         return Ok(TokenStream::new());
     };
-    let name = record.name;
-    let source = record.source;
-    let version = record.version;
-    let direction = format_ident!("{}", format!("{:?}", record.direction));
-    let reserved_tags = record.reserved_tags;
-    let reserved_names = record.reserved_names;
-    let mut definitions = Vec::new();
-    let mut layout = Vec::new();
-    let mut names = Vec::new();
-    let mut types = Vec::new();
-    let mut recursive = Vec::new();
-    let mut field_rules = Vec::new();
-    for ((name, ty, _), column) in fields.iter().zip(&spec.columns) {
-        let ty = super::semantic::model_type(ty)?;
-        if crate::model::TaggedAlternative::from_field(column.field())?.is_some()
-            || crate::model::CollectionContract::from_field(column.field())?
-                .is_some_and(|contract| contract.unique)
-        {
-            return Err(super::error(format!(
-                "{}.{name}: selected registry boundary requires explicit lowering of its alternative or unique collection contract",
-                spec.key
-            )));
-        }
-        let number = column.boundary_tag().ok_or_else(|| {
-            super::error(format!(
-                "{}.{name} has no source-owned boundary number",
-                spec.key
-            ))
-        })?;
-        let field = super::types::ident(name);
-        let mut rules = Vec::new();
-        if let Some(range) = crate::model::IntegerRange::from_field(column.field())? {
-            let (min, max) = (range.minimum, range.maximum);
-            rules.push(
-                quote!(crate::boundary_projection::LocalRule::SignedRange { min:#min,max:#max }),
-            );
-        }
-        if let Some(collection) = crate::model::CollectionContract::from_field(column.field())? {
-            let min = u64::try_from(collection.minimum)
-                .map_err(|error| super::error(error.to_string()))?;
-            let max = collection
-                .maximum
-                .map(u64::try_from)
-                .transpose()
-                .map_err(|error| super::error(error.to_string()))?
-                .unwrap_or(u64::MAX);
-            rules.push(quote!(crate::boundary_projection::LocalRule::Length { min:#min,max:#max }));
-        }
-        let has_rules = !rules.is_empty();
-        field_rules.push(has_rules);
-        let facets = column
-            .field()
-            .metadata()
-            .iter()
-            .collect::<std::collections::BTreeMap<_, _>>()
-            .into_iter()
-            .map(|(key, value)| quote!((#key.into(), #value.into())))
-            .collect::<Vec<_>>();
-        definitions.push(
-            quote!(crate::boundary_projection::Field::of::<#ty>(graph, #name, #number,
-            crate::boundary_projection::Direction::#direction, vec![#(#rules),*])?
-            .with_named_facets(std::collections::BTreeMap::from([#(#facets),*]))),
-        );
-        layout.push(quote!((#number, #name)));
-        names.push(field);
-        types.push(ty);
-        let field = super::types::ident(name);
-        recursive.push(
-            quote!(crate::boundary_projection::validate_field(&self.#field,
-            &crate::boundary_projection::field_path(path, #name), &[#(#rules),*])?;),
-        );
-    }
-    Ok(quote! {
-        impl crate::boundary_projection::ProjectionType for #row {
-            fn projection(graph: &mut crate::boundary_projection::ProjectionGraph)
-                -> Result<crate::boundary_projection::TypeRef, crate::boundary_projection::ProjectionError> {
-                graph.declare::<Self>(#name, #source, #version,
-                    crate::boundary_projection::Direction::#direction, &[#(#reserved_tags),*], &[#(#reserved_names),*],
-                    |graph| Ok(crate::boundary_projection::Shape::Record(vec![#(#definitions),*])))
-            }
-        }
-        impl crate::boundary_projection::ProjectionRecord for #row {
-            const VERSION: u32 = #version;
-            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[#(#layout),*];
-            type Fields = (#(#types,)*);
-            fn into_projection_fields(self) -> Self::Fields { (#(self.#names,)*) }
-            fn from_projection_fields((#(#names,)*): Self::Fields)
-                -> Result<Self, crate::boundary_projection::AdapterError> { Ok(Self { #(#names,)* }) }
-        }
-        impl crate::boundary_projection::ValidateProjection for #row {
-            const NEEDS_RECURSIVE_VALIDATION: bool = false #(|| #field_rules || <#types as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION)*;
-            fn validate_at(&self, path: &str) -> Result<(), crate::boundary_projection::ValidationError> {
-                if Self::NEEDS_RECURSIVE_VALIDATION { #(#recursive)* }
-                Ok(())
-            }
-        }
-    })
+    super::boundary_record::render(
+        &crate::model::BoundaryShape::record(record),
+        &spec.columns,
+        row,
+        fields,
+    )
 }
 
 #[cfg(test)]

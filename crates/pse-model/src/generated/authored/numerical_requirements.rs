@@ -88,6 +88,629 @@ impl PartialEq for AuthoredNumericalRequirementsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for AuthoredNumericalRequirementsRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredNumericalRequirementsRow",
+                "crates/pse-schema/src/catalog/native_math.rs",
+                3u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "requirement_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.doc".into(), "requirement_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::DeclarationId>,
+                            >(
+                                    graph,
+                                    "model_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones."
+                                                .into(),
+                                        ),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "declaration".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::DeclarationId>,
+                            >(
+                                    graph,
+                                    "case_id",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent."
+                                                .into(),
+                                        ),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "declaration".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::InstanceId>,
+                            >(
+                                    graph,
+                                    "instance_id",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's."
+                                                .into(),
+                                        ),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "instance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::FitId>,
+                            >(
+                                    graph,
+                                    "fit_id",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "The fit whose parameter requirement this is; absent otherwise."
+                                                .into(),
+                                        ),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "fit".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "target_id",
+                                    6u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "6".into()),
+                                        ("pse.domain.doc".into(), "target_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::NumericalTarget,
+                            >(
+                                    graph,
+                                    "target_kind",
+                                    7u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "7".into()),
+                                        ("pse.domain.doc".into(), "target_kind".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "NumericalTarget".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "nominal",
+                                    8u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "8".into()),
+                                        ("pse.domain.doc".into(), "nominal".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "scaling_factor",
+                                    9u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "9".into()),
+                                        ("pse.domain.doc".into(), "scaling_factor".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "absolute_tolerance",
+                                    10u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "10".into()),
+                                        ("pse.domain.doc".into(), "absolute_tolerance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<f64>,
+                            >(
+                                    graph,
+                                    "relative_tolerance",
+                                    11u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "11".into()),
+                                        ("pse.domain.doc".into(), "relative_tolerance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<bool>,
+                            >(
+                                    graph,
+                                    "shared_engineering_allowance",
+                                    12u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "12".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "shared_engineering_allowance".into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::generated::identities::EngineeringRuleId>,
+                            >(
+                                    graph,
+                                    "engineering_rule_id",
+                                    13u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "13".into()),
+                                        ("pse.domain.doc".into(), "engineering_rule_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.identity".into(), "engineering_rule".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<pse_ids::SemanticId>,
+                            >(
+                                    graph,
+                                    "unit_id",
+                                    14u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "14".into()),
+                                        ("pse.domain.doc".into(), "unit_id".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::NumericalCoordinates,
+                            >(
+                                    graph,
+                                    "coordinates",
+                                    15u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "15".into()),
+                                        ("pse.domain.doc".into(), "coordinates".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "NumericalCoordinates".into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i32,
+                            >(
+                                    graph,
+                                    "priority",
+                                    16u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "16".into()),
+                                        ("pse.domain.doc".into(), "priority".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                bool,
+                            >(
+                                    graph,
+                                    "required",
+                                    17u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "17".into()),
+                                        ("pse.domain.doc".into(), "required".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "provenance",
+                                    18u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "18".into()),
+                                        ("pse.domain.doc".into(), "provenance".into()),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for AuthoredNumericalRequirementsRow {
+    const VERSION: u32 = 3u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "requirement_id"),
+        (2u32, "model_id"),
+        (3u32, "case_id"),
+        (4u32, "instance_id"),
+        (5u32, "fit_id"),
+        (6u32, "target_id"),
+        (7u32, "target_kind"),
+        (8u32, "nominal"),
+        (9u32, "scaling_factor"),
+        (10u32, "absolute_tolerance"),
+        (11u32, "relative_tolerance"),
+        (12u32, "shared_engineering_allowance"),
+        (13u32, "engineering_rule_id"),
+        (14u32, "unit_id"),
+        (15u32, "coordinates"),
+        (16u32, "priority"),
+        (17u32, "required"),
+        (18u32, "provenance"),
+    ];
+    type Fields = (
+        pse_ids::SemanticId,
+        Option<crate::generated::identities::DeclarationId>,
+        Option<crate::generated::identities::DeclarationId>,
+        Option<crate::generated::identities::InstanceId>,
+        Option<crate::generated::identities::FitId>,
+        pse_ids::SemanticId,
+        crate::generated::enums::NumericalTarget,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<bool>,
+        Option<crate::generated::identities::EngineeringRuleId>,
+        Option<pse_ids::SemanticId>,
+        crate::generated::enums::NumericalCoordinates,
+        i32,
+        bool,
+        String,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#requirement_id,
+            self.r#model_id,
+            self.r#case_id,
+            self.r#instance_id,
+            self.r#fit_id,
+            self.r#target_id,
+            self.r#target_kind,
+            self.r#nominal,
+            self.r#scaling_factor,
+            self.r#absolute_tolerance,
+            self.r#relative_tolerance,
+            self.r#shared_engineering_allowance,
+            self.r#engineering_rule_id,
+            self.r#unit_id,
+            self.r#coordinates,
+            self.r#priority,
+            self.r#required,
+            self.r#provenance,
+        )
+    }
+    fn from_projection_fields(
+        (
+            r#requirement_id,
+            r#model_id,
+            r#case_id,
+            r#instance_id,
+            r#fit_id,
+            r#target_id,
+            r#target_kind,
+            r#nominal,
+            r#scaling_factor,
+            r#absolute_tolerance,
+            r#relative_tolerance,
+            r#shared_engineering_allowance,
+            r#engineering_rule_id,
+            r#unit_id,
+            r#coordinates,
+            r#priority,
+            r#required,
+            r#provenance,
+        ): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#requirement_id,
+            r#model_id,
+            r#case_id,
+            r#instance_id,
+            r#fit_id,
+            r#target_id,
+            r#target_kind,
+            r#nominal,
+            r#scaling_factor,
+            r#absolute_tolerance,
+            r#relative_tolerance,
+            r#shared_engineering_allowance,
+            r#engineering_rule_id,
+            r#unit_id,
+            r#coordinates,
+            r#priority,
+            r#required,
+            r#provenance,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for AuthoredNumericalRequirementsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::identities::DeclarationId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::identities::DeclarationId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::identities::InstanceId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::identities::FitId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::NumericalTarget as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            f64,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            bool,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::generated::identities::EngineeringRuleId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            pse_ids::SemanticId,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::NumericalCoordinates as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i32 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#requirement_id,
+                &crate::boundary_projection::field_path(path, "requirement_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#model_id,
+                &crate::boundary_projection::field_path(path, "model_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#case_id,
+                &crate::boundary_projection::field_path(path, "case_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#instance_id,
+                &crate::boundary_projection::field_path(path, "instance_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#fit_id,
+                &crate::boundary_projection::field_path(path, "fit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#target_id,
+                &crate::boundary_projection::field_path(path, "target_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#target_kind,
+                &crate::boundary_projection::field_path(path, "target_kind"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#nominal,
+                &crate::boundary_projection::field_path(path, "nominal"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#scaling_factor,
+                &crate::boundary_projection::field_path(path, "scaling_factor"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#absolute_tolerance,
+                &crate::boundary_projection::field_path(path, "absolute_tolerance"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#relative_tolerance,
+                &crate::boundary_projection::field_path(path, "relative_tolerance"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#shared_engineering_allowance,
+                &crate::boundary_projection::field_path(
+                    path,
+                    "shared_engineering_allowance",
+                ),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#engineering_rule_id,
+                &crate::boundary_projection::field_path(path, "engineering_rule_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#unit_id,
+                &crate::boundary_projection::field_path(path, "unit_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#coordinates,
+                &crate::boundary_projection::field_path(path, "coordinates"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#priority,
+                &crate::boundary_projection::field_path(path, "priority"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#required,
+                &crate::boundary_projection::field_path(path, "required"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#provenance,
+                &crate::boundary_projection::field_path(path, "provenance"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = AuthoredNumericalRequirementsRow;
 impl crate::SemanticFrame for AuthoredNumericalRequirementsRow {

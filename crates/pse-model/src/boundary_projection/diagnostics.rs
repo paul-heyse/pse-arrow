@@ -3,7 +3,26 @@
 //! Local trait integration of the original lower-level diagnostic declarations.
 
 use super::*;
-use pse_diagnostics::boundary::{BoundaryDeclaration, BoundaryField};
+use pse_diagnostics::boundary::{BoundaryDeclaration, BoundaryField, BoundaryVocabulary};
+
+macro_rules! diagnostic_vocabulary {
+    ($($owner:path),* $(,)?) => { $(
+        impl ProjectionType for $owner {
+            fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
+                let root = graph.declare::<Self>(<Self as BoundaryVocabulary>::NAME, <Self as BoundaryDeclaration>::SOURCE,
+                    1, Direction::Both, &[], &[], |_| Ok(Shape::StringEnum(
+                        <Self as BoundaryVocabulary>::boundary_members().into_iter().map(str::to_owned).collect())))?;
+                graph.public_path::<Self>(&root, <Self as BoundaryVocabulary>::PUBLIC_PATH)?;
+                Ok(root)
+            }
+        }
+        impl ValidateProjection for $owner {
+            const NEEDS_RECURSIVE_VALIDATION: bool = false;
+            fn validate_at(&self, _: &str) -> Result<(), ValidationError> { Ok(()) }
+        }
+    )* };
+}
+diagnostic_vocabulary!(pse_diagnostics::DiagnosticRule);
 
 macro_rules! diagnostic_record {
     ($owner:path; $public:expr; $name:literal; $version:literal; $direction:ident;

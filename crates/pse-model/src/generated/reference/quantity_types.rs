@@ -215,12 +215,7 @@ impl crate::boundary_projection::ProjectionType for ReferenceQuantityTypesRow {
                                     "shape",
                                     7u32,
                                     crate::boundary_projection::Direction::Output,
-                                    vec![
-                                        crate::boundary_projection::LocalRule::Length {
-                                            min: 0u64,
-                                            max: 18446744073709551615u64,
-                                        },
-                                    ],
+                                    vec![],
                                 )?
                                 .with_named_facets(
                                     std::collections::BTreeMap::from([
@@ -402,7 +397,7 @@ impl crate::boundary_projection::ValidateProjection for ReferenceQuantityTypesRo
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
         || false
         || <crate::generated::enums::ScaleKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || true
+        || false
         || <Vec<
             pse_ids::SemanticId,
         > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
@@ -456,12 +451,7 @@ impl crate::boundary_projection::ValidateProjection for ReferenceQuantityTypesRo
             crate::boundary_projection::validate_field(
                 &self.r#shape,
                 &crate::boundary_projection::field_path(path, "shape"),
-                &[
-                    crate::boundary_projection::LocalRule::Length {
-                        min: 0u64,
-                        max: 18446744073709551615u64,
-                    },
-                ],
+                &[],
             )?;
             crate::boundary_projection::validate_field(
                 &self.r#subject_kind,

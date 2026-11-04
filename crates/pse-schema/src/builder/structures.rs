@@ -33,7 +33,13 @@ pub(super) fn resolve(
                 let Some(name) = field.structure_name() else {
                     continue;
                 };
-                let contract = field.value_type();
+                let mut contract = field.value_type();
+                // Generation needs the actual source's presentation, independently
+                // of the value-domain and execution-identity projections.
+                let presentation = crate::model::BoundaryShape::from_field(field.field())?;
+                if let Some(presentation) = &presentation {
+                    contract = contract.with_boundary_shape(presentation.clone());
+                }
                 let identity = identity(&contract)?;
                 let site = format!("{}.{}", spec.qualified_name(), column.name());
                 match structures.entry(name.to_owned()) {
@@ -41,12 +47,20 @@ pub(super) fn resolve(
                         entry.insert((contract, identity, site));
                     }
                     Entry::Occupied(entry) => {
-                        let (_, existing, first) = entry.get();
+                        let (original, existing, first) = entry.get();
                         if *existing != identity {
                             return Err(crate::checks::invalid(
                                 format!("named structure {name}"),
                                 format!(
                                     "{site} declares a contract different from {first}; one name has one contract"
+                                ),
+                            ));
+                        }
+                        if boundary_presentation(original) != boundary_presentation(&contract) {
+                            return Err(crate::checks::invalid(
+                                format!("named structure {name}"),
+                                format!(
+                                    "{site} declares a different boundary presentation from {first}; the shared source factory must own it once"
                                 ),
                             ));
                         }
@@ -59,6 +73,33 @@ pub(super) fn resolve(
         .into_iter()
         .map(|(name, (contract, _, _))| (name, contract))
         .collect())
+}
+
+/// Compare source presentation recursively after native identity has established
+/// the same field tree. The root field number belongs to its occurrence, while
+/// child numbers and nested shape declarations belong to the shared native type.
+fn boundary_presentation(contract: &FieldContract) -> Vec<(Option<String>, Option<String>)> {
+    let mut fields = Vec::new();
+    contract.walk(&mut fields);
+    fields
+        .iter()
+        .enumerate()
+        .map(|(index, field)| {
+            let metadata = field.field().metadata();
+            (
+                if index == 0 {
+                    None
+                } else {
+                    metadata
+                        .get(crate::model::field_facets::BOUNDARY_TAG)
+                        .cloned()
+                },
+                metadata
+                    .get(crate::model::field_facets::BOUNDARY_SHAPE)
+                    .cloned(),
+            )
+        })
+        .collect()
 }
 
 /// The canonical contract of a structure: its value type without prose or name.
@@ -145,5 +186,87 @@ mod tests {
         builder.declare_relation(relation("first", pair(DataType::Int64).named("Pair")));
         builder.declare_relation(relation("second", pair(DataType::Int64).named("Pair")));
         assert_eq!(builder.build().unwrap().structures().len(), 1);
+    }
+
+    #[test]
+    fn named_structure_projection_retains_source_presentation_outside_its_value_domain() {
+        let source = F::structure(vec![
+            F::native(DataType::Int64)
+                .with_name("value")
+                .with_boundary_tag(17),
+        ])
+        .named("PresentedPair")
+        .with_boundary_shape(crate::model::BoundaryShape::native(
+            file!(),
+            3,
+            pse_vocabulary::BoundaryDirection::Both,
+        ));
+        assert!(
+            crate::model::BoundaryShape::from_field(source.value_type().field())
+                .unwrap()
+                .is_none()
+        );
+        let registry = registry(source);
+        let emitted = &registry.structures()["PresentedPair"];
+        let shape = crate::model::BoundaryShape::from_field(emitted.field())
+            .unwrap()
+            .unwrap();
+        assert_eq!(shape.version, 3);
+        assert_eq!(emitted.children()[0].boundary_tag(), Some(17));
+    }
+
+    #[test]
+    fn shared_native_types_refuse_recursive_wire_drift_but_keep_occurrence_numbers_independent() {
+        let named = |tag| {
+            F::structure(vec![
+                F::native(DataType::Int64)
+                    .with_name("value")
+                    .with_boundary_tag(tag),
+            ])
+            .named("PresentedPair")
+            .with_boundary_shape(crate::model::BoundaryShape::native(
+                file!(),
+                3,
+                pse_vocabulary::BoundaryDirection::Both,
+            ))
+        };
+        let mut consistent = RegistryBuilder::new();
+        consistent.declare_relation(relation("first", named(17).with_boundary_tag(3)));
+        consistent.declare_relation(relation("second", named(17).with_boundary_tag(19)));
+        assert!(consistent.build().is_ok());
+        let mut conflicting = RegistryBuilder::new();
+        conflicting.declare_relation(relation("first", named(17)));
+        conflicting.declare_relation(relation("second", named(18)));
+        assert!(
+            conflicting
+                .build()
+                .unwrap_err()
+                .to_string()
+                .contains("boundary presentation")
+        );
+
+        let parent = |version| {
+            F::structure(vec![
+                F::structure(vec![F::id().with_name("id").with_boundary_tag(7)])
+                    .with_name("nested")
+                    .with_boundary_tag(11)
+                    .with_boundary_shape(crate::model::BoundaryShape::native(
+                        file!(),
+                        version,
+                        pse_vocabulary::BoundaryDirection::Both,
+                    )),
+            ])
+            .named("PresentedParent")
+        };
+        let mut conflicting = RegistryBuilder::new();
+        conflicting.declare_relation(relation("first", parent(1)));
+        conflicting.declare_relation(relation("second", parent(2)));
+        assert!(
+            conflicting
+                .build()
+                .unwrap_err()
+                .to_string()
+                .contains("boundary presentation")
+        );
     }
 }

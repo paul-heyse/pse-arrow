@@ -109,6 +109,8 @@ fn optional_checks(value: TokenStream, checks: TokenStream) -> Result<TokenStrea
 
 fn supported(field: &FieldContract, path: &str) -> Result<(), SchemaError> {
     let allowed = [
+        field_facets::BOUNDARY_TAG,
+        field_facets::BOUNDARY_SHAPE,
         field_facets::EXTENSION,
         field_facets::PARAMETER,
         field_facets::ROLE,

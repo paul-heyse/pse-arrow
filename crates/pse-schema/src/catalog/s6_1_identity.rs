@@ -110,27 +110,32 @@ fn declare_documents(builder: &mut RegistryBuilder) {
                 "document_id",
                 FieldContract::id(),
                 "`named_id(package_id, path)` (blueprint §11).",
-            ),
+            ).with_boundary_tag(1),
             FieldContract::reference("package_id", FieldContract::id(), "The owning package.")
-                .with_fk("authored.packages", "package_id"),
+                .with_fk("authored.packages", "package_id").with_boundary_tag(2),
             FieldContract::label(
                 "path",
                 FieldContract::native(arrow_schema::DataType::Utf8),
                 "The document path, relative to the package root.",
-            ),
+            ).with_boundary_tag(3),
             FieldContract::payload(
                 "source_text",
                 FieldContract::native(arrow_schema::DataType::Utf8),
                 "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.",
             )
-            .optional(),
+            .optional().with_boundary_tag(4),
             FieldContract::payload(
                 "content",
                 FieldContract::native(arrow_schema::DataType::Binary),
                 "Exact original bytes of a package data document (ADR-0125); absent for a text document.",
             )
-            .optional(),
-        ]),
+            .optional().with_boundary_tag(5),
+        ])
+        .with_boundary_record(crate::model::BoundaryRecord {
+            source: file!(), name: "AuthoredDocumentsRow", version: 2,
+            direction: pse_vocabulary::BoundaryDirection::Both,
+            reserved_tags: &[], reserved_names: &[],
+        }),
     );
 }
 

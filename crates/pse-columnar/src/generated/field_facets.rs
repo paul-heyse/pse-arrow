@@ -31,6 +31,8 @@ pub struct Facet {
 }
 #[doc = concat!("Declared field facet `", "pse.domain.boundary.tag", "`.")]
 pub const BOUNDARY_TAG: &str = "pse.domain.boundary.tag";
+#[doc = concat!("Declared field facet `", "pse.domain.boundary.shape", "`.")]
+pub const BOUNDARY_SHAPE: &str = "pse.domain.boundary.shape";
 #[doc = concat!("Declared field facet `", "pse.domain.extension", "`.")]
 pub const EXTENSION: &str = "pse.domain.extension";
 #[doc = concat!("Declared field facet `", "pse.domain.parameter", "`.")]
@@ -139,6 +141,14 @@ pub const KEY_REFERENCE: &str = "pse.semantic.reference";
 pub const FACETS: &[Facet] = &[
     Facet {
         key: BOUNDARY_TAG,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: BOUNDARY_SHAPE,
         execution: false,
         value: false,
         storage_root: false,

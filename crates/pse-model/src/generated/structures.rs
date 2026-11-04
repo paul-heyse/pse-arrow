@@ -118,6 +118,117 @@ impl PartialEq for ModelingCellValueReferencesPathsItem {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType
+for ModelingCellValueReferencesPathsItem {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueReferencesPathsItem",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "path",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<Vec<ModelingKeyCell>>,
+                            >(
+                                    graph,
+                                    "keys",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord
+for ModelingCellValueReferencesPathsItem {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "path"),
+        (2u32, "keys"),
+    ];
+    type Fields = (Vec<String>, Option<Vec<ModelingKeyCell>>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#path, self.r#keys)
+    }
+    fn from_projection_fields(
+        (r#path, r#keys): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#path, r#keys })
+    }
+}
+impl crate::boundary_projection::ValidateProjection
+for ModelingCellValueReferencesPathsItem {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            Vec<ModelingKeyCell>,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#path,
+                &crate::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#keys,
+                &crate::boundary_projection::field_path(path, "keys"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -137,6 +248,83 @@ impl crate::SemanticEq for ModelingCellValueReferences {
 impl PartialEq for ModelingCellValueReferences {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCellValueReferences {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueReferences",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                Vec<ModelingCellValueReferencesPathsItem>,
+                            >(
+                                    graph,
+                                    "paths",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueReferences {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "paths")];
+    type Fields = (Vec<ModelingCellValueReferencesPathsItem>,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#paths,)
+    }
+    fn from_projection_fields(
+        (r#paths,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#paths })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueReferences {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <Vec<
+            ModelingCellValueReferencesPathsItem,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#paths,
+                &crate::boundary_projection::field_path(path, "paths"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -161,6 +349,114 @@ impl crate::SemanticEq for ModelingCellValueRow {
 impl PartialEq for ModelingCellValueRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCellValueRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueRow",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "target",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<ModelingKeyCell>,
+                            >(
+                                    graph,
+                                    "keys",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueRow {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "target"),
+        (2u32, "keys"),
+    ];
+    type Fields = (Vec<String>, Vec<ModelingKeyCell>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#target, self.r#keys)
+    }
+    fn from_projection_fields(
+        (r#target, r#keys): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#target, r#keys })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            ModelingKeyCell,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#target,
+                &crate::boundary_projection::field_path(path, "target"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#keys,
+                &crate::boundary_projection::field_path(path, "keys"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -403,6 +699,381 @@ impl ModelingCellValue {
         }
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingCellValue {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValue",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Alternatives(
+                        vec![
+                            crate::boundary_projection::Alternative {
+                                name: "boolean".into(),
+                                tag: 1u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueBoolean,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "identifier".into(),
+                                tag: 5u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueIdentifier,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "integer".into(),
+                                tag: 2u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueInteger,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "missing".into(),
+                                tag: 9u32,
+                                fields: vec![],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "quantity".into(),
+                                tag: 3u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueQuantity,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "reference".into(),
+                                tag: 6u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueReference,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "references".into(),
+                                tag: 7u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueReferences,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "row".into(),
+                                tag: 8u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueRow,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "text".into(),
+                                tag: 4u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueText,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValue {
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        match self
+            .selected()
+            .map_err(|_| crate::boundary_projection::ValidationError::Rule {
+                path: path.into(),
+                rule: "tagged_alternative",
+                reason: "native tag must select exactly its declared payload".into(),
+            })?
+        {
+            ModelingCellValueSelected::Boolean(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "boolean"),
+                )
+            }
+            ModelingCellValueSelected::Identifier(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "identifier"),
+                )
+            }
+            ModelingCellValueSelected::Integer(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "integer"),
+                )
+            }
+            ModelingCellValueSelected::Missing => Ok(()),
+            ModelingCellValueSelected::Quantity(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "quantity"),
+                )
+            }
+            ModelingCellValueSelected::Reference(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "reference"),
+                )
+            }
+            ModelingCellValueSelected::References(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "references"),
+                )
+            }
+            ModelingCellValueSelected::Row(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "row"),
+                )
+            }
+            ModelingCellValueSelected::Text(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "text"),
+                )
+            }
+        }
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<1u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueBoolean,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "boolean" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#boolean.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_boolean(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<5u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueIdentifier,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "identifier" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#identifier.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_identifier(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<2u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueInteger,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "integer" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#integer.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_integer(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<9u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[];
+    type Fields = ();
+    fn into_projection_alternative(self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "missing" || self.selected().is_err() {
+            return Err(self);
+        }
+        Ok(())
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let () = fields;
+        Self::from_missing()
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<3u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueQuantity,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "quantity" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#quantity.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_quantity(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<6u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueReference,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "reference" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#reference.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_reference(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<7u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueReferences,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "references" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#references.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_references(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<8u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueRow,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "row" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#row.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_row(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<4u32> for ModelingCellValue {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueText,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "text" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#text.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_text(value)
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -425,6 +1096,105 @@ impl crate::SemanticEq for ModelingCellUncertainty {
 impl PartialEq for ModelingCellUncertainty {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCellUncertainty {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellUncertainty",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ModelingUncertaintyKind,
+                            >(
+                                    graph,
+                                    "kind",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "ModelingUncertaintyKind".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "magnitude",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellUncertainty {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "kind"),
+        (2u32, "magnitude"),
+    ];
+    type Fields = (crate::generated::enums::ModelingUncertaintyKind, f64);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#kind, self.r#magnitude)
+    }
+    fn from_projection_fields(
+        (r#kind, r#magnitude): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#kind, r#magnitude })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellUncertainty {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::enums::ModelingUncertaintyKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#kind,
+                &crate::boundary_projection::field_path(path, "kind"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#magnitude,
+                &crate::boundary_projection::field_path(path, "magnitude"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -451,6 +1221,117 @@ impl PartialEq for ModelingCell {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingCell {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCell",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                ModelingCellValue,
+                            >(
+                                    graph,
+                                    "value",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.domain.boundary.shape".into(),
+                                            "{\"alternatives\":[[\"boolean\",1],[\"identifier\",5],[\"integer\",2],[\"missing\",9],[\"quantity\",3],[\"reference\",6],[\"references\",7],[\"row\",8],[\"text\",4]],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.tagged_alternative".into(),
+                                            "{\"arms\":{\"boolean\":\"boolean\",\"identifier\":\"identifier\",\"integer\":\"integer\",\"missing\":null,\"quantity\":\"quantity\",\"reference\":\"reference\",\"references\":\"references\",\"row\":\"row\",\"text\":\"text\"},\"discriminator\":\"kind\"}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<ModelingCellUncertainty>,
+                            >(
+                                    graph,
+                                    "uncertainty",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.domain.boundary.shape".into(),
+                                            "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "value"),
+        (2u32, "uncertainty"),
+    ];
+    type Fields = (ModelingCellValue, Option<ModelingCellUncertainty>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#value, self.r#uncertainty)
+    }
+    fn from_projection_fields(
+        (r#value, r#uncertainty): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#value, r#uncertainty })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCell {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <ModelingCellValue as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            ModelingCellUncertainty,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#uncertainty,
+                &crate::boundary_projection::field_path(path, "uncertainty"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -470,6 +1351,76 @@ impl crate::SemanticEq for ModelingCellValueBoolean {
 impl PartialEq for ModelingCellValueBoolean {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCellValueBoolean {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueBoolean",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                bool,
+                            >(
+                                    graph,
+                                    "value",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueBoolean {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "value")];
+    type Fields = (bool,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#value,)
+    }
+    fn from_projection_fields(
+        (r#value,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#value })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueBoolean {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <bool as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -496,6 +1447,107 @@ impl PartialEq for ModelingCellValueIdentifier {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingCellValueIdentifier {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueIdentifier",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "scheme",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "value",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueIdentifier {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "scheme"),
+        (2u32, "value"),
+    ];
+    type Fields = (Vec<String>, String);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#scheme, self.r#value)
+    }
+    fn from_projection_fields(
+        (r#scheme, r#value): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#scheme, r#value })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueIdentifier {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#scheme,
+                &crate::boundary_projection::field_path(path, "scheme"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -515,6 +1567,76 @@ impl crate::SemanticEq for ModelingCellValueInteger {
 impl PartialEq for ModelingCellValueInteger {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCellValueInteger {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueInteger",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "value",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueInteger {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "value")];
+    type Fields = (i64,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#value,)
+    }
+    fn from_projection_fields(
+        (r#value,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#value })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueInteger {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -541,6 +1663,107 @@ impl PartialEq for ModelingCellValueQuantity {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingCellValueQuantity {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueQuantity",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                f64,
+                            >(
+                                    graph,
+                                    "magnitude",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<Vec<ModelingUnitFactor>>,
+                            >(
+                                    graph,
+                                    "unit",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueQuantity {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "magnitude"),
+        (2u32, "unit"),
+    ];
+    type Fields = (f64, Option<Vec<ModelingUnitFactor>>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#magnitude, self.r#unit)
+    }
+    fn from_projection_fields(
+        (r#magnitude, r#unit): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#magnitude, r#unit })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueQuantity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <f64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            Vec<ModelingUnitFactor>,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#magnitude,
+                &crate::boundary_projection::field_path(path, "magnitude"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#unit,
+                &crate::boundary_projection::field_path(path, "unit"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -562,6 +1785,83 @@ impl PartialEq for ModelingCellValueReference {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingCellValueReference {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueReference",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "path",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueReference {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "path")];
+    type Fields = (Vec<String>,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#path,)
+    }
+    fn from_projection_fields(
+        (r#path,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#path })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueReference {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#path,
+                &crate::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -581,6 +1881,76 @@ impl crate::SemanticEq for ModelingCellValueText {
 impl PartialEq for ModelingCellValueText {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCellValueText {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCellValueText",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "value",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCellValueText {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "value")];
+    type Fields = (String,);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#value,)
+    }
+    fn from_projection_fields(
+        (r#value,): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#value })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCellValueText {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#value,
+                &crate::boundary_projection::field_path(path, "value"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -612,6 +1982,140 @@ impl PartialEq for ModelingColumnStorage {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingColumnStorage {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingColumnStorage",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "name",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<Vec<ModelingUnitFactor>>,
+                            >(
+                                    graph,
+                                    "storage_unit",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<Vec<String>>,
+                            >(
+                                    graph,
+                                    "scheme",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingColumnStorage {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "name"),
+        (2u32, "storage_unit"),
+        (3u32, "scheme"),
+    ];
+    type Fields = (String, Option<Vec<ModelingUnitFactor>>, Option<Vec<String>>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#name, self.r#storage_unit, self.r#scheme)
+    }
+    fn from_projection_fields(
+        (r#name, r#storage_unit, r#scheme): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#name,
+            r#storage_unit,
+            r#scheme,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingColumnStorage {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            Vec<ModelingUnitFactor>,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            Vec<String>,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#name,
+                &crate::boundary_projection::field_path(path, "name"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#storage_unit,
+                &crate::boundary_projection::field_path(path, "storage_unit"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#scheme,
+                &crate::boundary_projection::field_path(path, "scheme"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -637,6 +2141,140 @@ impl crate::SemanticEq for ModelingCompleteness {
 impl PartialEq for ModelingCompleteness {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingCompleteness {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingCompleteness",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "key",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<Vec<String>>,
+                            >(
+                                    graph,
+                                    "set",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<ModelingIntegerRange>,
+                            >(
+                                    graph,
+                                    "range",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.domain.boundary.shape".into(),
+                                            "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        (
+                                            "pse.domain.structure".into(),
+                                            "ModelingIntegerRange".into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingCompleteness {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "key"),
+        (2u32, "set"),
+        (3u32, "range"),
+    ];
+    type Fields = (String, Option<Vec<String>>, Option<ModelingIntegerRange>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#key, self.r#set, self.r#range)
+    }
+    fn from_projection_fields(
+        (r#key, r#set, r#range): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#key, r#set, r#range })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingCompleteness {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            Vec<String>,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            ModelingIntegerRange,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#key,
+                &crate::boundary_projection::field_path(path, "key"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#set,
+                &crate::boundary_projection::field_path(path, "set"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#range,
+                &crate::boundary_projection::field_path(path, "range"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -669,6 +2307,156 @@ impl PartialEq for ModelingEnvelope {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingEnvelope {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingEnvelope",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "name",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<ModelingTypeArenaNode>,
+                            >(
+                                    graph,
+                                    "type",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "lower",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "upper",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingEnvelope {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "name"),
+        (2u32, "type"),
+        (3u32, "lower"),
+        (4u32, "upper"),
+    ];
+    type Fields = (String, Vec<ModelingTypeArenaNode>, String, String);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#name, self.r#type, self.r#lower, self.r#upper)
+    }
+    fn from_projection_fields(
+        (r#name, r#type, r#lower, r#upper): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#name,
+            r#type,
+            r#lower,
+            r#upper,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingEnvelope {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            ModelingTypeArenaNode,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#name,
+                &crate::boundary_projection::field_path(path, "name"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#type,
+                &crate::boundary_projection::field_path(path, "type"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#lower,
+                &crate::boundary_projection::field_path(path, "lower"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#upper,
+                &crate::boundary_projection::field_path(path, "upper"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -699,6 +2487,166 @@ impl PartialEq for ModelingEnvelopeGuard {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingEnvelopeGuard {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingEnvelopeGuard",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "carrier",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "envelope",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ModelingEnvelopeExtent,
+                            >(
+                                    graph,
+                                    "extent",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "ModelingEnvelopeExtent".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "arguments",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingEnvelopeGuard {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "carrier"),
+        (2u32, "envelope"),
+        (3u32, "extent"),
+        (4u32, "arguments"),
+    ];
+    type Fields = (
+        String,
+        String,
+        crate::generated::enums::ModelingEnvelopeExtent,
+        Vec<String>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#carrier, self.r#envelope, self.r#extent, self.r#arguments)
+    }
+    fn from_projection_fields(
+        (r#carrier, r#envelope, r#extent, r#arguments): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#carrier,
+            r#envelope,
+            r#extent,
+            r#arguments,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingEnvelopeGuard {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::enums::ModelingEnvelopeExtent as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#carrier,
+                &crate::boundary_projection::field_path(path, "carrier"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#envelope,
+                &crate::boundary_projection::field_path(path, "envelope"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#extent,
+                &crate::boundary_projection::field_path(path, "extent"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#arguments,
+                &crate::boundary_projection::field_path(path, "arguments"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -721,6 +2669,100 @@ impl crate::SemanticEq for ModelingIntegerRange {
 impl PartialEq for ModelingIntegerRange {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingIntegerRange {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingIntegerRange",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "lower",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "upper",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingIntegerRange {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "lower"),
+        (2u32, "upper"),
+    ];
+    type Fields = (i64, i64);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#lower, self.r#upper)
+    }
+    fn from_projection_fields(
+        (r#lower, r#upper): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#lower, r#upper })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingIntegerRange {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#lower,
+                &crate::boundary_projection::field_path(path, "lower"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#upper,
+                &crate::boundary_projection::field_path(path, "upper"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -886,6 +2928,282 @@ impl ModelingKeyCell {
         }
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingKeyCell {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingKeyCell",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Alternatives(
+                        vec![
+                            crate::boundary_projection::Alternative {
+                                name: "boolean".into(),
+                                tag: 1u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueBoolean,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "identifier".into(),
+                                tag: 5u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueIdentifier,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "integer".into(),
+                                tag: 2u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueInteger,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "quantity".into(),
+                                tag: 3u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueQuantity,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "reference".into(),
+                                tag: 6u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueReference,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                            crate::boundary_projection::Alternative {
+                                name: "text".into(),
+                                tag: 4u32,
+                                fields: vec![
+                                    crate::boundary_projection::Field::of::<
+                                        ModelingCellValueText,
+                                    >(
+                                        graph,
+                                        "value",
+                                        1,
+                                        crate::boundary_projection::Direction::Both,
+                                        vec![crate::boundary_projection::LocalRule::Required],
+                                    )?,
+                                ],
+                            },
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingKeyCell {
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        match self
+            .selected()
+            .map_err(|_| crate::boundary_projection::ValidationError::Rule {
+                path: path.into(),
+                rule: "tagged_alternative",
+                reason: "native tag must select exactly its declared payload".into(),
+            })?
+        {
+            ModelingKeyCellSelected::Boolean(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "boolean"),
+                )
+            }
+            ModelingKeyCellSelected::Identifier(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "identifier"),
+                )
+            }
+            ModelingKeyCellSelected::Integer(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "integer"),
+                )
+            }
+            ModelingKeyCellSelected::Quantity(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "quantity"),
+                )
+            }
+            ModelingKeyCellSelected::Reference(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "reference"),
+                )
+            }
+            ModelingKeyCellSelected::Text(value) => {
+                crate::boundary_projection::ValidateProjection::validate_at(
+                    value,
+                    &crate::boundary_projection::field_path(path, "text"),
+                )
+            }
+        }
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<1u32> for ModelingKeyCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueBoolean,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "boolean" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#boolean.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_boolean(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<5u32> for ModelingKeyCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueIdentifier,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "identifier" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#identifier.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_identifier(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<2u32> for ModelingKeyCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueInteger,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "integer" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#integer.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_integer(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<3u32> for ModelingKeyCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueQuantity,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "quantity" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#quantity.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_quantity(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<6u32> for ModelingKeyCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueReference,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "reference" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#reference.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_reference(value)
+    }
+}
+impl crate::boundary_projection::ProjectionAlternative<4u32> for ModelingKeyCell {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1, "value")];
+    type Fields = (ModelingCellValueText,);
+    fn into_projection_alternative(mut self) -> Result<Self::Fields, Self> {
+        if self.r#kind.as_str() != "text" || self.selected().is_err() {
+            return Err(self);
+        }
+        match self.r#text.take() {
+            Some(value) => Ok((value,)),
+            None => Err(self),
+        }
+    }
+    fn from_projection_alternative(fields: Self::Fields) -> Self {
+        let (value,) = fields;
+        Self::from_text(value)
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1017,6 +3335,112 @@ impl PartialEq for ModelingLineageEntry {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingLineageEntry {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingLineageEntry",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ModelingLineageKind,
+                            >(
+                                    graph,
+                                    "kind",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "ModelingLineageKind".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "path",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingLineageEntry {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "kind"),
+        (2u32, "path"),
+    ];
+    type Fields = (crate::generated::enums::ModelingLineageKind, Vec<String>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#kind, self.r#path)
+    }
+    fn from_projection_fields(
+        (r#kind, r#path): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#kind, r#path })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingLineageEntry {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::enums::ModelingLineageKind as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#kind,
+                &crate::boundary_projection::field_path(path, "kind"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#path,
+                &crate::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1042,6 +3466,147 @@ impl crate::SemanticEq for ModelingProvenance {
 impl PartialEq for ModelingProvenance {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingProvenance {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingProvenance",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "source",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<String>,
+                            >(
+                                    graph,
+                                    "role",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<ModelingLineageEntry>,
+                            >(
+                                    graph,
+                                    "lineage",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingProvenance {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "source"),
+        (2u32, "role"),
+        (3u32, "lineage"),
+    ];
+    type Fields = (Vec<String>, Vec<String>, Vec<ModelingLineageEntry>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#source, self.r#role, self.r#lineage)
+    }
+    fn from_projection_fields(
+        (r#source, r#role, r#lineage): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#source,
+            r#role,
+            r#lineage,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingProvenance {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            ModelingLineageEntry,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#source,
+                &crate::boundary_projection::field_path(path, "source"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#role,
+                &crate::boundary_projection::field_path(path, "role"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#lineage,
+                &crate::boundary_projection::field_path(path, "lineage"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -1098,6 +3663,97 @@ impl PartialEq for ModelingTypeArenaNodeExponent {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNodeExponent {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingTypeArenaNodeExponent",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                i16,
+                            >(
+                                    graph,
+                                    "num",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i16,
+                            >(
+                                    graph,
+                                    "den",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNodeExponent {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[(1u32, "num"), (2u32, "den")];
+    type Fields = (i16, i16);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#num, self.r#den)
+    }
+    fn from_projection_fields(
+        (r#num, r#den): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#num, r#den })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingTypeArenaNodeExponent {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#num,
+                &crate::boundary_projection::field_path(path, "num"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#den,
+                &crate::boundary_projection::field_path(path, "den"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1131,6 +3787,203 @@ impl PartialEq for ModelingTypeArenaNode {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for ModelingTypeArenaNode {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingTypeArenaNode",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ModelingTypeNode,
+                            >(
+                                    graph,
+                                    "kind",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        ("pse.domain.parameter".into(), "ModelingTypeNode".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<Vec<String>>,
+                            >(
+                                    graph,
+                                    "path",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "name",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<ModelingTypeArenaNodeExponent>,
+                            >(
+                                    graph,
+                                    "exponent",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        (
+                                            "pse.domain.boundary.shape".into(),
+                                            "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}"
+                                                .into(),
+                                        ),
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Vec<u32>,
+                            >(
+                                    graph,
+                                    "children",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        (
+                                            "pse.semantic.collection".into(),
+                                            "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"
+                                                .into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingTypeArenaNode {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "kind"),
+        (2u32, "path"),
+        (3u32, "name"),
+        (4u32, "exponent"),
+        (5u32, "children"),
+    ];
+    type Fields = (
+        crate::generated::enums::ModelingTypeNode,
+        Option<Vec<String>>,
+        Option<String>,
+        Option<ModelingTypeArenaNodeExponent>,
+        Vec<u32>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#kind, self.r#path, self.r#name, self.r#exponent, self.r#children)
+    }
+    fn from_projection_fields(
+        (r#kind, r#path, r#name, r#exponent, r#children): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#kind,
+            r#path,
+            r#name,
+            r#exponent,
+            r#children,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingTypeArenaNode {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::enums::ModelingTypeNode as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            Vec<String>,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            ModelingTypeArenaNodeExponent,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Vec<
+            u32,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#kind,
+                &crate::boundary_projection::field_path(path, "kind"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#path,
+                &crate::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#name,
+                &crate::boundary_projection::field_path(path, "name"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#exponent,
+                &crate::boundary_projection::field_path(path, "exponent"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#children,
+                &crate::boundary_projection::field_path(path, "children"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1156,6 +4009,122 @@ impl crate::SemanticEq for ModelingUnitFactor {
 impl PartialEq for ModelingUnitFactor {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for ModelingUnitFactor {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingUnitFactor",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "symbol",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i16,
+                            >(
+                                    graph,
+                                    "num",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i16,
+                            >(
+                                    graph,
+                                    "den",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for ModelingUnitFactor {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "symbol"),
+        (2u32, "num"),
+        (3u32, "den"),
+    ];
+    type Fields = (String, i16, i16);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#symbol, self.r#num, self.r#den)
+    }
+    fn from_projection_fields(
+        (r#symbol, r#num, r#den): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self { r#symbol, r#num, r#den })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for ModelingUnitFactor {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <i16 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#symbol,
+                &crate::boundary_projection::field_path(path, "symbol"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#num,
+                &crate::boundary_projection::field_path(path, "num"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#den,
+                &crate::boundary_projection::field_path(path, "den"),
+                &[],
+            )?;
+        }
+        Ok(())
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -1275,6 +4244,196 @@ impl crate::SemanticEq for VersionRequirement {
 impl PartialEq for VersionRequirement {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl crate::boundary_projection::ProjectionType for VersionRequirement {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "VersionRequirement",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                1u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::enums::ModelingVersionOperator,
+                            >(
+                                    graph,
+                                    "operator",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ("pse.domain.extension".into(), "pse.enum".into()),
+                                        (
+                                            "pse.domain.parameter".into(),
+                                            "ModelingVersionOperator".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "major",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![
+                                        crate::boundary_projection::LocalRule::SignedRange {
+                                            min: 0i64,
+                                            max: 9223372036854775807i64,
+                                        },
+                                    ],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        (
+                                            "pse.semantic.integer_range".into(),
+                                            "[0,9223372036854775807]".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "minor",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![
+                                        crate::boundary_projection::LocalRule::SignedRange {
+                                            min: 0i64,
+                                            max: 9223372036854775807i64,
+                                        },
+                                    ],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        (
+                                            "pse.semantic.integer_range".into(),
+                                            "[0,9223372036854775807]".into(),
+                                        ),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                i64,
+                            >(
+                                    graph,
+                                    "patch",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![
+                                        crate::boundary_projection::LocalRule::SignedRange {
+                                            min: 0i64,
+                                            max: 9223372036854775807i64,
+                                        },
+                                    ],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        (
+                                            "pse.semantic.integer_range".into(),
+                                            "[0,9223372036854775807]".into(),
+                                        ),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for VersionRequirement {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "operator"),
+        (2u32, "major"),
+        (3u32, "minor"),
+        (4u32, "patch"),
+    ];
+    type Fields = (crate::generated::enums::ModelingVersionOperator, i64, i64, i64);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#operator, self.r#major, self.r#minor, self.r#patch)
+    }
+    fn from_projection_fields(
+        (r#operator, r#major, r#minor, r#patch): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#operator,
+            r#major,
+            r#minor,
+            r#patch,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for VersionRequirement {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <crate::generated::enums::ModelingVersionOperator as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || true
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || true
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || true
+        || <i64 as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#operator,
+                &crate::boundary_projection::field_path(path, "operator"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#major,
+                &crate::boundary_projection::field_path(path, "major"),
+                &[
+                    crate::boundary_projection::LocalRule::SignedRange {
+                        min: 0i64,
+                        max: 9223372036854775807i64,
+                    },
+                ],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#minor,
+                &crate::boundary_projection::field_path(path, "minor"),
+                &[
+                    crate::boundary_projection::LocalRule::SignedRange {
+                        min: 0i64,
+                        max: 9223372036854775807i64,
+                    },
+                ],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#patch,
+                &crate::boundary_projection::field_path(path, "patch"),
+                &[
+                    crate::boundary_projection::LocalRule::SignedRange {
+                        min: 0i64,
+                        max: 9223372036854775807i64,
+                    },
+                ],
+            )?;
+        }
+        Ok(())
     }
 }
 impl crate::SemanticFrame for LocalValidity {

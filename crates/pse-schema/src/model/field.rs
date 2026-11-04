@@ -66,6 +66,13 @@ impl FieldContract {
             .and_then(|number| number.parse().ok())
     }
 
+    /// Declare nested record or alternative presentation on its actual native tree.
+    /// Admission verifies complete explicit numbers without deriving field meaning.
+    #[must_use]
+    pub fn with_boundary_shape(self, shape: super::BoundaryShape) -> Self {
+        self.facet(super::field_facets::BOUNDARY_SHAPE, shape.canonical())
+    }
+
     /// Declare a nominal opaque-text lookup domain, separate from semantic identity.
     #[must_use]
     pub fn with_canonical_key(self, kind: super::CanonicalKeyKind) -> Self {
@@ -576,6 +583,9 @@ impl FieldContract {
         field
             .metadata_mut()
             .remove(super::field_facets::BOUNDARY_TAG);
+        field
+            .metadata_mut()
+            .remove(super::field_facets::BOUNDARY_SHAPE);
         Self(pse_columnar::native_field::logical_storage_type(&field))
     }
     /// Stable native type identity, with semantic extension parameters.

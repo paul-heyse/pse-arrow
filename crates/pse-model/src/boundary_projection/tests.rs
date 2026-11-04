@@ -4,9 +4,80 @@
 use super::*;
 
 #[test]
+fn authored_registry_projection_preserves_actual_json_and_rejects_invalid_native_selection() {
+    use crate::generated::authored::modeling_declarations::{
+        AuthoredModelingDeclarationsFieldValue as NativeValue,
+        AuthoredModelingDeclarationsFieldValueTemporal as Temporal, Row,
+    };
+    let graph = ProjectionGraph::of::<Row>().unwrap();
+    assert_eq!(
+        graph.definitions()["AuthoredModelingDeclarationsRow"].version,
+        27
+    );
+    let payload = Temporal {
+        target: "x".into(),
+        axis: "time".into(),
+        argument: "t".into(),
+    };
+    let value = NativeValue::from_temporal(payload.clone());
+    let json = serde_json::to_vec(&value).unwrap();
+    let fields =
+        <NativeValue as ProjectionAlternative<1>>::into_projection_alternative(value).unwrap();
+    let restored = <NativeValue as ProjectionAlternative<1>>::from_projection_alternative(fields);
+    assert_eq!(serde_json::to_vec(&restored).unwrap(), json);
+    restored.validate_projection().unwrap();
+    let mut overlapping = NativeValue::from_identifier_scheme();
+    overlapping.temporal = Some(payload);
+    assert!(overlapping.validate_projection().is_err());
+    assert!(
+        <NativeValue as ProjectionAlternative<66>>::into_projection_alternative(overlapping)
+            .is_err()
+    );
+    let row = Row {
+        declaration_id: pse_ids::SemanticId::from_bytes([7; 16]).into(),
+        document_id: pse_ids::SemanticId::from_bytes([11; 16]),
+        parent_id: None,
+        ordinal: 0,
+        name: "original".into(),
+        is_override: false,
+        source_start: 3,
+        source_end: 17,
+        value: restored,
+    };
+    let original = serde_json::to_vec(&row).unwrap();
+    let mut restored = Row::from_projection_fields(row.into_projection_fields()).unwrap();
+    assert_eq!(serde_json::to_vec(&restored).unwrap(), original);
+    restored.validate_projection().unwrap();
+    restored.ordinal = -1;
+    assert!(
+        restored
+            .validate_projection()
+            .unwrap_err()
+            .to_string()
+            .contains("ordinal")
+    );
+}
+
+#[test]
 fn diagnostic_observations_and_performing_locators_project_original_data_without_authority() {
     use crate::diagnostic::{Observation, OperandContract, PhysicalObservation};
     use pse_diagnostics::observation::{OperationId, ProducerId, ProducerRole};
+    let rules = ProjectionGraph::of::<pse_diagnostics::DiagnosticRule>().unwrap();
+    let vocabulary = &rules.definitions()["DiagnosticRule"];
+    assert_eq!(
+        vocabulary.public_rust_path.as_deref(),
+        Some("pse_diagnostics::DiagnosticRule")
+    );
+    let Shape::StringEnum(members) = &vocabulary.shape else {
+        panic!("original closed string vocabulary")
+    };
+    assert_eq!(
+        members,
+        &pse_diagnostics::DiagnosticRule::ALL
+            .iter()
+            .map(|member| member.as_str().to_owned())
+            .collect::<Vec<_>>()
+    );
     let locator = ProducerId {
         operation: OperationId {
             process_instance: [7, 11],

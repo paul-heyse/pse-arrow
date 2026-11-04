@@ -35,6 +35,220 @@ impl PartialEq for AuthoredDocumentsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl crate::boundary_projection::ProjectionType for AuthoredDocumentsRow {
+    fn projection(
+        graph: &mut crate::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        crate::boundary_projection::TypeRef,
+        crate::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "AuthoredDocumentsRow",
+                "crates/pse-schema/src/catalog/s6_1_identity.rs",
+                2u32,
+                crate::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    crate::boundary_projection::Shape::Record(
+                        vec![
+                            crate::boundary_projection::Field::of::<
+                                pse_ids::SemanticId,
+                            >(
+                                    graph,
+                                    "document_id",
+                                    1u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "1".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "`named_id(package_id, path)` (blueprint §11).".into(),
+                                        ),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.role".into(), "key".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                crate::generated::identities::PackageId,
+                            >(
+                                    graph,
+                                    "package_id",
+                                    2u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "2".into()),
+                                        ("pse.domain.doc".into(), "The owning package.".into()),
+                                        ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                        ("pse.domain.fk.column".into(), "package_id".into()),
+                                        (
+                                            "pse.domain.fk.relation".into(),
+                                            "authored.packages".into(),
+                                        ),
+                                        ("pse.domain.identity".into(), "package".into()),
+                                        ("pse.domain.role".into(), "reference".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                String,
+                            >(
+                                    graph,
+                                    "path",
+                                    3u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "3".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "The document path, relative to the package root.".into(),
+                                        ),
+                                        ("pse.domain.role".into(), "label".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<String>,
+                            >(
+                                    graph,
+                                    "source_text",
+                                    4u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "4".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document."
+                                                .into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                            crate::boundary_projection::Field::of::<
+                                Option<crate::Bytes>,
+                            >(
+                                    graph,
+                                    "content",
+                                    5u32,
+                                    crate::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?
+                                .with_named_facets(
+                                    std::collections::BTreeMap::from([
+                                        ("pse.domain.boundary.tag".into(), "5".into()),
+                                        (
+                                            "pse.domain.doc".into(),
+                                            "Exact original bytes of a package data document (ADR-0125); absent for a text document."
+                                                .into(),
+                                        ),
+                                        ("pse.domain.role".into(), "payload".into()),
+                                    ]),
+                                ),
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl crate::boundary_projection::ProjectionRecord for AuthoredDocumentsRow {
+    const VERSION: u32 = 2u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "document_id"),
+        (2u32, "package_id"),
+        (3u32, "path"),
+        (4u32, "source_text"),
+        (5u32, "content"),
+    ];
+    type Fields = (
+        pse_ids::SemanticId,
+        crate::generated::identities::PackageId,
+        String,
+        Option<String>,
+        Option<crate::Bytes>,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (
+            self.r#document_id,
+            self.r#package_id,
+            self.r#path,
+            self.r#source_text,
+            self.r#content,
+        )
+    }
+    fn from_projection_fields(
+        (r#document_id, r#package_id, r#path, r#source_text, r#content): Self::Fields,
+    ) -> Result<Self, crate::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#document_id,
+            r#package_id,
+            r#path,
+            r#source_text,
+            r#content,
+        })
+    }
+}
+impl crate::boundary_projection::ValidateProjection for AuthoredDocumentsRow {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false || false
+        || <pse_ids::SemanticId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <crate::generated::identities::PackageId as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <String as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            String,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || false
+        || <Option<
+            crate::Bytes,
+        > as crate::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), crate::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            crate::boundary_projection::validate_field(
+                &self.r#document_id,
+                &crate::boundary_projection::field_path(path, "document_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#package_id,
+                &crate::boundary_projection::field_path(path, "package_id"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#path,
+                &crate::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#source_text,
+                &crate::boundary_projection::field_path(path, "source_text"),
+                &[],
+            )?;
+            crate::boundary_projection::validate_field(
+                &self.r#content,
+                &crate::boundary_projection::field_path(path, "content"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = AuthoredDocumentsRow;
 impl crate::SemanticFrame for AuthoredDocumentsRow {

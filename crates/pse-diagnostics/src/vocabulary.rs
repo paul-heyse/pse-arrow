@@ -34,6 +34,14 @@ macro_rules! vocabulary {
         #[serde(try_from = "String", into = "String")]
         #[strum(const_into_str, parse_err_ty = VocabularyError, parse_err_fn = Self::unknown_member)]
         pub enum $name { $(#[doc = $description] #[strum(serialize = $text)] $variant),* }
+        #[allow(unused_qualifications, reason = "the vocabulary's public reexport is checked explicitly for generated downstream Rust paths")]
+        const _: fn($name) -> crate::$name = |value| value;
+        impl crate::boundary::BoundaryDeclaration for $name { const SOURCE: &'static str = file!(); }
+        impl crate::boundary::BoundaryVocabulary for $name {
+            const NAME: &'static str = stringify!($name);
+            const PUBLIC_PATH: &'static str = concat!("crate::", stringify!($name));
+            fn boundary_members() -> Vec<&'static str> { Self::ALL.iter().map(|member| member.as_str()).collect() }
+        }
         impl $name {
             /// All declarations in stable order.
             pub const ALL: &'static [Self] = <Self as strum::VariantArray>::VARIANTS;

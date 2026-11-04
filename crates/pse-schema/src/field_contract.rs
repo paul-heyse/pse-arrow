@@ -87,6 +87,7 @@ fn unique_fields(
         if validate_extensions {
             crate::model::IntegerRange::from_field(field)?;
             crate::model::TaggedAlternative::from_field(field)?;
+            crate::model::BoundaryShape::from_field(field)?;
             crate::model::CollectionContract::from_field(field)?;
             crate::model::ReferenceContract::from_field(field)?;
         }

@@ -235,6 +235,17 @@ Full solve/simulation/fit/horizon, authored nested-row and Study graph integrati
 underway. Executing the maintained validators over those newly consumed domains, complete
 service journeys and independent ordinary-process comparisons remain acceptance work.
 
+The authored declaration/document/fit rows and numerical, accuracy, caloric and engineering
+rows now carry explicit source-owned presentation. Native types and field meanings remain
+on their existing registry trees; source layouts check complete field and alternative
+membership. Nested native tagged payloads use their existing selection and construction
+methods for checked oneof access, retaining original JSON. Named structures retain source
+presentation independently of value/execution identity, and diagnostic vocabulary aliases
+project the actual lower owner's closed string members. Core Rust contracts were regenerated;
+compiled native-row controls cover exact JSON, field domains and invalid overlapping arms.
+The complete runtime settings/operation closure and full service descriptor publication
+remain in progress. These foundation controls do not establish their assembled acceptance.
+
 ## Verification and handoff
 
 **Proposed:** I01 targeted tests independently specify exact bits (including signed zero),

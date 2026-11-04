@@ -40,12 +40,25 @@ fn type_arena(name: &str) -> T {
 /// manifest dependencies.
 pub(super) fn version_requirement() -> T {
     T::structure(vec![
-        T::enumeration("ModelingVersionOperator").with_name("operator"),
-        T::nonnegative(i64::MAX).with_name("major"),
-        T::nonnegative(i64::MAX).with_name("minor"),
-        T::nonnegative(i64::MAX).with_name("patch"),
+        T::enumeration("ModelingVersionOperator")
+            .with_name("operator")
+            .with_boundary_tag(1),
+        T::nonnegative(i64::MAX)
+            .with_name("major")
+            .with_boundary_tag(2),
+        T::nonnegative(i64::MAX)
+            .with_name("minor")
+            .with_boundary_tag(3),
+        T::nonnegative(i64::MAX)
+            .with_name("patch")
+            .with_boundary_tag(4),
     ])
     .named("VersionRequirement")
+    .with_boundary_shape(crate::model::BoundaryShape::native(
+        file!(),
+        1,
+        pse_vocabulary::BoundaryDirection::Both,
+    ))
 }
 /// The scalar arms of a cell, each a named structure a key cell shares (ADR-0123
 /// Outcome 1): a Boolean, an integer, a quantity as a magnitude and a canonical unit
@@ -1270,7 +1283,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     );
     // Version 27 admits typed caloric and energy-exposure annotation shapes;
     // the source grammar remains the authority for their ordered physical members.
-    relation_version(
+    super::modeling_boundary::declare(
+        file!(),
         builder,
         N::Authored,
         "modeling_declarations",

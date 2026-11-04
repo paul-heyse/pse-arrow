@@ -30,7 +30,7 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
             let ty = match column.identity() {
                 Some(identity) => super::identities::path(identity),
                 None => logical(
-                    &column.value_type(),
+                    column,
                     &format!("{stem}Field{}", pascal(column.name())),
                     &mut declarations,
                 )?,

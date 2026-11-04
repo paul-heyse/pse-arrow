@@ -15,6 +15,16 @@ pub trait BoundaryDeclaration {
     const SOURCE: &'static str;
 }
 
+/// Closed string vocabulary metadata emitted by its actual spelling declaration.
+pub trait BoundaryVocabulary: BoundaryDeclaration {
+    /// Actual source vocabulary name.
+    const NAME: &'static str;
+    /// Checked public alias, relative to this native owner's crate.
+    const PUBLIC_PATH: &'static str;
+    /// Canonical member spellings from the original `ALL` and `as_str` contracts.
+    fn boundary_members() -> Vec<&'static str>;
+}
+
 /// Declare a plain diagnostic record and its typed field callback together. The
 /// selected records expose public data, so reconstruction grants no performing authority.
 #[macro_export]
