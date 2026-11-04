@@ -274,6 +274,8 @@ impl Drop for IoOwner {
 struct Job {
     request: p::Request,
     response: tokio::sync::oneshot::Sender<p::Response>,
+    // The native job, rather than the observing RPC, owns numerical-lane admission.
+    _work: Option<tokio::sync::OwnedSemaphorePermit>,
 }
 #[derive(Default)]
 struct HandleControls {
@@ -318,6 +320,7 @@ fn controls_lock(controls: &SharedControls) -> Result<std::sync::MutexGuard<'_, 
 struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
     controls: SharedControls,
+    work: Arc<tokio::sync::Semaphore>,
 }
 impl services::ScientificWorker for Server {
     async fn exchange<'a>(
@@ -338,6 +341,14 @@ impl services::ScientificWorker for Server {
                 )));
             }
         };
+        let work = if matches!(&request, p::Request::Prepare(_) | p::Request::Evaluate(_)) {
+            match self.work.clone().try_acquire_owned() {
+                Ok(permit) => Some(permit),
+                Err(_) => return Ok(connectrpc::Response::new(pb::Response::from(
+                    p::Response::Failure(p::Failure::Resource("scientific worker numerical lane is busy".into())),
+                ))),
+            }
+        } else { None };
         let admitted = controls_lock(&self.controls).and_then(|mut controls| controls.admit(&request));
         if let Err(error) = admitted {
             return Ok(connectrpc::Response::new(pb::Response::from(
@@ -346,7 +357,7 @@ impl services::ScientificWorker for Server {
         }
         let (response, received) = tokio::sync::oneshot::channel();
         self.jobs
-            .send(Job { request, response })
+            .send(Job { request, response, _work: work })
             .await
             .map_err(|_| {
                 connectrpc::ConnectError::unavailable("scientific worker native lane departed")
@@ -375,6 +386,18 @@ pub(super) fn serve_with_preparation(
 ) -> Result<(), WorkerError> {
     use services::ScientificWorkerExt as _;
     use tower_service::Service as _;
+
+    #[test]
+    fn abandoned_observer_does_not_release_a_native_job_admission() {
+        let lane = Arc::new(tokio::sync::Semaphore::new(1));
+        let permit = lane.clone().try_acquire_owned().unwrap();
+        let (response, observer) = tokio::sync::oneshot::channel();
+        let job = Job { request: p::Request::Shutdown, response, _work: Some(permit) };
+        drop(observer);
+        assert!(lane.clone().try_acquire_owned().is_err());
+        drop(job);
+        assert!(lane.try_acquire_owned().is_ok());
+    }
     let _parent = ParentGuard::start(parent)?;
     let listener = std::os::unix::net::UnixListener::bind(&endpoint).map_err(infrastructure)?;
     std::fs::set_permissions(
@@ -502,7 +525,9 @@ pub(super) fn serve_with_preparation(
                 "scientific worker kernel parent peer differs",
             ));
         }
-        let router = Arc::new(Server { jobs: jobs.clone(), controls: controls.clone() }).register(connectrpc::Router::new());
+        let router = Arc::new(Server {
+            jobs: jobs.clone(), controls: controls.clone(), work: Arc::new(tokio::sync::Semaphore::new(1)),
+        }).register(connectrpc::Router::new());
         let service = connectrpc::ConnectRpcService::new(router).with_limits(
             connectrpc::Limits::default()
                 .with_max_request_body_size(FRAME_LIMIT)
