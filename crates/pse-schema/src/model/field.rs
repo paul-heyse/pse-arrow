@@ -861,6 +861,8 @@ mod facet_metadata_tests {
         assert!(IntegerRange::from_field(&interval.annotate(Field::new("not_signed", DataType::UInt64, false))).is_err());
         let tagged = TaggedAlternative::new("kind", [("record".into(), "payload".into())]);
         assert_eq!(TaggedAlternative::parse_metadata(&tagged.canonical(), "source.choice").unwrap(), tagged);
+        let empty_payload = TaggedAlternative::new("kind", [("record".into(), "".into())]);
+        assert!(TaggedAlternative::parse_metadata(&empty_payload.canonical(), "source.choice").is_err());
         assert!(TaggedAlternative::from_field(&tagged.annotate(Field::new("not_struct", DataType::Utf8, false))).is_err());
     }
 
