@@ -203,7 +203,7 @@ consumers; the whole descriptor world must not become a blanket mathematical pre
 | --- | --- | --- | --- |
 | E01 | in-progress | Actual native capabilities; agreed scientific contract from 65i I01; co-designed 65a metadata | Initial concrete portable consumers are reconciled above; complete source/spec/context/receipt classification and bind each operation's inputs, support/refusal and product-use semantics before selecting projections. Preserve physical/configuration versus value-only change controls; no universal catalogue. |
 | E02 | in progress | E01; narrow working 65a/65b and receiving operation from 65i I02 | First remove kernel portable descriptor mirrors while retaining contextual receipt replay and truthful interpretation changes. Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
-| E03 | planned | E02 closed-root slice; 65d transport/settlement primitives where shared | Replace the private KINSOL root wire vocabulary through its actual launch/reconstruct/solve/readback path. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
+| E03 | in progress | E02 closed-root slice; 65d transport/settlement primitives where shared | Project actual native root/input/source-map/handshake/request/outcome owners, then activate generated bounded envelopes on the existing inherited channel. Preserve provider-free rejection, original registry/body checks, numerical policy and cancellation/drain. Compare direct and child outcomes on the same independently specified roots; inject malformed source, stale image, unknown completion and child failure. Delete replaced private wire/JSON-only helpers and their mechanism-only fixtures. |
 | E04 | in-progress | Existing provider slice; 65d custody behavior; 65i dependency policy; ADR-0242 | Source cutover separates per-handle Stop/Close from explicit Shutdown and generation cancellation. Complete generated publication, active-stop/independent-session controls and process/I/O drain acceptance; migrate all selected clients/server/fixtures without confusing mutable handle invalidation with immutable math or descriptor lifetime. |
 | E05 | in progress | E04; ADR-0243 precedes kernel and binding activation | Deliver capability-declared coherent batching with exact point identities and per-point outcomes. Integrate the current water implementation where it can reuse preparation across independent states and the action-capable provider control for demand fidelity. Mixed valid/invalid states, branch changes, nonfinite/truncated responses and failure after partial completion discriminate behavior. Remove redundant per-point RPC orchestration from migrated consumers. |
 | E06 | planned | E02–E05 functional population; 65i product-use contract; 65f outcome and 65g readers | Integrate generated capability/outcome inspection and independent exchange across supported post-64 modes; `DynamicMessage::from_options` exposes metadata while native selectors govern use. Prove raw versus scientific access, original task/step/point coverage and final-attempt interpretation. Record matched direct/isolated complete-operation measurements without presumed speedup. Supply actual population/limits to 65h and remove superseded selected paths. |
@@ -356,11 +356,55 @@ and large opaque envelope hashing/forged extent. The initial seven-control popul
 a new source-projection test's misplaced module caused one discovery build failure and was
 corrected before this full nine-control rerun. Root-owned generated publication remains.
 Remaining E02 includes compiler-owned Recipe/source/physical records, generated receiving adapters and
-complete dependency/context reconstruction. E03 then replaces private root `RootWire`,
-`SourceWire`, handshake/request/response and JSON framing on the existing bounded inherited
+complete dependency/context reconstruction. E03 replaces private JSON serialization of
+root input, source bindings and handshake/request/response on the existing bounded inherited
 channel, retaining provider-free admission, original image/build/registry checks, qualified
 recipe authority, original-coordinate screening and actual process custody. No kernel/ID owner
 acquires a Buffa dependency merely to encode this transitional descriptor representation.
+
+## E03 closed-root envelope cutover
+
+The private v2 profile is `pse.private-native-root.v2`, with source-generated package
+`pse.native_root.v2`. It retains the existing bounded u64 little-endian inherited Unix-channel
+framing, one closed provider-free solve per child, original attempt/execution/request bindings,
+relative remaining lifetime, original-coordinate parent screening and process custody. There
+is no new service or process. `RootInput`, `RootBindings`, `Hello`, `Request`, `Response` and
+`RootOutcome::{Proposal,Refused}` are the actual owners; proposal decoding does not imply
+scientific acceptance. Their graph exposes native math controls, source locations, complete
+model diagnostics and passive applicability observations without wire mirrors. Recipe and
+registry declaration bytes remain opaque in this first envelope slice; receiving compiler/
+physical reconstruction still owns their admission and the existing qualified recipe permit.
+
+Build/file observations use their original native fields. Standard `PathBuf` projection carries
+an explicit `PlatformPathBytes` alternative: Unix bytes through
+[`OsStringExt::into_vec`/`from_vec`](https://doc.rust-lang.org/stable/std/os/unix/ffi/trait.OsStringExt.html),
+or Windows wide units through
+[`encode_wide`](https://doc.rust-lang.org/stable/std/os/windows/ffi/trait.OsStrExt.html) and
+[`from_wide`](https://doc.rust-lang.org/stable/std/os/windows/ffi/trait.OsStringExt.html).
+These APIs preserve non-UTF-8 bytes or ill-formed UTF-16; no Unicode/path normalization or
+filesystem effect occurs. Foreign platform data stays independently inspectable; checked
+native `PathBuf` construction refuses another platform. The source profile remains local,
+with the actual authenticated child image and current native platform.
+
+Buffa 0.9.2
+[`Message::try_encode_bounded`](https://docs.rs/buffa/0.9.2/buffa/trait.Message.html#method.try_encode_bounded)
+checks encoded size against the caller's allowance before writing, using the shared two-pass
+size cache; use its original `ExceedsBudget`/`MessageTooLarge` failure rather than a JSON
+counting serializer or a panic-capable encoder. The selected release source supplies this API;
+the broad guide's older one-error summary is not its full API contract.
+[`DecodeOptions`](https://docs.rs/buffa/0.9.2/buffa/struct.DecodeOptions.html) supplies separate
+frame bytes, repeated-element memory, recursion and unknown-field bounds. Generated local
+validators/adapters establish structural meaning, while the original source/registry/factory
+constructors retain scientific admission. Original typed codec/adoption errors must survive
+the private-channel Internal classification with their field/rule/cause details and custody.
+
+**Tested, targeted on 2026-11-04:** scoped, direnv-activated unbounded cache-off
+`scripts/pse test pse-contract pse-runtime --lib` completed the two selected pure-path and
+full native source-graph controls, zero failures/pending/build warnings, with original capture/
+settlement complete. The Linux path control preserves non-UTF-8/NUL bytes and refuses native
+adoption of inspected Windows-wide data; Windows execution is not qualified. Generated
+publication, replacing the live JSON frame helpers, actual closed-root execution and refusal/
+cancellation/drain controls remain required before this envelope slice or E03 can close.
 
 ## Verification, extension and decision handoff
 

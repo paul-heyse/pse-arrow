@@ -8157,6 +8157,7 @@ name = "pse-buildinfo"
 version = "0.0.1"
 dependencies = [
  "libc",
+ "pse-contract",
  "pse-ids",
  "schemars",
  "serde",

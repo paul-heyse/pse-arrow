@@ -283,18 +283,22 @@ pub fn verify_scientific_producer_identity(
     Ok(actual)
 }
 
+pse_contract::projection_struct! {
 /// Independently observed actual file bytes and topology at a consumed path.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(deny_unknown_fields)]
 pub struct FileObservation {
+    projection: { name: "FileObservation", rust_path: crate::FileObservation, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Exact consumed or deployed path.
-    pub path: std::path::PathBuf,
+    pub path: std::path::PathBuf => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// External SHA256 checksum of observed bytes.
-    pub sha256: String,
+    pub sha256: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual resolved target, retaining path redirection.
-    pub canonical: std::path::PathBuf,
+    pub canonical: std::path::PathBuf => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Observed platform file mode.
-    pub mode: u32,
+    pub mode: u32 => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl FileObservation {
     /// Observe bytes through one handle and refuse replacement while reading.

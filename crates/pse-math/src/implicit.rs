@@ -103,33 +103,41 @@ use std::{
     time::Duration,
 };
 
+pse_contract::projection_struct! {
 /// One original implicit unknown, with an arbitrary closed physical interval.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Unknown {
+    projection: { name: "ImplicitUnknown", rust_path: crate::implicit::Unknown, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Semantic identity of the unknown.
-    pub id: SemanticId,
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Lower end of the closed physical interval.
-    pub lower: f64,
+    pub lower: f64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Upper end of the closed physical interval.
-    pub upper: f64,
+    pub upper: f64 => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Explicit bounded native solve and derivative verification controls.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Options {
+    projection: { name: "ImplicitOptions", rust_path: crate::implicit::Options, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Deterministic start; no previous trial is used implicitly.
-    pub start: Vec<f64>,
+    pub start: Vec<f64> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Characteristic unknown magnitudes in canonical units, resolved by numerical policy.
-    pub variable_nominals: Vec<f64>,
+    pub variable_nominals: Vec<f64> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original-space unknown acceptance budgets, independent of the nominal scale.
-    pub variable_tolerance: Vec<f64>,
+    pub variable_tolerance: Vec<f64> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Per-residual original physical acceptance budget.
-    pub residual_tolerance: Vec<f64>,
+    pub residual_tolerance: Vec<f64> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Positive native iteration limit.
-    pub iterations: u32,
+    pub iterations: u32 => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Wall time charged to this child solve on the already admitted outer worker.
-    pub time_limit: Duration,
+    pub time_limit: Duration => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Dimensionless derivative linear-system backward-error tolerance.
-    pub derivative_tolerance: f64,
+    pub derivative_tolerance: f64 => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// Distinct requested derivative programs over one original residual definition.
 #[derive(Clone, Debug)]

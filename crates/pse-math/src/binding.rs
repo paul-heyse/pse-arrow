@@ -19,21 +19,25 @@ pub fn guarded_real_policy() -> ContentHash {
     )
 }
 
+pse_contract::projection_struct! {
 /// Reuse identity inputs. Ordinary case values and instance identities are excluded.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct BodySpec {
+    projection: { name: "MathBodySpec", rust_path: crate::binding::BodySpec, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Canonical typed source definition content.
-    pub definition: ContentHash,
+    pub definition: ContentHash => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Consumed finite shape/filter/specialization facts only.
-    pub structure: ContentHash,
+    pub structure: ContentHash => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Consumed physical interpretation; conservative producers include the complete registry.
-    pub physical: ContentHash,
+    pub physical: ContentHash => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Retained per-node semantic admission and declaration-owned output transitions.
-    pub admissions: ContentHash,
+    pub admissions: ContentHash => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Consumed provider contracts, phases and parameter data in stable full-key order.
-    pub providers: Vec<ContentHash>,
+    pub providers: Vec<ContentHash> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Real algebra, domain, smoothness and numerical profile.
-    pub policy: ContentHash,
+    pub policy: ContentHash => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl BodySpec {
     /// Versioned key; never hashes printed atoms or process-global library identifiers.

@@ -22,7 +22,7 @@ macro_rules! diagnostic_vocabulary {
         }
     )* };
 }
-diagnostic_vocabulary!(crate::DiagnosticRule, crate::NonFinite);
+diagnostic_vocabulary!(crate::DiagnosticCode, crate::DiagnosticStage, crate::DiagnosticRule, crate::NonFinite);
 
 macro_rules! diagnostic_record {
     ($owner:path; $public:expr; $name:literal; $version:literal; $direction:ident;

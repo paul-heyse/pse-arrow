@@ -23,6 +23,7 @@ workspace = true
 # Hashing remains exclusively in pse-ids (blueprint §5.1).
 
 [dependencies]
+pse-contract.workspace = true
 serde.workspace = true
 schemars.workspace = true
 pse-ids.workspace = true

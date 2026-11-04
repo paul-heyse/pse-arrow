@@ -16,6 +16,7 @@ mod generic;
 mod nominal;
 #[cfg(test)]
 mod optional_text_tests;
+mod path;
 mod public_alias_path;
 mod remote;
 mod standard;
@@ -32,6 +33,7 @@ pub use float_collections::NominalFloat64;
 pub use float_domain::Float64Domain;
 pub use float_interval::Float64Interval;
 pub use generic::generic_argument;
+pub use path::PlatformPathBytes;
 
 /// The shared public direction, independently of native Serde representation.
 pub use crate::BoundaryDirection as Direction;

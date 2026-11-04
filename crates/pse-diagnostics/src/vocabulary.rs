@@ -103,6 +103,12 @@ macro_rules! codes {
         #[strum(const_into_str)]
         #[serde(try_from = "String", into = "String")]
         pub enum DiagnosticCode { $(#[doc = $description] #[strum(serialize = $text)] $variant),* }
+        impl crate::boundary::BoundaryDeclaration for DiagnosticCode { const SOURCE: &'static str = file!(); }
+        impl crate::boundary::BoundaryVocabulary for DiagnosticCode {
+            const NAME: &'static str = "DiagnosticCode";
+            const PUBLIC_PATH: &'static str = "crate::DiagnosticCode";
+            fn boundary_members() -> Vec<&'static str> { Self::ALL.iter().map(|member| member.as_str()).collect() }
+        }
         impl DiagnosticCode {
             /// All detailed codes.
             pub const ALL: &'static [Self] = <Self as strum::VariantArray>::VARIANTS;

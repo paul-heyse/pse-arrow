@@ -8,6 +8,7 @@ use crate::generated::enums::{
 };
 use pse_ids::{FramedHasher, SemanticId};
 
+pse_contract::projection_struct! {
 /// Immutable attribution of an instantiated scientific claim.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -15,32 +16,36 @@ use pse_ids::{FramedHasher, SemanticId};
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "ApplicabilityClaim")]
 pub struct Claim {
+    projection: { name: "ApplicabilityClaim", rust_path: crate::applicability::Claim, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Absent exactly for undeclared evidence, which is unknown.
-    pub id: Option<SemanticId>,
+    pub id: Option<SemanticId> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Joint whole-interval application, only for a verified declared interval.
-    pub coverage: Option<SemanticId>,
+    pub coverage: Option<SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Declared scientific family or model owner.
-    pub owner: SemanticId,
+    pub owner: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Checked nominal owner and its entity-kind ancestors, in most-derived order.
     /// Non-kind owners have only themselves; callers cannot author this witness.
-    pub owner_lineage: Vec<SemanticId>,
+    pub owner_lineage: Vec<SemanticId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Evidence source; absent for an undeclared claim.
-    pub evidence: Option<SemanticId>,
+    pub evidence: Option<SemanticId> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Form whose actual application demanded this evidence.
-    pub form: SemanticId,
+    pub form: SemanticId => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Distinguishes actual bound applications, including derived arguments.
-    pub call: SemanticId,
+    pub call: SemanticId => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Distinct scientific records selected by this application.
-    pub records: Vec<SemanticId>,
+    pub records: Vec<SemanticId> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Required claim identities.
-    pub dependencies: Vec<SemanticId>,
+    pub dependencies: Vec<SemanticId> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Evidence layer, distinct from a mathematical domain.
-    pub layer: Layer,
+    pub layer: Layer => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Fitted, recommended or validated region; none for unknown/unrestricted/union.
-    pub basis: Option<Basis>,
+    pub basis: Option<Basis> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Explicit unknown reason, never a numerical predicate result.
-    pub reason: Option<String>,
+    pub reason: Option<String> => { tag: 12, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// Authorization retains its declaration and scope, with fixed named targets.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -48,18 +53,21 @@ pub struct Claim {
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "ApplicabilityPermission")]
 pub struct Permission {
+    projection: { name: "ApplicabilityPermission", rust_path: crate::applicability::Permission, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Authored authorization identity.
-    pub id: SemanticId,
+    pub id: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Declaring lexical consumer scope, not the claim's owner.
-    pub scope: SemanticId,
+    pub scope: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Named records or declared scientific families.
-    pub target_kind: Target,
+    pub target_kind: Target => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact admitted target identities; inheritance never widens this set.
-    pub targets: Vec<SemanticId>,
+    pub targets: Vec<SemanticId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Independent permission for absence of evidence.
-    pub allow_unknown: bool,
+    pub allow_unknown: bool => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Independent permission for leaving a declared region.
-    pub allow_extrapolation: bool,
+    pub allow_extrapolation: bool => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl Permission {
     /// A record permission must cover every record used by the claim.
@@ -79,46 +87,54 @@ impl Permission {
         }
     }
 }
+pse_contract::projection_struct! {
 /// Numerical inputs are recorded in the lowering's canonical physical units.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "ApplicabilityInput")]
 pub struct Input {
+    projection: { name: "ApplicabilityInput", rust_path: crate::applicability::Input, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Declared argument name.
-    pub name: String,
+    pub name: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual value at the demanded application; the wire retains explicit IEEE evidence.
     #[serde(
         serialize_with = "crate::diagnostic::serialize_numeric_observation",
         deserialize_with = "crate::diagnostic::deserialize_numeric_observation"
     )]
     #[schemars(with = "crate::diagnostic::NumericObservationSchema")]
-    pub value: f64,
+    pub value: f64 => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual physical quantity type; values use its canonical unit.
-    pub quantity_type: SemanticId,
+    pub quantity_type: SemanticId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// One typed observation, including alternative evidence which was not required.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[schemars(rename = "ApplicabilityObservation")]
 pub struct Observation {
+    projection: { name: "ApplicabilityObservation", rust_path: crate::applicability::Observation, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Complete scientific attribution.
-    pub claim: Claim,
+    pub claim: Claim => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Bound assembly instance, populated by the executing consumer.
-    pub instance: Option<SemanticId>,
+    pub instance: Option<SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual inputs of this claim application.
-    pub inputs: Vec<Input>,
+    pub inputs: Vec<Input> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Evidence classification, independent of authorization.
-    pub outcome: Outcome,
+    pub outcome: Outcome => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// This claim was required, rather than a nonwinning union alternative.
-    pub required: bool,
+    pub required: bool => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Authorizing declarations that matched this claim's exact target.
-    pub permissions: Vec<Permission>,
+    pub permissions: Vec<Permission> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Both permissions remain independent even for a mixed dependency result.
-    pub unknown_allowed: bool,
+    pub unknown_allowed: bool => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Whether leaving this particular claim's region was permitted.
-    pub extrapolation_allowed: bool,
+    pub extrapolation_allowed: bool => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Whether the low-level evidence gate admitted this required claim.
-    pub admitted: bool,
+    pub admitted: bool => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 /// A claim plan uses library-evaluated predicate results, not a second numeric engine.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -33,24 +33,28 @@ pub use identity::{
     with_local_runtime_scope, workspace_root,
 };
 
+pse_contract::projection_struct! {
 /// Build provenance of the compiled product, projected without recomputing its identity.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BuildInfo {
+    projection: { name: "CapturedBuildInfo", rust_path: crate::BuildInfo, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Workspace and wheel version.
-    pub version: String,
+    pub version: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Captured compiler release.
-    pub rustc_version: String,
+    pub rustc_version: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Captured Cargo build profile.
-    pub profile: String,
+    pub profile: String => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Captured Git commit; empty when the implementation does not embed outer context.
-    pub git_sha: String,
+    pub git_sha: String => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Historical public lockfile digest field; empty when no such evidence was produced.
-    pub lockfile_hash: String,
+    pub lockfile_hash: String => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Captured Cargo lockfile checksum; empty when no lockfile is embedded.
-    pub cargo_lock_sha256: String,
+    pub cargo_lock_sha256: String => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Captured uv lockfile checksum; empty when no lockfile is embedded.
-    pub uv_lock_sha256: String,
+    pub uv_lock_sha256: String => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl BuildInfo {
     /// Project only implementation metadata actually embedded during compilation.

@@ -3,6 +3,18 @@
 use super::*;
 
 #[test]
+fn private_native_source_graph_uses_actual_typed_context_and_platform_data() {
+    let graph = projection_graph().unwrap();
+    for name in ["NativeRootInput", "NativeRootHello", "NativeRootRequest", "NativeRootResponse",
+        "ModelBoundaryDiagnostic", "ModelSourceLocation", "ApplicabilityObservation", "CapturedBuildInfo",
+        "FileObservation", "MathBodySpec", "ImplicitUnknown", "ImplicitOptions", "NativePathBuf", "PlatformPathBytes"] {
+        assert!(graph.definitions().contains_key(name), "actual native dependency absent: {name}");
+    }
+    assert_eq!(graph.definitions()["NativeRootInput"].version, 2);
+    assert!(graph.definitions()["NativePathBuf"].checked_record);
+}
+
+#[test]
 fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     let (mut reader, mut writer) = UnixStream::pair().unwrap();
     writer
@@ -261,7 +273,7 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
     assert!(!source.bindings.checked_sources().is_empty());
     assert!(!source.bindings.occurrences().is_empty());
     let bytes = serde_json::to_vec(&source.wire().unwrap()).unwrap();
-    let wire: RootWire = serde_json::from_slice(&bytes).unwrap();
+    let wire: RootInput = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         wire.source.bind(source.body.math()).unwrap(),
         source.bindings
@@ -332,7 +344,7 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
     assert_eq!(&checked_sources, source.bindings.checked_sources());
     assert_eq!(&occurrences, source.bindings.occurrences());
     for missing in 0..4 {
-        let mut wire = SourceWire::capture(&source.bindings);
+        let mut wire = RootBindings::capture(&source.bindings);
         match missing {
             0 => wire.checked_members.clear(),
             1 => wire.checked_sources.clear(),
@@ -664,7 +676,7 @@ fn private_native_fake_process() {
             } else {
                 request.request
             },
-            result: Ok(point),
+            result: RootOutcome::Proposal(point),
         },
         RESPONSE_LIMIT,
         &scope,

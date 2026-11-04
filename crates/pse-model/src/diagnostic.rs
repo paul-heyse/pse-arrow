@@ -157,34 +157,38 @@ impl From<pse_diagnostics::DiagnosticObservation> for Observation {
         }
     }
 }
+pse_contract::projection_struct! {
 /// Authored location attached by the owner that has the source map.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(deny_unknown_fields)]
 pub struct SourceLocation {
+    projection: { name: "ModelSourceLocation", rust_path: crate::diagnostic::SourceLocation, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Original semantic occurrence or instance identity.
-    pub source: SemanticId,
+    pub source: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Immutable source interpretation context; absence is explicitly unattributed.
     #[serde(default)]
-    pub revision: Option<ContentHash>,
+    pub revision: Option<ContentHash> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual parser document identity; absence cannot qualify byte offsets.
     #[serde(default)]
-    pub document: Option<SemanticId>,
+    pub document: Option<SemanticId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Compiler-supplied occurrence role, independent of a display name.
     #[serde(default)]
-    pub occurrence_role: Option<String>,
+    pub occurrence_role: Option<String> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Original position within that occurrence role.
     #[serde(default)]
-    pub occurrence_position: Option<u32>,
+    pub occurrence_position: Option<u32> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Definition or document path, never a backend-local node identifier.
-    pub path: String,
+    pub path: String => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Optional authored display name.
-    pub name: Option<String>,
+    pub name: Option<String> => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// UTF-8 starting byte offset, when supplied by the parser/compiler.
-    pub start: Option<u32>,
+    pub start: Option<u32> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// UTF-8 exclusive ending byte offset.
-    pub end: Option<u32>,
+    pub end: Option<u32> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl SourceLocation {
     /// Owned string payload, excluding this inline location value.
@@ -234,6 +238,7 @@ impl SourceLocation {
         }
     }
 }
+pse_contract::projection_struct! {
 /// What a rejected authored validity predicate guards (ADR-0123 Outcome 4, Plan 23 H5): its
 /// layer and the declaration stating it; for the form and data layers the form it belongs
 /// to, the parameter sets whose values bound it and the form's declared arguments it
@@ -244,21 +249,24 @@ impl SourceLocation {
 )]
 #[serde(deny_unknown_fields)]
 pub struct ValidityLineage {
+    projection: { name: "ModelValidityLineage", rust_path: crate::diagnostic::ValidityLineage, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// The form layer (a function's own domain), the data layer (a declared envelope) or
     /// the closure layer (an annotated range).
-    pub layer: crate::generated::enums::ModelingValidityLayer,
+    pub layer: crate::generated::enums::ModelingValidityLayer => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The form itself, the relation or kind declaration declaring the envelope, or the
     /// closure range's annotation.
-    pub source: SemanticId,
+    pub source: SemanticId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The form: the function declaration whose evaluation was rejected; absent on the
     /// closure layer.
-    pub form: Option<SemanticId>,
+    pub form: Option<SemanticId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The table rows or entities whose values bound the predicate, in order.
-    pub sets: Vec<SemanticId>,
+    pub sets: Vec<SemanticId> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Positions of the constrained arguments among the form's declared arguments.
-    pub variables: Vec<u32>,
+    pub variables: Vec<u32> => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The model members a closure range bounds; empty on the form and data layers.
-    pub members: Vec<SemanticId>,
+    pub members: Vec<SemanticId> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ValidityLineage {
     /// Owned heap extent.
@@ -277,6 +285,7 @@ impl ValidityLineage {
             .saturating_add(variables.capacity().saturating_mul(size_of::<u32>()))
     }
 }
+pse_contract::projection_struct! {
 /// Stable structured cause shared by Rust and the public error projection.
 #[derive(
     Clone, Debug, thiserror::Error, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -284,32 +293,35 @@ impl ValidityLineage {
 #[error("{stage}: {rule} ({class:?}; sources {sources:?})")]
 #[serde(deny_unknown_fields)]
 pub struct BoundaryDiagnostic {
+    projection: { name: "ModelBoundaryDiagnostic", rust_path: crate::diagnostic::BoundaryDiagnostic, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Detailed semantic identity, authoritative over every coarse projection.
-    pub code: DiagnosticCode,
+    pub code: DiagnosticCode => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Ordered retained cause envelopes, preserving repeated aggregate occurrences.
     #[serde(default)]
-    pub causes: Vec<BoundaryDiagnostic>,
+    pub causes: Vec<BoundaryDiagnostic> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Machine-readable disposition; callers never parse the message.
-    pub class: BoundaryClass,
+    pub class: BoundaryClass => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Error, warning or information; a warning never makes a model invalid.
     #[serde(default = "error_severity")]
-    pub severity: Severity,
+    pub severity: Severity => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Operation boundary, such as selected admission or provider registration.
-    pub stage: DiagnosticStage,
+    pub stage: DiagnosticStage => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// All affected authored identities, in deterministic order.
-    pub sources: Vec<SemanticId>,
+    pub sources: Vec<SemanticId> => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The violated named contract, not a replacement for source identities.
-    pub rule: DiagnosticRule,
+    pub rule: DiagnosticRule => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Values observed while checking the contract.
-    pub observations: std::collections::BTreeMap<String, Observation>,
+    pub observations: std::collections::BTreeMap<String, Observation> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Available source locations. Empty means unattributed, not a guessed source.
     #[serde(default)]
-    pub locations: Vec<SourceLocation>,
+    pub locations: Vec<SourceLocation> => { tag: 9, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// The lineage of a rejected authored validity predicate; absent on every other finding.
-    pub validity: Option<ValidityLineage>,
+    pub validity: Option<ValidityLineage> => { tag: 10, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete scientific evidence on demanded paths, including refused claims.
     #[serde(default)]
-    pub applicability: Vec<crate::applicability::Observation>,
+    pub applicability: Vec<crate::applicability::Observation> => { tag: 11, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 const fn error_severity() -> Severity {
     Severity::Error
