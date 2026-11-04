@@ -86,16 +86,30 @@ impl FieldContract {
     /// Checked source policy for this canonical field occurrence.
     /// # Errors
     /// Unknown key kinds or noncanonical present policy markers refuse.
-    pub fn canonical_contract(&self) -> Result<Option<super::CanonicalFieldContract>, crate::SchemaError> {
+    pub fn canonical_contract(
+        &self,
+    ) -> Result<Option<super::CanonicalFieldContract>, crate::SchemaError> {
         use super::field_facets::{CANONICAL_KEY, CANONICAL_READONLY, CANONICAL_RECORD_KEY};
-        super::CanonicalFieldContract::parse_metadata(self.get(CANONICAL_KEY), self.get(CANONICAL_READONLY), self.get(CANONICAL_RECORD_KEY), self.name())
+        super::CanonicalFieldContract::parse_metadata(
+            self.get(CANONICAL_KEY),
+            self.get(CANONICAL_READONLY),
+            self.get(CANONICAL_RECORD_KEY),
+            self.name(),
+        )
     }
     /// Checked path/traversal association for a source-expression occurrence.
     /// # Errors
     /// Incomplete or unknown source policies refuse at this field's path.
-    pub fn expression_source_contract(&self) -> Result<Option<super::ExpressionSourceContract<'_>>, crate::SchemaError> {
-        use super::field_facets::{EXPRESSION_ROLE, EXPRESSION_ORDINAL, EXPRESSION_BINDER};
-        super::ExpressionSourceContract::parse_metadata(self.get(EXPRESSION_ROLE), self.get(EXPRESSION_ORDINAL), self.get(EXPRESSION_BINDER), self.name())
+    pub fn expression_source_contract(
+        &self,
+    ) -> Result<Option<super::ExpressionSourceContract<'_>>, crate::SchemaError> {
+        use super::field_facets::{EXPRESSION_BINDER, EXPRESSION_ORDINAL, EXPRESSION_ROLE};
+        super::ExpressionSourceContract::parse_metadata(
+            self.get(EXPRESSION_ROLE),
+            self.get(EXPRESSION_ORDINAL),
+            self.get(EXPRESSION_BINDER),
+            self.name(),
+        )
     }
     /// Freeze the field after insertion.
     #[must_use]
@@ -311,14 +325,18 @@ impl FieldContract {
     /// # Errors
     /// An unrecognized present role refuses with this field's source name.
     pub fn checked_role(&self) -> Result<ColumnRole, crate::SchemaError> {
-        let Some(value) = self.get(ROLE) else { return Ok(ColumnRole::Payload); };
+        let Some(value) = self.get(ROLE) else {
+            return Ok(ColumnRole::Payload);
+        };
         Self::parse_role_metadata(value, self.name())
     }
     /// Parse a present role at a source-aware tooling boundary.
     /// # Errors
     /// Unknown role spellings refuse rather than acquiring payload semantics.
     pub fn parse_role_metadata(value: &str, path: &str) -> Result<ColumnRole, crate::SchemaError> {
-        ColumnRole::ALL.into_iter().find(|role| role.as_str() == value)
+        ColumnRole::ALL
+            .into_iter()
+            .find(|role| role.as_str() == value)
             .ok_or_else(|| crate::checks::invalid(path, format!("unknown declared role {value}")))
     }
     /// Assign a field role.
@@ -375,7 +393,10 @@ impl FieldContract {
             (Some(relation), Some(column)) if !relation.is_empty() && !column.is_empty() => {
                 Ok(Some(ForeignKey::new(relation, column)))
             }
-            _ => Err(crate::checks::invalid(self.name(), "incomplete scalar foreign key")),
+            _ => Err(crate::checks::invalid(
+                self.name(),
+                "incomplete scalar foreign key",
+            )),
         }
     }
     /// Attach a named reference at any depth.
@@ -418,8 +439,14 @@ impl FieldContract {
     /// Checked unbound identity association carried by this native field.
     /// # Errors
     /// Empty names or malformed present ownership declarations refuse.
-    pub fn identity_contract(&self) -> Result<Option<super::IdentityContract<'_>>, crate::SchemaError> {
-        super::IdentityContract::parse_metadata(self.get(IDENTITY), self.get(IDENTITY_OWNER), self.name())
+    pub fn identity_contract(
+        &self,
+    ) -> Result<Option<super::IdentityContract<'_>>, crate::SchemaError> {
+        super::IdentityContract::parse_metadata(
+            self.get(IDENTITY),
+            self.get(IDENTITY_OWNER),
+            self.name(),
+        )
     }
     /// Whether this column was declared the owner of its identity.
     pub fn owns_identity(&self) -> bool {
@@ -604,8 +631,13 @@ impl FieldContract {
     pub fn checked_extension(&self) -> Result<Option<ExtensionUse<'_>>, crate::SchemaError> {
         let Some(name) = self.get(EXTENSION) else {
             return if self.get(PARAMETER).is_some() {
-                Err(crate::checks::invalid(self.name(), "extension parameter has no declared extension"))
-            } else { Ok(None) };
+                Err(crate::checks::invalid(
+                    self.name(),
+                    "extension parameter has no declared extension",
+                ))
+            } else {
+                Ok(None)
+            };
         };
         ExtensionUse::parse_metadata(name, self.get(PARAMETER), self.name()).map(Some)
     }
@@ -850,96 +882,205 @@ fn canonical_json(value: &impl serde::Serialize) -> Result<String, crate::Schema
 #[cfg(test)]
 mod facet_metadata_tests {
     use super::*;
-    use crate::model::{CollectionContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative};
+    use crate::model::{
+        CollectionContract, IntegerRange, ReferenceContract, ReferenceNullPolicy, TaggedAlternative,
+    };
 
     #[test]
     fn selected_facet_metadata_refuses_unknown_present_roles_and_extensions() {
         let base = FieldContract::native(DataType::Utf8).with_name("original_field");
         assert_eq!(base.checked_role().unwrap(), ColumnRole::Payload);
         assert!(base.checked_extension().unwrap().is_none());
-        assert!(base.clone().facet(ROLE, "unrecognized").checked_role().unwrap_err().to_string().contains("original_field"));
-        assert!(base.clone().facet(EXTENSION, "pse.unknown").checked_extension().is_err());
-        assert!(base.clone().facet(PARAMETER, "orphan").checked_extension().is_err());
-        assert!(base.clone().facet(EXTENSION, "pse.enum").checked_extension().is_err());
-        assert!(base.clone().facet(EXTENSION, "pse.enum").facet(PARAMETER, "").checked_extension().is_err());
-        assert!(base.clone().facet(EXTENSION, "pse.semantic_id").facet(PARAMETER, "irrelevant").checked_extension().is_err());
-        assert!(matches!(base.clone().facet(EXTENSION, "pse.enum").facet(PARAMETER, "ActualEnum").checked_extension().unwrap(), Some(ExtensionUse::Enum("ActualEnum"))));
-        assert!(matches!(ExtensionUse::parse_metadata("pse.expr_dsl", Some("predicate"), "original_field").unwrap(), ExtensionUse::ExprDsl(super::super::ExpressionGrammar::Predicate)));
+        assert!(
+            base.clone()
+                .facet(ROLE, "unrecognized")
+                .checked_role()
+                .unwrap_err()
+                .to_string()
+                .contains("original_field")
+        );
+        assert!(
+            base.clone()
+                .facet(EXTENSION, "pse.unknown")
+                .checked_extension()
+                .is_err()
+        );
+        assert!(
+            base.clone()
+                .facet(PARAMETER, "orphan")
+                .checked_extension()
+                .is_err()
+        );
+        assert!(
+            base.clone()
+                .facet(EXTENSION, "pse.enum")
+                .checked_extension()
+                .is_err()
+        );
+        assert!(
+            base.clone()
+                .facet(EXTENSION, "pse.enum")
+                .facet(PARAMETER, "")
+                .checked_extension()
+                .is_err()
+        );
+        assert!(
+            base.clone()
+                .facet(EXTENSION, "pse.semantic_id")
+                .facet(PARAMETER, "irrelevant")
+                .checked_extension()
+                .is_err()
+        );
+        assert!(matches!(
+            base.clone()
+                .facet(EXTENSION, "pse.enum")
+                .facet(PARAMETER, "ActualEnum")
+                .checked_extension()
+                .unwrap(),
+            Some(ExtensionUse::Enum("ActualEnum"))
+        ));
+        assert!(matches!(
+            ExtensionUse::parse_metadata("pse.expr_dsl", Some("predicate"), "original_field")
+                .unwrap(),
+            ExtensionUse::ExprDsl(super::super::ExpressionGrammar::Predicate)
+        ));
     }
 
     #[test]
     fn selected_facet_metadata_parsing_preserves_native_storage_checks() {
         let collection = CollectionContract::SEQUENCE;
-        assert_eq!(CollectionContract::parse_metadata(&collection.canonical(), "source.items").unwrap(), collection);
+        assert_eq!(
+            CollectionContract::parse_metadata(&collection.canonical(), "source.items").unwrap(),
+            collection
+        );
         assert!(CollectionContract::parse_metadata("{\"minimum\":0}", "source.items").is_err());
         let wrong = collection.annotate(Field::new("not_list", DataType::Boolean, false));
         assert!(CollectionContract::from_field(&wrong).is_err());
-        let interval = IntegerRange { minimum: -2, maximum: 5 };
-        assert_eq!(IntegerRange::parse_metadata(&interval.canonical(), "source.count").unwrap(), interval);
+        let interval = IntegerRange {
+            minimum: -2,
+            maximum: 5,
+        };
+        assert_eq!(
+            IntegerRange::parse_metadata(&interval.canonical(), "source.count").unwrap(),
+            interval
+        );
         assert!(IntegerRange::parse_metadata("[5,-2]", "source.count").is_err());
         assert!(IntegerRange::parse_metadata("[-2, 5]", "source.count").is_err());
-        assert!(IntegerRange::from_field(&interval.annotate(Field::new("not_signed", DataType::UInt64, false))).is_err());
+        assert!(
+            IntegerRange::from_field(&interval.annotate(Field::new(
+                "not_signed",
+                DataType::UInt64,
+                false
+            )))
+            .is_err()
+        );
         let tagged = TaggedAlternative::new("kind", [("record".into(), "payload".into())]);
-        assert_eq!(TaggedAlternative::parse_metadata(&tagged.canonical(), "source.choice").unwrap(), tagged);
+        assert_eq!(
+            TaggedAlternative::parse_metadata(&tagged.canonical(), "source.choice").unwrap(),
+            tagged
+        );
         let empty_payload = TaggedAlternative::new("kind", [("record".into(), "".into())]);
-        assert!(TaggedAlternative::parse_metadata(&empty_payload.canonical(), "source.choice").is_err());
-        assert!(TaggedAlternative::from_field(&tagged.annotate(Field::new("not_struct", DataType::Utf8, false))).is_err());
+        assert!(
+            TaggedAlternative::parse_metadata(&empty_payload.canonical(), "source.choice").is_err()
+        );
+        assert!(
+            TaggedAlternative::from_field(&tagged.annotate(Field::new(
+                "not_struct",
+                DataType::Utf8,
+                false
+            )))
+            .is_err()
+        );
     }
 
     #[test]
     fn selected_facet_metadata_reference_null_policy_comes_from_actual_field() {
-        let required = FieldContract::native(DataType::UInt64).with_name("identity").with_fk("authored.original", "id");
+        let required = FieldContract::native(DataType::UInt64)
+            .with_name("identity")
+            .with_fk("authored.original", "id");
         let present = ReferenceContract::for_contract(&required).unwrap().unwrap();
         assert_eq!(present.null_policy, ReferenceNullPolicy::Required);
-        let optional = ReferenceContract::for_contract(&required.optional()).unwrap().unwrap();
+        let optional = ReferenceContract::for_contract(&required.optional())
+            .unwrap()
+            .unwrap();
         assert_eq!(optional.null_policy, ReferenceNullPolicy::AllOrNone);
-        assert_eq!(ReferenceContract::parse_metadata(&optional.canonical().unwrap(), "source.identity").unwrap(), optional);
+        assert_eq!(
+            ReferenceContract::parse_metadata(&optional.canonical().unwrap(), "source.identity")
+                .unwrap(),
+            optional
+        );
         let mut duplicate = optional;
         duplicate.columns.push(duplicate.columns[0].clone());
-        assert!(ReferenceContract::parse_metadata(&duplicate.canonical().unwrap(), "source.identity").is_err());
-        let partial = FieldContract::native(DataType::UInt64).with_name("partial")
-            .facet(super::FK_RELATION, "authored.original");
-        assert!(ReferenceContract::for_contract(&partial).unwrap_err().to_string().contains("partial"));
+        assert!(
+            ReferenceContract::parse_metadata(&duplicate.canonical().unwrap(), "source.identity")
+                .is_err()
+        );
+        let partial = FieldContract::native(DataType::UInt64)
+            .with_name("partial")
+            .facet(FK_RELATION, "authored.original");
+        assert!(
+            ReferenceContract::for_contract(&partial)
+                .unwrap_err()
+                .to_string()
+                .contains("partial")
+        );
         let empty = FieldContract::native(DataType::UInt64).with_fk("", "id");
         assert!(ReferenceContract::for_contract(&empty).is_err());
     }
 
     #[test]
     fn selected_facet_metadata_identity_preserves_carrier_and_owner_distinction() {
-        let carrier = FieldContract::id().with_name("goal_id").with_identity("accuracy_goal");
+        let carrier = FieldContract::id()
+            .with_name("goal_id")
+            .with_identity("accuracy_goal");
         let identity = carrier.identity_contract().unwrap().unwrap();
         assert_eq!(identity.name, "accuracy_goal");
         assert!(!identity.owns_identity);
         let owner = FieldContract::id().with_owned_identity("accuracy_goal");
         assert!(owner.identity_contract().unwrap().unwrap().owns_identity);
-        for field in [FieldContract::id().facet(IDENTITY_OWNER, "true"),
-            FieldContract::id().with_identity(""), carrier.facet(IDENTITY_OWNER, "false")]
-        { assert!(field.identity_contract().is_err()); }
+        for field in [
+            FieldContract::id().facet(IDENTITY_OWNER, "true"),
+            FieldContract::id().with_identity(""),
+            carrier.facet(IDENTITY_OWNER, "false"),
+        ] {
+            assert!(field.identity_contract().is_err());
+        }
     }
 
     #[test]
     fn selected_facet_metadata_canonical_and_expression_policies_remain_source_declarations() {
-        use crate::model::{CanonicalKeyKind, ExpressionOrdinal};
         use crate::model::field_facets as F;
-        let mutable = FieldContract::native(DataType::Utf8).with_canonical_key(CanonicalKeyKind::Project).canonical_mutable();
+        use crate::model::{CanonicalKeyKind, ExpressionOrdinal};
+        let mutable = FieldContract::native(DataType::Utf8)
+            .with_canonical_key(CanonicalKeyKind::Project)
+            .canonical_mutable();
         let policy = mutable.canonical_contract().unwrap().unwrap();
         assert_eq!(policy.key, Some(CanonicalKeyKind::Project));
         assert_eq!(policy.readonly, Some(false));
         assert!(!policy.record_key);
         let selected = mutable.canonical_record_key();
         let policy = selected.canonical_contract().unwrap().unwrap();
-        assert_eq!(policy.readonly, Some(true)); assert!(policy.record_key);
-        let source = FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ROLE, "owner.items.{0}.body").facet(F::EXPRESSION_ORDINAL, "flatten");
+        assert_eq!(policy.readonly, Some(true));
+        assert!(policy.record_key);
+        let source = FieldContract::native(DataType::Utf8)
+            .facet(F::EXPRESSION_ROLE, "owner.items.{0}.body")
+            .facet(F::EXPRESSION_ORDINAL, "flatten");
         let policy = source.expression_source_contract().unwrap().unwrap();
         assert_eq!(policy.role, Some("owner.items.{0}.body"));
         assert_eq!(policy.ordinal, Some(ExpressionOrdinal::Flatten));
-        for field in [FieldContract::native(DataType::Utf8).facet(F::CANONICAL_KEY, "future"),
+        for field in [
+            FieldContract::native(DataType::Utf8).facet(F::CANONICAL_KEY, "future"),
             FieldContract::native(DataType::Utf8).facet(F::CANONICAL_READONLY, "yes"),
-            FieldContract::native(DataType::Utf8).facet(F::CANONICAL_RECORD_KEY, "false")]
-        { assert!(field.canonical_contract().is_err()); }
-        for field in [FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ROLE, ""),
+            FieldContract::native(DataType::Utf8).facet(F::CANONICAL_RECORD_KEY, "false"),
+        ] {
+            assert!(field.canonical_contract().is_err());
+        }
+        for field in [
+            FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ROLE, ""),
             FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_ORDINAL, "future"),
-            FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_BINDER, "future")]
-        { assert!(field.expression_source_contract().is_err()); }
+            FieldContract::native(DataType::Utf8).facet(F::EXPRESSION_BINDER, "future"),
+        ] {
+            assert!(field.expression_source_contract().is_err());
+        }
     }
 }
