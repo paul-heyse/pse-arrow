@@ -143,7 +143,7 @@ science; stale policy/mapping/physical interpretations refuse or migrate explici
 | G02 | planned | Working narrow A/B family artifacts; G01 only for host families it migrates; I01/J01 design | Publish reusable bundles and extend inspection to engineering/science/diagnostic/developer evidence worlds. Narrow J02 readback can proceed before full G01. Test option preservation/evolution, missing imports/interpretation, cross-pool identity, nesting and valid observation without native authority. Reuse shared semantic checker; remove duplicate acquisition/walkers and JSON passes only with equivalent admission. |
 | G03 | planned | G02; 65d working native operation/client route | Deliver generated client packages, explicit offline/reflection discovery and independent local invocation through full operation/readback. Client-side message limits, terminal errors, reconnect auth, unauthorized reflection and expired protected results must remain observable. Delete superseded client-specific contract copies/dispatch translations. |
 | G04 | planned | G02; narrow E/F scientific/outcome and J03/J04 developer integrations according to family | Migrate independent reference helpers, diagnostic/developer readers and exact-rerun clients to approved bundles and generated/dynamic types. Test unknowns, exact bits, changed datum/formulation, original report/inventory binding, retained-context failure and complete coverage with independent expectations. Delete obsolete exchange/rerun maps while preserving authority and numerical independence. |
-| G05 | planned | G01/G02; exact acquired rustdoc supplier population | Replace the API presentation JSON intermediate with typed projection where direct supplier fields have exact correspondence. First compare current Serde bridge against generated typed traversal on recursive types, attributes and unavailable shapes. Select generated traversal only if all curated fields remain explicit with less repeated representation; otherwise retain the bounded bridge with documented reason. No silent widening of accepted rustdoc formats. |
+| G05 | complete | Exact pinned rustdoc supplier and curated consumer population; G01/G02 only if a new projection cutover is selected | Retained the bounded Serde bridge after source comparison against a complete recursive conversion closure. Four native tests passed for recursive types, attributes, unavailable shapes, HRTB/capture/stability and format refusal against zero failures. The decision and revisit conditions below preserve the full curated contract without widening accepted formats. |
 | G06 | planned | G01–G05 selected consumers; 65a/b generation and fidelity controls | Complete developer-tool integration: compiler/plugin/edition/external mappings, explicit preparation, actionable generation diagnostics and Buf compatibility policy. Use one independently driven client/reference journey per actual supported contract family; reconcile every migrated consumer/deletion and supply evidence/limits to 65h. |
 
 G01's full population includes J01-selected developer observational families with no inverse
@@ -157,6 +157,65 @@ construction cost using one recursive signature population plus unknown/new-form
 Its decision changes only the API projection path. It does not block unrelated client/schema
 delivery. A typed mirror that adds more upkeep is not an improvement merely because it avoids
 `serde_json::Value`; retain the simpler bounded route when it wins the complete comparison.
+
+### G05 supplier comparison and selected retention — 2026-11-04
+
+**Selected:** retain `contracts::project` for the existing native schema61 presentation
+contracts. This is the package's permitted retain outcome, rather than a missing Proto
+migration. Input still passes `api::decode`'s `rustdoc_types::FORMAT_VERSION` preflight before
+typed decoding; new format numbers refuse before version-specific fields are interpreted.
+No supplier format, acquisition context or availability promise changes.
+
+The exact supplier is `rustdoc-types =0.61.0`, its
+[typed schema source](https://docs.rs/crate/rustdoc-types/0.61.0/source/src/lib.rs) and
+[feature declaration](https://docs.rs/crate/rustdoc-types/0.61.0/source/Cargo.toml).
+Its `Generics`, `Type`, `GenericArgs`, `GenericBound`, `Attribute`, `FunctionSignature` and
+stability structures already supply the accepted Serde representation. Its selected release
+does not supply the `JsonSchema` implementation needed by independent command-schema clients.
+The local curated types add that public schema while preserving the supplier's fields and
+enum spellings, including recursive constraints, exact IDs, HRTBs, precise captures and opaque
+`Attribute::Other`. That last carrier remains uninterpreted text; it cannot supply a capture,
+availability or stability fact. Rustdoc's [JSON documentation](https://doc.rust-lang.org/stable/rustdoc/unstable-features.html)
+characterizes its experimental output; the repository's pin and format gate define the
+actually accepted population.
+
+The retained mechanism uses `serde_json =1.0.151`
+[`to_value`](https://docs.rs/serde_json/1.0.151/serde_json/fn.to_value.html) followed by
+[`from_value`](https://docs.rs/serde_json/1.0.151/serde_json/fn.from_value.html). It constructs
+one in-memory `Value` and drives the target type's deserializer; it does not format and reparse
+JSON text. The intermediate does allocate and traverse the selected tree. Conversion failures
+remain `ApiError` or explicit unavailable shape in the existing pattern consumer. These are
+ordinary Serde contracts, not ProtoJSON behavior or a generic native-admission mechanism.
+
+The compared direct route would need an exhaustive recursive conversion closure for the
+supplier's 14 `Type` alternatives and their path/argument/constraint/bound/generic/signature/
+attribute/stability dependencies. Those fields are consumed by contract presentation, pattern
+queries, implementation adjacency and precise-capture reporting. Handwriting that closure
+adds another field/variant correspondence beside the supplier and curated schema. Generating
+it requires a supported foreign-type declaration source that emits the complete curated schema;
+the selected mechanism does not currently provide one. Adding a separate Proto vocabulary
+would add yet another representation and generation/feature obligation without removing the
+native supplier or public command schema. Source inspection supports retaining the bounded
+bridge on total machinery; no allocation or latency improvement is claimed or measured.
+
+Independent fixtures cover every current type alternative, nested function signatures,
+borrowed/qualified/associated shapes, all generic argument forms, constants and constraints,
+the selected attributes, opaque unknown attribute text, and missing or unrecognized shapes.
+Existing controls retain generics/HRTB/capture/stability distinctions and new-format refusal.
+These establish mechanical correspondence only, not API availability or compiler truth.
+No fresh rustdoc acquisition was required for this source-backed bounded comparison.
+
+**Tested:** native `scripts/pse test pse-host --lib` with the selector
+`test(schema61_projection) | test(schema61_contract_keeps_association_hrtb_capture_and_stability_separate) | test(format_preflight_refuses_new_version_before_version_specific_shape)`
+reconciled four selected/completed tests, zero failures, complete capture and settled original
+ownership. This closes G05's bounded comparison and retain disposition; it establishes neither
+new-format support, current compiler/API availability nor assembled G/H qualification.
+
+Revisit if a pinned supplier supplies the consumed public schema directly, or the shared
+generation foundation can derive every curated shape and failure distinction without a second
+manual declaration/conversion forest. Select a replacement only when that complete route
+removes machinery, preserves all consumers and has matching tests; measure whole-query work
+before claiming a performance benefit.
 
 G01/G02 cover the finite existing family population, not just a demonstration message. Additions
 to native facts extend the owner declaration once. Tests of compiler fact truth remain with

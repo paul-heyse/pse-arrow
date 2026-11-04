@@ -300,6 +300,10 @@ pub struct Contract {
 pub(super) fn project<T: Serialize, U: serde::de::DeserializeOwned>(
     value: &T,
 ) -> Result<U, super::ApiError> {
+    // The supplier has already passed api::decode's exact format61 gate. These curated
+    // shapes add command-schema support to rustdoc-types, which does not supply it.
+    // Keep its Serde representation as the correspondence contract rather than maintain
+    // another recursive field/variant converter or translate through a Proto type tree.
     Ok(serde_json::from_value(serde_json::to_value(value)?)?)
 }
 pub(super) fn generics(item: &Item) -> Option<&rustdoc_types::Generics> {
@@ -478,6 +482,56 @@ pub(super) fn contract_with_parents(
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn schema61_projection_preserves_all_recursive_type_forms() {
+        let path = json!({"path":"crate::Original","id":7,"args":null});
+        let cases = [
+            json!({"resolved_path":path}),
+            json!({"dyn_trait":{"traits":[{"trait":path,"generic_params":[]}],"lifetime":"'a"}}),
+            json!({"generic":"T"}),
+            json!({"primitive":"u128"}),
+            json!({"function_pointer":{"sig":{"inputs":[["arg",{"borrowed_ref":{"lifetime":"'a","is_mutable":true,"type":{"generic":"T"}}}]],"output":{"tuple":[{"primitive":"u8"},{"generic":"T"}]},"is_c_variadic":true},"generic_params":[{"name":"'a","kind":{"lifetime":{"outlives":[]}}}],"header":{"is_const":false,"is_unsafe":true,"is_async":false,"abi":{"C":{"unwind":true}}}}}),
+            json!({"tuple":[{"primitive":"u8"},{"generic":"T"}]}),
+            json!({"slice":{"generic":"T"}}),
+            json!({"array":{"type":{"generic":"T"},"len":"N + 1"}}),
+            json!({"pat":{"type":{"primitive":"u8"},"__pat_unstable_do_not_use":"0..=42"}}),
+            json!({"impl_trait":[{"use":[{"lifetime":"'a"},{"param":"T"},{"param":"N"}]}]}),
+            json!("infer"),
+            json!({"raw_pointer":{"is_mutable":false,"type":{"generic":"T"}}}),
+            json!({"borrowed_ref":{"lifetime":null,"is_mutable":false,"type":{"generic":"T"}}}),
+            json!({"qualified_path":{"name":"Output","args":"return_type_notation","self_type":{"generic":"T"},"trait":path}}),
+        ];
+        for expected in cases {
+            let supplier: rustdoc_types::Type = serde_json::from_value(expected.clone()).unwrap();
+            let selected: Type = project(&supplier).unwrap();
+            assert_eq!(serde_json::to_value(selected).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn schema61_projection_preserves_arguments_attributes_and_rejects_unavailable_shapes() {
+        let arguments = json!({"angle_bracketed":{
+            "args":[{"lifetime":"'a"},{"type":{"generic":"T"}},{"const":{"expr":"N + 1","value":null,"is_literal":false}},"infer"],
+            "constraints":[{"name":"Item","args":{"parenthesized":{"inputs":[{"primitive":"u8"}],"output":null}},"binding":{"constraint":[{"outlives":"'a"}]}}]
+        }});
+        let native: rustdoc_types::GenericArgs = serde_json::from_value(arguments.clone()).unwrap();
+        let selected: Arguments = project(&native).unwrap();
+        assert_eq!(serde_json::to_value(selected).unwrap(), arguments);
+        let attributes = json!([
+            "non_exhaustive", {"must_use":{"reason":"original reason"}}, "macro_export",
+            {"export_name":"original_symbol"}, {"link_section":".original"},
+            "automatically_derived", {"repr":{"kind":"c","align":16,"packed":null,"int":"u8"}},
+            "no_mangle", {"target_feature":{"enable":["original_feature"]}},
+            {"other":"#[use(T)] remains opaque; it is not a precise capture"}
+        ]);
+        let native: Vec<rustdoc_types::Attribute> = serde_json::from_value(attributes.clone()).unwrap();
+        let selected: Vec<Attribute> = project(&native).unwrap();
+        assert_eq!(serde_json::to_value(selected).unwrap(), attributes);
+        assert!(project::<_, Type>(&json!({"future_type":{}})).is_err());
+        assert!(project::<_, Attribute>(&json!({"future_attribute":{}})).is_err());
+        assert!(project::<_, Type>(&json!({"borrowed_ref":{"lifetime":null,"is_mutable":true}})).is_err());
+    }
+
     #[test]
     fn schema61_contract_keeps_association_hrtb_capture_and_stability_separate() {
         let mut value: serde_json::Value = serde_json::from_str(r##"{"id":1,"crate_id":0,"name":"choose","span":null,"visibility":"public","docs":null,"links":{},"attrs":[{"repr":{"kind":"c","align":16,"packed":null,"int":null}},{"other":"#[unknown(text)]"}],"deprecation":null,"stability":{"feature":"ordinary","level":{"stable":{"since":"1.0"}}},"const_stability":{"feature":"const_gate","level":"unstable"},"inner":{"function":{"sig":{"inputs":[],"output":{"impl_trait":[{"use":[{"lifetime":"'a"},{"param":"T"},{"param":"N"}]}]},"is_c_variadic":false},"generics":{"params":[{"name":"'a","kind":{"lifetime":{"outlives":[]}}},{"name":"T","kind":{"type":{"bounds":[],"default":null,"is_synthetic":false}}},{"name":"N","kind":{"const":{"type":{"primitive":"usize"},"default":null}}}],"where_predicates":[{"bound_predicate":{"type":{"generic":"T"},"bounds":[{"trait_bound":{"trait":{"path":"Iterator","id":2,"args":{"angle_bracketed":{"args":[],"constraints":[{"name":"Item","args":null,"binding":{"equality":{"type":{"generic":"T"}}}}]}}},"generic_params":[{"name":"'b","kind":{"lifetime":{"outlives":[]}}}],"modifier":"none"}}],"generic_params":[]}}]},"header":{"is_const":true,"is_unsafe":false,"is_async":false,"abi":"Rust"},"has_body":true,"default_unstable":{"feature":"body_gate"}}}}"##).unwrap();
