@@ -130,6 +130,11 @@ impl PreparedSession {
             || invocation <= self.last_invocation || !self.supports_batch() {
             return Err(ProviderError::Contract("scientific worker stale or unsupported batch context".into()).into());
         }
+        // Frame refusal precedes the mutable invocation transition and native admission.
+        self.binding.as_ref().ok_or_else(|| ProviderError::Terminal("scientific worker native state is closed".into()))?
+            .check_batch_frame(points, &self.request, &EvaluationContext {
+                cancelled: self.scope.cancellation(), max_result_bytes: self.result_limit,
+            })?;
         self.last_invocation = invocation;
         self.state = SessionState::Evaluating;
         let result: Result<Vec<ProviderBatchOutcome>, ProviderError> = (|| {

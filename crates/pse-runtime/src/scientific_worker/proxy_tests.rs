@@ -36,6 +36,22 @@ struct ControlledNative {
     marker: std::path::PathBuf,
 }
 impl Provider for ControlledNative {
+    fn supports_batch(&self, request: &PreparedProviderRequest) -> bool {
+        self.mode == "batch-cooperative" && request.order == DerivativeOrder::Value
+            && matches!(request.demand, ProviderDemand::CompleteJets)
+    }
+    fn fill_batch(&mut self, points: &[&ProviderBatchPoint], _request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>) -> Result<ProviderBatchResults, ProviderError> {
+        assert_eq!(points.len(), 2, "one controlled group owns both points");
+        std::fs::write(&self.marker, b"one native group active").unwrap();
+        loop {
+            if let Err(error) = context.check() {
+                std::fs::write(self.marker.with_extension("settled"), b"native group returned").unwrap();
+                return Err(error);
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
     fn supports(&self, demand: &ProviderDemand) -> bool {
         matches!(self.mode.as_str(), "actions" | "actions-cooperative")
             || matches!(demand, ProviderDemand::CompleteJets)
@@ -215,7 +231,7 @@ fn controlled_child() {
             let registry = pse_quantity::generated::standard_registry()
                 .map_err(|error| ProviderError::Contract(error.to_string()))?;
             spec.validate(&registry)?;
-            if mode == "water-batch" {
+            if mode.starts_with("water-batch") {
                 let regime = match request.regime.as_str() {
                     "liquid" => WaterRegime::Liquid,
                     "vapor" => WaterRegime::Vapor,
@@ -394,12 +410,89 @@ fn actual_water_group_transport_preserves_raw_point_admission_and_capability() {
             directions: vec![], cotangents: vec![], weights: vec![] }],
     }), &proxy.scope, None).unwrap();
     assert!(matches!(response, p::Response::Failure(p::Failure::Contract(_))));
+    let duplicate = p::BatchPoint { id: points[0].id,
+        inputs: points[0].inputs.iter().map(|x| x.to_bits()).collect(), directions: vec![], cotangents: vec![], weights: vec![] };
+    let response = proxy.remote.as_ref().unwrap().exchange(p::Request::EvaluateBatch(p::EvaluateBatch {
+        handle, invocation: proxy.invocation + 1, points: vec![duplicate.clone(), duplicate],
+    }), &proxy.scope, None).unwrap();
+    assert!(matches!(response, p::Response::Failure(p::Failure::Contract(_))));
     // A refused replay did not revoke this original prepared session or its next invocation.
     assert!(proxy.fill_batch(&refs, &request, &context).unwrap()[0].is_ok());
     drop(proxy);
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
     assert_eq!(pool.reserved(), 0);
     assert_eq!(native.used(), 0);
+}
+
+#[test]
+fn stop_active_group_drains_native_work_and_preserves_control_admission() {
+    let (service, pool, _native) = service();
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("group-active");
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap()
+        .test_entry("scientific_worker::proxy::tests::controlled_child", "batch-cooperative", marker.clone());
+    let factory = LocalWaterFactory::prepare(image, &registry, WaterRegime::Vapor, service.clone()).unwrap();
+    let request = PreparedProviderRequest::new(Arc::new(factory.spec().clone()),
+        ProviderRequest::all(factory.spec(), DerivativeOrder::Value)).unwrap();
+    let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+    let mut proxy = Proxy { factory, scope, attempt: pse_operations::mint_id(), remote: None,
+        prepared: vec![], invocation: 0, failed: false };
+    proxy.prepare_demand(&request).unwrap();
+    assert!(proxy.supports_batch(&request));
+    let handle = proxy.handle_for(&request).unwrap();
+    let remote = proxy.remote.as_ref().unwrap();
+    let pid = remote.child.pid();
+    let io = remote.io.as_ref().unwrap();
+    std::thread::scope(|threads| {
+        let evaluating = threads.spawn(|| io.exchange(p::Request::EvaluateBatch(p::EvaluateBatch {
+            handle: handle.clone(), invocation: 1,
+            points: [1, 2].map(|id| p::BatchPoint { id: SemanticId::from_bytes([id; 16]),
+                inputs: [500.0f64, 20.0].map(f64::to_bits).to_vec(), directions: vec![], cotangents: vec![], weights: vec![] }).to_vec(),
+        }), &proxy.scope, None));
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !marker.exists() { assert!(Instant::now() < deadline); std::thread::sleep(Duration::from_millis(1)); }
+        assert!(pool.reserved() > 0);
+        assert!(matches!(io.exchange(p::Request::Stop(handle.clone()), &proxy.scope, None).unwrap(),
+            p::Response::Closed(actual) if actual == handle));
+        assert!(marker.with_extension("settled").exists(), "stop acknowledgement follows actual group return");
+        assert!(matches!(evaluating.join().unwrap().unwrap(), p::Response::Failure(p::Failure::Cancelled)));
+        assert!(pool.reserved() > 0, "process and I/O custody retain aggregate admission after one group retires");
+    });
+    drop(proxy);
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), 0);
+}
+
+#[test]
+fn malformed_group_completion_never_publishes_partial_products() {
+    let (service, pool, _native) = service();
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    for mode in ["water-batch-wrong-shape", "water-batch-wrong-point", "water-batch-missing-point", "water-batch-nonfinite"] {
+        let image = PreparedExecutable::observe(std::env::current_exe().unwrap(), 64 << 20).unwrap()
+            .test_entry("scientific_worker::proxy::tests::controlled_child", mode, directory.path().join(mode));
+        let factory = LocalWaterFactory::prepare(image, &registry, WaterRegime::Liquid, service.clone()).unwrap();
+        let request = PreparedProviderRequest::new(Arc::new(factory.spec().clone()),
+            ProviderRequest::all(factory.spec(), DerivativeOrder::Value)).unwrap();
+        let scope = ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let mut proxy = Proxy { factory, scope, attempt: pse_operations::mint_id(), remote: None,
+            prepared: vec![], invocation: 0, failed: false };
+        proxy.prepare_demand(&request).unwrap();
+        let pid = proxy.remote.as_ref().unwrap().child.pid();
+        let points = [
+            ProviderBatchPoint::values(SemanticId::from_bytes([1; 16]), vec![300.0, 996.556 / 0.018_015_268]),
+            ProviderBatchPoint::values(SemanticId::from_bytes([2; 16]), vec![310.0, 56000.0]),
+        ];
+        let refs: Vec<_> = points.iter().collect();
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let result = proxy.fill_batch(&refs, &request, &EvaluationContext { cancelled: &cancelled, max_result_bytes: 65536 });
+        assert!(result.is_err(), "malformed whole-group framing never grants its first point's partial success");
+        assert!(proxy.failed);
+        assert!(proxy.remote.is_none());
+        assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+        assert_eq!(pool.reserved(), 0);
+    }
 }
 
 #[test]

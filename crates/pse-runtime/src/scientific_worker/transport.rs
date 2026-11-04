@@ -591,6 +591,25 @@ fn perturb_response_for_test(mut response: p::Response) -> p::Response {
             _ => {}
         }
     }
+    if let p::Response::Batch(batch) = &mut response {
+        match std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() {
+            Ok("water-batch-wrong-shape") => {
+                if let Some(p::BatchOutcome { result: p::BatchResult::Product(product), .. }) = batch.points.last_mut() {
+                    product.values.clear();
+                }
+            }
+            Ok("water-batch-wrong-point") => {
+                if let Some(point) = batch.points.last_mut() { point.id = SemanticId::NIL; }
+            }
+            Ok("water-batch-missing-point") => { batch.points.pop(); }
+            Ok("water-batch-nonfinite") => {
+                if let Some(p::BatchOutcome { result: p::BatchResult::Product(product), .. }) = batch.points.last_mut() {
+                    product.values.fill(f64::NAN);
+                }
+            }
+            _ => {}
+        }
+    }
     response
 }
 

@@ -260,6 +260,17 @@ group merely to recover its error. The guard excludes other in-process CoolProp 
 the call; compare that physical tradeoff against native low-level grouping before claiming a
 throughput benefit. No global application/RPC mutex or automatic retry is introduced.
 
+The supported process profile also retains the authenticated image and no-global-mutation
+premise: the current repository exposes no global CoolProp reference/configuration setters.
+`PropsSImulti` creates a fresh HEOS state, and existing scalar `WaterFactory::create` likewise
+creates a fresh state after factory preparation. Exclusive locking prevents simultaneous
+mutation; it does not undo a completed external mutation. In particular, a common native h/u
+shift can satisfy `h = u + p/rho` while violating the factory's original datum. Admitting
+global reference/configuration mutation is an observable requalification trigger for both
+fresh-state routes. Re-establish original anchor/datum meaning or assess the retained-state
+grouped library route before claiming support for that expanded profile; no library-wide
+configuration freeze is currently established.
+
 The initial production capability is independent-state, value-only water batching
 through one native `PropsSImulti` call, with derivative batch demands explicitly unsupported
 until qualified. Factor shared physical admission at the actual water owner: finite input

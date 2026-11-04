@@ -7,6 +7,10 @@
 //! Release data: <https://github.com/CoolProp/CoolProp/tree/ae81610e7d23efc57f9d051c8e70a4d66e87537f>.
 //! The initial Linux x86_64 image is authenticated against the library in the published
 //! <https://static.crates.io/crates/coolprop-sys-linux-x86-64/coolprop-sys-linux-x86-64-8.0.0.crate>.
+//! The admitted process profile has no global CoolProp reference/configuration mutation. A newly
+//! constructed scalar or grouped state relies on that lifetime premise; a common native h/u shift
+//! would preserve energy consistency while changing the factory's original datum. An embedding that
+//! admits global setters must requalify fresh-state reference meaning before using this profile.
 #![allow(
     unsafe_code,
     reason = "narrow calls through coolprop-sys 8.0.0's generated C ABI, with owned live handles and bounded error buffers"

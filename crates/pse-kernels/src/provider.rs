@@ -440,12 +440,11 @@ impl ProviderBinding {
     ) -> Result<ProviderBatchResults, ProviderError> {
         self.worker.fill_batch(points, request, context)
     }
-    /// Admit a whole identified frame, then gather independently admitted point inputs for one group.
-    /// A malformed frame has no effects; one bad point never prevents its admitted siblings.
-    pub fn evaluate_batch(
-        &mut self, points: &[ProviderBatchPoint], request: &PreparedProviderRequest,
+    /// Check whole-frame integrity and admitted storage without mutating native preparation.
+    pub fn check_batch_frame(
+        &self, points: &[ProviderBatchPoint], request: &PreparedProviderRequest,
         context: &EvaluationContext<'_>,
-    ) -> Result<Vec<ProviderBatchOutcome>, ProviderError> {
+    ) -> Result<(), ProviderError> {
         context.check()?;
         if request.binding.is_none() {
             return Err(ProviderError::Contract("provider request has no executable binding".into()));
@@ -469,6 +468,15 @@ impl ProviderBinding {
         if points.is_empty() || bytes > context.max_result_bytes {
             return Err(ProviderError::Limit("provider batch storage"));
         }
+        Ok(())
+    }
+    /// Admit a whole identified frame, then gather independently admitted point inputs for one group.
+    /// A malformed frame has no effects; one bad point never prevents its admitted siblings.
+    pub fn evaluate_batch(
+        &mut self, points: &[ProviderBatchPoint], request: &PreparedProviderRequest,
+        context: &EvaluationContext<'_>,
+    ) -> Result<Vec<ProviderBatchOutcome>, ProviderError> {
+        self.check_batch_frame(points, request, context)?;
         let mut outcomes: Vec<_> = points.iter().map(|point| ProviderBatchOutcome {
             id: point.id,
             result: Err(ProviderError::Contract("provider point not admitted".into())),
