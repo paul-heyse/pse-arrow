@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compose three original native reports while the existing keeper retains its fixture.
-use super::{Error, Failures, WorkerStart, signals, worker_allocation};
+use super::{Error, Failures, FixtureDisposition, WorkerStart, signals, worker_allocation};
 use clap::Parser;
 use futures_util::FutureExt as _;
 use pse_host::{
@@ -182,11 +182,6 @@ impl Phase {
 
 // The sequence owns only composition. Each implementation retains its performing
 // owners even if a step fails after dispatch or loses its acknowledgement.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum FixtureDisposition {
-    Preserve,
-    Dispose,
-}
 async fn settle_after_cancel(
     cancelled: Result<(), Error>,
     wait: impl Future<Output = Result<(), Error>>,
@@ -200,19 +195,28 @@ async fn settle_after_cancel(
         }
     }
 }
-fn request_keeper_finish(
-    finish: &Path,
-    dispose: &Path,
-    disposition: FixtureDisposition,
-) -> Vec<Error> {
-    let mut failures = Vec::new();
-    if disposition == FixtureDisposition::Dispose
-        && let Err(error) = super::publish_worker_started(dispose)
-    {
-        failures.push(error);
+fn final_disposition(
+    requested: FixtureDisposition,
+    eligible: bool,
+    stop: &CancelSource,
+) -> FixtureDisposition {
+    if requested == FixtureDisposition::Dispose && eligible && !stop.token().is_cancelled() {
+        FixtureDisposition::Dispose
+    } else {
+        FixtureDisposition::Preserve
     }
-    if let Err(error) = super::publish_worker_started(finish) {
+}
+fn request_keeper_finish(finish: &Path, disposition: FixtureDisposition) -> Vec<Error> {
+    let mut failures = Vec::new();
+    if let Err(error) = super::publish_finish_request(finish, disposition) {
         failures.push(error);
+        // A failed final decision cannot arm disposal. Independently attempt a
+        // preserving finish; the original drain request also remains effective.
+        if disposition == FixtureDisposition::Dispose
+            && let Err(error) = super::publish_finish_request(finish, FixtureDisposition::Preserve)
+        {
+            failures.push(error);
+        }
     }
     failures
 }
@@ -222,7 +226,10 @@ trait Driver {
     async fn phase(&mut self, phase: Phase) -> Result<(), Error>;
     async fn gate(&mut self) -> Result<(), Error>;
     async fn retire_frontends_and_tests(&mut self) -> Result<(), Error>;
-    async fn finish_keeper(&mut self, disposition: FixtureDisposition) -> Result<(), Error>;
+    async fn finish_keeper(
+        &mut self,
+        disposition: FixtureDisposition,
+    ) -> Result<FixtureDisposition, Error>;
 }
 fn checkpoint(stop: &CancelSource) -> Result<(), Error> {
     if stop.token().is_cancelled() {
@@ -285,6 +292,8 @@ async fn execute(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), Er
     let keeper = AssertUnwindSafe(driver.finish_keeper(disposition))
         .catch_unwind()
         .await;
+    let cleanup_completed = matches!(&keeper, Ok(Ok(FixtureDisposition::Dispose)));
+    let keeper = keeper.map(|result| result.map(|_| ()));
     let mut causes = Vec::new();
     if let Some(error) = primary {
         causes.push(error);
@@ -309,11 +318,16 @@ async fn execute(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), Er
         );
         std::panic::resume_unwind(panic);
     }
-    if !causes.is_empty() || stop.token().is_cancelled() {
+    if !causes.is_empty() || stop.token().is_cancelled() && !cleanup_completed {
         return Err(Box::new(Failure {
             interrupted: stop.token().is_cancelled(),
             failures: Failures(causes),
         }));
+    }
+    if stop.token().is_cancelled() && cleanup_completed {
+        eprintln!(
+            "stop observed after final cleanup acceptance; completed disposal cannot be revoked"
+        );
     }
     Ok(())
 }
@@ -624,8 +638,10 @@ impl Driver for Native {
             .arg(self.path("started.json"))
             .arg("--finish-request")
             .arg(self.path("finish.json"))
-            .arg("--dispose-request")
-            .arg(self.path("dispose.json"))
+            .arg("--drain-request")
+            .arg(self.path("drain.json"))
+            .arg("--drained")
+            .arg(self.path("drained.json"))
             .arg("--state-parent")
             .arg(&self.args.work_directory)
             .arg("--ready")
@@ -896,45 +912,100 @@ impl Driver for Native {
             Err(Box::new(Failures(failures)))
         }
     }
-    async fn finish_keeper(&mut self, disposition: FixtureDisposition) -> Result<(), Error> {
+    async fn finish_keeper(
+        &mut self,
+        disposition: FixtureDisposition,
+    ) -> Result<FixtureDisposition, Error> {
         let Some(child) = self.keeper.as_mut() else {
-            return Ok(());
+            return Ok(FixtureDisposition::Preserve);
         };
-        if let Some(status) = child.try_wait()? {
-            return if status.success() {
-                Ok(())
-            } else {
-                Err(format!("keeper exited {status}; original fixture/logs retained").into())
-            };
+        let mut failures: Vec<Error> = Vec::new();
+        match child.try_wait() {
+            Ok(Some(status)) => return Err(format!("keeper exited {status} before final cleanup acceptance; inspect original fixture/logs").into()),
+            Ok(None) => {},
+            Err(error) => failures.push(error.into()),
         }
-        let disposition = if disposition == FixtureDisposition::Dispose
-            && !self.stop.token().is_cancelled()
-            && self.completed
-            && self.managed.iter().all(|owner| owner.settled)
-        {
-            FixtureDisposition::Dispose
-        } else {
-            FixtureDisposition::Preserve
-        };
-        let mut failures = request_keeper_finish(
-            &self.path("finish.json"),
-            &self.path("dispose.json"),
+        let deadline = Instant::now()
+            .checked_add(Duration::from_millis(self.args.shutdown_ms))
+            .ok_or("keeper shutdown deadline overflow")?;
+        if let Err(error) = super::publish_worker_started(&self.path("drain.json")) {
+            failures.push(error);
+        }
+        // This observation is emitted only after both original owners have
+        // independently drained and the original worker's terminal join is checked.
+        if failures.is_empty() {
+            loop {
+                if self.stop.token().is_cancelled() {
+                    break;
+                }
+                match read(&self.path("drained.json"), 1024) {
+                    Ok(bytes) => {
+                        match serde_json::from_slice::<WorkerStart>(&bytes) {
+                            Ok(_) => break,
+                            Err(error) => failures.push(error.into()),
+                        }
+                        break;
+                    }
+                    Err(error)
+                        if error
+                            .downcast_ref::<std::io::Error>()
+                            .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound) => {}
+                    Err(error) => {
+                        failures.push(error);
+                        break;
+                    }
+                }
+                if let Some(child) = self.keeper.as_mut() {
+                    match child.try_wait() {
+                        Ok(Some(_)) => {
+                            failures
+                                .push("keeper exited before independent drain observation".into());
+                            break;
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            failures.push(error.into());
+                            break;
+                        }
+                    }
+                }
+                if Instant::now() >= deadline {
+                    failures.push("keeper drain observation deadline expired".into());
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
+        let disposition = final_disposition(
             disposition,
+            failures.is_empty() && self.completed && self.managed.iter().all(|owner| owner.settled),
+            &self.stop,
         );
+        // The sole atomic final request is the coordinator's cancellation
+        // linearization point. No protected owner remains live at a Dispose grant.
+        // Stops observed after publication cannot retroactively revoke cleanup.
+        failures.extend(request_keeper_finish(
+            &self.path("finish.json"),
+            disposition,
+        ));
         let child = self.keeper.as_mut().ok_or("keeper owner missing")?;
-        match tokio::time::timeout(Duration::from_millis(self.args.shutdown_ms), child.wait()).await
+        match tokio::time::timeout(
+            deadline.saturating_duration_since(Instant::now()),
+            child.wait(),
+        )
+        .await
         {
             Ok(Ok(status)) if status.success() => {}
             Ok(Ok(status)) => failures
-                .push(format!("keeper exited {status}; original fixture/logs retained").into()),
+                .push(format!("keeper exited {status} after final finish decision; inspect original cleanup logs").into()),
             Ok(Err(error)) => failures.push(error.into()),
             Err(_) => failures.push(
-                "keeper settlement deadline expired; original foreground lifetime/fixture retained"
+                "keeper settlement deadline expired after final finish decision; the original keeper still owns cleanup and an accepted disposition cannot be revoked"
                     .into(),
             ),
         }
         if failures.is_empty() {
-            Ok(())
+            Ok(disposition)
         } else {
             Err(Box::new(Failures(failures)))
         }
@@ -1051,6 +1122,8 @@ mod tests {
         retirement_failure_after_complete: bool,
         request_directory: Option<PathBuf>,
         dispositions: Vec<FixtureDisposition>,
+        stop_during_drain: bool,
+        stop_after_acceptance: bool,
     }
     impl Probe {
         fn enter(&mut self, name: &'static str) -> Result<(), Error> {
@@ -1091,15 +1164,18 @@ mod tests {
             }
             Ok(())
         }
-        async fn finish_keeper(&mut self, disposition: FixtureDisposition) -> Result<(), Error> {
+        async fn finish_keeper(
+            &mut self,
+            disposition: FixtureDisposition,
+        ) -> Result<FixtureDisposition, Error> {
+            if self.stop_during_drain {
+                self.stop.cancel();
+            }
+            let disposition = final_disposition(disposition, true, &self.stop);
             self.dispositions.push(disposition);
             self.enter("finish")?;
             if let Some(directory) = &self.request_directory {
-                let failures = request_keeper_finish(
-                    &directory.join("finish.json"),
-                    &directory.join("dispose.json"),
-                    disposition,
-                );
+                let failures = request_keeper_finish(&directory.join("finish.json"), disposition);
                 if !failures.is_empty() {
                     return Err(Box::new(Failures(failures)));
                 }
@@ -1107,7 +1183,10 @@ mod tests {
             if self.cleanup_failure {
                 return Err("independent keeper release failure".into());
             }
-            Ok(())
+            if self.stop_after_acceptance {
+                self.stop.cancel();
+            }
+            Ok(disposition)
         }
     }
     #[tokio::test]
@@ -1198,10 +1277,12 @@ mod tests {
             assert!(driver.calls.iter().any(|call| call == "complete"));
             assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
             assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
-            assert!(super::super::start_requested(&directory.path().join("finish.json")).unwrap());
-            assert!(
-                !directory.path().join("dispose.json").exists(),
-                "stopped fixture receives no disposal authority on failure or stop"
+            assert_eq!(
+                super::super::finish_requested(&directory.path().join("finish.json"))
+                    .unwrap()
+                    .unwrap()
+                    .disposition,
+                FixtureDisposition::Preserve
             );
             if !interrupted {
                 assert!(
@@ -1213,18 +1294,58 @@ mod tests {
         }
     }
     #[test]
-    fn failed_disposal_request_still_publishes_independent_normal_finish() {
+    fn failed_final_finish_publication_cannot_arm_independent_disposal() {
         let directory = tempfile::tempdir().unwrap();
-        let dispose = directory.path().join("dispose.json");
         let finish = directory.path().join("finish.json");
-        std::fs::write(&dispose, b"existing conflicting request").unwrap();
-        let failures = request_keeper_finish(&finish, &dispose, FixtureDisposition::Dispose);
-        assert_eq!(failures.len(), 1);
-        assert!(super::super::start_requested(&finish).unwrap());
+        std::fs::create_dir(&finish).unwrap();
+        let failures = request_keeper_finish(&finish, FixtureDisposition::Dispose);
         assert_eq!(
-            std::fs::read(&dispose).unwrap(),
-            b"existing conflicting request"
+            failures.len(),
+            2,
+            "failed decision and independent preserving attempt retained"
         );
+        assert!(super::super::finish_requested(&finish).is_err());
+        assert_eq!(
+            std::fs::read_dir(directory.path()).unwrap().count(),
+            1,
+            "no separately armed disposal grant or abandoned temporary file"
+        );
+    }
+    #[tokio::test]
+    async fn stop_during_drain_withholds_final_disposal_and_late_stop_cannot_revoke_acceptance() {
+        for late in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let mut driver = Probe {
+                stop_during_drain: !late,
+                stop_after_acceptance: late,
+                request_directory: Some(directory.path().to_owned()),
+                ..Default::default()
+            };
+            let stop = driver.stop.clone();
+            let result = execute(&mut driver, &stop).await;
+            assert_eq!(result.is_ok(), late);
+            let disposition = super::super::finish_requested(&directory.path().join("finish.json"))
+                .unwrap()
+                .unwrap()
+                .disposition;
+            assert_eq!(
+                disposition,
+                if late {
+                    FixtureDisposition::Dispose
+                } else {
+                    FixtureDisposition::Preserve
+                }
+            );
+            if !late {
+                assert!(
+                    result
+                        .unwrap_err()
+                        .downcast_ref::<Failure>()
+                        .unwrap()
+                        .interrupted
+                );
+            }
+        }
     }
     #[tokio::test]
     async fn failed_recovery_never_opens_gate_and_keeps_independent_cleanup_causes() {

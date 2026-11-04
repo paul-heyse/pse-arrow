@@ -71,12 +71,15 @@ struct Args {
     /// Fresh atomic receipt published only after the original worker launch completes.
     #[arg(long, requires = "study_worker_start")]
     study_worker_started: Option<PathBuf>,
-    /// Fresh private request for this keeper's normal worker/service shutdown.
-    #[arg(long)]
+    /// Fresh final disposition, published only after the original owners have drained.
+    #[arg(long, requires_all = ["drain_request", "drained"])]
     finish_request: Option<PathBuf>,
-    /// When selected, disposal requires this fresh request after dependent owners settle.
-    #[arg(long)]
-    dispose_request: Option<PathBuf>,
+    /// Fresh request for independent normal worker/service shutdown, granting no disposal.
+    #[arg(long, requires = "finish_request")]
+    drain_request: Option<PathBuf>,
+    /// Fresh observation published only after actual independent owner drain and join checks.
+    #[arg(long, requires = "finish_request")]
+    drained: Option<PathBuf>,
     /// Explicit already-prepared production module receipt.
     #[arg(
         long,
@@ -145,6 +148,80 @@ fn worker_allocation(path: &std::path::Path) -> Result<NativeAllocation, Error> 
 #[serde(deny_unknown_fields)]
 struct WorkerStart {
     version: pse_model::document::Version<1>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+enum FixtureDisposition {
+    Preserve,
+    Dispose,
+}
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct FinishRequest {
+    version: pse_model::document::Version<1>,
+    disposition: FixtureDisposition,
+}
+fn finish_requested(path: &std::path::Path) -> Result<Option<FinishRequest>, Error> {
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let file = match std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    if !file.metadata()?.is_file() {
+        return Err("finish request must be a regular file".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(1025).read_to_end(&mut bytes)?;
+    if bytes.len() > 1024 {
+        return Err("finish request exceeds1024bytes".into());
+    }
+    Ok(Some(serde_json::from_slice(&bytes)?))
+}
+fn publish_finish_request(
+    path: &std::path::Path,
+    disposition: FixtureDisposition,
+) -> Result<(), Error> {
+    let parent = path
+        .parent()
+        .ok_or("finish request needs an existing parent")?;
+    let mut receipt = tempfile::NamedTempFile::new_in(parent)?;
+    serde_json::to_writer(
+        receipt.as_file_mut(),
+        &FinishRequest {
+            version: Default::default(),
+            disposition,
+        },
+    )?;
+    receipt.as_file().sync_all()?;
+    receipt
+        .persist_noclobber(path)
+        .map_err(|error| error.error)?;
+    Ok(())
+}
+fn complete_fixture_cleanup(
+    disposition: FixtureDisposition,
+    stop: Option<&CancelSource>,
+    failures: &mut Vec<Error>,
+    dispose: impl FnOnce() -> Vec<Error>,
+) -> FixtureDisposition {
+    if disposition == FixtureDisposition::Dispose && failures.is_empty() {
+        if stop.is_some_and(|stop| stop.token().is_cancelled()) {
+            failures
+                .push("keeper stopped before cleanup acceptance; stopped fixture retained".into());
+        } else {
+            // This synchronous acceptance follows actual drain and final disposition.
+            // A later stop cannot revoke an irreversible cleanup already accepted here.
+            failures.extend(dispose());
+            return FixtureDisposition::Dispose;
+        }
+    }
+    FixtureDisposition::Preserve
 }
 
 fn start_requested(path: &std::path::Path) -> Result<bool, Error> {
@@ -226,15 +303,19 @@ async fn run(args: Args) -> Result<(), Error> {
             return Err("keeper finish request requires a fresh distinct absolute path".into());
         }
     }
-    if let Some(dispose) = &args.dispose_request {
-        if !dispose.is_absolute()
-            || dispose.try_exists()?
-            || args.finish_request.as_ref() == Some(dispose)
-            || args.study_worker_start.as_ref() == Some(dispose)
-            || args.study_worker_started.as_ref() == Some(dispose)
-            || &args.ready == dispose
+    for request in [&args.drain_request, &args.drained].into_iter().flatten() {
+        if !request.is_absolute()
+            || request.try_exists()?
+            || args.finish_request.as_ref() == Some(request)
+            || args.study_worker_start.as_ref() == Some(request)
+            || args.study_worker_started.as_ref() == Some(request)
+            || &args.ready == request
+            || args.drain_request.as_ref() == Some(request)
+                && args.drained.as_ref() == Some(request)
         {
-            return Err("keeper disposal request requires a fresh distinct absolute path".into());
+            return Err(
+                "keeper drain request/observation requires fresh distinct absolute paths".into(),
+            );
         }
     }
     if let Some(gate) = &args.study_worker_start {
@@ -297,7 +378,10 @@ async fn run(args: Args) -> Result<(), Error> {
                 _ = stop.cancelled() => break,
                 _ = tokio::time::sleep_until(active_until.into()) => break,
                 _ = tokio::time::sleep(Duration::from_millis(25)), if pending_worker.is_some() || args.finish_request.is_some() => {
-                    if let Some(finish) = &args.finish_request && start_requested(finish)? {
+                    if let Some(drain) = &args.drain_request && start_requested(drain)? {
+                        break;
+                    }
+                    if let Some(finish) = &args.finish_request && finish_requested(finish)?.is_some() {
                         break;
                     }
                     if let Some(spec) = take_requested_worker(&mut pending_worker, args.study_worker_start.as_deref())? {
@@ -330,11 +414,11 @@ async fn run(args: Args) -> Result<(), Error> {
     if let Err(error) = service.shutdown(terminal).await {
         failures.push(Box::new(error));
     }
-    signal.finish().await;
     match action {
         Ok(Ok(())) => {}
         Ok(Err(error)) => failures.insert(0, error),
         Err(panic) => {
+            signal.finish().await;
             if let Some(worker) = &worker {
                 eprintln!(
                     "engineering scientific owner retained at {}",
@@ -359,26 +443,66 @@ async fn run(args: Args) -> Result<(), Error> {
             Err(error) => failures.push(Box::new(error)),
         }
     }
-    if failures.is_empty()
-        && let Some(dispose) = &args.dispose_request
-    {
-        match start_requested(dispose) {
-            Ok(true) => {}
-            Ok(false) => failures.push(
-                "dependent owner disposal request absent; stopped original fixture retained".into(),
-            ),
-            Err(error) => failures.push(error),
+    let mut disposition = FixtureDisposition::Dispose;
+    if let Some(finish) = &args.finish_request {
+        disposition = FixtureDisposition::Preserve;
+        if failures.is_empty()
+            && let Some(drained) = &args.drained
+            && let Err(error) = publish_worker_started(drained)
+        {
+            failures.push(error);
+        }
+        loop {
+            if stop.token().is_cancelled() {
+                failures.push(
+                    "keeper stopped before final cleanup acceptance; stopped fixture retained"
+                        .into(),
+                );
+                break;
+            }
+            match finish_requested(finish) {
+                Ok(Some(request)) => {
+                    disposition = request.disposition;
+                    break;
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    failures.push(error);
+                    break;
+                }
+            }
+            if Instant::now() >= terminal {
+                failures.push(
+                    "final finish disposition absent at deadline; stopped fixture retained".into(),
+                );
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
-    if failures.is_empty() {
-        if let Some(worker) = &mut worker {
-            if let Err(error) = worker.dispose() {
-                failures.push(Box::new(error));
+    let accepted = complete_fixture_cleanup(
+        disposition,
+        args.finish_request.as_ref().map(|_| &stop),
+        &mut failures,
+        || {
+            let mut causes: Vec<Error> = Vec::new();
+            if let Some(worker) = &mut worker {
+                if let Err(error) = worker.dispose() {
+                    causes.push(Box::new(error));
+                }
             }
-        }
-        if let Err(error) = service.dispose() {
-            failures.push(Box::new(error));
-        }
+            if let Err(error) = service.dispose() {
+                causes.push(Box::new(error));
+            }
+            causes
+        },
+    );
+    signal.finish().await;
+    if accepted == FixtureDisposition::Preserve && failures.is_empty() {
+        eprintln!(
+            "engineering fixture stopped and retained at {}",
+            service.state().display()
+        );
     }
     if failures.is_empty() {
         Ok(())
@@ -451,6 +575,25 @@ mod tests {
             "fresh-ready",
         ];
         assert!(Args::try_parse_from(base).is_ok());
+        assert!(
+            Args::try_parse_from(base.into_iter().chain(["--finish-request", "finish.json"]))
+                .is_err()
+        );
+        assert!(
+            Args::try_parse_from(base.into_iter().chain(["--drain-request", "drain.json"]))
+                .is_err()
+        );
+        assert!(
+            Args::try_parse_from(base.into_iter().chain([
+                "--finish-request",
+                "finish.json",
+                "--drain-request",
+                "drain.json",
+                "--drained",
+                "drained.json",
+            ]))
+            .is_ok()
+        );
         let worker_only = base
             .into_iter()
             .chain(["--study-worker", "prepared-pse-worker"]);
@@ -556,6 +699,72 @@ mod tests {
             );
         }
         assert_eq!(std::fs::read(&gate).unwrap(), original);
+    }
+
+    #[test]
+    fn scientific_keeper_final_disposition_is_one_strict_atomic_request() {
+        let directory = tempfile::tempdir().unwrap();
+        let finish = directory.path().join("finish.json");
+        assert!(finish_requested(&finish).unwrap().is_none());
+        for invalid in [
+            br#"{"version":1}"#.as_slice(),
+            br#"{"version":2,"disposition":"dispose"}"#,
+            br#"{"version":1,"disposition":"dispose","extra":true}"#,
+            br#"{"version":1,"disposition":"unknown"}"#,
+        ] {
+            std::fs::write(&finish, invalid).unwrap();
+            assert!(finish_requested(&finish).is_err());
+        }
+        std::fs::write(&finish, [b' '; 1025]).unwrap();
+        assert!(finish_requested(&finish).is_err());
+        std::fs::remove_file(&finish).unwrap();
+        publish_finish_request(&finish, FixtureDisposition::Preserve).unwrap();
+        let original = std::fs::read(&finish).unwrap();
+        assert_eq!(original, br#"{"version":1,"disposition":"preserve"}"#);
+        assert_eq!(
+            finish_requested(&finish).unwrap().unwrap().disposition,
+            FixtureDisposition::Preserve
+        );
+        assert!(publish_finish_request(&finish, FixtureDisposition::Dispose).is_err());
+        assert_eq!(std::fs::read(&finish).unwrap(), original);
+        let link = directory.path().join("linked.json");
+        std::os::unix::fs::symlink(&finish, &link).unwrap();
+        assert!(finish_requested(&link).is_err());
+    }
+
+    #[test]
+    fn scientific_keeper_cleanup_acceptance_preserves_on_stop_or_drain_failure_and_disposes_success()
+     {
+        for condition in ["stopped", "failed-drain", "success", "late-stop"] {
+            let directory = tempfile::tempdir().unwrap();
+            let fixture = directory.path().join("original-stopped-fixture");
+            std::fs::write(&fixture, b"original state").unwrap();
+            let stop = CancelSource::new();
+            if condition == "stopped" {
+                stop.cancel();
+            }
+            let mut failures: Vec<Error> = if condition == "failed-drain" {
+                vec!["original independent drain failed".into()]
+            } else {
+                Vec::new()
+            };
+            let accepted = complete_fixture_cleanup(
+                FixtureDisposition::Dispose,
+                Some(&stop),
+                &mut failures,
+                || {
+                    if condition == "late-stop" {
+                        stop.cancel();
+                    }
+                    std::fs::remove_file(&fixture).unwrap();
+                    Vec::new()
+                },
+            );
+            let disposed = matches!(condition, "success" | "late-stop");
+            assert_eq!(accepted == FixtureDisposition::Dispose, disposed);
+            assert_eq!(fixture.exists(), !disposed);
+            assert_eq!(failures.is_empty(), disposed);
+        }
     }
 
     #[test]
