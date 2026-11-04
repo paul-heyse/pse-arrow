@@ -1,7 +1,7 @@
 use super::{
     AdapterError, AdapterFailure, BoundaryProjectionError, NativeInto, NativeFrom,
     layout, child_path, refused, required, unknown_fields, native_into, native_from,
-    encode_root, decode_root, items, from_items, unique_pairs, wire_map,
+    items, from_items, unique_pairs, wire_map,
 };
 impl NativeInto<
     crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::Array16U8,
@@ -3058,7 +3058,7 @@ impl NativeInto<
             <crate::test_workflow::execute::InventoryContent as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <crate::test_workflow::execute::InventoryContent as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
-            &[(1, "sha256"), (2, "bytes")],
+            &[(1, "sha256"), (2, "byte_length")],
             path,
         )?;
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
@@ -3066,7 +3066,10 @@ impl NativeInto<
         );
         Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::InventoryContent {
             sha256: native_into::<_, String>(field_0, &child_path(path, "sha256"))?,
-            bytes: native_into::<_, u64>(field_1, &child_path(path, "bytes"))?,
+            byte_length: native_into::<
+                _,
+                u64,
+            >(field_1, &child_path(path, "byte_length"))?,
             ..Default::default()
         })
     }
@@ -3083,12 +3086,12 @@ impl NativeFrom<
             <crate::test_workflow::execute::InventoryContent as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <crate::test_workflow::execute::InventoryContent as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
-            &[(1, "sha256"), (2, "bytes")],
+            &[(1, "sha256"), (2, "byte_length")],
             path,
         )?;
         let fields = (
             native_from::<_, String>(wire.sha256, &child_path(path, "sha256"))?,
-            native_from::<_, u64>(wire.bytes, &child_path(path, "bytes"))?,
+            native_from::<_, u64>(wire.byte_length, &child_path(path, "byte_length"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -3508,38 +3511,6 @@ impl NativeFrom<
                 )
             }
         }
-    }
-}
-impl NativeInto<
-    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativeWorkflowReport,
-> for &crate::test_workflow::execute::Report {
-    fn into_wire(
-        self,
-        path: &str,
-    ) -> Result<
-        crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativeWorkflowReport,
-        AdapterError,
-    > {
-        layout(
-            <crate::test_workflow::execute::Report as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
-            <crate::test_workflow::execute::Report as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
-            1,
-            &[(1, "observation")],
-            path,
-        )?;
-        let (field_0,) = pse_contract::boundary_projection::ProjectionObservationRecord::observation_fields(
-                self,
-            )
-            .map_err(|error| error.at(path))?;
-        Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativeWorkflowReport {
-            observation: buffa::MessageField::some(
-                native_into::<
-                    _,
-                    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowReportObservation,
-                >(field_0, &child_path(path, "observation"))?,
-            ),
-            ..Default::default()
-        })
     }
 }
 impl NativeInto<
@@ -4737,7 +4708,7 @@ impl NativeInto<
             <crate::test_workflow::execute::ReportReference as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <crate::test_workflow::execute::ReportReference as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
-            &[(1, "path"), (2, "sha256"), (3, "bytes")],
+            &[(1, "path"), (2, "sha256"), (3, "byte_length")],
             path,
         )?;
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
@@ -4746,7 +4717,10 @@ impl NativeInto<
         Ok(crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowReportReference {
             path: native_into::<_, String>(field_0, &child_path(path, "path"))?,
             sha256: native_into::<_, String>(field_1, &child_path(path, "sha256"))?,
-            bytes: native_into::<_, u64>(field_2, &child_path(path, "bytes"))?,
+            byte_length: native_into::<
+                _,
+                u64,
+            >(field_2, &child_path(path, "byte_length"))?,
             ..Default::default()
         })
     }
@@ -4763,13 +4737,13 @@ impl NativeFrom<
             <crate::test_workflow::execute::ReportReference as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <crate::test_workflow::execute::ReportReference as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
-            &[(1, "path"), (2, "sha256"), (3, "bytes")],
+            &[(1, "path"), (2, "sha256"), (3, "byte_length")],
             path,
         )?;
         let fields = (
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
             native_from::<_, String>(wire.sha256, &child_path(path, "sha256"))?,
-            native_from::<_, u64>(wire.bytes, &child_path(path, "bytes"))?,
+            native_from::<_, u64>(wire.byte_length, &child_path(path, "byte_length"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -4911,26 +4885,8 @@ impl NativeFrom<
             .map_err(|error| error.at(path))
     }
 }
-/// Observe `NativeWorkflowReport` without consuming native custody or constructing native authority.
-pub fn encode_native_workflow_report(
-    native: &crate::test_workflow::execute::Report,
-) -> Result<
-    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativeWorkflowReport,
-    BoundaryProjectionError,
-> {
-    pse_contract::boundary_projection::ValidateProjection::validate_projection(native)
-        .map_err(BoundaryProjectionError::OutgoingNative)?;
-    let wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::NativeWorkflowReport = native_into(
-            native,
-            "NativeWorkflowReport",
-        )
-        .map_err(BoundaryProjectionError::OutgoingAdoption)?;
-    protovalidate_buffa::Validate::validate(&wire)
-        .map_err(BoundaryProjectionError::OutgoingWire)?;
-    Ok(wire)
-}
 /// Observe `CapturedWorkflowReport` without consuming native custody or constructing native authority.
-pub fn encode_captured_workflow_report(
+pub(crate) fn encode_captured_workflow_report(
     native: &crate::test_inventory::CapturedReport,
 ) -> Result<
     crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowReport,
@@ -4948,7 +4904,7 @@ pub fn encode_captured_workflow_report(
     Ok(wire)
 }
 /// Observe `CapturedWorkflowEvidence` without consuming native custody or constructing native authority.
-pub fn encode_captured_workflow_evidence(
+pub(crate) fn encode_captured_workflow_evidence(
     native: &crate::test_inventory::CapturedEvidence,
 ) -> Result<
     crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::CapturedWorkflowEvidence,
@@ -4964,49 +4920,4 @@ pub fn encode_captured_workflow_evidence(
     protovalidate_buffa::Validate::validate(&wire)
         .map_err(BoundaryProjectionError::OutgoingWire)?;
     Ok(wire)
-}
-/// Encode the actual native `WorkflowReportObservation` and validate outgoing local rules.
-pub fn encode_workflow_report_observation(
-    native: crate::test_workflow::execute::ReportObservation,
-) -> Result<
-    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowReportObservation,
-    BoundaryProjectionError,
-> {
-    encode_root(native, "WorkflowReportObservation")
-}
-/// Adopt known `WorkflowReportObservation` meaning under this package's declared unknown-field policy.
-pub fn decode_workflow_report_observation(
-    wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowReportObservation,
-) -> Result<crate::test_workflow::execute::ReportObservation, BoundaryProjectionError> {
-    decode_root(wire, "WorkflowReportObservation")
-}
-/// Encode the actual native `WorkflowTerminalRecord` and validate outgoing local rules.
-pub fn encode_workflow_terminal_record(
-    native: crate::test_workflow::execute::TerminalRecord,
-) -> Result<
-    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowTerminalRecord,
-    BoundaryProjectionError,
-> {
-    encode_root(native, "WorkflowTerminalRecord")
-}
-/// Adopt known `WorkflowTerminalRecord` meaning under this package's declared unknown-field policy.
-pub fn decode_workflow_terminal_record(
-    wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::WorkflowTerminalRecord,
-) -> Result<crate::test_workflow::execute::TerminalRecord, BoundaryProjectionError> {
-    decode_root(wire, "WorkflowTerminalRecord")
-}
-/// Encode the actual native `TestIdentity` and validate outgoing local rules.
-pub fn encode_test_identity(
-    native: crate::discovery::TestIdentity,
-) -> Result<
-    crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::TestIdentity,
-    BoundaryProjectionError,
-> {
-    encode_root(native, "TestIdentity")
-}
-/// Adopt known `TestIdentity` meaning under this package's declared unknown-field policy.
-pub fn decode_test_identity(
-    wire: crate::developer_evidence_contracts::pb::pse::developer::evidence::v1::TestIdentity,
-) -> Result<crate::discovery::TestIdentity, BoundaryProjectionError> {
-    decode_root(wire, "TestIdentity")
 }

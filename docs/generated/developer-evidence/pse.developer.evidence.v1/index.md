@@ -244,7 +244,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `sha256` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
-| `bytes` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `byte_length` | 2 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 
 ## `ManagerSettlement`
 
@@ -375,7 +375,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `path` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
 | `sha256` | 2 | `Scalar(String)` | `Output` | `[]` | `{}` |
-| `bytes` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `byte_length` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 
 ## `WorkflowTerminalRecord`
 

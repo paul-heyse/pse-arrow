@@ -14465,13 +14465,13 @@ pub struct InventoryContent {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
     )]
     pub sha256: ::buffa::alloc::string::String,
-    /// Field 2: `bytes`
+    /// Field 2: `byte_length`
     #[serde(
-        rename = "bytes",
+        rename = "byte_length",
         with = "::buffa::json_helpers::uint64",
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
-    pub bytes: u64,
+    pub byte_length: u64,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -14480,7 +14480,7 @@ impl ::core::fmt::Debug for InventoryContent {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         f.debug_struct("InventoryContent")
             .field("sha256", &self.sha256)
-            .field("bytes", &self.bytes)
+            .field("byte_length", &self.byte_length)
             .finish()
     }
 }
@@ -14511,7 +14511,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for InventoryContent {
         use ::buffa::Enumeration as _;
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.sha256),
-            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bytes),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.byte_length),
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -14525,7 +14525,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for InventoryContent {
     fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
         match field.number() {
             1u32 => !self.sha256.is_empty(),
-            2u32 => self.bytes != 0,
+            2u32 => self.byte_length != 0,
             _ => false,
         }
     }
@@ -14607,8 +14607,8 @@ impl ::buffa::Message for InventoryContent {
         if !self.sha256.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.sha256) as u64;
         }
-        if self.bytes != 0u64 {
-            size += 1u64 + ::buffa::types::uint64_encoded_len(self.bytes) as u64;
+        if self.byte_length != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.byte_length) as u64;
         }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
@@ -14623,8 +14623,8 @@ impl ::buffa::Message for InventoryContent {
         if !self.sha256.is_empty() {
             ::buffa::types::put_string_field(1u32, &self.sha256, buf);
         }
-        if self.bytes != 0u64 {
-            ::buffa::types::put_uint64_field(2u32, self.bytes, buf);
+        if self.byte_length != 0u64 {
+            ::buffa::types::put_uint64_field(2u32, self.byte_length, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -14651,7 +14651,7 @@ impl ::buffa::Message for InventoryContent {
                     tag,
                     ::buffa::encoding::WireType::Varint,
                 )?;
-                self.bytes = ::buffa::types::decode_uint64(buf)?;
+                self.byte_length = ::buffa::types::decode_uint64(buf)?;
             }
             _ => {
                 self.__buffa_unknown_fields
@@ -14662,7 +14662,7 @@ impl ::buffa::Message for InventoryContent {
     }
     fn clear(&mut self) {
         self.sha256.clear();
-        self.bytes = 0u64;
+        self.byte_length = 0u64;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -14686,9 +14686,9 @@ impl ::buffa::text::TextFormat for InventoryContent {
             enc.write_field_name("sha256")?;
             enc.write_string(&self.sha256)?;
         }
-        if self.bytes != 0u64 {
-            enc.write_field_name("bytes")?;
-            enc.write_u64(self.bytes)?;
+        if self.byte_length != 0u64 {
+            enc.write_field_name("byte_length")?;
+            enc.write_u64(self.byte_length)?;
         }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
@@ -14702,7 +14702,7 @@ impl ::buffa::text::TextFormat for InventoryContent {
         while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
             match __name {
                 "sha256" => self.sha256 = dec.read_string()?.into_owned(),
-                "bytes" => self.bytes = dec.read_u64()?,
+                "byte_length" => self.byte_length = dec.read_u64()?,
                 _ => dec.skip_value()?,
             }
         }
@@ -24252,13 +24252,13 @@ pub struct WorkflowReportReference {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
     )]
     pub sha256: ::buffa::alloc::string::String,
-    /// Field 3: `bytes`
+    /// Field 3: `byte_length`
     #[serde(
-        rename = "bytes",
+        rename = "byte_length",
         with = "::buffa::json_helpers::uint64",
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
-    pub bytes: u64,
+    pub byte_length: u64,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -24268,7 +24268,7 @@ impl ::core::fmt::Debug for WorkflowReportReference {
         f.debug_struct("WorkflowReportReference")
             .field("path", &self.path)
             .field("sha256", &self.sha256)
-            .field("bytes", &self.bytes)
+            .field("byte_length", &self.byte_length)
             .finish()
     }
 }
@@ -24300,7 +24300,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for WorkflowReportReference {
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.path),
             2u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.sha256),
-            3u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bytes),
+            3u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.byte_length),
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -24315,7 +24315,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for WorkflowReportReference {
         match field.number() {
             1u32 => !self.path.is_empty(),
             2u32 => !self.sha256.is_empty(),
-            3u32 => self.bytes != 0,
+            3u32 => self.byte_length != 0,
             _ => false,
         }
     }
@@ -24400,8 +24400,8 @@ impl ::buffa::Message for WorkflowReportReference {
         if !self.sha256.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.sha256) as u64;
         }
-        if self.bytes != 0u64 {
-            size += 1u64 + ::buffa::types::uint64_encoded_len(self.bytes) as u64;
+        if self.byte_length != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.byte_length) as u64;
         }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
@@ -24419,8 +24419,8 @@ impl ::buffa::Message for WorkflowReportReference {
         if !self.sha256.is_empty() {
             ::buffa::types::put_string_field(2u32, &self.sha256, buf);
         }
-        if self.bytes != 0u64 {
-            ::buffa::types::put_uint64_field(3u32, self.bytes, buf);
+        if self.byte_length != 0u64 {
+            ::buffa::types::put_uint64_field(3u32, self.byte_length, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -24454,7 +24454,7 @@ impl ::buffa::Message for WorkflowReportReference {
                     tag,
                     ::buffa::encoding::WireType::Varint,
                 )?;
-                self.bytes = ::buffa::types::decode_uint64(buf)?;
+                self.byte_length = ::buffa::types::decode_uint64(buf)?;
             }
             _ => {
                 self.__buffa_unknown_fields
@@ -24466,7 +24466,7 @@ impl ::buffa::Message for WorkflowReportReference {
     fn clear(&mut self) {
         self.path.clear();
         self.sha256.clear();
-        self.bytes = 0u64;
+        self.byte_length = 0u64;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -24494,9 +24494,9 @@ impl ::buffa::text::TextFormat for WorkflowReportReference {
             enc.write_field_name("sha256")?;
             enc.write_string(&self.sha256)?;
         }
-        if self.bytes != 0u64 {
-            enc.write_field_name("bytes")?;
-            enc.write_u64(self.bytes)?;
+        if self.byte_length != 0u64 {
+            enc.write_field_name("byte_length")?;
+            enc.write_u64(self.byte_length)?;
         }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
@@ -24511,7 +24511,7 @@ impl ::buffa::text::TextFormat for WorkflowReportReference {
             match __name {
                 "path" => self.path = dec.read_string()?.into_owned(),
                 "sha256" => self.sha256 = dec.read_string()?.into_owned(),
-                "bytes" => self.bytes = dec.read_u64()?,
+                "byte_length" => self.byte_length = dec.read_u64()?,
                 _ => dec.skip_value()?,
             }
         }
@@ -44375,8 +44375,8 @@ pub mod __buffa {
         pub struct InventoryContentView<'a> {
             /// Field 1: `sha256`
             pub sha256: &'a str,
-            /// Field 2: `bytes`
-            pub bytes: u64,
+            /// Field 2: `byte_length`
+            pub byte_length: u64,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for InventoryContentView<'a> {
@@ -44427,7 +44427,7 @@ pub mod __buffa {
                             tag,
                             ::buffa::encoding::WireType::Varint,
                         )?;
-                        view.bytes = ::buffa::types::decode_uint64(&mut cur)?;
+                        view.byte_length = ::buffa::types::decode_uint64(&mut cur)?;
                     }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
@@ -44459,7 +44459,7 @@ pub mod __buffa {
                 let _ = __buffa_src;
                 ::core::result::Result::Ok(super::super::InventoryContent {
                     sha256: self.sha256.to_string(),
-                    bytes: self.bytes,
+                    byte_length: self.byte_length,
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -44479,8 +44479,11 @@ pub mod __buffa {
                         += 1u64
                             + ::buffa::types::string_encoded_len(&self.sha256) as u64;
                 }
-                if self.bytes != 0u64 {
-                    size += 1u64 + ::buffa::types::uint64_encoded_len(self.bytes) as u64;
+                if self.byte_length != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.byte_length)
+                                as u64;
                 }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
@@ -44496,8 +44499,8 @@ pub mod __buffa {
                 if !self.sha256.is_empty() {
                     ::buffa::types::put_string_field(1u32, &self.sha256, buf);
                 }
-                if self.bytes != 0u64 {
-                    ::buffa::types::put_uint64_field(2u32, self.bytes, buf);
+                if self.byte_length != 0u64 {
+                    ::buffa::types::put_uint64_field(2u32, self.byte_length, buf);
                 }
                 self.__buffa_unknown_fields.write_to(buf);
             }
@@ -44523,11 +44526,11 @@ pub mod __buffa {
                 if !::buffa::json_helpers::skip_if::is_empty_str(self.sha256) {
                     __map.serialize_entry("sha256", self.sha256)?;
                 }
-                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.bytes) {
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.byte_length) {
                     __map
                         .serialize_entry(
-                            "bytes",
-                            &::buffa::json_helpers::ProtoJson(&self.bytes),
+                            "byte_length",
+                            &::buffa::json_helpers::ProtoJson(&self.byte_length),
                         )?;
                 }
                 __map.end()
@@ -44630,6 +44633,11 @@ pub mod __buffa {
             pub fn sha256(&self) -> &'_ str {
                 self.0.reborrow().sha256
             }
+            /// Field 2: `byte_length`
+            #[must_use]
+            pub fn byte_length(&self) -> u64 {
+                self.0.reborrow().byte_length
+            }
         }
         impl ::core::convert::From<::buffa::OwnedView<InventoryContentView<'static>>>
         for InventoryContentOwnedView {
@@ -44680,7 +44688,7 @@ pub mod __buffa {
                 use ::buffa::Enumeration as _;
                 match field.number() {
                     1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.sha256),
-                    2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bytes),
+                    2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.byte_length),
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -44694,7 +44702,7 @@ pub mod __buffa {
             fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
                 match field.number() {
                     1u32 => !self.sha256.is_empty(),
-                    2u32 => self.bytes != 0,
+                    2u32 => self.byte_length != 0,
                     _ => false,
                 }
             }
@@ -57476,8 +57484,8 @@ pub mod __buffa {
             pub path: &'a str,
             /// Field 2: `sha256`
             pub sha256: &'a str,
-            /// Field 3: `bytes`
-            pub bytes: u64,
+            /// Field 3: `byte_length`
+            pub byte_length: u64,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for WorkflowReportReferenceView<'a> {
@@ -57535,7 +57543,7 @@ pub mod __buffa {
                             tag,
                             ::buffa::encoding::WireType::Varint,
                         )?;
-                        view.bytes = ::buffa::types::decode_uint64(&mut cur)?;
+                        view.byte_length = ::buffa::types::decode_uint64(&mut cur)?;
                     }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
@@ -57568,7 +57576,7 @@ pub mod __buffa {
                 ::core::result::Result::Ok(super::super::WorkflowReportReference {
                     path: self.path.to_string(),
                     sha256: self.sha256.to_string(),
-                    bytes: self.bytes,
+                    byte_length: self.byte_length,
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -57591,8 +57599,11 @@ pub mod __buffa {
                         += 1u64
                             + ::buffa::types::string_encoded_len(&self.sha256) as u64;
                 }
-                if self.bytes != 0u64 {
-                    size += 1u64 + ::buffa::types::uint64_encoded_len(self.bytes) as u64;
+                if self.byte_length != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.byte_length)
+                                as u64;
                 }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
@@ -57611,8 +57622,8 @@ pub mod __buffa {
                 if !self.sha256.is_empty() {
                     ::buffa::types::put_string_field(2u32, &self.sha256, buf);
                 }
-                if self.bytes != 0u64 {
-                    ::buffa::types::put_uint64_field(3u32, self.bytes, buf);
+                if self.byte_length != 0u64 {
+                    ::buffa::types::put_uint64_field(3u32, self.byte_length, buf);
                 }
                 self.__buffa_unknown_fields.write_to(buf);
             }
@@ -57641,11 +57652,11 @@ pub mod __buffa {
                 if !::buffa::json_helpers::skip_if::is_empty_str(self.sha256) {
                     __map.serialize_entry("sha256", self.sha256)?;
                 }
-                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.bytes) {
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.byte_length) {
                     __map
                         .serialize_entry(
-                            "bytes",
-                            &::buffa::json_helpers::ProtoJson(&self.bytes),
+                            "byte_length",
+                            &::buffa::json_helpers::ProtoJson(&self.byte_length),
                         )?;
                 }
                 __map.end()
@@ -57755,6 +57766,11 @@ pub mod __buffa {
             pub fn sha256(&self) -> &'_ str {
                 self.0.reborrow().sha256
             }
+            /// Field 3: `byte_length`
+            #[must_use]
+            pub fn byte_length(&self) -> u64 {
+                self.0.reborrow().byte_length
+            }
         }
         impl ::core::convert::From<
             ::buffa::OwnedView<WorkflowReportReferenceView<'static>>,
@@ -57812,7 +57828,7 @@ pub mod __buffa {
                 match field.number() {
                     1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.path),
                     2u32 => ::buffa_descriptor::reflect::ValueRef::String(self.sha256),
-                    3u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bytes),
+                    3u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.byte_length),
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -57827,7 +57843,7 @@ pub mod __buffa {
                 match field.number() {
                     1u32 => !self.path.is_empty(),
                     2u32 => !self.sha256.is_empty(),
-                    3u32 => self.bytes != 0,
+                    3u32 => self.byte_length != 0,
                     _ => false,
                 }
             }

@@ -26,7 +26,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         tree.relationships.push(provenance::SourceRelationship {
             declaration_key: name.into(), declaration_kind: "native_projection_adapters".into(),
             source_path: Some(owner.source.into()), source_symbol: Some(owner.rust_type.into()), source_role: "typed_owner".into(), source_identity: None,
-            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(), generator_symbol: "native_adapters".into(),
+            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(), generator_symbol: "native_adapters_scoped".into(),
             output_path: destination.join("native-adapters.rs").to_string_lossy().into_owned(), direction: Some(owner.direction.as_str().into()),
             contract_sections: vec!["blueprint §4.7".into()], basis: "declared".into(),
         });
